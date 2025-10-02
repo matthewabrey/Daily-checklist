@@ -195,10 +195,10 @@ function NewChecklist() {
   }, [selectedMake]);
 
   useEffect(() => {
-    if (step === 3) {
+    if (step === 4 && checkType === 'daily_check') {
       setChecklistItems(defaultChecklistItems);
     }
-  }, [step]);
+  }, [step, checkType]);
 
   const fetchStaff = async () => {
     try {
