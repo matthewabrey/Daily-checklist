@@ -516,6 +516,102 @@ async def upload_assets_file(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process assets file: {str(e)}")
 
+@app.post("/api/admin/sharepoint/sync-checklists")
+async def sync_checklists_from_sharepoint():
+    """Sync checklist templates from SharePoint Excel files"""
+    try:
+        results = {}
+        
+        # Sync each checklist type
+        for checklist_type in ['daily_check', 'grader_startup', 'workshop_service']:
+            try:
+                checklist_data = sharepoint_integration.get_checklist_data(checklist_type)
+                
+                # Clear existing checklist template for this type
+                await db.checklist_templates.delete_many({"check_type": checklist_type})
+                
+                # Create new checklist template
+                items = [item['item'] for item in checklist_data]
+                template = ChecklistTemplate(
+                    check_type=checklist_type,
+                    items=items
+                )
+                
+                await db.checklist_templates.insert_one(template.dict())
+                
+                results[checklist_type] = {
+                    "success": True,
+                    "count": len(items),
+                    "message": f"Synced {len(items)} items for {checklist_type}"
+                }
+            except Exception as e:
+                results[checklist_type] = {"success": False, "error": str(e)}
+        
+        # Overall success
+        overall_success = all(r.get('success', False) for r in results.values())
+        
+        return {
+            "message": "Checklist sync completed",
+            "success": overall_success,
+            "results": results
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sync checklists: {str(e)}")
+
+@app.get("/api/checklist-templates/{check_type}")
+async def get_checklist_template(check_type: str):
+    """Get checklist template for a specific check type"""
+    try:
+        template = await db.checklist_templates.find_one({"check_type": check_type}, {"_id": 0})
+        if template:
+            return template
+        else:
+            # Return default templates if not found in database
+            default_templates = {
+                'daily_check': [
+                    "Oil level check - Engine oil at correct level",
+                    "Fuel level check - Adequate fuel for operation", 
+                    "Hydraulic fluid level - Within acceptable range",
+                    "Battery condition - Terminals clean, voltage adequate",
+                    "Tire/track condition - No visible damage or excessive wear",
+                    "Safety guards in place - All protective covers secured",
+                    "Emergency stop function - Test emergency stop button",
+                    "Warning lights operational - All safety lights working",
+                    "Operator seat condition - Seat belt and controls functional",
+                    "Air filter condition - Clean and properly sealed",
+                    "Cooling system - Radiator clear, coolant level adequate",
+                    "Brake system function - Service and parking brakes operational",
+                    "Steering operation - Smooth operation, no excessive play",
+                    "Lights and signals - All operational lights working",
+                    "Fire extinguisher - Present and within service date"
+                ],
+                'grader_startup': [
+                    "Emergency stops working and present - Test all emergency stop buttons",
+                    "Walkways clear of debris and gates closed - All access areas safe",
+                    "Guards are all in place - All safety guards properly secured",
+                    "All personnel accounted for and out of reach of dangers - Safety zone clear",
+                    "Oil level check - Engine oil at correct level",
+                    "Fuel level check - Adequate fuel for operation",
+                    "Hydraulic fluid level - Within acceptable range",
+                    "Battery condition - Terminals clean, voltage adequate",
+                    "Track/blade condition - No visible damage or excessive wear",
+                    "Blade operation - Hydraulic lift and angle functions working",
+                    "Warning beacon - Rotating warning light operational",
+                    "Backup alarm - Reverse warning signal functional"
+                ],
+                'workshop_service': []
+            }
+            
+            items = default_templates.get(check_type, [])
+            return {
+                "check_type": check_type,
+                "items": items,
+                "source": "default"
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get checklist template: {str(e)}")
+
 @app.post("/api/admin/sharepoint/sync-all")
 async def sync_all_from_sharepoint():
     """Sync both staff and asset data from SharePoint Excel files"""
