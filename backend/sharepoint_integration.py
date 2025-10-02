@@ -12,6 +12,10 @@ from typing import List, Dict, Optional, Tuple
 from urllib.parse import unquote, urlparse
 import msal
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
