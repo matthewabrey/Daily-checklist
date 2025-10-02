@@ -38,7 +38,7 @@ class Staff(BaseModel):
     
 class ChecklistItem(BaseModel):
     item: str
-    checked: bool
+    status: str = "unchecked"  # "unchecked", "satisfactory", "unsatisfactory"
     notes: Optional[str] = None
     
 class Checklist(BaseModel):
