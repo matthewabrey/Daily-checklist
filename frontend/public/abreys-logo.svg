@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Green leaf/abstract elements -->
+  <path d="M8 12C8 8 12 6 16 8C18 10 18 14 16 16C14 18 10 18 8 16V12Z" fill="#7CB342"/>
+  <path d="M12 8C12 4 16 2 20 4C22 6 22 10 20 12C18 14 14 14 12 12V8Z" fill="#9CCC65"/>
+  <path d="M16 16C16 12 20 10 24 12C26 14 26 18 24 20C22 22 18 22 16 20V16Z" fill="#7CB342"/>
+  
+  <!-- Abreys text -->
+  <text x="32" y="26" font-family="serif" font-size="16" font-weight="bold" fill="white">Abreys</text>
+  
+  <!-- Small trees at bottom -->
+  <g transform="translate(85, 28)">
+    <path d="M2 8L4 4L6 8H2Z" fill="#7CB342"/>
+    <path d="M4 8V12" stroke="#7CB342" stroke-width="1"/>
+    <path d="M8 8L10 4L12 8H8Z" fill="#9CCC65"/>
+    <path d="M10 8V12" stroke="#9CCC65" stroke-width="1"/>
+    <path d="M14 8L16 4L18 8H14Z" fill="#7CB342"/>
+    <path d="M16 8V12" stroke="#7CB342" stroke-width="1"/>
+  </g>
+  
+  <!-- Green base line -->
+  <rect x="0" y="35" width="120" height="5" fill="#7CB342"/>
+</svg>
