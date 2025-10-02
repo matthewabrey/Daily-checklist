@@ -273,7 +273,8 @@ function NewChecklist() {
 
   const canProceedToStep2 = selectedStaff !== '';
   const canProceedToStep3 = selectedMake !== '' && selectedModel !== '';
-  const allItemsChecked = checklistItems.every(item => item.checked);
+  const canProceedToStep4 = checkType !== '';
+  const allItemsAddressed = checkType === 'workshop_service' ? workshopNotes.trim() !== '' : checklistItems.every(item => item.status !== 'unchecked');
 
   return (
     <div className="space-y-6">
