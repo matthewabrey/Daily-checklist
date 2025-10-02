@@ -436,7 +436,10 @@ function NewChecklist() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card 
                   className={`p-6 cursor-pointer transition-all hover:shadow-lg ${checkType === 'daily_check' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
-                  onClick={() => setCheckType('daily_check')}
+                  onClick={() => {
+                    setCheckType('daily_check');
+                    setStep(4);
+                  }}
                   data-testid="daily-check-option"
                 >
                   <div className="flex items-center space-x-4">
