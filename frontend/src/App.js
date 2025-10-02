@@ -433,9 +433,13 @@ function NewChecklist() {
                 <span className="font-medium">Machine: {selectedMake} {selectedModel}</span>
               </div>
               
+              <div className="mb-4">
+                <p className="text-gray-600">Select the type of check you want to perform. Clicking will take you directly to the appropriate form.</p>
+              </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card 
-                  className={`p-6 cursor-pointer transition-all hover:shadow-lg ${checkType === 'daily_check' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
+                  className={`p-6 cursor-pointer transition-all hover:shadow-lg hover:border-green-400 border-2 ${checkType === 'daily_check' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
                   onClick={() => {
                     setCheckType('daily_check');
                     setStep(4);
@@ -449,13 +453,14 @@ function NewChecklist() {
                     <div>
                       <h3 className="font-semibold text-lg">Daily Check</h3>
                       <p className="text-gray-600">Complete pre-startup safety inspection</p>
-                      <p className="text-sm text-gray-500 mt-1">15-item checklist with pass/fail options</p>
+                      <p className="text-sm text-gray-500 mt-1">15-item checklist with ✓/✗ options</p>
+                      <p className="text-xs text-green-600 font-medium mt-2">Click to start →</p>
                     </div>
                   </div>
                 </Card>
                 
                 <Card 
-                  className={`p-6 cursor-pointer transition-all hover:shadow-lg ${checkType === 'workshop_service' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
+                  className={`p-6 cursor-pointer transition-all hover:shadow-lg hover:border-blue-400 border-2 ${checkType === 'workshop_service' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
                   onClick={() => {
                     setCheckType('workshop_service');
                     setStep(4);
@@ -470,6 +475,7 @@ function NewChecklist() {
                       <h3 className="font-semibold text-lg">Workshop Service</h3>
                       <p className="text-gray-600">Record maintenance or repair work</p>
                       <p className="text-sm text-gray-500 mt-1">Document work completed on machine</p>
+                      <p className="text-xs text-blue-600 font-medium mt-2">Click to start →</p>
                     </div>
                   </div>
                 </Card>
