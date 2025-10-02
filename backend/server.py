@@ -57,7 +57,9 @@ class ChecklistResponse(BaseModel):
     staff_name: str
     machine_make: str
     machine_model: str
+    check_type: str
     checklist_items: List[ChecklistItem]
+    workshop_notes: Optional[str] = None
     completed_at: datetime
     status: str
 
