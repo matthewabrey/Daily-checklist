@@ -456,7 +456,10 @@ function NewChecklist() {
                 
                 <Card 
                   className={`p-6 cursor-pointer transition-all hover:shadow-lg ${checkType === 'workshop_service' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
-                  onClick={() => setCheckType('workshop_service')}
+                  onClick={() => {
+                    setCheckType('workshop_service');
+                    setStep(4);
+                  }}
                   data-testid="workshop-service-option"
                 >
                   <div className="flex items-center space-x-4">
