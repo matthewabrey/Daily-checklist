@@ -1126,9 +1126,9 @@ function SharePointAdmin() {
                 <div className="flex items-start space-x-2">
                   <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-orange-800">Having trouble with SharePoint?</p>
+                    <p className="text-sm font-medium text-orange-800">Upload Your Excel Files</p>
                     <p className="text-sm text-orange-700 mt-1">
-                      Download your Excel files from SharePoint and upload them here instead.
+                      Download, customize, and upload your Excel templates. The three colored boxes are for your checklist templates.
                     </p>
                   </div>
                 </div>
