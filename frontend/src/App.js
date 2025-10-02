@@ -1103,11 +1103,11 @@ function SharePointAdmin() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-sm font-medium text-gray-900 mb-2">Staff Names File</p>
-                  <p className="text-xs text-gray-500 mb-4">Upload Name List.xlsx</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                  <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                  <p className="text-xs font-medium text-gray-900 mb-1">Staff Names</p>
+                  <p className="text-xs text-gray-500 mb-3">Name List.xlsx</p>
                   <input
                     type="file"
                     accept=".xlsx,.xls"
@@ -1118,18 +1118,19 @@ function SharePointAdmin() {
                   />
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => document.getElementById('staff-file-input').click()}
-                    className="text-sm"
+                    className="text-xs"
                     data-testid="upload-staff-btn"
                   >
                     Choose File
                   </Button>
                 </div>
                 
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-sm font-medium text-gray-900 mb-2">Machine Assets File</p>
-                  <p className="text-xs text-gray-500 mb-4">Upload AssetList.xlsx</p>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                  <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                  <p className="text-xs font-medium text-gray-900 mb-1">Machine Assets</p>
+                  <p className="text-xs text-gray-500 mb-3">AssetList.xlsx</p>
                   <input
                     type="file"
                     accept=".xlsx,.xls"
@@ -1140,9 +1141,79 @@ function SharePointAdmin() {
                   />
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => document.getElementById('assets-file-input').click()}
-                    className="text-sm"
+                    className="text-xs"
                     data-testid="upload-assets-btn"
+                  >
+                    Choose File
+                  </Button>
+                </div>
+
+                <div className="border-2 border-dashed border-green-300 rounded-lg p-4 text-center bg-green-50">
+                  <Upload className="mx-auto h-8 w-8 text-green-400 mb-2" />
+                  <p className="text-xs font-medium text-gray-900 mb-1">Daily Checklist</p>
+                  <p className="text-xs text-gray-500 mb-3">Daily_Check_Checklist.xlsx</p>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={(e) => handleChecklistUpload(e, 'daily_check')}
+                    className="hidden"
+                    id="daily-checklist-input"
+                    data-testid="daily-checklist-input"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('daily-checklist-input').click()}
+                    className="text-xs border-green-300 text-green-700 hover:bg-green-100"
+                    data-testid="upload-daily-checklist-btn"
+                  >
+                    Choose File
+                  </Button>
+                </div>
+
+                <div className="border-2 border-dashed border-orange-300 rounded-lg p-4 text-center bg-orange-50">
+                  <Upload className="mx-auto h-8 w-8 text-orange-400 mb-2" />
+                  <p className="text-xs font-medium text-gray-900 mb-1">Grader Checklist</p>
+                  <p className="text-xs text-gray-500 mb-3">Grader_Startup_Checklist.xlsx</p>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={(e) => handleChecklistUpload(e, 'grader_startup')}
+                    className="hidden"
+                    id="grader-checklist-input"
+                    data-testid="grader-checklist-input"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('grader-checklist-input').click()}
+                    className="text-xs border-orange-300 text-orange-700 hover:bg-orange-100"
+                    data-testid="upload-grader-checklist-btn"
+                  >
+                    Choose File
+                  </Button>
+                </div>
+
+                <div className="border-2 border-dashed border-blue-300 rounded-lg p-4 text-center bg-blue-50">
+                  <Upload className="mx-auto h-8 w-8 text-blue-400 mb-2" />
+                  <p className="text-xs font-medium text-gray-900 mb-1">Workshop Tasks</p>
+                  <p className="text-xs text-gray-500 mb-3">Workshop_Service_Tasks.xlsx</p>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={(e) => handleChecklistUpload(e, 'workshop_service')}
+                    className="hidden"
+                    id="workshop-tasks-input"
+                    data-testid="workshop-tasks-input"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('workshop-tasks-input').click()}
+                    className="text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                    data-testid="upload-workshop-tasks-btn"
                   >
                     Choose File
                   </Button>
