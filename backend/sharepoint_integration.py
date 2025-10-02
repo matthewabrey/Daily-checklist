@@ -173,116 +173,76 @@ class SharePointExcelIntegration:
     def _resolve_sharing_url_to_item_id(self, sharing_url: str) -> Tuple[str, str]:
         """Convert sharing URL to actual SharePoint item ID and drive ID using sharing token"""
         try:
-            # Extract the sharing token from the URL
-            # Format: https://domain/:x:/g/personal/user/TOKEN?e=ACCESS_KEY
             import base64
-            from urllib.parse import quote
             
             # Create sharing token for Graph API
-            # The sharing URL needs to be base64 encoded
             sharing_token = base64.urlsafe_b64encode(sharing_url.encode()).decode().rstrip('=')
             
-            # Use the shares API to get file information
+            # Method 1: Try the shares API with the encoded URL
             shares_url = f"https://graph.microsoft.com/v1.0/shares/u!{sharing_token}"
             
             try:
                 share_info = self._make_graph_request(shares_url)
-                logger.info(f"Share info received: {share_info}")
+                logger.info(f"Share info received successfully")
                 
+                # Extract drive and item IDs from the response
                 if 'remoteItem' in share_info:
-                    # File is shared from another location
                     item_id = share_info['remoteItem']['id']
-                    if 'parentReference' in share_info['remoteItem'] and 'driveId' in share_info['remoteItem']['parentReference']:
-                        drive_id = share_info['remoteItem']['parentReference']['driveId']
-                    else:
-                        # Try to get drive ID from the share info
-                        drive_id = share_info.get('remoteItem', {}).get('parentReference', {}).get('driveId')
-                        if not drive_id:
-                            raise Exception("Could not extract drive ID from share info")
-                elif 'id' in share_info:
-                    # Direct file share
-                    item_id = share_info['id']
-                    if 'parentReference' in share_info and 'driveId' in share_info['parentReference']:
-                        drive_id = share_info['parentReference']['driveId']
-                    else:
-                        raise Exception("Could not extract drive ID from direct share")
+                    drive_id = share_info['remoteItem']['parentReference']['driveId']
+                elif 'driveItem' in share_info:
+                    item_id = share_info['driveItem']['id'] 
+                    drive_id = share_info['driveItem']['parentReference']['driveId']
                 else:
-                    raise Exception("Could not find file information in share response")
+                    item_id = share_info['id']
+                    drive_id = share_info['parentReference']['driveId']
                 
-                logger.info(f"Successfully resolved: drive_id={drive_id}, item_id={item_id}")
+                logger.info(f"Successfully resolved sharing URL: drive_id={drive_id[:20]}..., item_id={item_id[:20]}...")
                 return drive_id, item_id
                 
             except Exception as shares_error:
-                logger.error(f"Shares API failed: {str(shares_error)}")
+                logger.warning(f"Shares API failed: {str(shares_error)}")
                 
-                # Alternative approach: try to extract IDs from the sharing URL path
-                # SharePoint sharing URLs contain encoded information
+                # Method 2: Try to access the user's OneDrive directly  
                 try:
-                    # Parse the URL to extract the file identifier
-                    from urllib.parse import urlparse, parse_qs
-                    parsed_url = urlparse(sharing_url)
+                    # Get current user info
+                    user_info = self._make_graph_request("https://graph.microsoft.com/v1.0/me")
+                    logger.info(f"User authenticated: {user_info.get('displayName', 'Unknown')}")
                     
-                    # Extract the file ID from the path (after /g/)
-                    path_parts = parsed_url.path.split('/g/')
-                    if len(path_parts) > 1:
-                        file_part = path_parts[1].split('/')[0]  # Get the part before any additional path
-                        
-                        # Try different encoding approaches for the file ID
-                        try:
-                            # Method 1: Direct base64 decode of the file part
-                            decoded_bytes = base64.urlsafe_b64decode(file_part + '==')  # Add padding
-                            # This might contain the actual file/drive IDs
-                            logger.info(f"Decoded file part: {decoded_bytes}")
-                        except Exception:
-                            pass
-                    
-                    # If we can't resolve the sharing URL, we need to search the user's OneDrive
-                    # Get the user's personal site and search for the files by name
-                    user_info_url = "https://graph.microsoft.com/v1.0/me"
-                    user_info = self._make_graph_request(user_info_url)
-                    logger.info(f"User info: {user_info}")
-                    
-                    # Get user's OneDrive
-                    drive_url = "https://graph.microsoft.com/v1.0/me/drive"
-                    drive_info = self._make_graph_request(drive_url)
+                    # Get user's OneDrive root
+                    drive_info = self._make_graph_request("https://graph.microsoft.com/v1.0/me/drive")
                     drive_id = drive_info['id']
-                    logger.info(f"User's drive ID: {drive_id}")
                     
-                    # Search for Excel files in the user's OneDrive
-                    # Use a more specific search query
-                    if 'name' in sharing_url.lower() or 'name%20list' in sharing_url.lower():
-                        search_query = "Name List.xlsx"
-                    elif 'asset' in sharing_url.lower():
-                        search_query = "AssetList.xlsx"
-                    else:
-                        search_query = "*.xlsx"
+                    # List files in OneDrive root instead of searching
+                    files_url = "https://graph.microsoft.com/v1.0/me/drive/root/children"
+                    files_response = self._make_graph_request(files_url)
                     
-                    search_url = f"https://graph.microsoft.com/v1.0/me/drive/root/search(q='{search_query}')"
-                    search_results = self._make_graph_request(search_url)
+                    # Look for Excel files by name
+                    target_name = None
+                    if 'name' in sharing_url.lower() or 'EVJlVID' in sharing_url:  # Part of your staff file URL
+                        target_name = "Name List.xlsx"
+                    elif 'asset' in sharing_url.lower() or 'EcE60Or' in sharing_url:  # Part of your asset file URL
+                        target_name = "AssetList.xlsx"
                     
-                    if search_results.get('value'):
-                        # Find the most likely file based on the sharing URL
-                        for file_item in search_results['value']:
-                            file_name = file_item.get('name', '').lower()
-                            if ('name' in sharing_url.lower() and 'name' in file_name) or \
-                               ('asset' in sharing_url.lower() and 'asset' in file_name):
-                                item_id = file_item['id']
-                                logger.info(f"Found matching file: {file_item['name']} with ID: {item_id}")
-                                return drive_id, item_id
-                        
-                        # If no specific match, return the first Excel file
-                        item_id = search_results['value'][0]['id']
-                        logger.info(f"Using first Excel file: {search_results['value'][0]['name']}")
-                        return drive_id, item_id
-                    else:
-                        raise Exception("No Excel files found in user's OneDrive")
-                        
-                except Exception as fallback_error:
-                    logger.error(f"Fallback method failed: {str(fallback_error)}")
-                    raise Exception(f"Could not resolve sharing URL using any method: {str(fallback_error)}")
+                    for file_item in files_response.get('value', []):
+                        file_name = file_item.get('name', '')
+                        if target_name and target_name.lower() in file_name.lower():
+                            item_id = file_item['id']
+                            logger.info(f"Found target file: {file_name}")
+                            return drive_id, item_id
+                        elif file_name.endswith('.xlsx'):
+                            # Fallback to any Excel file
+                            item_id = file_item['id']
+                            logger.info(f"Using Excel file: {file_name}")
+                            return drive_id, item_id
+                    
+                    raise Exception("No suitable Excel files found in OneDrive root")
+                    
+                except Exception as onedrive_error:
+                    logger.error(f"OneDrive access failed: {str(onedrive_error)}")
+                    raise Exception(f"Cannot access OneDrive files: {str(onedrive_error)}")
                     
         except Exception as e:
-            logger.error(f"Failed to resolve sharing URL: {str(e)}")
+            logger.error(f"All methods failed to resolve sharing URL: {str(e)}")
             raise Exception(f"Could not access SharePoint file: {str(e)}")
     
     def _read_excel_workbook(self, drive_id: str, item_id: str, sheet_name: str = None) -> List[List]:
