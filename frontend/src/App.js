@@ -116,7 +116,7 @@ function Dashboard() {
               <p className="text-sm">Start your first equipment check</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-2 sm:space-y-4">
               {recentChecklists.map((checklist) => {
                 let statusBadge;
                 if (checklist.check_type === 'daily_check' || checklist.check_type === 'grader_startup') {
