@@ -1107,6 +1107,7 @@ function App() {
             <Route path="/new-checklist" element={<NewChecklist />} />
             <Route path="/records" element={<Records />} />
             <Route path="/admin" element={<SharePointAdmin />} />
+            <Route path="/auth/callback" element={<SharePointAdmin />} />
           </Routes>
         </main>
       </div>
