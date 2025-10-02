@@ -163,16 +163,16 @@ function Dashboard() {
                 
                 return (
                   <div key={checklist.id} className="flex items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-gray-50" data-testid={`checklist-item-${checklist.id}`}>
-                    <div className="flex items-center space-x-4">
-                      <div className={`p-2 rounded-lg ${iconConfig.bg}`}>
+                    <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
+                      <div className={`p-2 rounded-lg ${iconConfig.bg} flex-shrink-0`}>
                         {iconConfig.icon}
                       </div>
-                      <div>
-                        <p className="font-medium">{checklist.machine_make} {checklist.machine_model}</p>
-                        <p className="text-sm text-gray-600">{getCheckTypeDisplay(checklist.check_type)} by {checklist.staff_name}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm sm:text-base truncate">{checklist.machine_make} {checklist.machine_model}</p>
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">{getCheckTypeDisplay(checklist.check_type)} by {checklist.staff_name}</p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex-shrink-0">
                       {statusBadge}
                       <p className="text-xs text-gray-500">
                         {new Date(checklist.completed_at).toLocaleDateString()}
