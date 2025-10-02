@@ -475,17 +475,9 @@ function NewChecklist() {
                 </Card>
               </div>
               
-              <div className="flex justify-between pt-6">
+              <div className="flex justify-start pt-6">
                 <Button variant="outline" onClick={() => setStep(2)} data-testid="back-to-machine-btn">
                   Back: Machine Selection
-                </Button>
-                <Button 
-                  onClick={() => setStep(4)} 
-                  disabled={!canProceedToStep4}
-                  className="bg-green-600 hover:bg-green-700"
-                  data-testid="proceed-to-checklist-btn"
-                >
-                  Next: {checkType === 'daily_check' ? 'Safety Checklist' : 'Workshop Notes'}
                 </Button>
               </div>
             </div>
