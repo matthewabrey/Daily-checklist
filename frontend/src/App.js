@@ -297,20 +297,25 @@ function NewChecklist() {
       </div>
 
       {/* Progress Steps */}
-      <div className="flex items-center justify-center space-x-8 mb-8">
+      <div className="flex items-center justify-center space-x-4 mb-8">
         <div className={`flex items-center space-x-2 ${step >= 1 ? 'text-green-600' : 'text-gray-400'}`}>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>1</div>
-          <span>Staff Selection</span>
+          <span>Staff</span>
         </div>
-        <div className={`w-16 h-1 ${step >= 2 ? 'bg-green-600' : 'bg-gray-200'}`}></div>
+        <div className={`w-12 h-1 ${step >= 2 ? 'bg-green-600' : 'bg-gray-200'}`}></div>
         <div className={`flex items-center space-x-2 ${step >= 2 ? 'text-green-600' : 'text-gray-400'}`}>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>2</div>
-          <span>Machine Selection</span>
+          <span>Machine</span>
         </div>
-        <div className={`w-16 h-1 ${step >= 3 ? 'bg-green-600' : 'bg-gray-200'}`}></div>
+        <div className={`w-12 h-1 ${step >= 3 ? 'bg-green-600' : 'bg-gray-200'}`}></div>
         <div className={`flex items-center space-x-2 ${step >= 3 ? 'text-green-600' : 'text-gray-400'}`}>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>3</div>
-          <span>Safety Checklist</span>
+          <span>Check Type</span>
+        </div>
+        <div className={`w-12 h-1 ${step >= 4 ? 'bg-green-600' : 'bg-gray-200'}`}></div>
+        <div className={`flex items-center space-x-2 ${step >= 4 ? 'text-green-600' : 'text-gray-400'}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 4 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>4</div>
+          <span>Checklist</span>
         </div>
       </div>
 
