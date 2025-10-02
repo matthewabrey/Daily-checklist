@@ -135,10 +135,50 @@ body {
   border: 1px solid #fecaca;
 }
 
-/* Responsive design helpers */
+/* Mobile Optimizations */
 @media (max-width: 640px) {
   .mobile-hidden {
     display: none;
+  }
+  
+  /* Larger touch targets on mobile */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Better spacing on mobile */
+  .card-mobile {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  
+  /* Mobile-friendly form elements */
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 12px;
+    min-height: 44px;
+  }
+  
+  /* Better text readability on mobile */
+  body {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  
+  /* Prevent horizontal scroll */
+  .overflow-hidden-mobile {
+    overflow-x: hidden;
+  }
+}
+
+/* Touch-friendly interactions */
+@media (max-width: 1024px) {
+  /* Larger click targets for tablets and phones */
+  .touch-target {
+    min-height: 48px;
+    min-width: 48px;
+    padding: 12px;
   }
 }
 
