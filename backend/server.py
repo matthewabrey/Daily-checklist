@@ -417,6 +417,94 @@ async def sync_assets_from_sharepoint():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to sync asset data: {str(e)}")
 
+@app.post("/api/admin/upload-staff-file")
+async def upload_staff_file(file: bytes):
+    """Upload and process staff names from Excel file"""
+    try:
+        import openpyxl
+        from io import BytesIO
+        
+        # Load the Excel file
+        workbook = openpyxl.load_workbook(BytesIO(file))
+        sheet = workbook.active
+        
+        # Extract staff names (assuming they're in the first column)
+        staff_names = []
+        for row in sheet.iter_rows(min_row=1, max_col=1, values_only=True):
+            if row[0] and str(row[0]).strip():
+                name = str(row[0]).strip()
+                if name.lower() not in ['name', 'staff', 'employee']:  # Skip headers
+                    staff_names.append(name)
+        
+        if not staff_names:
+            raise HTTPException(status_code=400, detail="No staff names found in the uploaded file")
+        
+        # Update database
+        await db.staff.delete_many({})
+        new_staff = [Staff(name=name).dict() for name in staff_names]
+        await db.staff.insert_many(new_staff)
+        
+        return {
+            "message": f"Successfully uploaded {len(staff_names)} staff members",
+            "count": len(staff_names),
+            "preview": staff_names[:5]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process staff file: {str(e)}")
+
+@app.post("/api/admin/upload-assets-file") 
+async def upload_assets_file(file: bytes):
+    """Upload and process assets from Excel file"""
+    try:
+        import openpyxl
+        from io import BytesIO
+        
+        # Load the Excel file
+        workbook = openpyxl.load_workbook(BytesIO(file))
+        sheet = workbook.active
+        
+        # Get headers and find make/model columns
+        headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
+        make_col = None
+        model_col = None
+        
+        for i, header in enumerate(headers):
+            if 'make' in header:
+                make_col = i
+            elif 'model' in header or 'name' in header:
+                model_col = i
+        
+        if make_col is None or model_col is None:
+            raise HTTPException(status_code=400, detail="Could not find Make and Model columns in the file")
+        
+        # Extract asset data
+        assets = []
+        for row in sheet.iter_rows(min_row=2, values_only=True):  # Skip header
+            if row and len(row) > max(make_col, model_col):
+                make = str(row[make_col]).strip() if row[make_col] else ''
+                model = str(row[model_col]).strip() if row[model_col] else ''
+                
+                if make and model:
+                    assets.append({"make": make, "model": model})
+        
+        if not assets:
+            raise HTTPException(status_code=400, detail="No asset data found in the uploaded file")
+        
+        # Update database
+        await db.assets.delete_many({})
+        new_assets = [Asset(**asset).dict() for asset in assets]
+        await db.assets.insert_many(new_assets)
+        
+        return {
+            "message": f"Successfully uploaded {len(assets)} assets", 
+            "count": len(assets),
+            "preview": assets[:5]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process assets file: {str(e)}")
+
 @app.post("/api/admin/sharepoint/sync-all")
 async def sync_all_from_sharepoint():
     """Sync both staff and asset data from SharePoint Excel files"""
