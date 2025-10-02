@@ -672,31 +672,53 @@ function Records() {
           ) : (
             <div className="space-y-4">
               {checklists.map((checklist) => {
-                const itemsChecked = checklist.checklist_items.filter(item => item.checked).length;
-                const totalItems = checklist.checklist_items.length;
                 const completedDate = new Date(checklist.completed_at);
+                let statusInfo;
+                
+                if (checklist.check_type === 'daily_check') {
+                  const itemsSatisfactory = checklist.checklist_items.filter(item => item.status === 'satisfactory').length;
+                  const itemsUnsatisfactory = checklist.checklist_items.filter(item => item.status === 'unsatisfactory').length;
+                  const totalItems = checklist.checklist_items.length;
+                  statusInfo = (
+                    <div className="space-y-1">
+                      <Badge 
+                        variant={itemsUnsatisfactory === 0 ? "default" : "secondary"}
+                        className="mb-1"
+                      >
+                        ✓{itemsSatisfactory} ✗{itemsUnsatisfactory} of {totalItems} items
+                      </Badge>
+                      {itemsUnsatisfactory > 0 && (
+                        <div className="text-xs text-red-600 font-medium">⚠ Issues found</div>
+                      )}
+                    </div>
+                  );
+                } else {
+                  statusInfo = (
+                    <Badge variant="outline" className="mb-1">
+                      Workshop Service
+                    </Badge>
+                  );
+                }
                 
                 return (
                   <Card key={checklist.id} className="hover:shadow-md transition-shadow" data-testid={`record-item-${checklist.id}`}>
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
-                          <div className="p-3 bg-green-100 rounded-lg">
-                            <Wrench className="h-6 w-6 text-green-600" />
+                          <div className={`p-3 rounded-lg ${checklist.check_type === 'daily_check' ? 'bg-green-100' : 'bg-blue-100'}`}>
+                            {checklist.check_type === 'daily_check' ? 
+                              <CheckCircle2 className="h-6 w-6 text-green-600" /> : 
+                              <Settings className="h-6 w-6 text-blue-600" />
+                            }
                           </div>
                           <div>
                             <h3 className="font-semibold text-lg">{checklist.machine_make} {checklist.machine_model}</h3>
-                            <p className="text-gray-600">Inspected by {checklist.staff_name}</p>
+                            <p className="text-gray-600">{checklist.check_type === 'daily_check' ? 'Daily check' : 'Workshop service'} by {checklist.staff_name}</p>
                             <p className="text-sm text-gray-500">ID: {checklist.id.substring(0, 8)}...</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <Badge 
-                            variant={itemsChecked === totalItems ? "default" : "secondary"}
-                            className="mb-2"
-                          >
-                            {itemsChecked}/{totalItems} items checked
-                          </Badge>
+                          {statusInfo}
                           <p className="text-sm text-gray-500">
                             {completedDate.toLocaleDateString()} at {completedDate.toLocaleTimeString()}
                           </p>
