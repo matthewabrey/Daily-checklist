@@ -246,7 +246,9 @@ function NewChecklist() {
         staff_name: selectedStaff,
         machine_make: selectedMake,
         machine_model: selectedModel,
-        checklist_items: checklistItems
+        check_type: checkType,
+        checklist_items: checkType === 'daily_check' ? checklistItems : [],
+        workshop_notes: checkType === 'workshop_service' ? workshopNotes : null
       };
 
       const response = await fetch(`${API_BASE_URL}/api/checklists`, {
