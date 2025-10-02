@@ -477,14 +477,20 @@ function NewChecklist() {
                     <User className="h-5 w-5 text-green-600" />
                     <span className="font-medium">Staff: {selectedStaff}</span>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 mb-2">
                     <Wrench className="h-5 w-5 text-green-600" />
                     <span className="font-medium">Machine: {selectedMake} {selectedModel}</span>
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <span className="font-medium">Type: {checkType === 'daily_check' ? 'Daily Check' : 'Workshop Service'}</span>
+                  </div>
                 </div>
-                <Badge variant={allItemsChecked ? "default" : "secondary"} className="px-3 py-1">
-                  {checklistItems.filter(item => item.checked).length} / {checklistItems.length} Complete
-                </Badge>
+                {checkType === 'daily_check' && (
+                  <Badge variant={allItemsAddressed ? "default" : "secondary"} className="px-3 py-1">
+                    {checklistItems.filter(item => item.status !== 'unchecked').length} / {checklistItems.length} Complete
+                  </Badge>
+                )}
               </div>
               
               <Separator />
