@@ -602,6 +602,53 @@ function NewChecklist() {
                     </Card>
                   ))}
                 </div>
+              ) : checkType === 'grader_startup' ? (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Grader Start Up Safety Checklist</h3>
+                  <p className="text-sm text-gray-600">Complete all safety checks before operating grader. Mark each item as satisfactory (✓) or unsatisfactory (✗).</p>
+                  {checklistItems.map((item, index) => (
+                    <Card key={index} className="p-4" data-testid={`checklist-item-${index}`}>
+                      <div className="flex items-start space-x-3">
+                        <div className="flex flex-col space-y-2 mt-1">
+                          <Button
+                            variant={item.status === 'satisfactory' ? 'default' : 'outline'}
+                            size="sm"
+                            className={`w-8 h-8 p-0 ${item.status === 'satisfactory' ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-green-50'}`}
+                            onClick={() => handleItemChange(index, 'status', item.status === 'satisfactory' ? 'unchecked' : 'satisfactory')}
+                            data-testid={`checklist-satisfactory-${index}`}
+                          >
+                            ✓
+                          </Button>
+                          <Button
+                            variant={item.status === 'unsatisfactory' ? 'default' : 'outline'}
+                            size="sm"
+                            className={`w-8 h-8 p-0 ${item.status === 'unsatisfactory' ? 'bg-red-600 hover:bg-red-700 text-white' : 'hover:bg-red-50 text-red-600'}`}
+                            onClick={() => handleItemChange(index, 'status', item.status === 'unsatisfactory' ? 'unchecked' : 'unsatisfactory')}
+                            data-testid={`checklist-unsatisfactory-${index}`}
+                          >
+                            ✗
+                          </Button>
+                        </div>
+                        <div className="flex-1">
+                          <label className={`text-sm font-medium cursor-pointer ${item.status === 'unsatisfactory' ? 'text-red-700' : ''}`}>
+                            {item.item}
+                          </label>
+                          {item.status === 'unsatisfactory' && (
+                            <div className="mt-1 text-xs text-red-600 font-medium">⚠ Unsatisfactory - Requires attention</div>
+                          )}
+                          <Textarea
+                            placeholder="Add notes (optional)"
+                            value={item.notes}
+                            onChange={(e) => handleItemChange(index, 'notes', e.target.value)}
+                            className="mt-2 text-sm"
+                            rows={2}
+                            data-testid={`checklist-notes-${index}`}
+                          />
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               ) : (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Workshop Service Record</h3>
