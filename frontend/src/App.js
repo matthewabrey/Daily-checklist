@@ -607,13 +607,13 @@ function NewChecklist() {
                   <h3 className="text-lg font-semibold">Grader Start Up Safety Checklist</h3>
                   <p className="text-sm text-gray-600">Complete all safety checks before operating grader. Mark each item as satisfactory (✓) or unsatisfactory (✗).</p>
                   {checklistItems.map((item, index) => (
-                    <Card key={index} className="p-4" data-testid={`checklist-item-${index}`}>
+                    <Card key={index} className={`p-4 ${index < 4 && checkType === 'grader_startup' ? 'border-orange-200 bg-orange-50' : ''}`} data-testid={`checklist-item-${index}`}>
                       <div className="flex items-start space-x-3">
                         <div className="flex flex-col space-y-2 mt-1">
                           <Button
                             variant={item.status === 'satisfactory' ? 'default' : 'outline'}
                             size="sm"
-                            className={`w-8 h-8 p-0 ${item.status === 'satisfactory' ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-green-50'}`}
+                            className={`w-8 h-8 p-0 ${item.status === 'satisfactory' ? (checkType === 'grader_startup' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700') : (checkType === 'grader_startup' ? 'hover:bg-orange-50' : 'hover:bg-green-50')}`}
                             onClick={() => handleItemChange(index, 'status', item.status === 'satisfactory' ? 'unchecked' : 'satisfactory')}
                             data-testid={`checklist-satisfactory-${index}`}
                           >
@@ -630,11 +630,14 @@ function NewChecklist() {
                           </Button>
                         </div>
                         <div className="flex-1">
-                          <label className={`text-sm font-medium cursor-pointer ${item.status === 'unsatisfactory' ? 'text-red-700' : ''}`}>
+                          <label className={`text-sm font-medium cursor-pointer ${item.status === 'unsatisfactory' ? 'text-red-700' : ''} ${index < 4 && checkType === 'grader_startup' ? 'text-orange-800' : ''}`}>
                             {item.item}
                           </label>
                           {item.status === 'unsatisfactory' && (
                             <div className="mt-1 text-xs text-red-600 font-medium">⚠ Unsatisfactory - Requires attention</div>
+                          )}
+                          {index < 4 && checkType === 'grader_startup' && (
+                            <div className="mt-1 text-xs text-orange-600 font-medium">🚨 Critical Safety Check</div>
                           )}
                           <Textarea
                             placeholder="Add notes (optional)"
