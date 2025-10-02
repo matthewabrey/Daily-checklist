@@ -832,7 +832,24 @@ function SharePointAdmin() {
   const syncData = async (type) => {
     try {
       setLoading(true);
-      const endpoint = type === 'all' ? 'sync-all' : type === 'staff' ? 'sync-staff' : 'sync-assets';
+      let endpoint;
+      
+      switch(type) {
+        case 'all':
+          endpoint = 'sync-all';
+          break;
+        case 'staff':
+          endpoint = 'sync-staff';
+          break;
+        case 'assets':
+          endpoint = 'sync-assets';
+          break;
+        case 'checklists':
+          endpoint = 'sync-checklists';
+          break;
+        default:
+          endpoint = 'sync-all';
+      }
       
       const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/${endpoint}`, {
         method: 'POST'
