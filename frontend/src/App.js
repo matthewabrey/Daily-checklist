@@ -621,24 +621,30 @@ function SharePointAdmin() {
   const handleAuthCallback = async (authCode) => {
     try {
       setLoading(true);
+      console.log('Handling auth callback with code:', authCode);
+      
       const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/callback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ auth_code: authCode })
       });
 
+      const result = await response.json();
+      console.log('Callback response:', result);
+
       if (response.ok) {
         setIsAuthenticated(true);
         toast.success('SharePoint authentication successful!');
-        // Remove auth code from URL
-        window.history.replaceState({}, document.title, window.location.pathname);
+        // Navigate to admin page and remove auth code from URL
+        window.history.replaceState({}, document.title, '/admin');
         testConnection();
       } else {
-        const error = await response.json();
-        toast.error(`Authentication failed: ${error.detail}`);
+        console.error('Authentication error:', result);
+        toast.error(`Authentication failed: ${result.detail || 'Unknown error'}`);
       }
     } catch (error) {
-      toast.error('Authentication failed');
+      console.error('Auth callback error:', error);
+      toast.error('Authentication failed: Network error');
     } finally {
       setLoading(false);
     }
