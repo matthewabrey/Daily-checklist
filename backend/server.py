@@ -323,6 +323,153 @@ async def update_asset_list(assets: List[AssetUpdate]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update asset list: {str(e)}")
 
+@app.get("/api/admin/sharepoint/auth-url")
+async def get_sharepoint_auth_url():
+    """Get SharePoint authentication URL for user login"""
+    try:
+        auth_url = sharepoint_integration.get_auth_url()
+        return {"auth_url": auth_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get auth URL: {str(e)}")
+
+@app.post("/api/admin/sharepoint/callback")
+async def sharepoint_auth_callback(auth_code: str):
+    """Handle SharePoint authentication callback"""
+    try:
+        result = sharepoint_integration.acquire_token_by_auth_code(auth_code)
+        return {"message": "Authentication successful", "user": result.get("account", {})}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Authentication failed: {str(e)}")
+
+@app.get("/api/admin/sharepoint/test")
+async def test_sharepoint_connection():
+    """Test SharePoint connection and file access"""
+    try:
+        results = sharepoint_integration.test_connection()
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Connection test failed: {str(e)}")
+
+@app.post("/api/admin/sharepoint/sync-staff")
+async def sync_staff_from_sharepoint():
+    """Sync staff data from SharePoint Excel file"""
+    try:
+        # Get staff data from SharePoint
+        staff_names = sharepoint_integration.get_staff_data()
+        
+        if not staff_names:
+            raise HTTPException(status_code=400, detail="No staff data found in SharePoint file")
+        
+        # Clear existing staff
+        await db.staff.delete_many({})
+        
+        # Add new staff from SharePoint
+        new_staff = []
+        for staff_name in staff_names:
+            staff = Staff(name=staff_name.strip())
+            new_staff.append(staff.dict())
+        
+        if new_staff:
+            await db.staff.insert_many(new_staff)
+        
+        return {
+            "message": f"Successfully synced {len(new_staff)} staff members from SharePoint",
+            "count": len(new_staff),
+            "staff_names": staff_names[:10]  # Show first 10 names as preview
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sync staff data: {str(e)}")
+
+@app.post("/api/admin/sharepoint/sync-assets")
+async def sync_assets_from_sharepoint():
+    """Sync asset data from SharePoint Excel file"""
+    try:
+        # Get asset data from SharePoint
+        assets_data = sharepoint_integration.get_asset_data()
+        
+        if not assets_data:
+            raise HTTPException(status_code=400, detail="No asset data found in SharePoint file")
+        
+        # Clear existing assets
+        await db.assets.delete_many({})
+        
+        # Add new assets from SharePoint
+        new_assets = []
+        for asset_data in assets_data:
+            asset = Asset(make=asset_data['make'], model=asset_data['model'])
+            new_assets.append(asset.dict())
+        
+        if new_assets:
+            await db.assets.insert_many(new_assets)
+        
+        return {
+            "message": f"Successfully synced {len(new_assets)} assets from SharePoint",
+            "count": len(new_assets),
+            "sample_assets": assets_data[:5]  # Show first 5 assets as preview
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sync asset data: {str(e)}")
+
+@app.post("/api/admin/sharepoint/sync-all")
+async def sync_all_from_sharepoint():
+    """Sync both staff and asset data from SharePoint Excel files"""
+    try:
+        results = {}
+        
+        # Sync staff data
+        try:
+            staff_names = sharepoint_integration.get_staff_data()
+            await db.staff.delete_many({})
+            
+            new_staff = []
+            for staff_name in staff_names:
+                staff = Staff(name=staff_name.strip())
+                new_staff.append(staff.dict())
+            
+            if new_staff:
+                await db.staff.insert_many(new_staff)
+            
+            results['staff'] = {
+                "success": True,
+                "count": len(new_staff),
+                "message": f"Synced {len(new_staff)} staff members"
+            }
+        except Exception as e:
+            results['staff'] = {"success": False, "error": str(e)}
+        
+        # Sync asset data
+        try:
+            assets_data = sharepoint_integration.get_asset_data()
+            await db.assets.delete_many({})
+            
+            new_assets = []
+            for asset_data in assets_data:
+                asset = Asset(make=asset_data['make'], model=asset_data['model'])
+                new_assets.append(asset.dict())
+            
+            if new_assets:
+                await db.assets.insert_many(new_assets)
+            
+            results['assets'] = {
+                "success": True,
+                "count": len(new_assets),
+                "message": f"Synced {len(new_assets)} assets"
+            }
+        except Exception as e:
+            results['assets'] = {"success": False, "error": str(e)}
+        
+        # Overall success
+        overall_success = results['staff'].get('success', False) and results['assets'].get('success', False)
+        
+        return {
+            "message": "Sync completed",
+            "success": overall_success,
+            "results": results
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sync data: {str(e)}")
+
 @app.get("/api/checklists/export/csv")
 async def export_checklists_csv():
     from fastapi.responses import StreamingResponse
