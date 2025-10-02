@@ -400,9 +400,9 @@ function NewChecklist() {
                   onClick={() => setStep(3)} 
                   disabled={!canProceedToStep3}
                   className="bg-green-600 hover:bg-green-700"
-                  data-testid="proceed-to-checklist-btn"
+                  data-testid="proceed-to-check-type-btn"
                 >
-                  Next: Safety Checklist
+                  Next: Check Type
                 </Button>
               </div>
             </div>
