@@ -902,6 +902,37 @@ function SharePointAdmin() {
     }
   };
 
+  const handleChecklistUpload = async (event, checkType) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/upload-checklist-file/${checkType}`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSyncResults(data);
+        toast.success(data.message);
+      } else {
+        toast.error(`Upload failed: ${data.detail}`);
+      }
+    } catch (error) {
+      toast.error('Checklist upload failed');
+    } finally {
+      setLoading(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
