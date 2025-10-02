@@ -1,23 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Green leaf/abstract elements -->
-  <path d="M8 12C8 8 12 6 16 8C18 10 18 14 16 16C14 18 10 18 8 16V12Z" fill="#7CB342"/>
-  <path d="M12 8C12 4 16 2 20 4C22 6 22 10 20 12C18 14 14 14 12 12V8Z" fill="#9CCC65"/>
-  <path d="M16 16C16 12 20 10 24 12C26 14 26 18 24 20C22 22 18 22 16 20V16Z" fill="#7CB342"/>
-  
-  <!-- Abreys text -->
-  <text x="32" y="26" font-family="serif" font-size="16" font-weight="bold" fill="white">Abreys</text>
-  
-  <!-- Small trees at bottom -->
-  <g transform="translate(85, 28)">
-    <path d="M2 8L4 4L6 8H2Z" fill="#7CB342"/>
-    <path d="M4 8V12" stroke="#7CB342" stroke-width="1"/>
-    <path d="M8 8L10 4L12 8H8Z" fill="#9CCC65"/>
-    <path d="M10 8V12" stroke="#9CCC65" stroke-width="1"/>
-    <path d="M14 8L16 4L18 8H14Z" fill="#7CB342"/>
-    <path d="M16 8V12" stroke="#7CB342" stroke-width="1"/>
+<svg width="140" height="40" viewBox="0 0 140 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Abstract leaf/growth elements -->
+  <g transform="translate(4, 8)">
+    <path d="M0 12C2 8 6 6 10 8C12 10 14 12 12 16C10 18 6 20 4 18C2 16 0 14 0 12Z" fill="#7CB342"/>
+    <path d="M6 4C8 2 12 0 16 2C18 4 20 8 18 10C16 12 12 14 10 12C8 10 6 6 6 4Z" fill="#9CCC65"/>
+    <path d="M12 16C14 12 18 10 22 12C24 14 26 18 24 20C22 22 18 24 16 22C14 20 12 18 12 16Z" fill="#7CB342"/>
   </g>
   
-  <!-- Green base line -->
-  <rect x="0" y="35" width="120" height="5" fill="#7CB342"/>
+  <!-- Abreys text with proper serif styling -->
+  <text x="36" y="26" font-family="Times, serif" font-size="18" font-weight="bold" fill="#2C3E50" letter-spacing="0.5px">Abreys</text>
+  
+  <!-- Established text -->
+  <text x="36" y="32" font-family="Times, serif" font-size="8" fill="#7CB342">est. 1939</text>
+  
+  <!-- Small stylized trees -->
+  <g transform="translate(105, 20)">
+    <!-- Tree 1 -->
+    <path d="M2 12L4 6L6 12H2Z" fill="#7CB342"/>
+    <path d="M1 10L5 8L7 10H1Z" fill="#9CCC65" opacity="0.8"/>
+    <rect x="3.5" y="12" width="1" height="4" fill="#4A5D23"/>
+    
+    <!-- Tree 2 -->
+    <path d="M10 12L12 6L14 12H10Z" fill="#9CCC65"/>
+    <path d="M9 10L13 8L15 10H9Z" fill="#7CB342" opacity="0.8"/>
+    <rect x="11.5" y="12" width="1" height="4" fill="#4A5D23"/>
+    
+    <!-- Tree 3 -->
+    <path d="M18 12L20 6L22 12H18Z" fill="#7CB342"/>
+    <path d="M17 10L21 8L23 10H17Z" fill="#9CCC65" opacity="0.8"/>
+    <rect x="19.5" y="12" width="1" height="4" fill="#4A5D23"/>
+  </g>
+  
+  <!-- Green accent line -->
+  <rect x="0" y="36" width="140" height="3" fill="#7CB342"/>
 </svg>
