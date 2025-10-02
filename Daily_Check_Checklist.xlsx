@@ -1,0 +1,16 @@
+Item,Category,Critical
+Oil level check - Engine oil at correct level,Engine,No
+Fuel level check - Adequate fuel for operation,Engine,No
+Hydraulic fluid level - Within acceptable range,Hydraulics,No
+Battery condition - Terminals clean voltage adequate,Electrical,No
+Tire/track condition - No visible damage or excessive wear,Mechanical,No
+Safety guards in place - All protective covers secured,Safety,Yes
+Emergency stop function - Test emergency stop button,Safety,Yes
+Warning lights operational - All safety lights working,Safety,Yes
+Operator seat condition - Seat belt and controls functional,Safety,Yes
+Air filter condition - Clean and properly sealed,Engine,No
+Cooling system - Radiator clear coolant level adequate,Engine,No
+Brake system function - Service and parking brakes operational,Safety,Yes
+Steering operation - Smooth operation no excessive play,Controls,No
+Lights and signals - All operational lights working,Safety,Yes
+Fire extinguisher - Present and within service date,Safety,Yes
