@@ -166,21 +166,21 @@ function NewChecklist() {
   const navigate = useNavigate();
 
   const defaultChecklistItems = [
-    { item: "Oil level check - Engine oil at correct level", checked: false, notes: "" },
-    { item: "Fuel level check - Adequate fuel for operation", checked: false, notes: "" },
-    { item: "Hydraulic fluid level - Within acceptable range", checked: false, notes: "" },
-    { item: "Battery condition - Terminals clean, voltage adequate", checked: false, notes: "" },
-    { item: "Tire/track condition - No visible damage or excessive wear", checked: false, notes: "" },
-    { item: "Safety guards in place - All protective covers secured", checked: false, notes: "" },
-    { item: "Emergency stop function - Test emergency stop button", checked: false, notes: "" },
-    { item: "Warning lights operational - All safety lights working", checked: false, notes: "" },
-    { item: "Operator seat condition - Seat belt and controls functional", checked: false, notes: "" },
-    { item: "Air filter condition - Clean and properly sealed", checked: false, notes: "" },
-    { item: "Cooling system - Radiator clear, coolant level adequate", checked: false, notes: "" },
-    { item: "Brake system function - Service and parking brakes operational", checked: false, notes: "" },
-    { item: "Steering operation - Smooth operation, no excessive play", checked: false, notes: "" },
-    { item: "Lights and signals - All operational lights working", checked: false, notes: "" },
-    { item: "Fire extinguisher - Present and within service date", checked: false, notes: "" }
+    { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
+    { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
+    { item: "Hydraulic fluid level - Within acceptable range", status: "unchecked", notes: "" },
+    { item: "Battery condition - Terminals clean, voltage adequate", status: "unchecked", notes: "" },
+    { item: "Tire/track condition - No visible damage or excessive wear", status: "unchecked", notes: "" },
+    { item: "Safety guards in place - All protective covers secured", status: "unchecked", notes: "" },
+    { item: "Emergency stop function - Test emergency stop button", status: "unchecked", notes: "" },
+    { item: "Warning lights operational - All safety lights working", status: "unchecked", notes: "" },
+    { item: "Operator seat condition - Seat belt and controls functional", status: "unchecked", notes: "" },
+    { item: "Air filter condition - Clean and properly sealed", status: "unchecked", notes: "" },
+    { item: "Cooling system - Radiator clear, coolant level adequate", status: "unchecked", notes: "" },
+    { item: "Brake system function - Service and parking brakes operational", status: "unchecked", notes: "" },
+    { item: "Steering operation - Smooth operation, no excessive play", status: "unchecked", notes: "" },
+    { item: "Lights and signals - All operational lights working", status: "unchecked", notes: "" },
+    { item: "Fire extinguisher - Present and within service date", status: "unchecked", notes: "" }
   ];
 
   useEffect(() => {
