@@ -1457,8 +1457,10 @@ function AdminLogin({ onLogin }) {
   const [error, setError] = useState('');
 
   const handleLogin = () => {
-    // Simple password check - you can change this password
-    if (password === 'abreys2024admin') {
+    // Admin password - you can change this in your .env file or here
+    const adminPassword = process.env.REACT_APP_ADMIN_PASSWORD || 'abreys2024admin';
+    
+    if (password === adminPassword) {
       onLogin();
       toast.success('Admin access granted');
     } else {
