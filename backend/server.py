@@ -424,8 +424,11 @@ async def upload_staff_file(file: UploadFile = File(...)):
         import openpyxl
         from io import BytesIO
         
+        # Read file content
+        file_content = await file.read()
+        
         # Load the Excel file
-        workbook = openpyxl.load_workbook(BytesIO(file))
+        workbook = openpyxl.load_workbook(BytesIO(file_content))
         sheet = workbook.active
         
         # Extract staff names (assuming they're in the first column)
@@ -460,8 +463,11 @@ async def upload_assets_file(file: UploadFile = File(...)):
         import openpyxl
         from io import BytesIO
         
+        # Read file content
+        file_content = await file.read()
+        
         # Load the Excel file
-        workbook = openpyxl.load_workbook(BytesIO(file))
+        workbook = openpyxl.load_workbook(BytesIO(file_content))
         sheet = workbook.active
         
         # Get headers and find make/model columns
