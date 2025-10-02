@@ -156,7 +156,9 @@ function NewChecklist() {
   const [selectedStaff, setSelectedStaff] = useState('');
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
+  const [checkType, setCheckType] = useState('');
   const [checklistItems, setChecklistItems] = useState([]);
+  const [workshopNotes, setWorkshopNotes] = useState('');
   const [staff, setStaff] = useState([]);
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
