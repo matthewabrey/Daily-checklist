@@ -1000,7 +1000,7 @@ function SharePointAdmin() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Button 
                   onClick={() => syncData('staff')} 
                   disabled={loading}
@@ -1021,6 +1021,17 @@ function SharePointAdmin() {
                 >
                   <Wrench className="h-6 w-6" />
                   <span>Sync Machine Assets</span>
+                </Button>
+
+                <Button 
+                  onClick={() => syncData('checklists')} 
+                  disabled={loading}
+                  variant="outline"
+                  className="h-20 flex-col space-y-2"
+                  data-testid="sync-checklists-btn"
+                >
+                  <ClipboardList className="h-6 w-6" />
+                  <span>Sync Checklists</span>
                 </Button>
                 
                 <Button 
