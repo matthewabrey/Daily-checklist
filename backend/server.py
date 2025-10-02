@@ -336,11 +336,14 @@ async def get_sharepoint_auth_url():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get auth URL: {str(e)}")
 
+class AuthCallbackRequest(BaseModel):
+    auth_code: str
+
 @app.post("/api/admin/sharepoint/callback")
-async def sharepoint_auth_callback(auth_code: str):
+async def sharepoint_auth_callback(request: AuthCallbackRequest):
     """Handle SharePoint authentication callback"""
     try:
-        result = sharepoint_integration.acquire_token_by_auth_code(auth_code)
+        result = sharepoint_integration.acquire_token_by_auth_code(request.auth_code)
         return {"message": "Authentication successful", "user": result.get("account", {})}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Authentication failed: {str(e)}")
