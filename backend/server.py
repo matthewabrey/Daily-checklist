@@ -46,12 +46,17 @@ class ChecklistItem(BaseModel):
     status: str = "unchecked"  # "unchecked", "satisfactory", "unsatisfactory"
     notes: Optional[str] = None
     
+class ChecklistTemplate(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    check_type: str  # "daily_check", "grader_startup", "workshop_service"
+    items: List[str]
+    
 class Checklist(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     staff_name: str
     machine_make: str
     machine_model: str
-    check_type: str  # "daily_check" or "workshop_service"
+    check_type: str  # "daily_check", "grader_startup", or "workshop_service"
     checklist_items: List[ChecklistItem] = []
     workshop_notes: Optional[str] = None
     completed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
