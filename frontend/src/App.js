@@ -560,16 +560,16 @@ function NewChecklist() {
               )}
               
               <div className="flex justify-between pt-6">
-                <Button variant="outline" onClick={() => setStep(2)} data-testid="back-to-machine-btn">
-                  Back: Machine Selection
+                <Button variant="outline" onClick={() => setStep(3)} data-testid="back-to-check-type-btn">
+                  Back: Check Type
                 </Button>
                 <Button 
                   onClick={handleSubmit} 
-                  disabled={!allItemsChecked || isSubmitting}
+                  disabled={!allItemsAddressed || isSubmitting}
                   className="bg-green-600 hover:bg-green-700"
                   data-testid="submit-checklist-btn"
                 >
-                  {isSubmitting ? 'Saving...' : 'Complete Checklist'}
+                  {isSubmitting ? 'Saving...' : `Complete ${checkType === 'daily_check' ? 'Checklist' : 'Service Record'}`}
                 </Button>
               </div>
             </div>
