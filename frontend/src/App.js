@@ -726,7 +726,7 @@ function SharePointAdmin() {
         <Card data-testid="auth-card">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <Link className="h-5 w-5 text-blue-600" />
+              <Link2 className="h-5 w-5 text-blue-600" />
               <span>Connect to SharePoint</span>
             </CardTitle>
             <CardDescription>
