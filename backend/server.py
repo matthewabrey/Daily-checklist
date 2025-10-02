@@ -660,8 +660,37 @@ async def sync_all_from_sharepoint():
         except Exception as e:
             results['assets'] = {"success": False, "error": str(e)}
         
+        # Sync checklist templates
+        try:
+            checklist_results = {}
+            for checklist_type in ['daily_check', 'grader_startup', 'workshop_service']:
+                try:
+                    checklist_data = sharepoint_integration.get_checklist_data(checklist_type)
+                    await db.checklist_templates.delete_many({"check_type": checklist_type})
+                    
+                    items = [item['item'] for item in checklist_data]
+                    template = ChecklistTemplate(check_type=checklist_type, items=items)
+                    await db.checklist_templates.insert_one(template.dict())
+                    
+                    checklist_results[checklist_type] = {
+                        "success": True,
+                        "count": len(items)
+                    }
+                except Exception as e:
+                    checklist_results[checklist_type] = {"success": False, "error": str(e)}
+            
+            results['checklists'] = {
+                "success": all(r.get('success', False) for r in checklist_results.values()),
+                "details": checklist_results,
+                "message": "Synced checklist templates"
+            }
+        except Exception as e:
+            results['checklists'] = {"success": False, "error": str(e)}
+        
         # Overall success
-        overall_success = results['staff'].get('success', False) and results['assets'].get('success', False)
+        overall_success = (results['staff'].get('success', False) and 
+                          results['assets'].get('success', False) and
+                          results['checklists'].get('success', False))
         
         return {
             "message": "Sync completed",
