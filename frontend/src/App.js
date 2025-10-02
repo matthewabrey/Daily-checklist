@@ -39,16 +39,16 @@ function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="text-center sm:text-left">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Machine Checklist Dashboard</h1>
-          <p className="text-gray-600 mt-2">Manage equipment startup checklists and safety inspections</p>
+          <h1 className="text-xl sm:text-3xl font-bold text-gray-900">Machine Checklist Dashboard</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Manage equipment startup checklists and safety inspections</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
           <Button 
             onClick={() => navigate('/new-checklist')} 
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-green-600 hover:bg-green-700 w-full sm:w-auto text-sm sm:text-base py-3 sm:py-2"
             data-testid="new-checklist-btn"
           >
             <ClipboardList className="mr-2 h-4 w-4" />
@@ -57,6 +57,7 @@ function Dashboard() {
           <Button 
             variant="outline" 
             onClick={() => navigate('/records')}
+            className="w-full sm:w-auto text-sm sm:text-base py-3 sm:py-2"
             data-testid="view-records-btn"
           >
             <FileText className="mr-2 h-4 w-4" />
