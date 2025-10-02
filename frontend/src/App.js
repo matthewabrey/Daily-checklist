@@ -600,6 +600,298 @@ function NewChecklist() {
   );
 }
 
+// SharePoint Admin Component
+function SharePointAdmin() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [syncResults, setSyncResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if we have auth code in URL (callback from SharePoint)
+    const urlParams = new URLSearchParams(window.location.search);
+    const authCode = urlParams.get('code');
+    
+    if (authCode) {
+      handleAuthCallback(authCode);
+    }
+  }, []);
+
+  const handleAuthCallback = async (authCode) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/callback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auth_code: authCode })
+      });
+
+      if (response.ok) {
+        setIsAuthenticated(true);
+        toast.success('SharePoint authentication successful!');
+        // Remove auth code from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        testConnection();
+      } else {
+        const error = await response.json();
+        toast.error(`Authentication failed: ${error.detail}`);
+      }
+    } catch (error) {
+      toast.error('Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const authenticateSharePoint = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/auth-url`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Redirect to SharePoint authentication
+        window.location.href = data.auth_url;
+      } else {
+        toast.error('Failed to get authentication URL');
+      }
+    } catch (error) {
+      toast.error('Failed to start authentication');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const testConnection = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/test`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setConnectionStatus(data);
+        setIsAuthenticated(true);
+      } else {
+        toast.error('Connection test failed');
+        setIsAuthenticated(false);
+      }
+    } catch (error) {
+      toast.error('Connection test failed');
+      setIsAuthenticated(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const syncData = async (type) => {
+    try {
+      setLoading(true);
+      const endpoint = type === 'all' ? 'sync-all' : type === 'staff' ? 'sync-staff' : 'sync-assets';
+      
+      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/${endpoint}`, {
+        method: 'POST'
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSyncResults(data);
+        toast.success(data.message);
+      } else {
+        toast.error(`Sync failed: ${data.detail}`);
+      }
+    } catch (error) {
+      toast.error('Sync operation failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" onClick={() => navigate('/')} data-testid="back-to-dashboard-btn">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">SharePoint Integration</h1>
+            <p className="text-gray-600 mt-2">Sync staff names and machine data from your Excel files</p>
+          </div>
+        </div>
+      </div>
+
+      {!isAuthenticated && (
+        <Card data-testid="auth-card">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Link className="h-5 w-5 text-blue-600" />
+              <span>Connect to SharePoint</span>
+            </CardTitle>
+            <CardDescription>
+              Connect to your Microsoft 365 account to access Excel files
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-semibold text-blue-900 mb-2">Your Excel Files:</h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Staff Names: Name List.xlsx</li>
+                <li>• Machine Assets: AssetList.xlsx</li>
+              </ul>
+            </div>
+            <Button 
+              onClick={authenticateSharePoint} 
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              data-testid="authenticate-btn"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <Link className="mr-2 h-4 w-4" />
+                  Connect to SharePoint
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {isAuthenticated && (
+        <>
+          {connectionStatus && (
+            <Card data-testid="connection-status-card">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Database className="h-5 w-5 text-green-600" />
+                  <span>File Connection Status</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Staff File Status */}
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full ${connectionStatus.staff_file?.status === 'accessible' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <div>
+                      <p className="font-medium">Staff Names File</p>
+                      <p className="text-sm text-gray-600">
+                        {connectionStatus.staff_file?.name || 'Name List.xlsx'}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant={connectionStatus.staff_file?.status === 'accessible' ? 'default' : 'destructive'}>
+                    {connectionStatus.staff_file?.status || 'Unknown'}
+                  </Badge>
+                </div>
+
+                {/* Asset File Status */}
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full ${connectionStatus.asset_file?.status === 'accessible' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <div>
+                      <p className="font-medium">Machine Assets File</p>
+                      <p className="text-sm text-gray-600">
+                        {connectionStatus.asset_file?.name || 'AssetList.xlsx'}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant={connectionStatus.asset_file?.status === 'accessible' ? 'default' : 'destructive'}>
+                    {connectionStatus.asset_file?.status || 'Unknown'}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card data-testid="sync-controls-card">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <RefreshCw className="h-5 w-5 text-green-600" />
+                <span>Data Synchronization</span>
+              </CardTitle>
+              <CardDescription>
+                Update your app with the latest data from SharePoint Excel files
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button 
+                  onClick={() => syncData('staff')} 
+                  disabled={loading}
+                  variant="outline"
+                  className="h-20 flex-col space-y-2"
+                  data-testid="sync-staff-btn"
+                >
+                  <User className="h-6 w-6" />
+                  <span>Sync Staff Names</span>
+                </Button>
+                
+                <Button 
+                  onClick={() => syncData('assets')} 
+                  disabled={loading}
+                  variant="outline"
+                  className="h-20 flex-col space-y-2"
+                  data-testid="sync-assets-btn"
+                >
+                  <Wrench className="h-6 w-6" />
+                  <span>Sync Machine Assets</span>
+                </Button>
+                
+                <Button 
+                  onClick={() => syncData('all')} 
+                  disabled={loading}
+                  className="h-20 flex-col space-y-2 bg-green-600 hover:bg-green-700"
+                  data-testid="sync-all-btn"
+                >
+                  {loading ? (
+                    <RefreshCw className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <Database className="h-6 w-6" />
+                  )}
+                  <span>Sync All Data</span>
+                </Button>
+              </div>
+
+              <Button 
+                onClick={testConnection} 
+                disabled={loading}
+                variant="ghost"
+                className="w-full"
+                data-testid="test-connection-btn"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Test Connection
+              </Button>
+            </CardContent>
+          </Card>
+
+          {syncResults && (
+            <Card data-testid="sync-results-card">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <span>Sync Results</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-auto">
+                  {JSON.stringify(syncResults, null, 2)}
+                </pre>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // Records Component
 function Records() {
   const [checklists, setChecklists] = useState([]);
