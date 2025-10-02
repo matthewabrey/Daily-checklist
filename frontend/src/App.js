@@ -226,8 +226,12 @@ function NewChecklist() {
   }, [selectedMake]);
 
   useEffect(() => {
-    if (step === 4 && checkType === 'daily_check') {
-      setChecklistItems(defaultChecklistItems);
+    if (step === 4) {
+      if (checkType === 'daily_check') {
+        setChecklistItems(defaultChecklistItems);
+      } else if (checkType === 'grader_startup') {
+        setChecklistItems(graderStartupChecklistItems);
+      }
     }
   }, [step, checkType]);
 
