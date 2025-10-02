@@ -7,7 +7,11 @@ import os
 from motor.motor_asyncio import AsyncIOMotorClient
 import uuid
 from bson import ObjectId
+from dotenv import load_dotenv
 from sharepoint_integration import sharepoint_integration
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI(title="Machine Checklist API")
 
