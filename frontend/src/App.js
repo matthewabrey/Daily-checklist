@@ -1168,12 +1168,13 @@ function App() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <Link to="/" className="flex items-center space-x-3" data-testid="logo-link">
-                <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-                  <Settings className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <span className="text-xl font-bold text-gray-900">Abreys</span>
-                  <span className="text-sm text-gray-500 ml-2">Machine Checklist</span>
+                <div className="flex items-center">
+                  <img 
+                    src="/abreys-logo.svg" 
+                    alt="Abreys Logo" 
+                    className="h-10 w-auto"
+                  />
+                  <span className="text-sm text-gray-600 ml-3 font-medium">Machine Checklist</span>
                 </div>
               </Link>
               <nav className="flex items-center space-x-4">
