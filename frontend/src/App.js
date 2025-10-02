@@ -1088,6 +1088,13 @@ function App() {
                 >
                   Records
                 </Link>
+                <Link 
+                  to="/admin" 
+                  className="text-gray-600 hover:text-green-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  data-testid="nav-admin"
+                >
+                  Sync Data
+                </Link>
               </nav>
             </div>
           </div>
