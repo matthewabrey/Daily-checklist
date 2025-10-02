@@ -263,20 +263,32 @@ async def export_checklists_csv():
     
     # Write data
     for checklist in checklists:
-        items_checked = sum(1 for item in checklist['checklist_items'] if item['checked'])
-        items_total = len(checklist['checklist_items'])
-        notes = "; ".join([item['notes'] for item in checklist['checklist_items'] if item.get('notes')])
+        if checklist['check_type'] == 'daily_check':
+            items_satisfactory = sum(1 for item in checklist['checklist_items'] if item['status'] == 'satisfactory')
+            items_unsatisfactory = sum(1 for item in checklist['checklist_items'] if item['status'] == 'unsatisfactory')
+            items_total = len(checklist['checklist_items'])
+            notes = "; ".join([item['notes'] for item in checklist['checklist_items'] if item.get('notes')])
+            workshop_details = ""
+        else:
+            items_satisfactory = 0
+            items_unsatisfactory = 0
+            items_total = 0
+            notes = ""
+            workshop_details = checklist.get('workshop_notes', '')
         
         writer.writerow([
             checklist['id'],
             checklist['staff_name'],
             checklist['machine_make'],
             checklist['machine_model'],
+            checklist['check_type'],
             checklist['completed_at'],
             checklist['status'],
-            items_checked,
+            items_satisfactory,
+            items_unsatisfactory,
             items_total,
-            notes
+            notes,
+            workshop_details
         ])
     
     output.seek(0)
