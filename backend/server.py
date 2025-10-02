@@ -259,7 +259,7 @@ async def export_checklists_csv():
     writer = csv.writer(output)
     
     # Write header
-    writer.writerow(["ID", "Staff Name", "Machine Make", "Machine Model", "Completed At", "Status", "Items Checked", "Items Total", "Notes"])
+    writer.writerow(["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Items Satisfactory", "Items Unsatisfactory", "Items Total", "Notes", "Workshop Details"])
     
     # Write data
     for checklist in checklists:
