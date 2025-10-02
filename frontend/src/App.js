@@ -199,6 +199,21 @@ function NewChecklist() {
     { item: "Fire extinguisher - Present and within service date", status: "unchecked", notes: "" }
   ];
 
+  const graderStartupChecklistItems = [
+    { item: "Emergency stops working and present - Test all emergency stop buttons", status: "unchecked", notes: "" },
+    { item: "Walkways clear of debris and gates closed - All access areas safe", status: "unchecked", notes: "" },
+    { item: "Guards are all in place - All safety guards properly secured", status: "unchecked", notes: "" },
+    { item: "All personnel accounted for and out of reach of dangers - Safety zone clear", status: "unchecked", notes: "" },
+    { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
+    { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
+    { item: "Hydraulic fluid level - Within acceptable range", status: "unchecked", notes: "" },
+    { item: "Battery condition - Terminals clean, voltage adequate", status: "unchecked", notes: "" },
+    { item: "Track/blade condition - No visible damage or excessive wear", status: "unchecked", notes: "" },
+    { item: "Blade operation - Hydraulic lift and angle functions working", status: "unchecked", notes: "" },
+    { item: "Warning beacon - Rotating warning light operational", status: "unchecked", notes: "" },
+    { item: "Backup alarm - Reverse warning signal functional", status: "unchecked", notes: "" }
+  ];
+
   useEffect(() => {
     fetchStaff();
     fetchMakes();
