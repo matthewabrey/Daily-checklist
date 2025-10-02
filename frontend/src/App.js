@@ -1611,8 +1611,18 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/new-checklist" element={<NewChecklist />} />
             <Route path="/records" element={<Records />} />
-            <Route path="/admin" element={<SharePointAdmin />} />
-            <Route path="/auth/callback" element={<SharePointAdmin />} />
+            <Route 
+              path="/admin" 
+              element={
+                isAdmin ? <SharePointAdmin /> : <AdminLogin onLogin={handleAdminLogin} />
+              } 
+            />
+            <Route 
+              path="/auth/callback" 
+              element={
+                isAdmin ? <SharePointAdmin /> : <AdminLogin onLogin={handleAdminLogin} />
+              } 
+            />
           </Routes>
         </main>
       </div>
