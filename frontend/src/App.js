@@ -877,6 +877,78 @@ function SharePointAdmin() {
             </CardContent>
           </Card>
 
+          {/* Alternative Upload Method */}
+          <Card data-testid="file-upload-card">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Upload className="h-5 w-5 text-orange-600" />
+                <span>Alternative: Upload Files Directly</span>
+              </CardTitle>
+              <CardDescription>
+                If SharePoint sync isn't working, upload your Excel files directly
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-orange-800">Having trouble with SharePoint?</p>
+                    <p className="text-sm text-orange-700 mt-1">
+                      Download your Excel files from SharePoint and upload them here instead.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <p className="text-sm font-medium text-gray-900 mb-2">Staff Names File</p>
+                  <p className="text-xs text-gray-500 mb-4">Upload Name List.xlsx</p>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={(e) => handleFileUpload(e, 'staff')}
+                    className="hidden"
+                    id="staff-file-input"
+                    data-testid="staff-file-input"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => document.getElementById('staff-file-input').click()}
+                    className="text-sm"
+                    data-testid="upload-staff-btn"
+                  >
+                    Choose File
+                  </Button>
+                </div>
+                
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <p className="text-sm font-medium text-gray-900 mb-2">Machine Assets File</p>
+                  <p className="text-xs text-gray-500 mb-4">Upload AssetList.xlsx</p>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={(e) => handleFileUpload(e, 'assets')}
+                    className="hidden"
+                    id="assets-file-input"
+                    data-testid="assets-file-input"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => document.getElementById('assets-file-input').click()}
+                    className="text-sm"
+                    data-testid="upload-assets-btn"
+                  >
+                    Choose File
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {syncResults && (
             <Card data-testid="sync-results-card">
               <CardHeader>
