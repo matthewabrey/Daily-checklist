@@ -345,6 +345,88 @@ class SharePointExcelIntegration:
         except Exception as e:
             logger.error(f"Failed to get asset data: {str(e)}")
             raise Exception(f"Could not retrieve asset data from SharePoint: {str(e)}")
+
+    def get_checklist_data(self, checklist_type: str) -> List[Dict[str, str]]:
+        """Get checklist items from SharePoint Excel file based on type"""
+        try:
+            # Map checklist type to file name to search for
+            file_mapping = {
+                'daily_check': 'Daily_Check_Checklist.xlsx',
+                'grader_startup': 'Grader_Startup_Checklist.xlsx', 
+                'workshop_service': 'Workshop_Service_Tasks.xlsx'
+            }
+            
+            if checklist_type not in file_mapping:
+                raise Exception(f"Unknown checklist type: {checklist_type}")
+            
+            target_filename = file_mapping[checklist_type]
+            
+            # Search for the checklist file in OneDrive
+            user_info = self._make_graph_request("https://graph.microsoft.com/v1.0/me")
+            drive_info = self._make_graph_request("https://graph.microsoft.com/v1.0/me/drive")
+            drive_id = drive_info['id']
+            
+            # List files in OneDrive root to find checklist files
+            files_url = "https://graph.microsoft.com/v1.0/me/drive/root/children"
+            files_response = self._make_graph_request(files_url)
+            
+            # Find the specific checklist file
+            item_id = None
+            for file_item in files_response.get('value', []):
+                if target_filename.lower() in file_item.get('name', '').lower():
+                    item_id = file_item['id']
+                    logger.info(f"Found checklist file: {file_item['name']}")
+                    break
+            
+            if not item_id:
+                raise Exception(f"Checklist file '{target_filename}' not found in OneDrive")
+            
+            # Read the Excel file
+            excel_data = self._read_excel_workbook(drive_id, item_id)
+            
+            if not excel_data or len(excel_data) < 2:
+                raise Exception("Checklist file must have at least a header row and one data row")
+            
+            # Assume first row contains headers
+            headers = [str(cell).strip().lower() if cell else '' for cell in excel_data[0]]
+            
+            # Find required columns
+            item_col = None
+            category_col = None
+            critical_col = None
+            
+            for i, header in enumerate(headers):
+                if 'item' in header or 'task' in header:
+                    item_col = i
+                elif 'category' in header:
+                    category_col = i
+                elif 'critical' in header or 'common' in header:
+                    critical_col = i
+            
+            if item_col is None:
+                raise Exception("Could not find Item/Task column in checklist file")
+            
+            # Extract checklist items
+            items = []
+            for row in excel_data[1:]:  # Skip header row
+                if row and len(row) > item_col and row[item_col]:
+                    item_text = str(row[item_col]).strip()
+                    category = str(row[category_col]).strip() if category_col is not None and len(row) > category_col and row[category_col] else 'General'
+                    is_critical = str(row[critical_col]).strip().lower() in ['yes', 'true', '1'] if critical_col is not None and len(row) > critical_col and row[critical_col] else False
+                    
+                    if item_text:
+                        items.append({
+                            'item': item_text,
+                            'category': category,
+                            'critical': is_critical
+                        })
+            
+            logger.info(f"Retrieved {len(items)} checklist items for {checklist_type} from SharePoint")
+            return items
+            
+        except Exception as e:
+            logger.error(f"Failed to get checklist data for {checklist_type}: {str(e)}")
+            raise Exception(f"Could not retrieve checklist data from SharePoint: {str(e)}")
     
     def test_connection(self) -> Dict[str, str]:
         """Test connection to SharePoint and return file information"""
