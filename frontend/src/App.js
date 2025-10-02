@@ -1106,6 +1106,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/new-checklist" element={<NewChecklist />} />
             <Route path="/records" element={<Records />} />
+            <Route path="/admin" element={<SharePointAdmin />} />
           </Routes>
         </main>
       </div>
