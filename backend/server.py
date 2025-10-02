@@ -247,6 +247,50 @@ async def get_checklist(checklist_id: str):
     
     return ChecklistResponse(**checklist)
 
+@app.post("/api/admin/update-staff")
+async def update_staff_list(staff_names: List[str]):
+    """Update the staff list by replacing all existing staff with new list"""
+    try:
+        # Clear existing staff
+        await db.staff.delete_many({})
+        
+        # Add new staff
+        new_staff = []
+        for staff_name in staff_names:
+            staff = Staff(name=staff_name.strip())
+            new_staff.append(staff.dict())
+        
+        if new_staff:
+            await db.staff.insert_many(new_staff)
+        
+        return {"message": f"Successfully updated {len(new_staff)} staff members", "count": len(new_staff)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update staff list: {str(e)}")
+
+class AssetUpdate(BaseModel):
+    make: str
+    model: str
+
+@app.post("/api/admin/update-assets")
+async def update_asset_list(assets: List[AssetUpdate]):
+    """Update the asset list by replacing all existing assets with new list"""
+    try:
+        # Clear existing assets
+        await db.assets.delete_many({})
+        
+        # Add new assets
+        new_assets = []
+        for asset_data in assets:
+            asset = Asset(make=asset_data.make.strip(), model=asset_data.model.strip())
+            new_assets.append(asset.dict())
+        
+        if new_assets:
+            await db.assets.insert_many(new_assets)
+        
+        return {"message": f"Successfully updated {len(new_assets)} assets", "count": len(new_assets)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update asset list: {str(e)}")
+
 @app.get("/api/checklists/export/csv")
 async def export_checklists_csv():
     from fastapi.responses import StreamingResponse
