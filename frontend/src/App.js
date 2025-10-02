@@ -1546,36 +1546,36 @@ function App() {
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <Link to="/" className="flex items-center space-x-3" data-testid="logo-link">
+          <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+            <div className="flex items-center justify-between h-14 sm:h-16">
+              <Link to="/" className="flex items-center space-x-2" data-testid="logo-link">
                 <div className="flex items-center">
                   <img 
                     src="/abreys-logo.png" 
                     alt="Abreys Logo" 
-                    className="h-10 w-auto"
+                    className="h-8 sm:h-10 w-auto"
                   />
-                  <span className="text-sm text-gray-600 ml-3 font-medium">Machine Checklist</span>
+                  <span className="text-xs sm:text-sm text-gray-600 ml-2 sm:ml-3 font-medium hidden sm:block">Machine Checklist</span>
                 </div>
               </Link>
-              <nav className="flex items-center space-x-4">
+              <nav className="flex items-center space-x-1 sm:space-x-4">
                 <Link 
                   to="/" 
-                  className="text-gray-600 hover:text-green-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
                   data-testid="nav-dashboard"
                 >
-                  Dashboard
+                  Home
                 </Link>
                 <Link 
                   to="/new-checklist" 
-                  className="text-gray-600 hover:text-green-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
                   data-testid="nav-new-checklist"
                 >
-                  New Check
+                  Check
                 </Link>
                 <Link 
                   to="/records" 
-                  className="text-gray-600 hover:text-green-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
                   data-testid="nav-records"
                 >
                   Records
@@ -1584,10 +1584,10 @@ function App() {
                 {isAdmin && (
                   <Link 
                     to="/admin" 
-                    className="text-gray-600 hover:text-green-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
                     data-testid="nav-admin"
                   >
-                    Admin Panel
+                    Admin
                   </Link>
                 )}
                 {/* Show admin access button if not logged in as admin */}
@@ -1596,7 +1596,7 @@ function App() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowAdminLogin(true)}
-                    className="text-gray-600 hover:text-green-600 text-sm font-medium"
+                    className="text-gray-600 hover:text-green-600 text-xs sm:text-sm font-medium px-2 sm:px-3"
                     data-testid="admin-access-btn"
                   >
                     Admin
