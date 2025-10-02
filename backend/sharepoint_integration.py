@@ -31,6 +31,11 @@ class SharePointExcelIntegration:
         self.staff_file_url = "https://rgafarms-my.sharepoint.com/:x:/g/personal/matt_abrey-farms_co_uk/EVJlVIDkvf9Po1vj5SmNGGcBeiFhLR4uYeJXH-Jrr9XCeQ?e=XjybDY"
         self.asset_file_url = "https://rgafarms-my.sharepoint.com/:x:/g/personal/matt_abrey-farms_co_uk/EcE60OrrIiZEgesXpn83UPsBDq28FtRkh5eT2BSt4tTqnA?e=OPadb1"
         
+        # Checklist template URLs (you'll need to upload these to SharePoint and provide URLs)
+        self.daily_checklist_url = None  # URL to Daily_Check_Checklist.xlsx
+        self.grader_checklist_url = None  # URL to Grader_Startup_Checklist.xlsx  
+        self.workshop_tasks_url = None  # URL to Workshop_Service_Tasks.xlsx
+        
         # MSAL configuration
         self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"
         self.scopes = [
