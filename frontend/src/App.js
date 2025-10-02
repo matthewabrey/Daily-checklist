@@ -456,45 +456,66 @@ function NewChecklist() {
                 <p className="text-gray-600">Select the type of check you want to perform. Clicking will take you directly to the appropriate form.</p>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card 
-                  className={`p-6 cursor-pointer transition-all hover:shadow-lg hover:border-green-400 border-2 ${checkType === 'daily_check' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
+                  className={`p-4 cursor-pointer transition-all hover:shadow-lg hover:border-green-400 border-2 ${checkType === 'daily_check' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
                   onClick={() => {
                     setCheckType('daily_check');
                     setStep(4);
                   }}
                   data-testid="daily-check-option"
                 >
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-green-100 rounded-lg">
-                      <CheckCircle2 className="h-6 w-6 text-green-600" />
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg">Daily Check</h3>
-                      <p className="text-gray-600">Complete pre-startup safety inspection</p>
-                      <p className="text-sm text-gray-500 mt-1">15-item checklist with ✓/✗ options</p>
-                      <p className="text-xs text-green-600 font-medium mt-2">Click to start →</p>
+                      <h3 className="font-semibold text-base">Daily Check</h3>
+                      <p className="text-gray-600 text-sm">Pre-startup safety inspection</p>
+                      <p className="text-xs text-gray-500 mt-1">15-item checklist with ✓/✗ options</p>
+                      <p className="text-xs text-green-600 font-medium mt-1">Click to start →</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card 
+                  className={`p-4 cursor-pointer transition-all hover:shadow-lg hover:border-orange-400 border-2 ${checkType === 'grader_startup' ? 'border-orange-500 bg-orange-50' : 'border-gray-200'}`}
+                  onClick={() => {
+                    setCheckType('grader_startup');
+                    setStep(4);
+                  }}
+                  data-testid="grader-startup-option"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <AlertCircle className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-base">Grader Start Up</h3>
+                      <p className="text-gray-600 text-sm">Specialized grader safety checks</p>
+                      <p className="text-xs text-gray-500 mt-1">12-item grader-specific checklist</p>
+                      <p className="text-xs text-orange-600 font-medium mt-1">Click to start →</p>
                     </div>
                   </div>
                 </Card>
                 
                 <Card 
-                  className={`p-6 cursor-pointer transition-all hover:shadow-lg hover:border-blue-400 border-2 ${checkType === 'workshop_service' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                  className={`p-4 cursor-pointer transition-all hover:shadow-lg hover:border-blue-400 border-2 ${checkType === 'workshop_service' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
                   onClick={() => {
                     setCheckType('workshop_service');
                     setStep(4);
                   }}
                   data-testid="workshop-service-option"
                 >
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-blue-100 rounded-lg">
-                      <Settings className="h-6 w-6 text-blue-600" />
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Settings className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg">Workshop Service</h3>
-                      <p className="text-gray-600">Record maintenance or repair work</p>
-                      <p className="text-sm text-gray-500 mt-1">Document work completed on machine</p>
-                      <p className="text-xs text-blue-600 font-medium mt-2">Click to start →</p>
+                      <h3 className="font-semibold text-base">Workshop Service</h3>
+                      <p className="text-gray-600 text-sm">Record maintenance or repair work</p>
+                      <p className="text-xs text-gray-500 mt-1">Document work completed on machine</p>
+                      <p className="text-xs text-blue-600 font-medium mt-1">Click to start →</p>
                     </div>
                   </div>
                 </Card>
