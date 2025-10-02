@@ -118,12 +118,13 @@ function Dashboard() {
             <div className="space-y-4">
               {recentChecklists.map((checklist) => {
                 let statusBadge;
-                if (checklist.check_type === 'daily_check') {
+                if (checklist.check_type === 'daily_check' || checklist.check_type === 'grader_startup') {
                   const itemsSatisfactory = checklist.checklist_items.filter(item => item.status === 'satisfactory').length;
                   const itemsUnsatisfactory = checklist.checklist_items.filter(item => item.status === 'unsatisfactory').length;
                   const totalItems = checklist.checklist_items.length;
                   statusBadge = (
-                    <Badge variant={itemsUnsatisfactory === 0 ? "secondary" : "destructive"} className="mb-1">
+                    <Badge variant={itemsUnsatisfactory === 0 ? "secondary" : "destructive"} 
+                           className={`mb-1 ${checklist.check_type === 'grader_startup' ? 'bg-orange-100 text-orange-800' : ''}`}>
                       ✓{itemsSatisfactory} ✗{itemsUnsatisfactory}/{totalItems}
                     </Badge>
                   );
@@ -134,19 +135,40 @@ function Dashboard() {
                     </Badge>
                   );
                 }
+
+                const getCheckTypeDisplay = (type) => {
+                  switch(type) {
+                    case 'daily_check': return 'Daily check';
+                    case 'grader_startup': return 'Grader startup';
+                    case 'workshop_service': return 'Workshop service';
+                    default: return 'Check';
+                  }
+                };
+
+                const getIconAndColor = (type) => {
+                  switch(type) {
+                    case 'daily_check': 
+                      return { bg: 'bg-green-100', icon: <CheckCircle2 className="h-4 w-4 text-green-600" /> };
+                    case 'grader_startup': 
+                      return { bg: 'bg-orange-100', icon: <AlertCircle className="h-4 w-4 text-orange-600" /> };
+                    case 'workshop_service': 
+                      return { bg: 'bg-blue-100', icon: <Settings className="h-4 w-4 text-blue-600" /> };
+                    default: 
+                      return { bg: 'bg-gray-100', icon: <CheckCircle2 className="h-4 w-4 text-gray-600" /> };
+                  }
+                };
+
+                const iconConfig = getIconAndColor(checklist.check_type);
                 
                 return (
                   <div key={checklist.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50" data-testid={`checklist-item-${checklist.id}`}>
                     <div className="flex items-center space-x-4">
-                      <div className={`p-2 rounded-lg ${checklist.check_type === 'daily_check' ? 'bg-green-100' : 'bg-blue-100'}`}>
-                        {checklist.check_type === 'daily_check' ? 
-                          <CheckCircle2 className="h-4 w-4 text-green-600" /> : 
-                          <Settings className="h-4 w-4 text-blue-600" />
-                        }
+                      <div className={`p-2 rounded-lg ${iconConfig.bg}`}>
+                        {iconConfig.icon}
                       </div>
                       <div>
                         <p className="font-medium">{checklist.machine_make} {checklist.machine_model}</p>
-                        <p className="text-sm text-gray-600">{checklist.check_type === 'daily_check' ? 'Daily check' : 'Workshop service'} by {checklist.staff_name}</p>
+                        <p className="text-sm text-gray-600">{getCheckTypeDisplay(checklist.check_type)} by {checklist.staff_name}</p>
                       </div>
                     </div>
                     <div className="text-right">
