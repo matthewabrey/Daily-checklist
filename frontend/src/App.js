@@ -1170,7 +1170,7 @@ function App() {
               <Link to="/" className="flex items-center space-x-3" data-testid="logo-link">
                 <div className="flex items-center">
                   <img 
-                    src="/abreys-logo.svg" 
+                    src="/abreys-logo.png" 
                     alt="Abreys Logo" 
                     className="h-10 w-auto"
                   />
