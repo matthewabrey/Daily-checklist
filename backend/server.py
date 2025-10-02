@@ -516,6 +516,72 @@ async def upload_assets_file(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process assets file: {str(e)}")
 
+@app.post("/api/admin/upload-checklist-file/{check_type}")
+async def upload_checklist_file(check_type: str, file: UploadFile = File(...)):
+    """Upload and process checklist template from Excel file"""
+    try:
+        import openpyxl
+        from io import BytesIO
+        
+        # Validate check type
+        valid_types = ['daily_check', 'grader_startup', 'workshop_service']
+        if check_type not in valid_types:
+            raise HTTPException(status_code=400, detail=f"Invalid check type. Must be one of: {valid_types}")
+        
+        # Read file content
+        file_content = await file.read()
+        
+        # Load the Excel file
+        workbook = openpyxl.load_workbook(BytesIO(file_content))
+        sheet = workbook.active
+        
+        # Get headers and find required columns
+        headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
+        item_col = None
+        category_col = None
+        critical_col = None
+        
+        for i, header in enumerate(headers):
+            if 'item' in header or 'task' in header:
+                item_col = i
+            elif 'category' in header:
+                category_col = i
+            elif 'critical' in header or 'common' in header:
+                critical_col = i
+        
+        if item_col is None:
+            raise HTTPException(status_code=400, detail="Could not find Item or Task column in the file")
+        
+        # Extract checklist items
+        items = []
+        for row in sheet.iter_rows(min_row=2, values_only=True):  # Skip header
+            if row and len(row) > item_col and row[item_col]:
+                item_text = str(row[item_col]).strip()
+                if item_text:
+                    items.append(item_text)
+        
+        if not items:
+            raise HTTPException(status_code=400, detail="No checklist items found in the uploaded file")
+        
+        # Update database
+        await db.checklist_templates.delete_many({"check_type": check_type})
+        
+        template = ChecklistTemplate(
+            check_type=check_type,
+            items=items
+        )
+        await db.checklist_templates.insert_one(template.dict())
+        
+        return {
+            "message": f"Successfully uploaded {len(items)} items for {check_type}",
+            "count": len(items),
+            "check_type": check_type,
+            "preview": items[:5]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process checklist file: {str(e)}")
+
 @app.post("/api/admin/sharepoint/sync-checklists")
 async def sync_checklists_from_sharepoint():
     """Sync checklist templates from SharePoint Excel files"""
