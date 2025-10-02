@@ -418,7 +418,7 @@ async def sync_assets_from_sharepoint():
         raise HTTPException(status_code=500, detail=f"Failed to sync asset data: {str(e)}")
 
 @app.post("/api/admin/upload-staff-file")
-async def upload_staff_file(file: bytes):
+async def upload_staff_file(file: UploadFile = File(...)):
     """Upload and process staff names from Excel file"""
     try:
         import openpyxl
