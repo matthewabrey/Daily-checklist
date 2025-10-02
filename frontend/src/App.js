@@ -249,13 +249,36 @@ function NewChecklist() {
 
   useEffect(() => {
     if (step === 4) {
-      if (checkType === 'daily_check') {
-        setChecklistItems(defaultChecklistItems);
-      } else if (checkType === 'grader_startup') {
-        setChecklistItems(graderStartupChecklistItems);
+      if (checkType === 'daily_check' || checkType === 'grader_startup') {
+        loadChecklistTemplate(checkType);
       }
     }
   }, [step, checkType]);
+
+  const loadChecklistTemplate = async (type) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/checklist-templates/${type}`);
+      const template = await response.json();
+      
+      if (response.ok && template.items) {
+        const items = template.items.map(item => ({
+          item: item,
+          status: "unchecked",
+          notes: ""
+        }));
+        setChecklistItems(items);
+      } else {
+        // Fallback to default items if template not found
+        const fallbackItems = type === 'daily_check' ? defaultChecklistItems : graderStartupChecklistItems;
+        setChecklistItems(fallbackItems);
+      }
+    } catch (error) {
+      console.error('Error loading checklist template:', error);
+      // Fallback to default items on error
+      const fallbackItems = type === 'daily_check' ? defaultChecklistItems : graderStartupChecklistItems;
+      setChecklistItems(fallbackItems);
+    }
+  };
 
   const fetchStaff = async () => {
     try {
