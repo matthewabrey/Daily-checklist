@@ -454,7 +454,7 @@ async def upload_staff_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to process staff file: {str(e)}")
 
 @app.post("/api/admin/upload-assets-file") 
-async def upload_assets_file(file: bytes):
+async def upload_assets_file(file: UploadFile = File(...)):
     """Upload and process assets from Excel file"""
     try:
         import openpyxl
