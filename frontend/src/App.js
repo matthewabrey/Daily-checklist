@@ -916,6 +916,9 @@ function SharePointAdmin() {
               <ul className="text-sm text-blue-800 space-y-1">
                 <li>• Staff Names: Name List.xlsx</li>
                 <li>• Machine Assets: AssetList.xlsx</li>
+                <li>• Daily Check Items: Daily_Check_Checklist.xlsx</li>
+                <li>• Grader Startup Items: Grader_Startup_Checklist.xlsx</li>
+                <li>• Workshop Tasks: Workshop_Service_Tasks.xlsx</li>
               </ul>
             </div>
             <Button 
