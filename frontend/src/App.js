@@ -162,7 +162,7 @@ function Dashboard() {
                 const iconConfig = getIconAndColor(checklist.check_type);
                 
                 return (
-                  <div key={checklist.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50" data-testid={`checklist-item-${checklist.id}`}>
+                  <div key={checklist.id} className="flex items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-gray-50" data-testid={`checklist-item-${checklist.id}`}>
                     <div className="flex items-center space-x-4">
                       <div className={`p-2 rounded-lg ${iconConfig.bg}`}>
                         {iconConfig.icon}
