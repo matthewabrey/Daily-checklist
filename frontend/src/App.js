@@ -1191,7 +1191,7 @@ function Records() {
                 const completedDate = new Date(checklist.completed_at);
                 let statusInfo;
                 
-                if (checklist.check_type === 'daily_check') {
+                if (checklist.check_type === 'daily_check' || checklist.check_type === 'grader_startup') {
                   const itemsSatisfactory = checklist.checklist_items.filter(item => item.status === 'satisfactory').length;
                   const itemsUnsatisfactory = checklist.checklist_items.filter(item => item.status === 'unsatisfactory').length;
                   const totalItems = checklist.checklist_items.length;
@@ -1199,7 +1199,7 @@ function Records() {
                     <div className="space-y-1">
                       <Badge 
                         variant={itemsUnsatisfactory === 0 ? "default" : "secondary"}
-                        className="mb-1"
+                        className={`mb-1 ${checklist.check_type === 'grader_startup' ? 'bg-orange-100 text-orange-800' : ''}`}
                       >
                         ✓{itemsSatisfactory} ✗{itemsUnsatisfactory} of {totalItems} items
                       </Badge>
@@ -1215,21 +1215,42 @@ function Records() {
                     </Badge>
                   );
                 }
+
+                const getCheckTypeDisplay = (type) => {
+                  switch(type) {
+                    case 'daily_check': return 'Daily check';
+                    case 'grader_startup': return 'Grader startup';
+                    case 'workshop_service': return 'Workshop service';
+                    default: return 'Check';
+                  }
+                };
+
+                const getIconAndColor = (type) => {
+                  switch(type) {
+                    case 'daily_check': 
+                      return { bg: 'bg-green-100', icon: <CheckCircle2 className="h-6 w-6 text-green-600" /> };
+                    case 'grader_startup': 
+                      return { bg: 'bg-orange-100', icon: <AlertCircle className="h-6 w-6 text-orange-600" /> };
+                    case 'workshop_service': 
+                      return { bg: 'bg-blue-100', icon: <Settings className="h-6 w-6 text-blue-600" /> };
+                    default: 
+                      return { bg: 'bg-gray-100', icon: <CheckCircle2 className="h-6 w-6 text-gray-600" /> };
+                  }
+                };
+
+                const iconConfig = getIconAndColor(checklist.check_type);
                 
                 return (
                   <Card key={checklist.id} className="hover:shadow-md transition-shadow" data-testid={`record-item-${checklist.id}`}>
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
-                          <div className={`p-3 rounded-lg ${checklist.check_type === 'daily_check' ? 'bg-green-100' : 'bg-blue-100'}`}>
-                            {checklist.check_type === 'daily_check' ? 
-                              <CheckCircle2 className="h-6 w-6 text-green-600" /> : 
-                              <Settings className="h-6 w-6 text-blue-600" />
-                            }
+                          <div className={`p-3 rounded-lg ${iconConfig.bg}`}>
+                            {iconConfig.icon}
                           </div>
                           <div>
                             <h3 className="font-semibold text-lg">{checklist.machine_make} {checklist.machine_model}</h3>
-                            <p className="text-gray-600">{checklist.check_type === 'daily_check' ? 'Daily check' : 'Workshop service'} by {checklist.staff_name}</p>
+                            <p className="text-gray-600">{getCheckTypeDisplay(checklist.check_type)} by {checklist.staff_name}</p>
                             <p className="text-sm text-gray-500">ID: {checklist.id.substring(0, 8)}...</p>
                           </div>
                         </div>
