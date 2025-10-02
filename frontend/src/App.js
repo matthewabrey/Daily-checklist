@@ -659,7 +659,7 @@ function NewChecklist() {
                           <Button
                             variant={item.status === 'satisfactory' ? 'default' : 'outline'}
                             size="sm"
-                            className={`w-8 h-8 p-0 ${item.status === 'satisfactory' ? (checkType === 'grader_startup' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700') : (checkType === 'grader_startup' ? 'hover:bg-orange-50' : 'hover:bg-green-50')}`}
+                            className={`w-10 h-10 sm:w-8 sm:h-8 p-0 text-lg sm:text-base ${item.status === 'satisfactory' ? (checkType === 'grader_startup' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700') : (checkType === 'grader_startup' ? 'hover:bg-orange-50' : 'hover:bg-green-50')}`}
                             onClick={() => handleItemChange(index, 'status', item.status === 'satisfactory' ? 'unchecked' : 'satisfactory')}
                             data-testid={`checklist-satisfactory-${index}`}
                           >
@@ -668,7 +668,7 @@ function NewChecklist() {
                           <Button
                             variant={item.status === 'unsatisfactory' ? 'default' : 'outline'}
                             size="sm"
-                            className={`w-8 h-8 p-0 ${item.status === 'unsatisfactory' ? 'bg-red-600 hover:bg-red-700 text-white' : 'hover:bg-red-50 text-red-600'}`}
+                            className={`w-10 h-10 sm:w-8 sm:h-8 p-0 text-lg sm:text-base ${item.status === 'unsatisfactory' ? 'bg-red-600 hover:bg-red-700 text-white' : 'hover:bg-red-50 text-red-600'}`}
                             onClick={() => handleItemChange(index, 'status', item.status === 'unsatisfactory' ? 'unchecked' : 'unsatisfactory')}
                             data-testid={`checklist-unsatisfactory-${index}`}
                           >
