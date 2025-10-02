@@ -587,7 +587,7 @@ async def export_checklists_csv():
     
     # Write data
     for checklist in checklists:
-        if checklist['check_type'] == 'daily_check':
+        if checklist['check_type'] in ['daily_check', 'grader_startup']:
             items_satisfactory = sum(1 for item in checklist['checklist_items'] if item['status'] == 'satisfactory')
             items_unsatisfactory = sum(1 for item in checklist['checklist_items'] if item['status'] == 'unsatisfactory')
             items_total = len(checklist['checklist_items'])
