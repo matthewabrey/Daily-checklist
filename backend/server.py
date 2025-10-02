@@ -7,6 +7,7 @@ import os
 from motor.motor_asyncio import AsyncIOMotorClient
 import uuid
 from bson import ObjectId
+from sharepoint_integration import sharepoint_integration
 
 app = FastAPI(title="Machine Checklist API")
 
