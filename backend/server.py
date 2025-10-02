@@ -191,6 +191,37 @@ async def initialize_data():
 @app.on_event("startup")
 async def startup_event():
     await initialize_data()
+    await migrate_existing_checklists()
+
+async def migrate_existing_checklists():
+    """Add check_type field to existing checklists that don't have it"""
+    try:
+        # Find checklists without check_type field
+        checklists_to_update = await db.checklists.find({"check_type": {"$exists": False}}).to_list(length=None)
+        
+        if checklists_to_update:
+            print(f"Migrating {len(checklists_to_update)} existing checklists...")
+            
+            # Update each checklist to add check_type as "daily_check" (assuming old records were daily checks)
+            for checklist in checklists_to_update:
+                # Convert old "checked" boolean to new "status" format
+                if checklist.get('checklist_items'):
+                    for item in checklist['checklist_items']:
+                        if 'checked' in item and 'status' not in item:
+                            item['status'] = 'satisfactory' if item['checked'] else 'unchecked'
+                            item.pop('checked', None)  # Remove old field
+                
+                await db.checklists.update_one(
+                    {"_id": checklist["_id"]}, 
+                    {"$set": {
+                        "check_type": "daily_check",
+                        "workshop_notes": None,
+                        "checklist_items": checklist.get('checklist_items', [])
+                    }}
+                )
+            print(f"Successfully migrated {len(checklists_to_update)} checklists")
+    except Exception as e:
+        print(f"Migration error: {e}")
 
 # API Routes
 @app.get("/api/health")
