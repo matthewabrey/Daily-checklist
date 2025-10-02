@@ -410,6 +410,67 @@ function NewChecklist() {
 
           {step === 3 && (
             <div className="space-y-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <User className="h-5 w-5 text-green-600" />
+                <span className="font-medium">Staff: {selectedStaff}</span>
+                <Wrench className="h-5 w-5 text-green-600 ml-4" />
+                <span className="font-medium">Machine: {selectedMake} {selectedModel}</span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card 
+                  className={`p-6 cursor-pointer transition-all hover:shadow-lg ${checkType === 'daily_check' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
+                  onClick={() => setCheckType('daily_check')}
+                  data-testid="daily-check-option"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <CheckCircle2 className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Daily Check</h3>
+                      <p className="text-gray-600">Complete pre-startup safety inspection</p>
+                      <p className="text-sm text-gray-500 mt-1">15-item checklist with pass/fail options</p>
+                    </div>
+                  </div>
+                </Card>
+                
+                <Card 
+                  className={`p-6 cursor-pointer transition-all hover:shadow-lg ${checkType === 'workshop_service' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
+                  onClick={() => setCheckType('workshop_service')}
+                  data-testid="workshop-service-option"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="p-3 bg-blue-100 rounded-lg">
+                      <Settings className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Workshop Service</h3>
+                      <p className="text-gray-600">Record maintenance or repair work</p>
+                      <p className="text-sm text-gray-500 mt-1">Document work completed on machine</p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+              
+              <div className="flex justify-between pt-6">
+                <Button variant="outline" onClick={() => setStep(2)} data-testid="back-to-machine-btn">
+                  Back: Machine Selection
+                </Button>
+                <Button 
+                  onClick={() => setStep(4)} 
+                  disabled={!canProceedToStep4}
+                  className="bg-green-600 hover:bg-green-700"
+                  data-testid="proceed-to-checklist-btn"
+                >
+                  Next: {checkType === 'daily_check' ? 'Safety Checklist' : 'Workshop Notes'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <div className="flex items-center space-x-2 mb-2">
