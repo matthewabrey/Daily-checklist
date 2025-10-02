@@ -1451,8 +1451,94 @@ function Records() {
   );
 }
 
+// Admin Login Component
+function AdminLogin({ onLogin }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLogin = () => {
+    // Simple password check - you can change this password
+    if (password === 'abreys2024admin') {
+      onLogin();
+      toast.success('Admin access granted');
+    } else {
+      setError('Invalid admin password');
+      toast.error('Invalid admin password');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-center">Admin Access Required</CardTitle>
+          <CardDescription className="text-center">
+            Enter admin password to access sync functionality
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block">Admin Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Enter admin password"
+              data-testid="admin-password-input"
+            />
+            {error && (
+              <p className="text-red-600 text-sm mt-1">{error}</p>
+            )}
+          </div>
+          <div className="flex space-x-2">
+            <Button 
+              onClick={handleLogin} 
+              className="flex-1 bg-green-600 hover:bg-green-700"
+              data-testid="admin-login-btn"
+            >
+              Access Admin
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.href = '/'}
+              className="flex-1"
+            >
+              Back to App
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // Main App Component
 function App() {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+
+  // Check if we're on admin route
+  const currentPath = window.location.pathname;
+  const isAdminRoute = currentPath === '/admin';
+
+  const handleAdminAccess = () => {
+    if (!isAdmin && isAdminRoute) {
+      setShowAdminLogin(true);
+    }
+  };
+
+  const handleAdminLogin = () => {
+    setIsAdmin(true);
+    setShowAdminLogin(false);
+  };
+
+  // Show admin login if needed
+  if (showAdminLogin) {
+    return <AdminLogin onLogin={handleAdminLogin} />;
+  }
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
@@ -1492,13 +1578,28 @@ function App() {
                 >
                   Records
                 </Link>
-                <Link 
-                  to="/admin" 
-                  className="text-gray-600 hover:text-green-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                  data-testid="nav-admin"
-                >
-                  Sync Data
-                </Link>
+                {/* Only show admin link if user has admin access */}
+                {isAdmin && (
+                  <Link 
+                    to="/admin" 
+                    className="text-gray-600 hover:text-green-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    data-testid="nav-admin"
+                  >
+                    Admin Panel
+                  </Link>
+                )}
+                {/* Show admin access button if not logged in as admin */}
+                {!isAdmin && (
+                  <Button 
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAdminLogin(true)}
+                    className="text-gray-600 hover:text-green-600 text-sm font-medium"
+                    data-testid="admin-access-btn"
+                  >
+                    Admin
+                  </Button>
+                )}
               </nav>
             </div>
           </div>
