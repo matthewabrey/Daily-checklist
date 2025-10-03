@@ -531,7 +531,7 @@ async def sync_assets_from_sharepoint():
 
 @app.post("/api/admin/upload-staff-file")
 async def upload_staff_file(file: UploadFile = File(...)):
-    """Upload and process staff names from Excel file"""
+    """Upload and process staff with employee numbers from Excel file"""
     try:
         import openpyxl
         from io import BytesIO
@@ -543,26 +543,52 @@ async def upload_staff_file(file: UploadFile = File(...)):
         workbook = openpyxl.load_workbook(BytesIO(file_content))
         sheet = workbook.active
         
-        # Extract staff names (assuming they're in the first column)
-        staff_names = []
-        for row in sheet.iter_rows(min_row=1, max_col=1, values_only=True):
-            if row[0] and str(row[0]).strip():
-                name = str(row[0]).strip()
-                if name.lower() not in ['name', 'staff', 'employee']:  # Skip headers
-                    staff_names.append(name)
+        # Get headers and find name/employee number columns
+        headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
+        name_col = None
+        number_col = None
         
-        if not staff_names:
-            raise HTTPException(status_code=400, detail="No staff names found in the uploaded file")
+        for i, header in enumerate(headers):
+            if 'name' in header and 'employee' not in header:
+                name_col = i
+            elif 'number' in header or 'employee' in header or 'emp' in header:
+                number_col = i
+        
+        # Fallback: assume first column is names, second is numbers
+        if name_col is None:
+            name_col = 0
+        if number_col is None and len(headers) > 1:
+            number_col = 1
+        
+        if number_col is None:
+            raise HTTPException(status_code=400, detail="Could not find Employee Number column. Please ensure your Excel has both Name and Employee Number columns.")
+        
+        # Extract staff data
+        staff_data = []
+        for row in sheet.iter_rows(min_row=2, values_only=True):  # Skip header
+            if row and len(row) > max(name_col, number_col):
+                name = str(row[name_col]).strip() if row[name_col] else ''
+                emp_number = str(row[number_col]).strip() if row[number_col] else ''
+                
+                if name and emp_number and name.lower() not in ['name', 'staff', 'employee']:
+                    staff_data.append({
+                        "name": name,
+                        "employee_number": emp_number,
+                        "active": True
+                    })
+        
+        if not staff_data:
+            raise HTTPException(status_code=400, detail="No valid staff data found. Please ensure your Excel has Name and Employee Number columns with data.")
         
         # Update database
         await db.staff.delete_many({})
-        new_staff = [Staff(name=name).dict() for name in staff_names]
+        new_staff = [Staff(**data).dict() for data in staff_data]
         await db.staff.insert_many(new_staff)
         
         return {
-            "message": f"Successfully uploaded {len(staff_names)} staff members",
-            "count": len(staff_names),
-            "preview": staff_names[:5]
+            "message": f"Successfully uploaded {len(staff_data)} staff members with employee numbers",
+            "count": len(staff_data),
+            "preview": staff_data[:5]
         }
         
     except Exception as e:
