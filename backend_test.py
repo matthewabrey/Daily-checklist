@@ -273,6 +273,249 @@ class MachineChecklistAPITester:
             self.log_test("Export CSV", False, f"Exception: {str(e)}")
             return False
 
+    def test_employee_login_valid(self, employee_number: str) -> tuple[bool, Dict]:
+        """Test employee login with valid employee number"""
+        try:
+            login_data = {"employee_number": employee_number}
+            response = requests.post(
+                f"{self.base_url}/api/auth/employee-login",
+                json=login_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            employee_data = {}
+            
+            if success:
+                result = response.json()
+                employee_data = result.get('employee', {})
+                details = f"Status: {response.status_code}, Success: {result.get('success', False)}"
+                
+                # Verify response structure
+                if not result.get('success'):
+                    success = False
+                    details += " (Success flag is False)"
+                elif 'employee' not in result:
+                    success = False
+                    details += " (Missing employee data)"
+                elif 'employee_number' not in employee_data or 'name' not in employee_data:
+                    success = False
+                    details += " (Invalid employee structure)"
+                else:
+                    details += f", Employee: {employee_data.get('name', 'Unknown')}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test(f"Employee Login (Valid: {employee_number})", success, details)
+            return success, employee_data
+        except Exception as e:
+            self.log_test(f"Employee Login (Valid: {employee_number})", False, f"Exception: {str(e)}")
+            return False, {}
+
+    def test_employee_login_invalid(self, employee_number: str) -> bool:
+        """Test employee login with invalid employee number"""
+        try:
+            login_data = {"employee_number": employee_number}
+            response = requests.post(
+                f"{self.base_url}/api/auth/employee-login",
+                json=login_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            # Should return 401 for invalid employee number
+            success = response.status_code == 401
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                try:
+                    result = response.json()
+                    details += f", Error: {result.get('detail', 'No error message')}"
+                except:
+                    details += ", No JSON response"
+            else:
+                details += f" (Expected 401), Response: {response.text[:100]}"
+                
+            self.log_test(f"Employee Login (Invalid: {employee_number})", success, details)
+            return success
+        except Exception as e:
+            self.log_test(f"Employee Login (Invalid: {employee_number})", False, f"Exception: {str(e)}")
+            return False
+
+    def test_employee_login_empty(self) -> bool:
+        """Test employee login with empty employee number"""
+        try:
+            login_data = {"employee_number": ""}
+            response = requests.post(
+                f"{self.base_url}/api/auth/employee-login",
+                json=login_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            # Should return 400 or 401 for empty employee number
+            success = response.status_code in [400, 401]
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                try:
+                    result = response.json()
+                    details += f", Error: {result.get('detail', 'No error message')}"
+                except:
+                    details += ", No JSON response"
+            else:
+                details += f" (Expected 400/401), Response: {response.text[:100]}"
+                
+            self.log_test("Employee Login (Empty)", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Employee Login (Empty)", False, f"Exception: {str(e)}")
+            return False
+
+    def test_employee_login_malformed(self) -> bool:
+        """Test employee login with malformed request"""
+        try:
+            # Test with missing employee_number field
+            login_data = {"invalid_field": "test"}
+            response = requests.post(
+                f"{self.base_url}/api/auth/employee-login",
+                json=login_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            # Should return 422 for validation error
+            success = response.status_code == 422
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                try:
+                    result = response.json()
+                    details += f", Validation Error: {result.get('detail', 'No error message')}"
+                except:
+                    details += ", No JSON response"
+            else:
+                details += f" (Expected 422), Response: {response.text[:100]}"
+                
+            self.log_test("Employee Login (Malformed)", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Employee Login (Malformed)", False, f"Exception: {str(e)}")
+            return False
+
+    def test_employee_validate_valid(self, employee_number: str) -> bool:
+        """Test employee validation with valid employee number"""
+        try:
+            response = requests.get(f"{self.base_url}/api/auth/validate/{employee_number}", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                result = response.json()
+                details = f"Status: {response.status_code}, Valid: {result.get('valid', False)}"
+                
+                # Should return valid: true for existing employee
+                if not result.get('valid'):
+                    success = False
+                    details += " (Expected valid: true)"
+                elif 'name' not in result:
+                    success = False
+                    details += " (Missing name field)"
+                else:
+                    details += f", Name: {result.get('name', 'Unknown')}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test(f"Employee Validate (Valid: {employee_number})", success, details)
+            return success
+        except Exception as e:
+            self.log_test(f"Employee Validate (Valid: {employee_number})", False, f"Exception: {str(e)}")
+            return False
+
+    def test_employee_validate_invalid(self, employee_number: str) -> bool:
+        """Test employee validation with invalid employee number"""
+        try:
+            response = requests.get(f"{self.base_url}/api/auth/validate/{employee_number}", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                result = response.json()
+                details = f"Status: {response.status_code}, Valid: {result.get('valid', True)}"
+                
+                # Should return valid: false for non-existent employee
+                if result.get('valid'):
+                    success = False
+                    details += " (Expected valid: false)"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test(f"Employee Validate (Invalid: {employee_number})", success, details)
+            return success
+        except Exception as e:
+            self.log_test(f"Employee Validate (Invalid: {employee_number})", False, f"Exception: {str(e)}")
+            return False
+
+    def test_checklist_with_employee_number(self, employee_number: str, staff_name: str, machine_make: str, machine_model: str) -> tuple[bool, str]:
+        """Test creating a checklist with employee number"""
+        try:
+            checklist_items = [
+                {"item": "Oil level check - Engine oil at correct level", "status": "satisfactory", "notes": "Oil level good"},
+                {"item": "Fuel level check - Adequate fuel for operation", "status": "satisfactory", "notes": ""},
+                {"item": "Hydraulic fluid level - Within acceptable range", "status": "satisfactory", "notes": ""},
+                {"item": "Battery condition - Terminals clean, voltage adequate", "status": "satisfactory", "notes": ""},
+                {"item": "Tire/track condition - No visible damage or excessive wear", "status": "satisfactory", "notes": ""},
+                {"item": "Safety guards in place - All protective covers secured", "status": "satisfactory", "notes": ""},
+                {"item": "Emergency stop function - Test emergency stop button", "status": "satisfactory", "notes": ""},
+                {"item": "Warning lights operational - All safety lights working", "status": "satisfactory", "notes": ""},
+                {"item": "Operator seat condition - Seat belt and controls functional", "status": "satisfactory", "notes": ""},
+                {"item": "Air filter condition - Clean and properly sealed", "status": "satisfactory", "notes": ""},
+                {"item": "Cooling system - Radiator clear, coolant level adequate", "status": "satisfactory", "notes": ""},
+                {"item": "Brake system function - Service and parking brakes operational", "status": "satisfactory", "notes": ""},
+                {"item": "Steering operation - Smooth operation, no excessive play", "status": "satisfactory", "notes": ""},
+                {"item": "Lights and signals - All operational lights working", "status": "satisfactory", "notes": ""},
+                {"item": "Fire extinguisher - Present and within service date", "status": "satisfactory", "notes": "Auth test checklist"}
+            ]
+            
+            checklist_data = {
+                "employee_number": employee_number,
+                "staff_name": staff_name,
+                "machine_make": machine_make,
+                "machine_model": machine_model,
+                "check_type": "daily_check",
+                "checklist_items": checklist_items
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/checklists",
+                json=checklist_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            checklist_id = ""
+            
+            if success:
+                result = response.json()
+                checklist_id = result.get('id', '')
+                details = f"Status: {response.status_code}, ID: {checklist_id[:8]}..."
+                
+                # Verify employee_number is stored correctly
+                if result.get('employee_number') != employee_number:
+                    success = False
+                    details += f" (Employee number mismatch: expected {employee_number}, got {result.get('employee_number')})"
+                elif result.get('staff_name') != staff_name:
+                    success = False
+                    details += f" (Staff name mismatch: expected {staff_name}, got {result.get('staff_name')})"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test(f"Create Checklist with Employee Number ({employee_number})", success, details)
+            return success, checklist_id
+        except Exception as e:
+            self.log_test(f"Create Checklist with Employee Number ({employee_number})", False, f"Exception: {str(e)}")
+            return False, ""
+
     def run_all_tests(self):
         """Run comprehensive API tests"""
         print("🚀 Starting Machine Checklist API Tests")
