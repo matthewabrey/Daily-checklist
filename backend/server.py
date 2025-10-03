@@ -819,12 +819,16 @@ async def sync_all_from_sharepoint():
         
         # Sync staff data
         try:
-            staff_names = sharepoint_integration.get_staff_data()
+            staff_data = sharepoint_integration.get_staff_data()
             await db.staff.delete_many({})
             
             new_staff = []
-            for staff_name in staff_names:
-                staff = Staff(name=staff_name.strip())
+            for staff_info in staff_data:
+                staff = Staff(
+                    name=staff_info['name'],
+                    employee_number=staff_info['employee_number'],
+                    active=True
+                )
                 new_staff.append(staff.dict())
             
             if new_staff:
@@ -833,7 +837,7 @@ async def sync_all_from_sharepoint():
             results['staff'] = {
                 "success": True,
                 "count": len(new_staff),
-                "message": f"Synced {len(new_staff)} staff members"
+                "message": f"Synced {len(new_staff)} staff members with employee numbers"
             }
         except Exception as e:
             results['staff'] = {"success": False, "error": str(e)}
