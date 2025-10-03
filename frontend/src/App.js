@@ -250,7 +250,8 @@ function Dashboard() {
 }
 
 // Employee Login Component
-function EmployeeLogin({ onLogin }) {
+function EmployeeLogin() {
+  const { login } = useAuth();
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -274,7 +275,7 @@ function EmployeeLogin({ onLogin }) {
       const data = await response.json();
 
       if (response.ok) {
-        onLogin(data.employee);
+        login(data.employee);
         toast.success(`Welcome ${data.employee.name}!`);
       } else {
         setError(data.detail || 'Invalid employee number');
