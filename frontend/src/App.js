@@ -631,7 +631,7 @@ function NewChecklist() {
                   className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-green-400 border-2 ${checkType === 'daily_check' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
                   onClick={() => {
                     setCheckType('daily_check');
-                    setStep(4);
+                    setStep(3);
                   }}
                   data-testid="daily-check-option"
                 >
