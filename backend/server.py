@@ -201,6 +201,11 @@ async def initialize_data():
             staff = Staff(name=staff_name)
             staff_dict = staff.dict()
             await db.staff.insert_one(staff_dict)
+            
+        # Add admin employee 
+        admin_staff = Staff(employee_number="4444", name="Admin User")
+        admin_dict = admin_staff.dict()
+        await db.staff.insert_one(admin_dict)
 
 @app.on_event("startup")
 async def startup_event():
