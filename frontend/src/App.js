@@ -1775,9 +1775,21 @@ function AppContent() {
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/new-checklist" element={<NewChecklist />} />
-            <Route path="/records" element={<Records />} />
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/new-checklist" element={
+              <ProtectedRoute>
+                <NewChecklist />
+              </ProtectedRoute>
+            } />
+            <Route path="/records" element={
+              <ProtectedRoute>
+                <Records />
+              </ProtectedRoute>
+            } />
             <Route 
               path="/admin" 
               element={
