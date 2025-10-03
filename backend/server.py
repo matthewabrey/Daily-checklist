@@ -405,8 +405,8 @@ async def get_checklist(checklist_id: str):
 async def update_staff_list(staff_names: List[str]):
     """Update the staff list by replacing all existing staff with new list"""
     try:
-        # Clear existing staff
-        await db.staff.delete_many({})
+        # Clear existing staff except admin (4444)
+        await db.staff.delete_many({"employee_number": {"$ne": "4444"}})
         
         # Add new staff
         new_staff = []
