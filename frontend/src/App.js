@@ -394,7 +394,6 @@ function NewChecklist() {
   ];
 
   useEffect(() => {
-    fetchStaff();
     fetchMakes();
   }, []);
 
