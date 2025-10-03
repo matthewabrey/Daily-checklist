@@ -926,25 +926,6 @@ function SharePointAdminComponent() {
   };
       
       if (response.ok) {
-        // Redirect to SharePoint authentication
-        window.location.href = data.auth_url;
-      } else {
-        toast.error('Failed to get authentication URL');
-      }
-    } catch (error) {
-      toast.error('Failed to start authentication');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const testConnection = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/test`);
-      const data = await response.json();
-      
-      if (response.ok) {
         setConnectionStatus(data);
         setIsAuthenticated(true);
       } else {
