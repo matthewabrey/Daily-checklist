@@ -341,8 +341,8 @@ function EmployeeLogin() {
 
 // New Checklist Component
 function NewChecklist() {
+  const { employee, isAuthenticated } = useAuth();
   const [step, setStep] = useState(1);
-  const [employee, setEmployee] = useState(null);
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   const [checkType, setCheckType] = useState('');
@@ -352,6 +352,13 @@ function NewChecklist() {
   const [models, setModels] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   const defaultChecklistItems = [
     { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
