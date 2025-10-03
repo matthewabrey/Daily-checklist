@@ -1809,7 +1809,7 @@ function AppContent() {
       </div>
     </Router>
   );
-});
+}
 
 // Main App Component with Auth Provider
 function App() {
