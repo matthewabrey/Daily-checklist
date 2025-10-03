@@ -1074,69 +1074,6 @@ function SharePointAdminComponent() {
     </div>
   );
 }
-                    onChange={(e) => handleChecklistUpload(e, 'grader_startup')}
-                    className="hidden"
-                    id="grader-checklist-input"
-                    data-testid="grader-checklist-input"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById('grader-checklist-input').click()}
-                    className="text-xs border-orange-300 text-orange-700 hover:bg-orange-100"
-                    data-testid="upload-grader-checklist-btn"
-                  >
-                    Choose File
-                  </Button>
-                </div>
-
-                <div className="border-2 border-dashed border-blue-300 rounded-lg p-4 text-center bg-blue-50">
-                  <Upload className="mx-auto h-8 w-8 text-blue-400 mb-2" />
-                  <p className="text-xs font-medium text-gray-900 mb-1">Workshop Tasks</p>
-                  <p className="text-xs text-gray-500 mb-3">Workshop_Service_Tasks.xlsx</p>
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={(e) => handleChecklistUpload(e, 'workshop_service')}
-                    className="hidden"
-                    id="workshop-tasks-input"
-                    data-testid="workshop-tasks-input"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById('workshop-tasks-input').click()}
-                    className="text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
-                    data-testid="upload-workshop-tasks-btn"
-                  >
-                    Choose File
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {syncResults && (
-            <Card data-testid="sync-results-card">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <span>Sync Results</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-auto">
-                  {JSON.stringify(syncResults, null, 2)}
-                </pre>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
 // Records Component
 function Records() {
   const [checklists, setChecklists] = useState([]);
