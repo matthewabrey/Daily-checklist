@@ -189,16 +189,104 @@ function Dashboard() {
   );
 }
 
+// Employee Login Component
+function EmployeeLogin({ onLogin }) {
+  const [employeeNumber, setEmployeeNumber] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleLogin = async () => {
+    if (!employeeNumber.trim()) {
+      setError('Please enter your employee number');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await fetch(`${API_BASE_URL}/api/auth/employee-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_number: employeeNumber.trim() })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        onLogin(data.employee);
+        toast.success(`Welcome ${data.employee.name}!`);
+      } else {
+        setError(data.detail || 'Invalid employee number');
+        toast.error(data.detail || 'Invalid employee number');
+      }
+    } catch (error) {
+      setError('Login failed. Please try again.');
+      toast.error('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <img 
+            src="/abreys-logo.png" 
+            alt="Abreys Logo" 
+            className="h-16 w-auto mx-auto mb-4"
+          />
+          <CardTitle>Employee Login</CardTitle>
+          <CardDescription>
+            Enter your employee number to access the machine checklist system
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block">Employee Number</label>
+            <input
+              type="text"
+              value={employeeNumber}
+              onChange={(e) => {
+                // Only allow numbers
+                const value = e.target.value.replace(/[^0-9]/g, '');
+                setEmployeeNumber(value);
+                setError('');
+              }}
+              onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+              className="w-full px-4 py-3 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-center"
+              placeholder="Enter employee number"
+              maxLength="10"
+              data-testid="employee-number-input"
+            />
+            {error && (
+              <p className="text-red-600 text-sm mt-1">{error}</p>
+            )}
+          </div>
+          <Button 
+            onClick={handleLogin} 
+            disabled={loading || !employeeNumber.trim()}
+            className="w-full bg-green-600 hover:bg-green-700 py-3 text-lg"
+            data-testid="employee-login-btn"
+          >
+            {loading ? 'Checking...' : 'Login'}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // New Checklist Component
 function NewChecklist() {
   const [step, setStep] = useState(1);
-  const [selectedStaff, setSelectedStaff] = useState('');
+  const [employee, setEmployee] = useState(null);
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   const [checkType, setCheckType] = useState('');
   const [checklistItems, setChecklistItems] = useState([]);
   const [workshopNotes, setWorkshopNotes] = useState('');
-  const [staff, setStaff] = useState([]);
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
