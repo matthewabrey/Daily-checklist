@@ -485,8 +485,8 @@ async def sync_staff_from_sharepoint():
         if not staff_names:
             raise HTTPException(status_code=400, detail="No staff data found in SharePoint file")
         
-        # Clear existing staff
-        await db.staff.delete_many({})
+        # Clear existing staff except admin (4444)
+        await db.staff.delete_many({"employee_number": {"$ne": "4444"}})
         
         # Add new staff from SharePoint
         new_staff = []
