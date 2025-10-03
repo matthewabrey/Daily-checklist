@@ -1739,13 +1739,13 @@ function App() {
             <Route 
               path="/admin" 
               element={
-                isAdmin ? <SharePointAdmin /> : <AdminLogin onLogin={handleAdminLogin} />
+                isAdmin ? <SharePointAdminComponent /> : <AdminLogin onLogin={handleAdminLogin} />
               } 
             />
             <Route 
               path="/auth/callback" 
               element={
-                isAdmin ? <SharePointAdmin /> : <AdminLogin onLogin={handleAdminLogin} />
+                isAdmin ? <SharePointAdminComponent /> : <AdminLogin onLogin={handleAdminLogin} />
               } 
             />
           </Routes>
