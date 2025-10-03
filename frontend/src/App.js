@@ -840,7 +840,7 @@ function NewChecklist() {
               )}
               
               <div className="flex justify-between pt-6">
-                <Button variant="outline" onClick={() => setStep(3)} data-testid="back-to-check-type-btn">
+                <Button variant="outline" onClick={() => setStep(2)} data-testid="back-to-check-type-btn">
                   Back: Check Type
                 </Button>
                 <Button 
