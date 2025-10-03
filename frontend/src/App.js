@@ -1809,4 +1809,13 @@ function AppContent() {
   );
 }
 
+// Main App Component with Auth Provider
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
 export default App;
