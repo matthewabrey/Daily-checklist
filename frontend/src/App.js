@@ -1071,8 +1071,8 @@ function SharePointAdminComponent() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">SharePoint Integration</h1>
-            <p className="text-gray-600 mt-2">Sync staff names and machine data from your Excel files</p>
+            <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
+            <p className="text-gray-600 mt-2">Upload Excel files to update staff, machines, and checklists</p>
           </div>
         </div>
       </div>
