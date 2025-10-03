@@ -673,7 +673,7 @@ function NewChecklist() {
                   className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-blue-400 border-2 ${checkType === 'workshop_service' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
                   onClick={() => {
                     setCheckType('workshop_service');
-                    setStep(4);
+                    setStep(3);
                   }}
                   data-testid="workshop-service-option"
                 >
