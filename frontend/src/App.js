@@ -568,36 +568,6 @@ function NewChecklist() {
         <CardContent className="pt-6">
           {step === 1 && (
             <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Select Staff Member</h3>
-                <Select value={selectedStaff} onValueChange={setSelectedStaff} data-testid="staff-select">
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose staff member performing the check" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {staff.map((member) => (
-                      <SelectItem key={member.id} value={member.name}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end">
-                <Button 
-                  onClick={() => setStep(2)} 
-                  disabled={!canProceedToStep2}
-                  className="bg-green-600 hover:bg-green-700"
-                  data-testid="proceed-to-machine-btn"
-                >
-                  Next: Select Machine
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-6">
               <div className="flex items-center space-x-2 mb-4">
                 <User className="h-5 w-5 text-green-600" />
                 <span className="font-medium">Staff: {selectedStaff}</span>
