@@ -615,12 +615,10 @@ function NewChecklist() {
             </div>
           )}
 
-          {step === 3 && (
+          {step === 2 && (
             <div className="space-y-6">
               <div className="flex items-center space-x-2 mb-4">
-                <User className="h-5 w-5 text-green-600" />
-                <span className="font-medium">Staff: {selectedStaff}</span>
-                <Wrench className="h-5 w-5 text-green-600 ml-4" />
+                <Wrench className="h-5 w-5 text-green-600" />
                 <span className="font-medium">Machine: {selectedMake} {selectedModel}</span>
               </div>
               
