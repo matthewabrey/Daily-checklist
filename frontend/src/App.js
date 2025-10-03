@@ -692,7 +692,7 @@ function NewChecklist() {
               </div>
               
               <div className="flex justify-start pt-6">
-                <Button variant="outline" onClick={() => setStep(2)} data-testid="back-to-machine-btn">
+                <Button variant="outline" onClick={() => setStep(1)} data-testid="back-to-machine-btn">
                   Back: Machine Selection
                 </Button>
               </div>
