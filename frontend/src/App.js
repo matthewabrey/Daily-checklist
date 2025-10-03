@@ -1187,67 +1187,27 @@ function SharePointAdminComponent() {
           </div>
         </CardContent>
       </Card>
-                  <span>Sync Machine Assets</span>
-                </Button>
-
-                <Button 
-                  onClick={() => syncData('checklists')} 
-                  disabled={loading}
-                  variant="outline"
-                  className="h-20 flex-col space-y-2"
-                  data-testid="sync-checklists-btn"
-                >
-                  <ClipboardList className="h-6 w-6" />
-                  <span>Sync Checklists</span>
-                </Button>
-                
-                <Button 
-                  onClick={() => syncData('all')} 
-                  disabled={loading}
-                  className="h-20 flex-col space-y-2 bg-green-600 hover:bg-green-700"
-                  data-testid="sync-all-btn"
-                >
-                  {loading ? (
-                    <RefreshCw className="h-6 w-6 animate-spin" />
-                  ) : (
-                    <Database className="h-6 w-6" />
-                  )}
-                  <span>Sync All Data</span>
-                </Button>
-              </div>
-
-              <Button 
-                onClick={testConnection} 
-                disabled={loading}
-                variant="ghost"
-                className="w-full"
-                data-testid="test-connection-btn"
-              >
-                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                Test Connection
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Alternative Upload Method */}
-          <Card data-testid="file-upload-card">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Upload className="h-5 w-5 text-orange-600" />
-                <span>Alternative: Upload Files Directly</span>
-              </CardTitle>
-              <CardDescription>
-                If SharePoint sync isn't working, upload your Excel files directly
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                <div className="flex items-start space-x-2">
-                  <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-orange-800">Upload Your Excel Files</p>
-                    <p className="text-sm text-orange-700 mt-1">
-                      Download, customize, and upload your Excel templates. The three colored boxes are for your checklist templates.
+      {/* Upload Results */}
+      {uploadResults && (
+        <Card data-testid="upload-results-card">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              <span>Upload Results</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <p className="text-green-800 font-medium">{uploadResults.message}</p>
+              {uploadResults.processed_items && (
+                <p className="text-green-700 text-sm mt-2">
+                  Processed {uploadResults.processed_items} items successfully
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
                     </p>
                   </div>
                 </div>
