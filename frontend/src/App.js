@@ -11,8 +11,7 @@ import { toast } from 'sonner';
 import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle } from 'lucide-react';
 import './App.css';
 
-// Lazy load heavy components for better performance
-const SharePointAdmin = lazy(() => import('./components/SharePointAdmin').catch(() => ({ default: SharePointAdminComponent })));
+// Use SharePointAdminComponent directly for now
 
 // Authentication Context
 const AuthContext = createContext();
