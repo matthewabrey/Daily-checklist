@@ -699,7 +699,7 @@ function NewChecklist() {
             </div>
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
