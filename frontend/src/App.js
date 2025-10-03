@@ -437,16 +437,7 @@ function NewChecklist() {
     }
   };
 
-  const fetchStaff = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/staff`);
-      const data = await response.json();
-      setStaff(data);
-    } catch (error) {
-      console.error('Error fetching staff:', error);
-      toast.error('Failed to load staff list');
-    }
-  };
+  // fetchStaff function removed - no longer needed since staff selection was replaced with employee authentication
 
   const fetchMakes = async () => {
     try {
