@@ -1748,6 +1748,25 @@ function AppContent() {
                     Admin
                   </Button>
                 )}
+                
+                {/* User info and logout */}
+                {isAuthenticated && employee && (
+                  <div className="flex items-center space-x-2 border-l pl-2 sm:pl-4 ml-2 sm:ml-4">
+                    <div className="text-right hidden sm:block">
+                      <p className="text-xs font-medium text-gray-900">{employee.name}</p>
+                      <p className="text-xs text-gray-600">#{employee.employee_number}</p>
+                    </div>
+                    <Button 
+                      variant="ghost"
+                      size="sm"
+                      onClick={logout}
+                      className="text-gray-600 hover:text-red-600 text-xs sm:text-sm font-medium px-2 sm:px-3"
+                      data-testid="logout-btn"
+                    >
+                      Logout
+                    </Button>
+                  </div>
+                )}
               </nav>
             </div>
           </div>
