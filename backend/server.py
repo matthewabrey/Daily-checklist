@@ -241,6 +241,110 @@ async def migrate_existing_checklists():
 async def health_check():
     return {"status": "healthy"}
 
+class EmployeeLoginRequest(BaseModel):
+    employee_number: str
+
+@app.post("/api/auth/employee-login")
+async def employee_login(request: EmployeeLoginRequest):
+    """Authenticate employee by number"""
+    try:
+        # Find employee by number
+        employee = await db.staff.find_one({
+            "employee_number": request.employee_number,
+            "active": True
+        }, {"_id": 0})
+        
+        if employee:
+            return {
+                "success": True,
+                "employee": {
+                    "employee_number": employee["employee_number"],
+                    "name": employee["name"]
+                }
+            }
+        else:
+            raise HTTPException(status_code=401, detail="Invalid employee number or account inactive")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Login failed: {str(e)}")
+
+@app.get("/api/auth/validate/{employee_number}")
+async def validate_employee(employee_number: str):
+    """Validate if employee number is active"""
+    try:
+        employee = await db.staff.find_one({
+            "employee_number": employee_number,
+            "active": True
+        }, {"_id": 0})
+        
+        if employee:
+            return {"valid": True, "name": employee["name"]}
+        else:
+            return {"valid": False}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Validation failed: {str(e)}")
+
+@app.post("/api/admin/deactivate-employee/{employee_number}")
+async def deactivate_employee(employee_number: str):
+    """Deactivate employee (block access)"""
+    try:
+        result = await db.staff.update_one(
+            {"employee_number": employee_number},
+            {"$set": {"active": False}}
+        )
+        
+        if result.modified_count > 0:
+            return {"message": f"Employee {employee_number} deactivated successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Employee not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to deactivate employee: {str(e)}")
+
+@app.post("/api/admin/activate-employee/{employee_number}")
+async def activate_employee(employee_number: str):
+    """Reactivate employee"""
+    try:
+        result = await db.staff.update_one(
+            {"employee_number": employee_number},
+            {"$set": {"active": True}}
+        )
+        
+        if result.modified_count > 0:
+            return {"message": f"Employee {employee_number} activated successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Employee not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to activate employee: {str(e)}")
+
+@app.get("/api/admin/employee-activity")
+async def get_employee_activity():
+    """Get employee usage statistics"""
+    try:
+        # Get all checklists with employee info
+        checklists = await db.checklists.find({}, {"_id": 0}).to_list(length=None)
+        
+        # Count activity by employee
+        activity = {}
+        for checklist in checklists:
+            emp_num = checklist.get('employee_number', 'Unknown')
+            if emp_num not in activity:
+                activity[emp_num] = {
+                    "employee_number": emp_num,
+                    "staff_name": checklist.get('staff_name', 'Unknown'),
+                    "total_checks": 0,
+                    "last_activity": None
+                }
+            
+            activity[emp_num]["total_checks"] += 1
+            
+            # Update last activity
+            completed_at = checklist.get('completed_at')
+            if completed_at and (not activity[emp_num]["last_activity"] or completed_at > activity[emp_num]["last_activity"]):
+                activity[emp_num]["last_activity"] = completed_at
+        
+        return list(activity.values())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get employee activity: {str(e)}")
+
 @app.get("/api/staff", response_model=List[Staff])
 async def get_staff():
     staff_list = await db.staff.find({}, {"_id": 0}).to_list(length=None)
