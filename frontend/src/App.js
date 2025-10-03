@@ -480,7 +480,8 @@ function NewChecklist() {
     setIsSubmitting(true);
     try {
       const checklist = {
-        staff_name: selectedStaff,
+        employee_number: employee.employee_number,
+        staff_name: employee.name,
         machine_make: selectedMake,
         machine_model: selectedModel,
         check_type: checkType,
