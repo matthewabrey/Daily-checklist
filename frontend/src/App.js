@@ -246,7 +246,7 @@ const Dashboard = memo(function Dashboard() {
       </Card>
     </div>
   );
-}
+});
 
 // Employee Login Component
 function EmployeeLogin() {
