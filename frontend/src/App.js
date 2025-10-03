@@ -296,6 +296,7 @@ function EmployeeLogin() {
             src="/abreys-logo.png" 
             alt="Abreys Logo" 
             className="h-16 w-auto mx-auto mb-4"
+            loading="eager"
           />
           <CardTitle>Employee Login</CardTitle>
           <CardDescription>
