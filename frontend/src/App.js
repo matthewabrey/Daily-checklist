@@ -405,7 +405,7 @@ function NewChecklist() {
   }, [selectedMake]);
 
   useEffect(() => {
-    if (step === 4) {
+    if (step === 3) {
       if (checkType === 'daily_check' || checkType === 'grader_startup') {
         loadChecklistTemplate(checkType);
       }
