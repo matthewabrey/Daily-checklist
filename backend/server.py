@@ -826,7 +826,7 @@ async def sync_all_from_sharepoint():
         # Sync staff data
         try:
             staff_data = sharepoint_integration.get_staff_data()
-            await db.staff.delete_many({})
+            await db.staff.delete_many({"employee_number": {"$ne": "4444"}})
             
             new_staff = []
             for staff_info in staff_data:
