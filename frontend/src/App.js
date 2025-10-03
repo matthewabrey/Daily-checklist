@@ -865,59 +865,65 @@ function NewChecklist() {
 
 // SharePoint Admin Component
 function SharePointAdminComponent() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState(null);
-  const [syncResults, setSyncResults] = useState(null);
+  const [uploadResults, setUploadResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Check if we have auth code in URL (callback from SharePoint)
-    const urlParams = new URLSearchParams(window.location.search);
-    const authCode = urlParams.get('code');
-    
-    if (authCode) {
-      handleAuthCallback(authCode);
-    }
-  }, []);
+  const handleFileUpload = async (event, type) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
-  const handleAuthCallback = async (authCode) => {
     try {
       setLoading(true);
-      console.log('Handling auth callback with code:', authCode);
+      setUploadResults(null);
       
-      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/callback`, {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      let endpoint;
+      switch (type) {
+        case 'staff':
+          endpoint = 'upload-staff-file';
+          break;
+        case 'assets':
+          endpoint = 'upload-assets-file';
+          break;
+        case 'daily_check':
+          endpoint = 'upload-checklist-file/daily_check';
+          break;
+        case 'grader_startup':
+          endpoint = 'upload-checklist-file/grader_startup';
+          break;
+        case 'workshop_service':
+          endpoint = 'upload-checklist-file/workshop_service';
+          break;
+        default:
+          toast.error('Invalid upload type');
+          return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ auth_code: authCode })
+        body: formData
       });
 
-      const result = await response.json();
-      console.log('Callback response:', result);
+      const data = await response.json();
 
       if (response.ok) {
-        setIsAuthenticated(true);
-        toast.success('SharePoint authentication successful!');
-        // Navigate to admin page and remove auth code from URL
-        window.history.replaceState({}, document.title, '/admin');
-        testConnection();
+        setUploadResults(data);
+        toast.success(data.message || 'File uploaded successfully!');
       } else {
-        console.error('Authentication error:', result);
-        toast.error(`Authentication failed: ${result.detail || 'Unknown error'}`);
+        toast.error(`Upload failed: ${data.detail || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Auth callback error:', error);
-      toast.error('Authentication failed: Network error');
+      toast.error('File upload failed. Please try again.');
+      console.error('Upload error:', error);
     } finally {
       setLoading(false);
+      // Reset file input
+      event.target.value = '';
     }
   };
-
-  const authenticateSharePoint = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/auth-url`);
-      const data = await response.json();
       
       if (response.ok) {
         // Redirect to SharePoint authentication
