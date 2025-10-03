@@ -1071,33 +1071,9 @@ function SharePointAdminComponent() {
           </CardContent>
         </Card>
       )}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById('staff-file-input').click()}
-                    className="text-xs"
-                    data-testid="upload-staff-btn"
-                  >
-                    Choose File
-                  </Button>
-                </div>
-                
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                  <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                  <p className="text-xs font-medium text-gray-900 mb-1">Machine Assets</p>
-                  <p className="text-xs text-gray-500 mb-3">AssetList.xlsx</p>
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={(e) => handleFileUpload(e, 'assets')}
-                    className="hidden"
-                    id="assets-file-input"
     </div>
   );
 }
-                    type="file"
-                    accept=".xlsx,.xls"
                     onChange={(e) => handleChecklistUpload(e, 'grader_startup')}
                     className="hidden"
                     id="grader-checklist-input"
