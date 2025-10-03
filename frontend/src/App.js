@@ -1077,127 +1077,116 @@ function SharePointAdminComponent() {
         </div>
       </div>
 
-      {!isAuthenticated && (
-        <Card data-testid="auth-card">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Link2 className="h-5 w-5 text-blue-600" />
-              <span>Connect to SharePoint</span>
-            </CardTitle>
-            <CardDescription>
-              Connect to your Microsoft 365 account to access Excel files
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-blue-900 mb-2">Your Excel Files:</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Staff Names: Name List.xlsx</li>
-                <li>• Machine Assets: AssetList.xlsx</li>
-                <li>• Daily Check Items: Daily_Check_Checklist.xlsx</li>
-                <li>• Grader Startup Items: Grader_Startup_Checklist.xlsx</li>
-                <li>• Workshop Tasks: Workshop_Service_Tasks.xlsx</li>
-              </ul>
-            </div>
-            <Button 
-              onClick={authenticateSharePoint} 
+      {/* Staff Upload */}
+      <Card data-testid="staff-upload-card">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <User className="h-5 w-5 text-green-600" />
+            <span>Upload Staff List</span>
+          </CardTitle>
+          <CardDescription>
+            Upload Excel file with employee numbers and names (Name List.xlsx)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h4 className="font-semibold text-green-900 mb-2">Excel Format Required:</h4>
+            <ul className="text-sm text-green-800 space-y-1">
+              <li>• Column A: Employee Number (e.g., 101, 102, 103)</li>
+              <li>• Column B: Name (e.g., "John Smith", "Jane Doe")</li>
+            </ul>
+          </div>
+          <div className="flex items-center space-x-4">
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={(e) => handleFileUpload(e, 'staff')}
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700"
-              data-testid="authenticate-btn"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Connecting...
-                </>
-              ) : (
-                <>
-                  <Link2 className="mr-2 h-4 w-4" />
-                  Connect to SharePoint
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+            />
+            {loading && <RefreshCw className="h-4 w-4 animate-spin text-green-600" />}
+          </div>
+        </CardContent>
+      </Card>
 
-      {isAuthenticated && (
-        <>
-          {connectionStatus && (
-            <Card data-testid="connection-status-card">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Database className="h-5 w-5 text-green-600" />
-                  <span>File Connection Status</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Staff File Status */}
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${connectionStatus.staff_file?.status === 'accessible' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <div>
-                      <p className="font-medium">Staff Names File</p>
-                      <p className="text-sm text-gray-600">
-                        {connectionStatus.staff_file?.name || 'Name List.xlsx'}
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant={connectionStatus.staff_file?.status === 'accessible' ? 'default' : 'destructive'}>
-                    {connectionStatus.staff_file?.status || 'Unknown'}
-                  </Badge>
-                </div>
+      {/* Assets Upload */}
+      <Card data-testid="assets-upload-card">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Wrench className="h-5 w-5 text-blue-600" />
+            <span>Upload Asset List</span>
+          </CardTitle>
+          <CardDescription>
+            Upload Excel file with machine makes and models (AssetList.xlsx)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h4 className="font-semibold text-blue-900 mb-2">Excel Format Required:</h4>
+            <ul className="text-sm text-blue-800 space-y-1">
+              <li>• Column A: Make (e.g., "John Deere", "Cat")</li>
+              <li>• Column B: Model (e.g., "6145R", "DP30NTD")</li>
+            </ul>
+          </div>
+          <div className="flex items-center space-x-4">
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={(e) => handleFileUpload(e, 'assets')}
+              disabled={loading}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+            {loading && <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />}
+          </div>
+        </CardContent>
+      </Card>
 
-                {/* Asset File Status */}
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${connectionStatus.asset_file?.status === 'accessible' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <div>
-                      <p className="font-medium">Machine Assets File</p>
-                      <p className="text-sm text-gray-600">
-                        {connectionStatus.asset_file?.name || 'AssetList.xlsx'}
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant={connectionStatus.asset_file?.status === 'accessible' ? 'default' : 'destructive'}>
-                    {connectionStatus.asset_file?.status || 'Unknown'}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card data-testid="sync-controls-card">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <RefreshCw className="h-5 w-5 text-green-600" />
-                <span>Data Synchronization</span>
-              </CardTitle>
-              <CardDescription>
-                Update your app with the latest data from SharePoint Excel files
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Button 
-                  onClick={() => syncData('staff')} 
-                  disabled={loading}
-                  variant="outline"
-                  className="h-20 flex-col space-y-2"
-                  data-testid="sync-staff-btn"
-                >
-                  <User className="h-6 w-6" />
-                  <span>Sync Staff Names</span>
-                </Button>
-                
-                <Button 
-                  onClick={() => syncData('assets')} 
-                  disabled={loading}
-                  variant="outline"
-                  className="h-20 flex-col space-y-2"
-                  data-testid="sync-assets-btn"
-                >
-                  <Wrench className="h-6 w-6" />
+      {/* Checklists Upload */}
+      <Card data-testid="checklists-upload-card">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <ClipboardList className="h-5 w-5 text-orange-600" />
+            <span>Upload Checklist Templates</span>
+          </CardTitle>
+          <CardDescription>
+            Upload Excel files to customize checklist items for each check type
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Daily Check Checklist</label>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => handleFileUpload(e, 'daily_check')}
+                disabled={loading}
+                className="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Grader Startup Checklist</label>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => handleFileUpload(e, 'grader_startup')}
+                disabled={loading}
+                className="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Workshop Service Tasks</label>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => handleFileUpload(e, 'workshop_service')}
+                disabled={loading}
+                className="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
                   <span>Sync Machine Assets</span>
                 </Button>
 
