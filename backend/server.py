@@ -55,6 +55,7 @@ class ChecklistTemplate(BaseModel):
     
 class Checklist(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    employee_number: str
     staff_name: str
     machine_make: str
     machine_model: str
