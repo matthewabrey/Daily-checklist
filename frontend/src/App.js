@@ -442,9 +442,8 @@ function NewChecklist() {
     }
   };
 
-  const canProceedToStep2 = selectedStaff !== '';
-  const canProceedToStep3 = selectedMake !== '' && selectedModel !== '';
-  const canProceedToStep4 = checkType !== '';
+  const canProceedToStep2 = selectedMake !== '' && selectedModel !== '';
+  const canProceedToStep3 = checkType !== '';
   const allItemsAddressed = checkType === 'workshop_service' ? workshopNotes.trim() !== '' : checklistItems.every(item => item.status !== 'unchecked');
 
   return (
