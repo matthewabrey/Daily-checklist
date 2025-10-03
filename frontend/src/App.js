@@ -704,7 +704,7 @@ function NewChecklist() {
                 <div>
                   <div className="flex items-center space-x-2 mb-2">
                     <User className="h-5 w-5 text-green-600" />
-                    <span className="font-medium">Staff: {selectedStaff}</span>
+                    <span className="font-medium">Staff: {employee.name}</span>
                   </div>
                   <div className="flex items-center space-x-2 mb-2">
                     <Wrench className="h-5 w-5 text-green-600" />
