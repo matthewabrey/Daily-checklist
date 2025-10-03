@@ -39,7 +39,9 @@ class Asset(BaseModel):
     
 class Staff(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    employee_number: str
     name: str
+    active: bool = True
     
 class ChecklistItem(BaseModel):
     item: str
