@@ -553,7 +553,7 @@ class MachineChecklistAPITester:
         if staff_success and staff_data:
             # Look for staff with employee_number field
             for staff in staff_data:
-                if 'employee_number' in staff and staff['employee_number']:
+                if staff.get('employee_number'):  # Check if employee_number exists and is not None/empty
                     valid_employee_number = staff['employee_number']
                     valid_staff_name = staff['name']
                     break
