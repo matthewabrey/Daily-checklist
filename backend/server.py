@@ -67,6 +67,7 @@ class Checklist(BaseModel):
     
 class ChecklistResponse(BaseModel):
     id: str
+    employee_number: Optional[str] = None
     staff_name: str
     machine_make: str
     machine_model: str
