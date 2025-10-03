@@ -586,8 +586,8 @@ async def upload_staff_file(file: UploadFile = File(...)):
         if not staff_data:
             raise HTTPException(status_code=400, detail="No valid staff data found. Please ensure your Excel has Name and Employee Number columns with data.")
         
-        # Update database
-        await db.staff.delete_many({})
+        # Update database - preserve admin account (4444)
+        await db.staff.delete_many({"employee_number": {"$ne": "4444"}})  # Delete all except admin
         new_staff = [Staff(**data).dict() for data in staff_data]
         await db.staff.insert_many(new_staff)
         
