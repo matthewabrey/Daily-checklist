@@ -863,7 +863,7 @@ function NewChecklist() {
 }
 
 // SharePoint Admin Component
-function SharePointAdmin() {
+function SharePointAdminComponent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState(null);
   const [syncResults, setSyncResults] = useState(null);
