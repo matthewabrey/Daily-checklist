@@ -652,7 +652,7 @@ function NewChecklist() {
                   className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-orange-400 border-2 ${checkType === 'grader_startup' ? 'border-orange-500 bg-orange-50' : 'border-gray-200'}`}
                   onClick={() => {
                     setCheckType('grader_startup');
-                    setStep(4);
+                    setStep(3);
                   }}
                   data-testid="grader-startup-option"
                 >
