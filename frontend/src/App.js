@@ -1247,47 +1247,9 @@ function SharePointAdminComponent() {
                     onChange={(e) => handleFileUpload(e, 'assets')}
                     className="hidden"
                     id="assets-file-input"
-                    data-testid="assets-file-input"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById('assets-file-input').click()}
-                    className="text-xs"
-                    data-testid="upload-assets-btn"
-                  >
-                    Choose File
-                  </Button>
-                </div>
-
-                <div className="border-2 border-dashed border-green-300 rounded-lg p-4 text-center bg-green-50">
-                  <Upload className="mx-auto h-8 w-8 text-green-400 mb-2" />
-                  <p className="text-xs font-medium text-gray-900 mb-1">Daily Checklist</p>
-                  <p className="text-xs text-gray-500 mb-3">Daily_Check_Checklist.xlsx</p>
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={(e) => handleChecklistUpload(e, 'daily_check')}
-                    className="hidden"
-                    id="daily-checklist-input"
-                    data-testid="daily-checklist-input"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById('daily-checklist-input').click()}
-                    className="text-xs border-green-300 text-green-700 hover:bg-green-100"
-                    data-testid="upload-daily-checklist-btn"
-                  >
-                    Choose File
-                  </Button>
-                </div>
-
-                <div className="border-2 border-dashed border-orange-300 rounded-lg p-4 text-center bg-orange-50">
-                  <Upload className="mx-auto h-8 w-8 text-orange-400 mb-2" />
-                  <p className="text-xs font-medium text-gray-900 mb-1">Grader Checklist</p>
-                  <p className="text-xs text-gray-500 mb-3">Grader_Startup_Checklist.xlsx</p>
-                  <input
+    </div>
+  );
+}
                     type="file"
                     accept=".xlsx,.xls"
                     onChange={(e) => handleChecklistUpload(e, 'grader_startup')}
