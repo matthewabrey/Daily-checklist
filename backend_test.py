@@ -542,7 +542,62 @@ class MachineChecklistAPITester:
             test_make = makes_data[0]  # Use first make for testing
             self.test_get_models_by_make(test_make)
         
-        # Test 5: Create a test checklist
+        # AUTHENTICATION TESTS - Priority focus as per review request
+        print("\n🔐 AUTHENTICATION TESTS")
+        print("-" * 40)
+        
+        # Find staff with employee numbers for testing
+        valid_employee_number = None
+        valid_staff_name = None
+        
+        if staff_success and staff_data:
+            # Look for staff with employee_number field
+            for staff in staff_data:
+                if 'employee_number' in staff and staff['employee_number']:
+                    valid_employee_number = staff['employee_number']
+                    valid_staff_name = staff['name']
+                    break
+        
+        if valid_employee_number:
+            # Test 5a: Valid employee login
+            login_success, employee_data = self.test_employee_login_valid(valid_employee_number)
+            
+            # Test 5b: Valid employee validation
+            self.test_employee_validate_valid(valid_employee_number)
+            
+            # Test 5c: Create checklist with employee number
+            if login_success and makes_success and makes_data:
+                test_make = makes_data[0]
+                models_success, models_data = self.test_get_models_by_make(test_make)
+                if models_success and models_data:
+                    test_model = models_data[0]
+                    self.test_checklist_with_employee_number(valid_employee_number, valid_staff_name, test_make, test_model)
+        else:
+            print("⚠️  No staff with employee numbers found - testing with sample data")
+            # Test with sample employee numbers
+            sample_employee_number = "EMP001"
+            self.test_employee_login_valid(sample_employee_number)
+            self.test_employee_validate_valid(sample_employee_number)
+        
+        # Test 6: Invalid employee login tests
+        self.test_employee_login_invalid("INVALID999")
+        self.test_employee_login_invalid("NONEXISTENT")
+        
+        # Test 7: Empty employee login
+        self.test_employee_login_empty()
+        
+        # Test 8: Malformed login request
+        self.test_employee_login_malformed()
+        
+        # Test 9: Invalid employee validation
+        self.test_employee_validate_invalid("INVALID999")
+        self.test_employee_validate_invalid("NONEXISTENT")
+        
+        # EXISTING FUNCTIONALITY TESTS
+        print("\n📋 EXISTING FUNCTIONALITY TESTS")
+        print("-" * 40)
+        
+        # Test 10: Create a test checklist (legacy format)
         checklist_id = ""
         if staff_success and makes_success and staff_data and makes_data:
             test_staff = staff_data[0]['name']
@@ -554,14 +609,14 @@ class MachineChecklistAPITester:
                 test_model = models_data[0]
                 create_success, checklist_id = self.test_create_checklist(test_staff, test_make, test_model)
         
-        # Test 6: Get all checklists
+        # Test 11: Get all checklists
         self.test_get_checklists()
         
-        # Test 7: Get specific checklist by ID
+        # Test 12: Get specific checklist by ID
         if checklist_id:
             self.test_get_checklist_by_id(checklist_id)
         
-        # Test 8: Export CSV
+        # Test 13: Export CSV
         self.test_export_csv()
         
         return self.generate_report()
