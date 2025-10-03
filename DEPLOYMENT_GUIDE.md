@@ -4,7 +4,7 @@
 
 ### **App URL for Staff:**
 ```
-https://startup-verify-1.preview.emergentagent.com
+https://safety-checklist-1.preview.emergentagent.com
 ```
 
 ### **What Staff Can Do:**
@@ -54,7 +54,7 @@ REACT_APP_ADMIN_PASSWORD=your_new_password_here
 
 **ABREYS MACHINE CHECKLIST SYSTEM**
 
-**Access:** https://startup-verify-1.preview.emergentagent.com
+**Access:** https://safety-checklist-1.preview.emergentagent.com
 
 **How to Complete a Check:**
 
