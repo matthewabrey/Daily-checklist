@@ -280,22 +280,52 @@ class SharePointExcelIntegration:
             logger.error(f"Failed to read Excel workbook: {str(e)}")
             raise Exception(f"Could not read Excel data: {str(e)}")
     
-    def get_staff_data(self) -> List[str]:
-        """Get staff names from SharePoint Excel file"""
+    def get_staff_data(self) -> List[Dict[str, str]]:
+        """Get staff data with employee numbers from SharePoint Excel file"""
         try:
             drive_id, item_id = self._resolve_sharing_url_to_item_id(self.staff_file_url)
             excel_data = self._read_excel_workbook(drive_id, item_id)
             
-            # Extract staff names (assuming they're in the first column)
-            staff_names = []
-            for row in excel_data:
-                if row and len(row) > 0 and row[0]:  # Check if first cell has data
-                    name = str(row[0]).strip()
-                    if name and name.lower() not in ['name', 'staff', 'employee']:  # Skip headers
-                        staff_names.append(name)
+            if not excel_data or len(excel_data) < 2:
+                raise Exception("Staff file must have at least a header row and one data row")
             
-            logger.info(f"Retrieved {len(staff_names)} staff names from SharePoint")
-            return staff_names
+            # Assume first row contains headers
+            headers = [str(cell).strip().lower() if cell else '' for cell in excel_data[0]]
+            
+            # Find name and employee number columns
+            name_col = None
+            number_col = None
+            
+            for i, header in enumerate(headers):
+                if 'name' in header and 'employee' not in header:
+                    name_col = i
+                elif 'number' in header or 'employee' in header or 'emp' in header:
+                    number_col = i
+            
+            # Fallback: assume first column is names, second is numbers
+            if name_col is None:
+                name_col = 0
+            if number_col is None and len(headers) > 1:
+                number_col = 1
+            
+            if number_col is None:
+                raise Exception("Could not find Employee Number column in staff file")
+            
+            # Extract staff data
+            staff_data = []
+            for row in excel_data[1:]:  # Skip header row
+                if row and len(row) > max(name_col, number_col):
+                    name = str(row[name_col]).strip() if row[name_col] else ''
+                    emp_number = str(row[number_col]).strip() if row[number_col] else ''
+                    
+                    if name and emp_number:
+                        staff_data.append({
+                            'name': name,
+                            'employee_number': emp_number
+                        })
+            
+            logger.info(f"Retrieved {len(staff_data)} staff members from SharePoint")
+            return staff_data
             
         except Exception as e:
             logger.error(f"Failed to get staff data: {str(e)}")
