@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -10,6 +10,66 @@ import { Separator } from './components/ui/separator';
 import { toast } from 'sonner';
 import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle } from 'lucide-react';
 import './App.css';
+
+// Lazy load heavy components for better performance
+const SharePointAdmin = lazy(() => Promise.resolve({ default: SharePointAdminComponent }));
+
+// Authentication Context
+const AuthContext = createContext();
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
+};
+
+function AuthProvider({ children }) {
+  const [employee, setEmployee] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check if user was previously authenticated (session storage for now)
+    const storedEmployee = sessionStorage.getItem('authenticated_employee');
+    if (storedEmployee) {
+      try {
+        const empData = JSON.parse(storedEmployee);
+        setEmployee(empData);
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error('Error parsing stored employee data:', error);
+        sessionStorage.removeItem('authenticated_employee');
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  const login = (employeeData) => {
+    setEmployee(employeeData);
+    setIsAuthenticated(true);
+    sessionStorage.setItem('authenticated_employee', JSON.stringify(employeeData));
+  };
+
+  const logout = () => {
+    setEmployee(null);
+    setIsAuthenticated(false);
+    sessionStorage.removeItem('authenticated_employee');
+  };
+
+  return (
+    <AuthContext.Provider value={{ 
+      employee, 
+      isAuthenticated, 
+      login, 
+      logout, 
+      loading 
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
 
