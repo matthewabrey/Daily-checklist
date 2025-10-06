@@ -362,10 +362,18 @@ async def get_makes():
     makes = await db.assets.distinct("make")
     return sorted(makes)
 
-@app.get("/api/assets/models/{make}", response_model=List[str])
-async def get_models_by_make(make: str):
-    models = await db.assets.distinct("model", {"make": make})
-    return sorted(models)
+@app.get("/api/assets/names/{make}", response_model=List[str])
+async def get_names_by_make(make: str):
+    names = await db.assets.distinct("name", {"make": make})
+    return sorted(names)
+
+@app.get("/api/assets/checktype/{make}/{name}")
+async def get_checktype_by_make_and_name(make: str, name: str):
+    asset = await db.assets.find_one({"make": make, "name": name}, {"_id": 0})
+    if asset:
+        return {"check_type": asset["check_type"]}
+    else:
+        raise HTTPException(status_code=404, detail="Asset not found")
 
 @app.get("/api/assets", response_model=List[Asset])
 async def get_all_assets():
