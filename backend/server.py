@@ -614,29 +614,37 @@ async def upload_assets_file(file: UploadFile = File(...)):
         workbook = openpyxl.load_workbook(BytesIO(file_content))
         sheet = workbook.active
         
-        # Get headers and find make/model columns
+        # Get headers and find check_type, name, make columns
         headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
+        check_type_col = None
+        name_col = None
         make_col = None
-        model_col = None
         
         for i, header in enumerate(headers):
-            if 'make' in header:
+            if 'check type' in header or 'checktype' in header:
+                check_type_col = i
+            elif 'name' in header and 'implement' in header:
+                name_col = i
+            elif 'make' in header:
                 make_col = i
-            elif 'model' in header or 'name' in header:
-                model_col = i
         
-        if make_col is None or model_col is None:
-            raise HTTPException(status_code=400, detail="Could not find Make and Model columns in the file")
+        if check_type_col is None or name_col is None or make_col is None:
+            raise HTTPException(status_code=400, detail="Could not find Check Type, Name of Implement, and Make columns in the file")
         
         # Extract asset data
         assets = []
         for row in sheet.iter_rows(min_row=2, values_only=True):  # Skip header
-            if row and len(row) > max(make_col, model_col):
+            if row and len(row) > max(check_type_col, name_col, make_col):
+                check_type = str(row[check_type_col]).strip() if row[check_type_col] else ''
+                name = str(row[name_col]).strip() if row[name_col] else ''
                 make = str(row[make_col]).strip() if row[make_col] else ''
-                model = str(row[model_col]).strip() if row[model_col] else ''
                 
-                if make and model:
-                    assets.append({"make": make, "model": model})
+                if check_type and name and make:
+                    assets.append({
+                        "check_type": check_type,
+                        "name": name, 
+                        "make": make
+                    })
         
         if not assets:
             raise HTTPException(status_code=400, detail="No asset data found in the uploaded file")
