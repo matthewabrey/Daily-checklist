@@ -799,7 +799,7 @@ function NewChecklist() {
                           </Button>
                         </div>
                         <div className="flex-1">
-                          <label className={`text-sm font-medium cursor-pointer ${item.status === 'unsatisfactory' ? 'text-red-700' : ''} ${index < 4 && checkType === 'grader_startup' ? 'text-orange-800' : ''}`}>
+                          <label className={`text-sm font-medium cursor-pointer ${item.status === 'unsatisfactory' ? 'text-red-700' : ''} ${index < 4 && machineCheckType === 'grader_startup' ? 'text-orange-800' : ''}`}>
                             {item.item}
                           </label>
                           {item.status === 'unsatisfactory' && (
