@@ -678,34 +678,13 @@ function NewChecklist() {
                 >
                   <div className="flex items-center space-x-3 sm:space-x-4">
                     <div className="p-3 bg-orange-100 rounded-lg">
-                      <AlertCircle className="h-6 w-6 text-orange-600" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg sm:text-xl">Grader Start Up</h3>
-                      <p className="text-gray-600 text-sm sm:text-base">Specialized grader safety checks</p>
-                      <p className="text-xs sm:text-sm text-gray-500 mt-1">12-item grader-specific checklist</p>
-                      <p className="text-sm text-orange-600 font-medium mt-2">Tap to start →</p>
-                    </div>
-                  </div>
-                </Card>
-                
-                <Card 
-                  className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-blue-400 border-2 ${checkType === 'workshop_service' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-                  onClick={() => {
-                    setCheckType('workshop_service');
-                    setStep(3);
-                  }}
-                  data-testid="workshop-service-option"
-                >
-                  <div className="flex items-center space-x-3 sm:space-x-4">
-                    <div className="p-3 bg-blue-100 rounded-lg">
-                      <Settings className="h-6 w-6 text-blue-600" />
+                      <Settings className="h-6 w-6 text-orange-600" />
                     </div>
                     <div className="flex-1">
                       <h3 className="font-semibold text-lg sm:text-xl">Workshop Service</h3>
                       <p className="text-gray-600 text-sm sm:text-base">Record maintenance or repair work</p>
                       <p className="text-xs sm:text-sm text-gray-500 mt-1">Document work completed on machine</p>
-                      <p className="text-sm text-blue-600 font-medium mt-2">Tap to start →</p>
+                      <p className="text-sm text-orange-600 font-medium mt-2">Tap to start →</p>
                     </div>
                   </div>
                 </Card>
