@@ -634,18 +634,23 @@ function NewChecklist() {
             <div className="space-y-6">
               <div className="flex items-center space-x-2 mb-4">
                 <Wrench className="h-5 w-5 text-green-600" />
-                <span className="font-medium">Machine: {selectedMake} {selectedModel}</span>
+                <span className="font-medium">Machine: {selectedMake} - {selectedName}</span>
+              </div>
+              
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                <p className="text-blue-900 font-medium">Checklist Type: {machineCheckType}</p>
+                <p className="text-blue-700 text-sm mt-1">This machine uses the "{machineCheckType}" checklist template</p>
               </div>
               
               <div className="mb-4">
-                <p className="text-gray-600">Select the type of check you want to perform. Clicking will take you directly to the appropriate form.</p>
+                <p className="text-gray-600">Select the type of check you want to perform:</p>
               </div>
               
               <div className="grid grid-cols-1 gap-3 sm:gap-4">
                 <Card 
-                  className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-green-400 border-2 ${checkType === 'daily_check' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
+                  className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-green-400 border-2 ${selectedCheckType === 'daily_check' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
                   onClick={() => {
-                    setCheckType('daily_check');
+                    setSelectedCheckType('daily_check');
                     setStep(3);
                   }}
                   data-testid="daily-check-option"
@@ -656,20 +661,20 @@ function NewChecklist() {
                     </div>
                     <div className="flex-1">
                       <h3 className="font-semibold text-lg sm:text-xl">Daily Check</h3>
-                      <p className="text-gray-600 text-sm sm:text-base">Pre-startup safety inspection</p>
-                      <p className="text-xs sm:text-sm text-gray-500 mt-1">15-item checklist with ✓/✗ options</p>
+                      <p className="text-gray-600 text-sm sm:text-base">Complete checklist inspection</p>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">Uses {machineCheckType} checklist</p>
                       <p className="text-sm text-green-600 font-medium mt-2">Tap to start →</p>
                     </div>
                   </div>
                 </Card>
 
                 <Card 
-                  className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-orange-400 border-2 ${checkType === 'grader_startup' ? 'border-orange-500 bg-orange-50' : 'border-gray-200'}`}
+                  className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-orange-400 border-2 ${selectedCheckType === 'workshop_service' ? 'border-orange-500 bg-orange-50' : 'border-gray-200'}`}
                   onClick={() => {
-                    setCheckType('grader_startup');
+                    setSelectedCheckType('workshop_service');
                     setStep(3);
                   }}
-                  data-testid="grader-startup-option"
+                  data-testid="workshop-service-option"
                 >
                   <div className="flex items-center space-x-3 sm:space-x-4">
                     <div className="p-3 bg-orange-100 rounded-lg">
