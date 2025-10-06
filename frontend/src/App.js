@@ -593,15 +593,15 @@ function NewChecklist() {
                 </div>
                 
                 <div>
-                  <h3 className="text-lg font-semibold mb-4">Select Machine Model</h3>
-                  <Select value={selectedModel} onValueChange={setSelectedModel} disabled={!selectedMake} data-testid="model-select">
+                  <h3 className="text-lg font-semibold mb-4">Select Machine Name</h3>
+                  <Select value={selectedName} onValueChange={setSelectedName} disabled={!selectedMake} data-testid="name-select">
                     <SelectTrigger>
-                      <SelectValue placeholder="Choose machine model" />
+                      <SelectValue placeholder="Choose machine name" />
                     </SelectTrigger>
                     <SelectContent>
-                      {models.map((model) => (
-                        <SelectItem key={model} value={model}>
-                          {model}
+                      {names.map((name) => (
+                        <SelectItem key={name} value={name}>
+                          {name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -609,10 +609,18 @@ function NewChecklist() {
                 </div>
               </div>
               
+              {machineCheckType && (
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm font-medium text-blue-900">
+                    Checklist Type: <span className="text-blue-700">{machineCheckType}</span>
+                  </p>
+                </div>
+              )}
+              
               <div className="flex justify-end">
                 <Button 
                   onClick={() => setStep(2)} 
-                  disabled={!selectedMake || !selectedModel}
+                  disabled={!selectedMake || !selectedName}
                   className="bg-green-600 hover:bg-green-700"
                   data-testid="proceed-to-check-type-btn"
                 >
