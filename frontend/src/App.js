@@ -715,7 +715,7 @@ function NewChecklist() {
                     <span className="font-medium">Check Type: {selectedCheckType === 'daily_check' ? `Daily Check (${machineCheckType})` : 'Workshop Service'}</span>
                   </div>
                 </div>
-                {checkType === 'daily_check' && (
+                {selectedCheckType === 'daily_check' && (
                   <Badge variant={allItemsAddressed ? "default" : "secondary"} className="px-3 py-1">
                     {checklistItems.filter(item => item.status !== 'unchecked').length} / {checklistItems.length} Complete
                   </Badge>
