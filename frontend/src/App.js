@@ -450,14 +450,25 @@ function NewChecklist() {
     }
   };
 
-  const fetchModels = async (make) => {
+  const fetchNames = async (make) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assets/models/${encodeURIComponent(make)}`);
+      const response = await fetch(`${API_BASE_URL}/api/assets/names/${encodeURIComponent(make)}`);
       const data = await response.json();
-      setModels(data);
+      setNames(data);
     } catch (error) {
-      console.error('Error fetching models:', error);
-      toast.error('Failed to load machine models');
+      console.error('Error fetching machine names:', error);
+      toast.error('Failed to load machine names');
+    }
+  };
+
+  const fetchCheckType = async (make, name) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/assets/checktype/${encodeURIComponent(make)}/${encodeURIComponent(name)}`);
+      const data = await response.json();
+      setMachineCheckType(data.check_type);
+    } catch (error) {
+      console.error('Error fetching check type:', error);
+      toast.error('Failed to load check type');
     }
   };
 
