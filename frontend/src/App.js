@@ -771,7 +771,7 @@ function NewChecklist() {
                     </Card>
                   ))}
                 </div>
-              ) : checkType === 'grader_startup' ? (
+              ) : selectedCheckType === 'workshop_service' ? (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Grader Start Up Safety Checklist</h3>
                   <p className="text-sm text-gray-600">Complete all safety checks before operating grader. Mark each item as satisfactory (✓) or unsatisfactory (✗).</p>
