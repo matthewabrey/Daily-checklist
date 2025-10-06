@@ -207,9 +207,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "New asset selection flow - Make and Name selection"
-  stuck_tasks:
-    - "New asset selection flow - Make and Name selection"
+    - "Complete system testing"
+  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
