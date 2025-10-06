@@ -188,7 +188,12 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "New asset-based checklist system - Authentication & Navigation"
+    - "New asset selection flow - Make and Name selection"
+    - "Check type auto-detection and assignment"
+    - "Updated check type selection - Daily/Workshop only"
+    - "Admin panel with new AssetList.xlsx format"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
