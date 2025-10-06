@@ -630,9 +630,9 @@ async def upload_assets_file(file: UploadFile = File(...)):
         make_col = None
         
         for i, header in enumerate(headers):
-            if 'check type' in header or 'checktype' in header:
+            if 'check type' in header or 'checktype' in header or header == 'check type':
                 check_type_col = i
-            elif 'name' in header and 'implement' in header:
+            elif 'name' in header:
                 name_col = i
             elif 'make' in header:
                 make_col = i
