@@ -724,7 +724,7 @@ function NewChecklist() {
               
               <Separator />
               
-              {checkType === 'daily_check' ? (
+              {selectedCheckType === 'daily_check' ? (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Pre-Startup Safety Checklist</h3>
                   <p className="text-sm text-gray-600">Mark each item as satisfactory (✓) or unsatisfactory (✗). You can submit even with unsatisfactory items.</p>
