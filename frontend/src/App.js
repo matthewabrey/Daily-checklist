@@ -708,11 +708,11 @@ function NewChecklist() {
                   </div>
                   <div className="flex items-center space-x-2 mb-2">
                     <Wrench className="h-5 w-5 text-green-600" />
-                    <span className="font-medium">Machine: {selectedMake} {selectedModel}</span>
+                    <span className="font-medium">Machine: {selectedMake} - {selectedName}</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    <span className="font-medium">Type: {checkType === 'daily_check' ? 'Daily Check' : 'Workshop Service'}</span>
+                    <ClipboardList className="h-5 w-5 text-green-600" />
+                    <span className="font-medium">Check Type: {selectedCheckType === 'daily_check' ? `Daily Check (${machineCheckType})` : 'Workshop Service'}</span>
                   </div>
                 </div>
                 {checkType === 'daily_check' && (
