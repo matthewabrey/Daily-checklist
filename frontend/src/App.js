@@ -805,7 +805,7 @@ function NewChecklist() {
                           {item.status === 'unsatisfactory' && (
                             <div className="mt-1 text-xs text-red-600 font-medium">⚠ Unsatisfactory - Requires attention</div>
                           )}
-                          {index < 4 && checkType === 'grader_startup' && (
+                          {index < 4 && machineCheckType === 'grader_startup' && (
                             <div className="mt-1 text-xs text-orange-600 font-medium">🚨 Critical Safety Check</div>
                           )}
                           <Textarea
