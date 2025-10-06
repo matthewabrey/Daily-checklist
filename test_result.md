@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: Complete frontend integration of employee number login system and optimize application loading performance. Replace staff selection dropdown with employee authentication, ensure access control works, and improve app loading speed.
+user_problem_statement: Test the complete new asset-based checklist system with updated AssetList.xlsx format (Check Type | Name | Make), new flow (Login → Select Make → Select Name → Choose Daily/Workshop Check → Complete Checklist), removed separate "Grader Check", and auto-assignment of checklist templates based on Check Type from Excel.
 
 backend:
   - task: "Employee authentication endpoints"
