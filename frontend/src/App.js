@@ -413,12 +413,10 @@ function NewChecklist() {
   }, [selectedMake, selectedName]);
 
   useEffect(() => {
-    if (step === 3) {
-      if (checkType === 'daily_check' || checkType === 'grader_startup') {
-        loadChecklistTemplate(checkType);
-      }
+    if (step === 3 && selectedCheckType === 'daily_check' && machineCheckType) {
+      loadChecklistTemplate(machineCheckType);
     }
-  }, [step, checkType]);
+  }, [step, selectedCheckType, machineCheckType]);
 
   const loadChecklistTemplate = async (type) => {
     try {
