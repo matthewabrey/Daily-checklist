@@ -344,12 +344,13 @@ function NewChecklist() {
   const { employee, isAuthenticated } = useAuth();
   const [step, setStep] = useState(1);
   const [selectedMake, setSelectedMake] = useState('');
-  const [selectedModel, setSelectedModel] = useState('');
-  const [checkType, setCheckType] = useState('');
+  const [selectedName, setSelectedName] = useState('');
+  const [machineCheckType, setMachineCheckType] = useState('');
+  const [selectedCheckType, setSelectedCheckType] = useState(''); // daily or workshop
   const [checklistItems, setChecklistItems] = useState([]);
   const [workshopNotes, setWorkshopNotes] = useState('');
   const [makes, setMakes] = useState([]);
-  const [models, setModels] = useState([]);
+  const [names, setNames] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
