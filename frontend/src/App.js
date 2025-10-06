@@ -578,7 +578,7 @@ function NewChecklist() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Select Machine Make</h3>
-                  <Select value={selectedMake} onValueChange={(value) => { setSelectedMake(value); setSelectedModel(''); }} data-testid="make-select">
+                  <Select value={selectedMake} onValueChange={(value) => { setSelectedMake(value); setSelectedName(''); }} data-testid="make-select">
                     <SelectTrigger>
                       <SelectValue placeholder="Choose machine manufacturer" />
                     </SelectTrigger>
