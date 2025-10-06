@@ -845,7 +845,7 @@ function NewChecklist() {
                 <Button 
                   onClick={handleSubmit} 
                   disabled={!allItemsAddressed || isSubmitting}
-                  className={checkType === 'grader_startup' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'}
+                  className={machineCheckType === 'grader_startup' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'}
                   data-testid="submit-checklist-btn"
                 >
                   {isSubmitting ? 'Saving...' : `Complete ${
