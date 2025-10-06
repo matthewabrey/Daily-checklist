@@ -34,8 +34,9 @@ db = client[DB_NAME]
 # Pydantic models
 class Asset(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    check_type: str
+    name: str  # Name of Implement
     make: str
-    model: str
     
 class Staff(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
