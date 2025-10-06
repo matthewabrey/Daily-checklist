@@ -400,9 +400,17 @@ function NewChecklist() {
 
   useEffect(() => {
     if (selectedMake) {
-      fetchModels(selectedMake);
+      fetchNames(selectedMake);
+      setSelectedName(''); // Reset name when make changes
+      setMachineCheckType(''); // Reset check type
     }
   }, [selectedMake]);
+
+  useEffect(() => {
+    if (selectedMake && selectedName) {
+      fetchCheckType(selectedMake, selectedName);
+    }
+  }, [selectedMake, selectedName]);
 
   useEffect(() => {
     if (step === 3) {
