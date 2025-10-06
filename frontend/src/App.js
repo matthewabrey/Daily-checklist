@@ -782,7 +782,7 @@ function NewChecklist() {
                           <Button
                             variant={item.status === 'satisfactory' ? 'default' : 'outline'}
                             size="sm"
-                            className={`w-10 h-10 sm:w-8 sm:h-8 p-0 text-lg sm:text-base ${item.status === 'satisfactory' ? (checkType === 'grader_startup' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700') : (checkType === 'grader_startup' ? 'hover:bg-orange-50' : 'hover:bg-green-50')}`}
+                            className={`w-10 h-10 sm:w-8 sm:h-8 p-0 text-lg sm:text-base ${item.status === 'satisfactory' ? (machineCheckType === 'grader_startup' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700') : (machineCheckType === 'grader_startup' ? 'hover:bg-orange-50' : 'hover:bg-green-50')}`}
                             onClick={() => handleItemChange(index, 'status', item.status === 'satisfactory' ? 'unchecked' : 'satisfactory')}
                             data-testid={`checklist-satisfactory-${index}`}
                           >
