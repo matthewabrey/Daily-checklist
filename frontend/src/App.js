@@ -519,8 +519,8 @@ function NewChecklist() {
     }
   };
 
-  const canProceedToStep2 = checkType !== '';
-  const allItemsAddressed = checkType === 'workshop_service' ? workshopNotes.trim() !== '' : checklistItems.every(item => item.status !== 'unchecked');
+  const canProceedToStep2 = selectedCheckType !== '';
+  const allItemsAddressed = selectedCheckType === 'workshop_service' ? workshopNotes.trim() !== '' : checklistItems.every(item => item.status !== 'unchecked');
 
   return (
     <div className="space-y-6">
