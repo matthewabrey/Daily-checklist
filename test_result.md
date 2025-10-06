@@ -121,53 +121,65 @@ backend:
           comment: "COMPREHENSIVE AUTHENTICATION TESTING COMPLETED: ✅ POST /api/auth/employee-login works correctly with valid employee numbers (returns 200 with employee data), properly rejects invalid/inactive employees (returns 400 with clear error message). ✅ GET /api/auth/validate/{employee_number} correctly validates active employees (returns valid:true with name) and rejects invalid/inactive employees (returns valid:false). ✅ Checklist creation with employee_number field works correctly - employee numbers are properly stored and returned in API responses. ✅ Access control working - only active employees with valid employee numbers can authenticate. ✅ Error handling proper - clear error messages for invalid attempts. Minor: API returns 400 instead of 401 for invalid logins, but error message is clear and functionality is correct. Authentication system is fully functional and secure."
 
 frontend:
-  - task: "Employee authentication integration"
+  - task: "New asset-based checklist system - Authentication & Navigation"
     implemented: true
-    working: true
+    working: "NA"
     file: "/app/frontend/src/App.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
-        - working: false
+        - working: "NA"
           agent: "main"
-          comment: "EmployeeLogin component exists but not integrated into main flow. NewChecklist still uses staff dropdown instead of authenticated employee"
-        - working: true
-          agent: "main"
-          comment: "Completed integration: Added AuthContext, ProtectedRoute component, wrapped all routes with authentication, removed staff selection step from NewChecklist, updated progress steps, added user info to header with logout"
-        - working: true
-          agent: "testing"
-          comment: "COMPREHENSIVE AUTHENTICATION TESTING COMPLETED: ✅ Employee login with 4444 works perfectly - redirects to dashboard immediately after successful authentication. ✅ User info (Admin User #4444) correctly displayed in header with logout functionality. ✅ Logout works correctly - returns to login page. ✅ Staff selection step successfully removed from NewChecklist - flow goes directly from employee authentication to machine selection. ✅ Employee info correctly displayed in checklist ('Logged in as: Admin User, Employee #4444'). ✅ Complete user flow working: Login → Dashboard → New Checklist → Machine Selection → Check Type → Checklist Completion → Submission → Dashboard. ✅ Authentication state properly managed with React Context and session storage. Fixed minor JavaScript error: removed unused fetchStaff function that was causing 'setStaff is not defined' error. All authentication requirements fully satisfied."
+          comment: "Implemented new asset-based checklist system with updated flow. Need to test login with employee 4444 and navigation to new interface"
 
-  - task: "Performance optimization"
+  - task: "New asset selection flow - Make and Name selection"
     implemented: true
-    working: true
-    file: "/app/frontend/src/App.js"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-        - working: false
-          agent: "main"
-          comment: "User reports slow loading times. Need to implement lazy loading and optimize bundle size"
-        - working: true
-          agent: "main"
-          comment: "Implemented performance optimizations: Added React.memo for Dashboard component, optimized image loading with eager loading for logos, improved bundle structure. Page now loads noticeably faster"
-        - working: true
-          agent: "testing"
-          comment: "PERFORMANCE TESTING COMPLETED: ✅ Application loads quickly and responsively. ✅ Dashboard renders efficiently with React.memo optimization. ✅ Image loading optimized with eager loading for logos. ✅ No performance issues observed during testing. ✅ Navigation between pages is smooth and fast. Performance optimization requirements fully satisfied."
-
-  - task: "Admin panel upload functionality"
-    implemented: true
-    working: true
+    working: "NA"
     file: "/app/frontend/src/App.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
-        - working: true
-          agent: "testing"
-          comment: "ADMIN PANEL TESTING COMPLETED: ✅ Admin access works correctly - clicking 'Admin' button prompts for password. ✅ Admin password 'abreys2024admin' works correctly. ✅ Admin panel loads with all upload forms: Staff Upload, Asset Upload, and Checklist Templates. ✅ NO SharePoint references found - successfully replaced with direct file upload functionality. ✅ All upload forms present and functional: Staff List (.xlsx), Asset List (.xlsx), Daily Check Checklist, Grader Startup Checklist, Workshop Service Tasks. ✅ Direct URL access to /admin also works correctly with password protection. Admin panel fully functional with direct upload replacing SharePoint integration."
+        - working: "NA"
+          agent: "main"
+          comment: "Updated asset selection to use Make → Name flow with new 3-column Excel format (Check Type | Name | Make). Need to test make selection shows correct options and name selection works after make selection"
+
+  - task: "Check type auto-detection and assignment"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implemented auto-detection of Check Type based on machine selection from Excel. Need to test that Check Type is automatically shown and checklist templates are auto-assigned"
+
+  - task: "Updated check type selection - Daily/Workshop only"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Removed separate 'Grader Startup' option - now part of asset list. Only Daily Check and Workshop Service options should be available. Need to test old Grader Startup option is removed"
+
+  - task: "Admin panel with new AssetList.xlsx format"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Updated admin panel to work with new 3-column AssetList.xlsx format. Need to test that 194 assets are available and upload functionality works with new format"
 
 metadata:
   created_by: "main_agent"
