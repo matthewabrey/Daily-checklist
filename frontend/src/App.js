@@ -849,8 +849,7 @@ function NewChecklist() {
                   data-testid="submit-checklist-btn"
                 >
                   {isSubmitting ? 'Saving...' : `Complete ${
-                    checkType === 'daily_check' ? 'Checklist' : 
-                    checkType === 'grader_startup' ? 'Grader Startup' : 
+                    selectedCheckType === 'daily_check' ? 'Checklist' : 
                     'Service Record'
                   }`}
                 </Button>
