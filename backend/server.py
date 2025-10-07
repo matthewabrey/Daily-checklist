@@ -77,6 +77,7 @@ class ChecklistResponse(BaseModel):
     check_type: str
     checklist_items: List[ChecklistItem]
     workshop_notes: Optional[str] = None
+    workshop_photos: Optional[List[dict]] = []
     completed_at: datetime
     status: str
 
