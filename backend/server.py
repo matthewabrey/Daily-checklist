@@ -556,7 +556,7 @@ async def upload_staff_file(file: UploadFile = File(...)):
         
         # Load the Excel file
         workbook = openpyxl.load_workbook(BytesIO(file_content))
-        sheet = workbook.active
+        sheet = workbook[workbook.sheetnames[0]]  # Use first sheet, not active
         
         # Get headers and find name/employee number columns
         headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
