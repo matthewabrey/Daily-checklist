@@ -773,6 +773,21 @@ function NewChecklist() {
                 </div>
               ) : selectedCheckType === 'workshop_service' ? (
                 <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Workshop Service Record</h3>
+                  <p className="text-sm text-gray-600">Document the maintenance or repair work completed on this machine.</p>
+                  <Card className="p-4">
+                    <label className="text-sm font-medium mb-2 block">Work Completed</label>
+                    <Textarea
+                      placeholder="Describe the service, maintenance, or repairs performed on this machine..."
+                      value={workshopNotes}
+                      onChange={(e) => setWorkshopNotes(e.target.value)}
+                      className="min-h-[120px]"
+                      data-testid="workshop-notes-input"
+                    />
+                  </Card>
+                </div>
+              ) : (
+                <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Grader Start Up Safety Checklist</h3>
                   <p className="text-sm text-gray-600">Complete all safety checks before operating grader. Mark each item as satisfactory (✓) or unsatisfactory (✗).</p>
                   {checklistItems.map((item, index) => (
@@ -820,21 +835,6 @@ function NewChecklist() {
                       </div>
                     </Card>
                   ))}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Workshop Service Record</h3>
-                  <p className="text-sm text-gray-600">Document the maintenance or repair work completed on this machine.</p>
-                  <Card className="p-4">
-                    <label className="text-sm font-medium mb-2 block">Work Completed</label>
-                    <Textarea
-                      placeholder="Describe the service, maintenance, or repairs performed on this machine..."
-                      value={workshopNotes}
-                      onChange={(e) => setWorkshopNotes(e.target.value)}
-                      className="min-h-[120px]"
-                      data-testid="workshop-notes-input"
-                    />
-                  </Card>
                 </div>
               )}
               
