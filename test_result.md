@@ -288,7 +288,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "AssetList.xlsx re-upload checklist update verification - COMPLETED"
+    - "Daily Check photo functionality"
+    - "Workshop Service photo functionality"
+    - "Camera functionality and permissions"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
