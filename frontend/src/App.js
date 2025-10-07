@@ -483,29 +483,38 @@ function NewChecklist() {
 
   // Photo functionality
   const takePhoto = async (itemIndex = -1) => {
+    console.log('takePhoto called with itemIndex:', itemIndex);
+    
     try {
+      console.log('Requesting camera access...');
+      setShowCamera(true);  // Show modal first
+      setCurrentPhotoIndex(itemIndex);
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
-          facingMode: 'environment',  // Use back camera on mobile
+          facingMode: { ideal: 'environment' },  // Prefer back camera but allow front
           width: { ideal: 1280 },
           height: { ideal: 720 }
         } 
       });
       
-      setCurrentPhotoIndex(itemIndex);
-      setShowCamera(true);
+      console.log('Camera access granted, setting up video...');
       
       // Create video element for camera preview
       setTimeout(() => {
         const video = document.getElementById('camera-video');
         if (video) {
           video.srcObject = stream;
+          console.log('Video stream set up successfully');
+        } else {
+          console.log('Video element not found');
         }
       }, 100);
       
     } catch (error) {
       console.error('Error accessing camera:', error);
-      toast.error('Cannot access camera. Please check permissions.');
+      setShowCamera(false);  // Hide modal on error
+      toast.error(`Cannot access camera: ${error.message}`);
     }
   };
 
