@@ -619,6 +619,40 @@ function NewChecklist() {
 
   return (
     <div className="space-y-6">
+      {/* Camera Modal */}
+      {showCamera && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-4 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Take Photo</h3>
+              <Button variant="ghost" size="sm" onClick={closeCamera}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="relative mb-4">
+              <video
+                id="camera-video"
+                autoPlay
+                playsInline
+                className="w-full rounded-lg"
+                style={{ maxHeight: '300px' }}
+              />
+            </div>
+            
+            <div className="flex justify-center space-x-4">
+              <Button variant="outline" onClick={closeCamera}>
+                Cancel
+              </Button>
+              <Button onClick={capturePhoto} className="bg-green-600 hover:bg-green-700">
+                <Camera className="h-4 w-4 mr-2" />
+                Capture Photo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button 
