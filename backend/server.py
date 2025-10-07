@@ -48,6 +48,7 @@ class ChecklistItem(BaseModel):
     item: str
     status: str = "unchecked"  # "unchecked", "satisfactory", "unsatisfactory"
     notes: Optional[str] = None
+    photos: Optional[List[dict]] = []
     
 class ChecklistTemplate(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
