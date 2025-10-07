@@ -420,7 +420,7 @@ function NewChecklist() {
 
   const loadChecklistTemplate = async (type) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklist-templates/${type}`);
+      const response = await fetch(`${API_BASE_URL}/api/checklist-templates/${encodeURIComponent(type)}`);
       const template = await response.json();
       
       if (response.ok && template.items) {
