@@ -661,8 +661,8 @@ function NewChecklist() {
                     </div>
                     <div className="flex-1">
                       <h3 className="font-semibold text-lg sm:text-xl">Daily Check</h3>
-                      <p className="text-gray-600 text-sm sm:text-base">Complete checklist inspection</p>
-                      <p className="text-xs sm:text-sm text-gray-500 mt-1">Uses {machineCheckType} checklist</p>
+                      <p className="text-gray-600 text-sm sm:text-base">Complete {machineCheckType} checklist inspection</p>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">Uses "{machineCheckType}" specific checklist</p>
                       <p className="text-sm text-green-600 font-medium mt-2">Tap to start →</p>
                     </div>
                   </div>
