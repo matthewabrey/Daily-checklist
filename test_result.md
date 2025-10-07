@@ -237,7 +237,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "JCB and Drill/Planter checklist loading fix - COMPLETED"
+    - "Cat DP30NTD checklist loading fix - COMPLETED"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
