@@ -588,7 +588,8 @@ function NewChecklist() {
         machine_model: selectedName,
         check_type: selectedCheckType,
         checklist_items: selectedCheckType === 'daily_check' ? checklistItems : [],
-        workshop_notes: selectedCheckType === 'workshop_service' ? workshopNotes : null
+        workshop_notes: selectedCheckType === 'workshop_service' ? workshopNotes : null,
+        workshop_photos: selectedCheckType === 'workshop_service' ? workshopPhotos : []
       };
 
       const response = await fetch(`${API_BASE_URL}/api/checklists`, {
