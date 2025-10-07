@@ -261,15 +261,18 @@ frontend:
 
   - task: "Workshop Service photo functionality"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/frontend/src/App.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Implemented photo functionality for Workshop Service with 'Please take photos before leaving the workshop' message. Includes 'Take Photo' button, camera modal, photo grid display, and delete functionality. Photos are stored with workshop submissions."
+        - working: false
+          agent: "testing"
+          comment: "WORKSHOP SERVICE PHOTO FUNCTIONALITY TESTING RESULTS: ✅ UI ELEMENTS PRESENT - Workshop photo message '📸 Please take photos before leaving the workshop' correctly displayed. ✅ TAKE PHOTO BUTTON - 'Take Photo' button found and clickable in Workshop Service section. ✅ PHOTO SECTION LAYOUT - Photos section with proper styling and grid layout ready for photo display. ❌ CAMERA MODAL ISSUE - Camera modal does not open when Take Photo button is clicked. Found 1 potential modal element in DOM but modal is not visible to user. ❌ SAME CAMERA ACCESS ISSUE - Same camera access problem as Daily Check ('Requested device not found'). CRITICAL ISSUE: Camera modal functionality is not working - UI elements are present but camera modal does not appear when clicked."
 
   - task: "Camera functionality and permissions"
     implemented: true
