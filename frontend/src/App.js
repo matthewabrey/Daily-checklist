@@ -1356,6 +1356,79 @@ function Records() {
     }
   };
 
+  const viewPhotos = (checklist) => {
+    const photos = [];
+    
+    // Collect photos from checklist items
+    if (checklist.checklist_items) {
+      checklist.checklist_items.forEach((item, itemIndex) => {
+        if (item.photos && item.photos.length > 0) {
+          item.photos.forEach((photo) => {
+            photos.push({
+              ...photo,
+              title: `${item.item}`,
+              type: 'checklist_item',
+              itemIndex
+            });
+          });
+        }
+      });
+    }
+    
+    // Collect workshop photos
+    if (checklist.workshop_photos && checklist.workshop_photos.length > 0) {
+      checklist.workshop_photos.forEach((photo) => {
+        photos.push({
+          ...photo,
+          title: 'Workshop Photo',
+          type: 'workshop'
+        });
+      });
+    }
+    
+    if (photos.length > 0) {
+      setSelectedPhotos(photos);
+      setCurrentPhotoIndex(0);
+      setShowPhotoModal(true);
+    } else {
+      toast.info('No photos found for this checklist');
+    }
+  };
+
+  const closePhotoModal = () => {
+    setShowPhotoModal(false);
+    setSelectedPhotos([]);
+    setCurrentPhotoIndex(0);
+  };
+
+  const nextPhoto = () => {
+    setCurrentPhotoIndex((prev) => (prev + 1) % selectedPhotos.length);
+  };
+
+  const prevPhoto = () => {
+    setCurrentPhotoIndex((prev) => (prev - 1 + selectedPhotos.length) % selectedPhotos.length);
+  };
+
+  const getPhotoCount = (checklist) => {
+    let count = 0;
+    
+    // Count checklist item photos
+    if (checklist.checklist_items) {
+      checklist.checklist_items.forEach(item => {
+        if (item.photos) {
+          count += item.photos.length;
+        }
+      });
+    }
+    
+    // Count workshop photos
+    if (checklist.workshop_photos) {
+      count += checklist.workshop_photos.length;
+    }
+    
+    return count;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
