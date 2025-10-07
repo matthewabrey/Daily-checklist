@@ -726,9 +726,8 @@ async def upload_assets_file(file: UploadFile = File(...)):
         
         # Update checklist templates in database
         if checklist_templates:
-            # Remove existing templates for these check types
-            check_types_to_remove = [t["check_type"] for t in checklist_templates]
-            await db.checklist_templates.delete_many({"check_type": {"$in": check_types_to_remove}})
+            # Clear ALL existing templates and insert new ones for complete refresh
+            await db.checklist_templates.delete_many({})
             
             # Insert new templates
             await db.checklist_templates.insert_many(checklist_templates)
