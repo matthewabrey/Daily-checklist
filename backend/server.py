@@ -844,7 +844,7 @@ async def sync_checklists_from_sharepoint():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to sync checklists: {str(e)}")
 
-@app.get("/api/checklist-templates/{check_type}")
+@app.get("/api/checklist-templates/{check_type:path}")
 async def get_checklist_template(check_type: str):
     """Get checklist template for a specific check type"""
     try:
