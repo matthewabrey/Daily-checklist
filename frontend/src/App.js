@@ -481,6 +481,97 @@ function NewChecklist() {
     }
   };
 
+  // Photo functionality
+  const takePhoto = async (itemIndex = -1) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment',  // Use back camera on mobile
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      
+      setCurrentPhotoIndex(itemIndex);
+      setShowCamera(true);
+      
+      // Create video element for camera preview
+      setTimeout(() => {
+        const video = document.getElementById('camera-video');
+        if (video) {
+          video.srcObject = stream;
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      toast.error('Cannot access camera. Please check permissions.');
+    }
+  };
+
+  const capturePhoto = () => {
+    const video = document.getElementById('camera-video');
+    const canvas = document.createElement('canvas');
+    
+    if (video) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+      
+      // Convert to base64
+      const photoData = canvas.toDataURL('image/jpeg', 0.8);
+      
+      if (currentPhotoIndex === -1) {
+        // Workshop photo
+        setWorkshopPhotos(prev => [...prev, {
+          id: Date.now(),
+          data: photoData,
+          timestamp: new Date().toISOString()
+        }]);
+        toast.success('Workshop photo captured!');
+      } else {
+        // Checklist item photo
+        const updatedItems = [...checklistItems];
+        if (!updatedItems[currentPhotoIndex].photos) {
+          updatedItems[currentPhotoIndex].photos = [];
+        }
+        updatedItems[currentPhotoIndex].photos.push({
+          id: Date.now(),
+          data: photoData,
+          timestamp: new Date().toISOString()
+        });
+        setChecklistItems(updatedItems);
+        toast.success('Photo captured for checklist item!');
+      }
+    }
+    
+    closeCamera();
+  };
+
+  const closeCamera = () => {
+    const video = document.getElementById('camera-video');
+    if (video && video.srcObject) {
+      const tracks = video.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+    }
+    setShowCamera(false);
+    setCurrentPhotoIndex(-1);
+  };
+
+  const deletePhoto = (itemIndex, photoId) => {
+    if (itemIndex === -1) {
+      // Workshop photo
+      setWorkshopPhotos(prev => prev.filter(photo => photo.id !== photoId));
+    } else {
+      // Checklist item photo
+      const updatedItems = [...checklistItems];
+      updatedItems[itemIndex].photos = updatedItems[itemIndex].photos.filter(photo => photo.id !== photoId);
+      setChecklistItems(updatedItems);
+    }
+  };
+
   const handleItemChange = (index, field, value) => {
     const updatedItems = [...checklistItems];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
