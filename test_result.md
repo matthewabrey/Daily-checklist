@@ -297,10 +297,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Daily Check photo functionality"
-    - "Workshop Service photo functionality"
     - "Camera functionality and permissions"
-  stuck_tasks: []
+  stuck_tasks:
+    - "Camera functionality and permissions"
   test_all: false
   test_priority: "high_first"
 
