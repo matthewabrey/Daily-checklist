@@ -958,6 +958,54 @@ function NewChecklist() {
                       data-testid="workshop-notes-input"
                     />
                   </Card>
+                  
+                  {/* Workshop Photos Section */}
+                  <Card className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium">Photos</label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => takePhoto(-1)}
+                          className="text-sm"
+                        >
+                          <Camera className="h-4 w-4 mr-2" />
+                          Take Photo
+                        </Button>
+                      </div>
+                      
+                      <p className="text-sm text-orange-600 font-medium bg-orange-50 p-2 rounded">
+                        📸 Please take photos before leaving the workshop
+                      </p>
+                      
+                      {/* Workshop Photo Thumbnails */}
+                      {workshopPhotos.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-gray-600">{workshopPhotos.length} photo{workshopPhotos.length > 1 ? 's' : ''} captured</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {workshopPhotos.map((photo) => (
+                              <div key={photo.id} className="relative">
+                                <img
+                                  src={photo.data}
+                                  alt="Workshop photo"
+                                  className="w-full h-20 object-cover rounded border"
+                                />
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  className="absolute -top-1 -right-1 w-5 h-5 p-0 rounded-full"
+                                  onClick={() => deletePhoto(-1, photo.id)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
                 </div>
               ) : (
                 <div className="space-y-4">
