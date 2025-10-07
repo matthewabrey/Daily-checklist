@@ -887,6 +887,50 @@ function NewChecklist() {
                           {item.status === 'unsatisfactory' && (
                             <div className="mt-1 text-xs text-red-600 font-medium">⚠ Unsatisfactory - Requires attention</div>
                           )}
+                          
+                          {/* Photo section */}
+                          <div className="mt-2 space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => takePhoto(index)}
+                                className="text-xs"
+                              >
+                                <Camera className="h-3 w-3 mr-1" />
+                                Add Photo
+                              </Button>
+                              {item.photos && item.photos.length > 0 && (
+                                <span className="text-xs text-gray-600">
+                                  {item.photos.length} photo{item.photos.length > 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                            
+                            {/* Photo thumbnails */}
+                            {item.photos && item.photos.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {item.photos.map((photo) => (
+                                  <div key={photo.id} className="relative">
+                                    <img
+                                      src={photo.data}
+                                      alt="Checklist item photo"
+                                      className="w-16 h-16 object-cover rounded border"
+                                    />
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      className="absolute -top-1 -right-1 w-5 h-5 p-0 rounded-full"
+                                      onClick={() => deletePhoto(index, photo.id)}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          
                           <Textarea
                             placeholder="Add notes (optional)"
                             value={item.notes}
