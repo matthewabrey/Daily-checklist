@@ -367,7 +367,7 @@ async def get_names_by_make(make: str):
     names = await db.assets.distinct("name", {"make": make})
     return sorted(names)
 
-@app.get("/api/assets/checktype/{make}/{name}")
+@app.get("/api/assets/checktype/{make}/{name:path}")
 async def get_checktype_by_make_and_name(make: str, name: str):
     asset = await db.assets.find_one({"make": make, "name": name}, {"_id": 0})
     if asset:
