@@ -246,15 +246,18 @@ frontend:
 
   - task: "Daily Check photo functionality"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/frontend/src/App.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Implemented photo functionality for Daily Check checklist items. Each checklist item now has 'Add Photo' button that opens camera modal with video preview, captures photos as base64, displays thumbnails, and includes delete functionality. Photos are stored with each checklist item and included in submissions."
+        - working: false
+          agent: "testing"
+          comment: "DAILY CHECK PHOTO FUNCTIONALITY TESTING RESULTS: ✅ UI ELEMENTS PRESENT - Found 21 'Add Photo' buttons correctly displayed for each checklist item in Daily Check. ✅ BUTTON FUNCTIONALITY - Add Photo buttons are clickable and responsive. ❌ CAMERA MODAL ISSUE - Camera modal does not open when Add Photo buttons are clicked. Found 1 potential modal element and 21 camera-related elements in DOM, but modal is not visible to user. ❌ CAMERA ACCESS ISSUE - Manual camera access test failed with 'Requested device not found' error, indicating camera permissions or device access problems. ✅ MediaDevices API available in browser. CRITICAL ISSUE: Camera modal functionality is not working - buttons are present but modal does not appear when clicked."
 
   - task: "Workshop Service photo functionality"
     implemented: true
