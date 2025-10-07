@@ -1612,6 +1612,27 @@ function Records() {
                           <p className="text-sm text-gray-500">
                             {completedDate.toLocaleDateString()} at {completedDate.toLocaleTimeString()}
                           </p>
+                          
+                          {/* Photo information */}
+                          {(() => {
+                            const photoCount = getPhotoCount(checklist);
+                            return photoCount > 0 ? (
+                              <div className="mt-2 flex items-center justify-end space-x-2">
+                                <Badge variant="outline" className="text-xs">
+                                  <Camera className="h-3 w-3 mr-1" />
+                                  {photoCount} photo{photoCount > 1 ? 's' : ''}
+                                </Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => viewPhotos(checklist)}
+                                  className="text-xs px-2 py-1 h-auto"
+                                >
+                                  View Photos
+                                </Button>
+                              </div>
+                            ) : null;
+                          })()}
                         </div>
                       </div>
                     </CardContent>
