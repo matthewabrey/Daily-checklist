@@ -64,6 +64,7 @@ class Checklist(BaseModel):
     check_type: str  # "daily_check", "grader_startup", or "workshop_service"
     checklist_items: List[ChecklistItem] = []
     workshop_notes: Optional[str] = None
+    workshop_photos: Optional[List[dict]] = []
     completed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     status: str = "completed"
     
