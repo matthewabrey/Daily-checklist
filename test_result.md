@@ -229,6 +229,21 @@ frontend:
           agent: "testing"
           comment: "CAT DP30NTD FIX COMPLETELY VERIFIED: ✅ CRITICAL SUCCESS - All requested test scenarios passed perfectly. ✅ Login with employee 4444 → Navigate to New Checklist → Select Make: Cat → Select Name: DP30NTD 4.7m 26580 s/n CT14F04465 → Check Type shows 'Forklift JCB Checklist' → Select Daily Check → Loads exactly 20 checklist items from Forklift JCB Checklist. ✅ SPECIFIC ITEMS CONFIRMED: Fork-related items like 'Inspect forks for cracks, bends, or damage', 'Check tyres for wear, damage, and proper inflation', 'Look for fluid leaks', 'Ensure mast chains are properly lubricated and tensioned', etc. ✅ NO MORE 'checklist not found' errors for Cat DP30NTD machines. ✅ Backend API route fix for special characters using {:path} working correctly. ✅ Complete end-to-end flow functional. The reported issue is completely resolved - Cat DP30NTD machines now successfully load the correct Forklift JCB Checklist with 20 items as expected."
 
+  - task: "AssetList.xlsx re-upload checklist update verification"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Fixed backend to clear all existing templates on upload, improved sheet name matching logic, and verified 7 templates are created correctly. User reported that when they re-upload AssetList.xlsx with altered checklist items, the changes don't appear in the frontend."
+        - working: true
+          agent: "testing"
+          comment: "CHECKLIST UPDATE VERIFICATION TESTING COMPLETED: ✅ CRITICAL SUCCESS - Verified that checklist updates work correctly when AssetList.xlsx is re-uploaded. ✅ COMPREHENSIVE TESTING RESULTS: Login with employee 4444 → Drill/Planter machine (Standen SP244 potato planter) shows 'Drill Planter Checklist' with exactly 8 items including Lights, Wheel Nuts, Tyres, Hydraulics, PTO Guards, Brakes, Flashing Beacons, Pick up hitch. ✅ Vehicle machine (John Deere 6145R) shows 'Vehicle Checklist' with exactly 14 items including Windows and Screens, Wing mirrors, Lights, Wheel Nuts, Tyres, Oils, Hydraulics, Seat belt, PTO Guards, PTO Cut-off, Brakes, Flashing Beacons, Horn, Pick up hitch. ✅ VERIFICATION CONFIRMED: Backend template clearing working, sheet name matching working, template creation working (7 templates created correctly), frontend checklist loading working, check type auto-detection working. ✅ Updated checklist items appear in frontend (not old cached versions). ✅ AssetList.xlsx re-upload changes are reflected correctly in the application. The reported user issue about checklist updates not appearing has been resolved - the system now properly clears existing templates and loads new ones from re-uploaded Excel files."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
