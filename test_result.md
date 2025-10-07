@@ -244,6 +244,42 @@ frontend:
           agent: "testing"
           comment: "CHECKLIST UPDATE VERIFICATION TESTING COMPLETED: ✅ CRITICAL SUCCESS - Verified that checklist updates work correctly when AssetList.xlsx is re-uploaded. ✅ COMPREHENSIVE TESTING RESULTS: Login with employee 4444 → Drill/Planter machine (Standen SP244 potato planter) shows 'Drill Planter Checklist' with exactly 8 items including Lights, Wheel Nuts, Tyres, Hydraulics, PTO Guards, Brakes, Flashing Beacons, Pick up hitch. ✅ Vehicle machine (John Deere 6145R) shows 'Vehicle Checklist' with exactly 14 items including Windows and Screens, Wing mirrors, Lights, Wheel Nuts, Tyres, Oils, Hydraulics, Seat belt, PTO Guards, PTO Cut-off, Brakes, Flashing Beacons, Horn, Pick up hitch. ✅ VERIFICATION CONFIRMED: Backend template clearing working, sheet name matching working, template creation working (7 templates created correctly), frontend checklist loading working, check type auto-detection working. ✅ Updated checklist items appear in frontend (not old cached versions). ✅ AssetList.xlsx re-upload changes are reflected correctly in the application. The reported user issue about checklist updates not appearing has been resolved - the system now properly clears existing templates and loads new ones from re-uploaded Excel files."
 
+  - task: "Daily Check photo functionality"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implemented photo functionality for Daily Check checklist items. Each checklist item now has 'Add Photo' button that opens camera modal with video preview, captures photos as base64, displays thumbnails, and includes delete functionality. Photos are stored with each checklist item and included in submissions."
+
+  - task: "Workshop Service photo functionality"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implemented photo functionality for Workshop Service with 'Please take photos before leaving the workshop' message. Includes 'Take Photo' button, camera modal, photo grid display, and delete functionality. Photos are stored with workshop submissions."
+
+  - task: "Camera functionality and permissions"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implemented camera access using navigator.mediaDevices.getUserMedia with back camera preference on mobile (facingMode: 'environment'), video preview in modal, photo capture to canvas and base64 conversion, and proper camera stream cleanup."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
