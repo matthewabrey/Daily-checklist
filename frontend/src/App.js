@@ -485,36 +485,87 @@ function NewChecklist() {
   const takePhoto = async (itemIndex = -1) => {
     console.log('takePhoto called with itemIndex:', itemIndex);
     
-    try {
-      console.log('Requesting camera access...');
-      setShowCamera(true);  // Show modal first
-      setCurrentPhotoIndex(itemIndex);
-      
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: { ideal: 'environment' },  // Prefer back camera but allow front
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } 
-      });
-      
-      console.log('Camera access granted, setting up video...');
-      
-      // Create video element for camera preview
-      setTimeout(() => {
-        const video = document.getElementById('camera-video');
-        if (video) {
-          video.srcObject = stream;
-          console.log('Video stream set up successfully');
+    // Check if camera is available
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        console.log('Requesting camera access...');
+        setCurrentPhotoIndex(itemIndex);
+        setShowCamera(true);  // Show modal first
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: { ideal: 'environment' },  // Prefer back camera but allow front
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          } 
+        });
+        
+        console.log('Camera access granted, setting up video...');
+        
+        // Create video element for camera preview
+        setTimeout(() => {
+          const video = document.getElementById('camera-video');
+          if (video) {
+            video.srcObject = stream;
+            console.log('Video stream set up successfully');
+          } else {
+            console.log('Video element not found');
+          }
+        }, 200);
+        
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setShowCamera(false);  // Hide modal on error
+        // Fallback to file upload
+        triggerFileUpload(itemIndex);
+      }
+    } else {
+      // Fallback to file upload if camera not available
+      console.log('Camera not available, using file upload fallback');
+      triggerFileUpload(itemIndex);
+    }
+  };
+
+  const triggerFileUpload = (itemIndex) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment'; // Prefer back camera on mobile
+    input.onchange = (e) => handleFileSelect(e, itemIndex);
+    input.click();
+  };
+
+  const handleFileSelect = (event, itemIndex) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const photoData = e.target.result;
+        
+        if (itemIndex === -1) {
+          // Workshop photo
+          setWorkshopPhotos(prev => [...prev, {
+            id: Date.now(),
+            data: photoData,
+            timestamp: new Date().toISOString()
+          }]);
+          toast.success('Workshop photo added!');
         } else {
-          console.log('Video element not found');
+          // Checklist item photo
+          const updatedItems = [...checklistItems];
+          if (!updatedItems[itemIndex].photos) {
+            updatedItems[itemIndex].photos = [];
+          }
+          updatedItems[itemIndex].photos.push({
+            id: Date.now(),
+            data: photoData,
+            timestamp: new Date().toISOString()
+          });
+          setChecklistItems(updatedItems);
+          toast.success('Photo added to checklist item!');
         }
-      }, 100);
-      
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      setShowCamera(false);  // Hide modal on error
-      toast.error(`Cannot access camera: ${error.message}`);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
