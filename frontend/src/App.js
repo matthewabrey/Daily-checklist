@@ -1003,52 +1003,7 @@ function SharePointAdminComponent() {
         </CardContent>
       </Card>
 
-      {/* Checklists Upload */}
-      <Card data-testid="checklists-upload-card">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <ClipboardList className="h-5 w-5 text-orange-600" />
-            <span>Upload Checklist Templates</span>
-          </CardTitle>
-          <CardDescription>
-            Upload Excel files to customize checklist items for each check type
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Daily Check Checklist</label>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={(e) => handleFileUpload(e, 'daily_check')}
-                disabled={loading}
-                className="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Grader Startup Checklist</label>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={(e) => handleFileUpload(e, 'grader_startup')}
-                disabled={loading}
-                className="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Workshop Service Tasks</label>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={(e) => handleFileUpload(e, 'workshop_service')}
-                disabled={loading}
-                className="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Note: Checklist templates are now managed through AssetList.xlsx Check Type column */}
       {/* Upload Results */}
       {uploadResults && (
         <Card data-testid="upload-results-card">
