@@ -678,17 +678,26 @@ async def upload_assets_file(file: UploadFile = File(...)):
             if sheet_name == workbook.sheetnames[0]:
                 continue
             
-            # Try to match sheet name with check types
+            # Try to match sheet name with check types - improved matching
             matching_check_type = None
-            sheet_name_clean = sheet_name.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '')
+            sheet_name_clean = sheet_name.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
             
+            # First try exact matches
             for check_type in unique_check_types:
-                check_type_clean = check_type.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '')
-                if check_type_clean in sheet_name_clean or sheet_name_clean in check_type_clean:
+                check_type_clean = check_type.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
+                if sheet_name_clean == check_type_clean or check_type.lower() == sheet_name.lower():
                     matching_check_type = check_type
                     break
             
-            # If no exact match, use sheet name as check type
+            # If no exact match, try partial matches
+            if not matching_check_type:
+                for check_type in unique_check_types:
+                    check_type_clean = check_type.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
+                    if sheet_name_clean in check_type_clean or check_type_clean in sheet_name_clean:
+                        matching_check_type = check_type
+                        break
+            
+            # If still no match, use sheet name as check type
             if not matching_check_type:
                 matching_check_type = sheet_name
             
