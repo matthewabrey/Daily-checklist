@@ -199,6 +199,21 @@ frontend:
           agent: "testing"
           comment: "ADMIN PANEL TESTING COMPLETE: ✅ Admin access works correctly with password 'abreys2024admin'. ✅ Admin panel loads with all upload forms: Staff Upload, Asset Upload, and Checklist Templates. ✅ NO SharePoint references found - successfully replaced with direct file upload functionality. ✅ New 3-column AssetList.xlsx format working perfectly: 194 assets successfully uploaded with Check Type | Name | Make structure. ✅ API confirms 40 makes, 194 total assets, proper check type assignment. Admin panel fully functional with new format."
 
+  - task: "JCB and Drill/Planter checklist loading fix"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Fixed backend API route to handle '/' characters in check types and updated frontend to properly encode URLs. JCB and Drill/Planter machines were not loading correct checklists due to URL encoding issues with check types containing forward slashes."
+        - working: true
+          agent: "testing"
+          comment: "JCB AND DRILL/PLANTER FIX VERIFIED: ✅ CRITICAL ISSUE RESOLVED - JCB machines now correctly load 'Forklift/JCB' check type and exactly 20 checklist items. ✅ Drill/Planter machines (Standen/Stanhay) now correctly load 'Drill/Planter' check type and exactly 8 checklist items. ✅ Backend API testing confirmed: /api/checklist-templates/Forklift%2FJCB returns 200 OK (was 404), /api/checklist-templates/Drill%2FPlanter returns 200 OK (was 404). ✅ URL encoding fix working perfectly - backend logs show successful API calls with proper handling of '/' characters. ✅ Other machine types unaffected - Vehicle type still loads 14 items correctly. ✅ All expected results achieved: JCB=20 items, Drill/Planter=8 items, Vehicle=14 items. No more 'checklist not found' errors for these machine types."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
