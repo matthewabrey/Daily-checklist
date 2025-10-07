@@ -658,15 +658,78 @@ async def upload_assets_file(file: UploadFile = File(...)):
         if not assets:
             raise HTTPException(status_code=400, detail="No asset data found in the uploaded file")
         
-        # Update database
+        # Update assets database
         await db.assets.delete_many({})
         new_assets = [Asset(**asset).dict() for asset in assets]
         await db.assets.insert_many(new_assets)
         
+        # Process checklist sheets
+        checklist_templates = []
+        processed_sheets = []
+        
+        # Get all unique check types from assets
+        unique_check_types = set(asset['check_type'] for asset in assets)
+        
+        # Process each sheet in the workbook
+        for sheet_name in workbook.sheetnames:
+            sheet = workbook[sheet_name]
+            
+            # Skip the main asset sheet (first sheet)
+            if sheet_name == workbook.sheetnames[0]:
+                continue
+            
+            # Try to match sheet name with check types
+            matching_check_type = None
+            sheet_name_clean = sheet_name.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '')
+            
+            for check_type in unique_check_types:
+                check_type_clean = check_type.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '')
+                if check_type_clean in sheet_name_clean or sheet_name_clean in check_type_clean:
+                    matching_check_type = check_type
+                    break
+            
+            # If no exact match, use sheet name as check type
+            if not matching_check_type:
+                matching_check_type = sheet_name
+            
+            # Extract checklist items from this sheet
+            items = []
+            for row_num, row in enumerate(sheet.iter_rows(values_only=True), 1):
+                if row_num == 1:  # Skip header row
+                    continue
+                    
+                if row and row[0]:  # If first column has content
+                    item_text = str(row[0]).strip()
+                    # Skip obvious headers or empty items
+                    if (item_text and 
+                        item_text.lower() not in ['item', 'check', 'description', 'checklist', 'safety'] and
+                        len(item_text) > 3):  # Minimum length filter
+                        items.append({"item": item_text, "critical": False})
+            
+            if items:
+                template = {
+                    "id": str(uuid.uuid4()),
+                    "check_type": matching_check_type,
+                    "items": items
+                }
+                checklist_templates.append(template)
+                processed_sheets.append(f"{sheet_name} -> {matching_check_type} ({len(items)} items)")
+        
+        # Update checklist templates in database
+        if checklist_templates:
+            # Remove existing templates for these check types
+            check_types_to_remove = [t["check_type"] for t in checklist_templates]
+            await db.checklist_templates.delete_many({"check_type": {"$in": check_types_to_remove}})
+            
+            # Insert new templates
+            await db.checklist_templates.insert_many(checklist_templates)
+        
         return {
-            "message": f"Successfully uploaded {len(assets)} assets", 
+            "message": f"Successfully uploaded {len(assets)} assets and {len(checklist_templates)} checklist templates", 
             "count": len(assets),
-            "preview": assets[:5]
+            "templates_created": len(checklist_templates),
+            "processed_sheets": processed_sheets,
+            "preview": assets[:5] if assets else []
         }
         
     except Exception as e:
