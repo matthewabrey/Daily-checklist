@@ -424,8 +424,8 @@ function NewChecklist() {
       const template = await response.json();
       
       if (response.ok && template.items) {
-        const items = template.items.map(item => ({
-          item: item,
+        const items = template.items.map(templateItem => ({
+          item: typeof templateItem === 'string' ? templateItem : templateItem.item,
           status: "unchecked",
           notes: ""
         }));
