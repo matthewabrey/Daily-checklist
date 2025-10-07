@@ -1317,6 +1317,9 @@ function SharePointAdminComponent() {
 function Records() {
   const [checklists, setChecklists] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
