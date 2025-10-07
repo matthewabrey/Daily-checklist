@@ -252,7 +252,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Cat DP30NTD checklist loading fix - COMPLETED"
+    - "AssetList.xlsx re-upload checklist update verification - COMPLETED"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
