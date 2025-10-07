@@ -622,9 +622,9 @@ function NewChecklist() {
                   onClick={() => setStep(2)} 
                   disabled={!selectedMake || !selectedName}
                   className="bg-green-600 hover:bg-green-700"
-                  data-testid="proceed-to-checklist-btn"
+                  data-testid="proceed-to-check-type-btn"
                 >
-                  Next: Start {machineCheckType} Checklist
+                  Next: Check Type
                 </Button>
               </div>
             </div>
