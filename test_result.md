@@ -214,6 +214,21 @@ frontend:
           agent: "testing"
           comment: "JCB AND DRILL/PLANTER FIX VERIFIED: ✅ CRITICAL ISSUE RESOLVED - JCB machines now correctly load 'Forklift/JCB' check type and exactly 20 checklist items. ✅ Drill/Planter machines (Standen/Stanhay) now correctly load 'Drill/Planter' check type and exactly 8 checklist items. ✅ Backend API testing confirmed: /api/checklist-templates/Forklift%2FJCB returns 200 OK (was 404), /api/checklist-templates/Drill%2FPlanter returns 200 OK (was 404). ✅ URL encoding fix working perfectly - backend logs show successful API calls with proper handling of '/' characters. ✅ Other machine types unaffected - Vehicle type still loads 14 items correctly. ✅ All expected results achieved: JCB=20 items, Drill/Planter=8 items, Vehicle=14 items. No more 'checklist not found' errors for these machine types."
 
+  - task: "Cat DP30NTD checklist loading fix"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Fixed backend API route to handle special characters in machine names using {:path}, cleaned up duplicate templates in database, and updated AssetList.xlsx to latest version. Cat DP30NTD machines were not loading checklists due to special characters in machine names."
+        - working: true
+          agent: "testing"
+          comment: "CAT DP30NTD FIX COMPLETELY VERIFIED: ✅ CRITICAL SUCCESS - All requested test scenarios passed perfectly. ✅ Login with employee 4444 → Navigate to New Checklist → Select Make: Cat → Select Name: DP30NTD 4.7m 26580 s/n CT14F04465 → Check Type shows 'Forklift JCB Checklist' → Select Daily Check → Loads exactly 20 checklist items from Forklift JCB Checklist. ✅ SPECIFIC ITEMS CONFIRMED: Fork-related items like 'Inspect forks for cracks, bends, or damage', 'Check tyres for wear, damage, and proper inflation', 'Look for fluid leaks', 'Ensure mast chains are properly lubricated and tensioned', etc. ✅ NO MORE 'checklist not found' errors for Cat DP30NTD machines. ✅ Backend API route fix for special characters using {:path} working correctly. ✅ Complete end-to-end flow functional. The reported issue is completely resolved - Cat DP30NTD machines now successfully load the correct Forklift JCB Checklist with 20 items as expected."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
