@@ -621,8 +621,11 @@ function NewChecklist() {
     <div className="space-y-6">
       {/* Camera Modal */}
       {showCamera && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-4 max-w-md w-full mx-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-4 max-w-md w-full mx-4 relative z-[10000]">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Take Photo</h3>
               <Button variant="ghost" size="sm" onClick={closeCamera}>
@@ -635,7 +638,8 @@ function NewChecklist() {
                 id="camera-video"
                 autoPlay
                 playsInline
-                className="w-full rounded-lg"
+                muted
+                className="w-full rounded-lg bg-gray-200"
                 style={{ maxHeight: '300px' }}
               />
             </div>
