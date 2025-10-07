@@ -349,9 +349,12 @@ function NewChecklist() {
   const [selectedCheckType, setSelectedCheckType] = useState(''); // daily or workshop
   const [checklistItems, setChecklistItems] = useState([]);
   const [workshopNotes, setWorkshopNotes] = useState('');
+  const [workshopPhotos, setWorkshopPhotos] = useState([]);
   const [makes, setMakes] = useState([]);
   const [names, setNames] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(-1); // -1 for workshop photos
   const navigate = useNavigate();
 
   // Redirect if not authenticated
