@@ -207,7 +207,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Complete system testing"
+    - "Complete system testing - COMPLETED"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
