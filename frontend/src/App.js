@@ -1442,6 +1442,66 @@ function Records() {
 
   return (
     <div className="space-y-6">
+      {/* Photo Modal */}
+      {showPhotoModal && selectedPhotos.length > 0 && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999]">
+          <div className="relative max-w-4xl w-full mx-4">
+            {/* Close button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-4 right-4 text-white hover:bg-white/20 z-10"
+              onClick={closePhotoModal}
+            >
+              <X className="h-6 w-6" />
+            </Button>
+            
+            {/* Navigation buttons */}
+            {selectedPhotos.length > 1 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white hover:bg-white/20"
+                  onClick={prevPhoto}
+                >
+                  <ArrowLeft className="h-6 w-6" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:bg-white/20"
+                  onClick={nextPhoto}
+                >
+                  <ArrowLeft className="h-6 w-6 rotate-180" />
+                </Button>
+              </>
+            )}
+            
+            {/* Photo content */}
+            <div className="text-center">
+              <img
+                src={selectedPhotos[currentPhotoIndex]?.data}
+                alt={selectedPhotos[currentPhotoIndex]?.title}
+                className="max-h-[80vh] max-w-full object-contain mx-auto rounded"
+              />
+              
+              <div className="mt-4 text-white">
+                <p className="text-lg font-medium">{selectedPhotos[currentPhotoIndex]?.title}</p>
+                <p className="text-sm opacity-75">
+                  {selectedPhotos[currentPhotoIndex]?.type === 'workshop' ? 'Workshop Photo' : 'Checklist Item'}
+                </p>
+                {selectedPhotos.length > 1 && (
+                  <p className="text-sm opacity-75 mt-2">
+                    {currentPhotoIndex + 1} of {selectedPhotos.length}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button 
