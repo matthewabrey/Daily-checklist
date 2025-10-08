@@ -1557,7 +1557,26 @@ function Records() {
                         ✓{itemsSatisfactory} ✗{itemsUnsatisfactory} of {totalItems} items
                       </Badge>
                       {itemsUnsatisfactory > 0 && (
-                        <div className="text-xs text-red-600 font-medium">⚠ Issues found</div>
+                        <div className="text-xs text-red-600 font-medium space-y-1">
+                          <div className="flex items-center">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Issues Found:
+                          </div>
+                          <div className="pl-4 space-y-0.5">
+                            {checklist.checklist_items
+                              .filter(item => item.status === 'unsatisfactory')
+                              .map((item, index) => (
+                                <div key={index} className="text-xs text-red-700">
+                                  • {item.item}
+                                  {item.notes && (
+                                    <div className="text-xs text-red-600 italic ml-2">
+                                      "{item.notes}"
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   );
