@@ -782,6 +782,58 @@ function NewChecklist() {
           </div>
         </div>
       )}
+      {/* Fault Explanation Modal */}
+      {showFaultModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-[10000]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-red-600">⚠ Fault Explanation Required</h3>
+              <Button variant="ghost" size="sm" onClick={closeFaultModal}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-700 mb-3">
+                {currentFaultIndex >= 0 && checklistItems[currentFaultIndex] && (
+                  <span className="font-medium">Item: {checklistItems[currentFaultIndex].item}</span>
+                )}
+              </p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-red-700 font-medium text-sm">
+                  Do not carry on with this check or until this issue is recorded and sorted.
+                </p>
+              </div>
+              <label className="block text-sm font-medium mb-2">
+                Please explain the fault:
+              </label>
+              <Textarea
+                value={faultExplanation}
+                onChange={(e) => setFaultExplanation(e.target.value)}
+                placeholder="Describe the issue and any immediate actions taken..."
+                className="min-h-[100px] border-red-300 focus:border-red-500"
+                autoFocus
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <Button variant="outline" onClick={closeFaultModal}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleFaultExplanation}
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={!faultExplanation.trim()}
+              >
+                Record Fault
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
