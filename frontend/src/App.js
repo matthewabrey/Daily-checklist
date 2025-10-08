@@ -634,8 +634,29 @@ function NewChecklist() {
 
   const handleItemChange = (index, field, value) => {
     const updatedItems = [...checklistItems];
-    updatedItems[index] = { ...updatedItems[index], [field]: value };
-    setChecklistItems(updatedItems);
+    
+    // Special handling for unsatisfactory status
+    if (field === 'status' && value === 'unsatisfactory') {
+      // Set status to unsatisfactory
+      updatedItems[index] = { ...updatedItems[index], [field]: value };
+      setChecklistItems(updatedItems);
+      
+      // Focus on notes field after a short delay to prompt for explanation
+      setTimeout(() => {
+        const notesField = document.querySelector(`[data-testid="checklist-notes-${index}"]`);
+        if (notesField) {
+          notesField.focus();
+          notesField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      
+      // Show toast message
+      toast.error('Please explain the fault before continuing');
+    } else {
+      // Normal handling for other changes
+      updatedItems[index] = { ...updatedItems[index], [field]: value };
+      setChecklistItems(updatedItems);
+    }
   };
 
   const handleSubmit = async () => {
