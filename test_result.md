@@ -327,7 +327,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Mandatory fault explanations for unsatisfactory items"
+    - "Camera functionality and permissions"
   stuck_tasks:
     - "Camera functionality and permissions"
   test_all: false
