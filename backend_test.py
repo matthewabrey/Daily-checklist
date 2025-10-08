@@ -660,10 +660,23 @@ class MachineChecklistAPITester:
         if not makes_success:
             print("❌ Makes endpoint failed")
         
-        # Test 4: Get models for a specific make
+        # Test 4: Test asset-related endpoints with John Deere and Cat machines
+        john_deere_names = []
+        cat_names = []
         if makes_success and makes_data:
-            test_make = makes_data[0]  # Use first make for testing
-            self.test_get_models_by_make(test_make)
+            # Test John Deere machines
+            if "John Deere" in makes_data:
+                jd_success, john_deere_names = self.test_get_names_by_make("John Deere")
+                if jd_success and john_deere_names:
+                    # Test check type for first John Deere machine
+                    self.test_get_checktype_by_make_and_name("John Deere", john_deere_names[0])
+            
+            # Test Cat machines  
+            if "Cat" in makes_data:
+                cat_success, cat_names = self.test_get_names_by_make("Cat")
+                if cat_success and cat_names:
+                    # Test check type for first Cat machine
+                    self.test_get_checktype_by_make_and_name("Cat", cat_names[0])
         
         # AUTHENTICATION TESTS - Priority focus as per review request
         print("\n🔐 AUTHENTICATION TESTS")
