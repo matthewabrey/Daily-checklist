@@ -732,17 +732,13 @@ class MachineChecklistAPITester:
         print("\n📋 EXISTING FUNCTIONALITY TESTS")
         print("-" * 40)
         
-        # Test 10: Create a test checklist (legacy format)
+        # Test 10: Create a test checklist with employee number
         checklist_id = ""
-        if staff_success and makes_success and staff_data and makes_data:
-            test_staff = staff_data[0]['name']
-            test_make = makes_data[0]
-            
-            # Get models for the test make
-            models_success, models_data = self.test_get_models_by_make(test_make)
-            if models_success and models_data:
-                test_model = models_data[0]
-                create_success, checklist_id = self.test_create_checklist(test_staff, test_make, test_model)
+        if login_success and cat_names:
+            # Test creating checklist with employee number using Cat machine
+            create_success, checklist_id = self.test_checklist_with_employee_number(
+                test_employee_number, valid_staff_name, "Cat", cat_names[0]
+            )
         
         # Test 11: Get all checklists
         self.test_get_checklists()
