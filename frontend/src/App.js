@@ -1017,13 +1017,19 @@ function NewChecklist() {
                           </div>
                           
                           <Textarea
-                            placeholder="Add notes (optional)"
+                            placeholder={item.status === 'unsatisfactory' ? "REQUIRED: Please explain the fault" : "Add notes (optional)"}
                             value={item.notes}
                             onChange={(e) => handleItemChange(index, 'notes', e.target.value)}
-                            className="mt-2 text-sm"
+                            className={`mt-2 text-sm ${item.status === 'unsatisfactory' ? 'border-red-300 bg-red-50' : ''}`}
                             rows={2}
                             data-testid={`checklist-notes-${index}`}
+                            required={item.status === 'unsatisfactory'}
                           />
+                          {item.status === 'unsatisfactory' && !item.notes?.trim() && (
+                            <div className="mt-1 text-xs text-red-600 font-medium">
+                              ⚠ Fault explanation is required
+                            </div>
+                          )}
                         </div>
                       </div>
                     </Card>
@@ -1130,13 +1136,19 @@ function NewChecklist() {
                             <div className="mt-1 text-xs text-orange-600 font-medium">🚨 Critical Safety Check</div>
                           )}
                           <Textarea
-                            placeholder="Add notes (optional)"
+                            placeholder={item.status === 'unsatisfactory' ? "REQUIRED: Please explain the fault" : "Add notes (optional)"}
                             value={item.notes}
                             onChange={(e) => handleItemChange(index, 'notes', e.target.value)}
-                            className="mt-2 text-sm"
+                            className={`mt-2 text-sm ${item.status === 'unsatisfactory' ? 'border-red-300 bg-red-50' : ''}`}
                             rows={2}
                             data-testid={`checklist-notes-${index}`}
+                            required={item.status === 'unsatisfactory'}
                           />
+                          {item.status === 'unsatisfactory' && !item.notes?.trim() && (
+                            <div className="mt-1 text-xs text-red-600 font-medium">
+                              ⚠ Fault explanation is required
+                            </div>
+                          )}
                         </div>
                       </div>
                     </Card>
