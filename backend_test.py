@@ -699,6 +699,21 @@ class MachineChecklistAPITester:
                     valid_staff_name = staff['name']
                     break
         
+        # MANDATORY FAULT EXPLANATIONS TESTS - Main focus of review request
+        print("\n⚠️  MANDATORY FAULT EXPLANATIONS TESTS")
+        print("-" * 50)
+        
+        fault_checklist_id = ""
+        if login_success and john_deere_names:
+            # Test creating checklist with fault explanations using John Deere machine
+            fault_success, fault_checklist_id = self.test_checklist_with_fault_explanations(
+                test_employee_number, valid_staff_name, "John Deere", john_deere_names[0]
+            )
+            
+            # Test retrieving checklist with notes
+            if fault_success and fault_checklist_id:
+                self.test_checklist_retrieval_with_notes(fault_checklist_id)
+        
         # Test 6: Invalid employee login tests
         self.test_employee_login_invalid("INVALID999")
         self.test_employee_login_invalid("NONEXISTENT")
