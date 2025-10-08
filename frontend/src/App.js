@@ -355,6 +355,9 @@ function NewChecklist() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(-1); // -1 for workshop photos
+  const [showFaultModal, setShowFaultModal] = useState(false);
+  const [currentFaultIndex, setCurrentFaultIndex] = useState(-1);
+  const [faultExplanation, setFaultExplanation] = useState('');
   const navigate = useNavigate();
 
   // Redirect if not authenticated
