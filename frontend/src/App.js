@@ -688,6 +688,18 @@ function NewChecklist() {
   };
 
   const handleSubmit = async () => {
+    // Check for unsatisfactory items without explanations
+    if (selectedCheckType === 'daily_check') {
+      const unsatisfactoryWithoutNotes = checklistItems.find(item => 
+        item.status === 'unsatisfactory' && (!item.notes || item.notes.trim() === '')
+      );
+      
+      if (unsatisfactoryWithoutNotes) {
+        toast.error('Do not carry on with this check or until this issue is recorded and sorted.');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const checklist = {
