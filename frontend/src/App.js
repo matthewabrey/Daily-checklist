@@ -640,21 +640,14 @@ function NewChecklist() {
     
     // Special handling for unsatisfactory status
     if (field === 'status' && value === 'unsatisfactory') {
+      // Show fault explanation modal
+      setCurrentFaultIndex(index);
+      setFaultExplanation(updatedItems[index].notes || '');
+      setShowFaultModal(true);
+      
       // Set status to unsatisfactory
       updatedItems[index] = { ...updatedItems[index], [field]: value };
       setChecklistItems(updatedItems);
-      
-      // Focus on notes field after a short delay to prompt for explanation
-      setTimeout(() => {
-        const notesField = document.querySelector(`[data-testid="checklist-notes-${index}"]`);
-        if (notesField) {
-          notesField.focus();
-          notesField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 100);
-      
-      // Show toast message
-      toast.error('Please explain the fault before continuing');
     } else {
       // Normal handling for other changes
       updatedItems[index] = { ...updatedItems[index], [field]: value };
