@@ -655,6 +655,38 @@ function NewChecklist() {
     }
   };
 
+  const handleFaultExplanation = () => {
+    if (!faultExplanation.trim()) {
+      toast.error('Please provide an explanation for the fault');
+      return;
+    }
+    
+    // Update the notes for the current item
+    const updatedItems = [...checklistItems];
+    updatedItems[currentFaultIndex].notes = faultExplanation.trim();
+    setChecklistItems(updatedItems);
+    
+    // Close modal and reset state
+    setShowFaultModal(false);
+    setCurrentFaultIndex(-1);
+    setFaultExplanation('');
+    
+    toast.success('Fault explanation recorded');
+  };
+
+  const closeFaultModal = () => {
+    // If closing without explanation, revert the status back to unchecked
+    if (!faultExplanation.trim() && currentFaultIndex >= 0) {
+      const updatedItems = [...checklistItems];
+      updatedItems[currentFaultIndex].status = 'unchecked';
+      setChecklistItems(updatedItems);
+    }
+    
+    setShowFaultModal(false);
+    setCurrentFaultIndex(-1);
+    setFaultExplanation('');
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
