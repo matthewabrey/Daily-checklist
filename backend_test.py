@@ -538,6 +538,107 @@ class MachineChecklistAPITester:
             self.log_test(f"Create Checklist with Employee Number ({employee_number})", False, f"Exception: {str(e)}")
             return False, ""
 
+    def test_checklist_with_fault_explanations(self, employee_number: str, staff_name: str, machine_make: str, machine_model: str) -> tuple[bool, str]:
+        """Test creating a checklist with mandatory fault explanations for unsatisfactory items"""
+        try:
+            # Create checklist with mix of satisfactory/unsatisfactory items where unsatisfactory items have notes
+            checklist_items = [
+                {"item": "Oil level check - Engine oil at correct level", "status": "satisfactory", "notes": ""},
+                {"item": "Fuel level check - Adequate fuel for operation", "status": "satisfactory", "notes": ""},
+                {"item": "Tire condition and pressure", "status": "unsatisfactory", "notes": "Left front tire has low pressure - needs immediate attention"},
+                {"item": "Hydraulic fluid level - Within acceptable range", "status": "satisfactory", "notes": ""},
+                {"item": "Battery condition - Terminals clean, voltage adequate", "status": "satisfactory", "notes": ""},
+                {"item": "Lights operational", "status": "unsatisfactory", "notes": "Right headlight bulb is blown and needs replacement"},
+                {"item": "Safety guards in place - All protective covers secured", "status": "satisfactory", "notes": ""},
+                {"item": "Emergency stop function - Test emergency stop button", "status": "satisfactory", "notes": ""},
+                {"item": "Warning lights operational - All safety lights working", "status": "satisfactory", "notes": ""},
+                {"item": "Engine oil level", "status": "unsatisfactory", "notes": "Oil level slightly below minimum line - top up required"},
+                {"item": "Air filter condition - Clean and properly sealed", "status": "satisfactory", "notes": ""},
+                {"item": "Cooling system - Radiator clear, coolant level adequate", "status": "satisfactory", "notes": ""},
+                {"item": "Brake system function - Service and parking brakes operational", "status": "satisfactory", "notes": ""},
+                {"item": "Steering operation - Smooth operation, no excessive play", "status": "satisfactory", "notes": ""},
+                {"item": "Fire extinguisher - Present and within service date", "status": "satisfactory", "notes": ""}
+            ]
+            
+            checklist_data = {
+                "employee_number": employee_number,
+                "staff_name": staff_name,
+                "machine_make": machine_make,
+                "machine_model": machine_model,
+                "check_type": "daily_check",
+                "checklist_items": checklist_items
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/checklists",
+                json=checklist_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            checklist_id = ""
+            
+            if success:
+                result = response.json()
+                checklist_id = result.get('id', '')
+                details = f"Status: {response.status_code}, ID: {checklist_id[:8]}..."
+                
+                # Verify unsatisfactory items have notes
+                unsatisfactory_items = [item for item in result.get('checklist_items', []) if item.get('status') == 'unsatisfactory']
+                if len(unsatisfactory_items) != 3:
+                    success = False
+                    details += f" (Expected 3 unsatisfactory items, got {len(unsatisfactory_items)})"
+                else:
+                    # Check that all unsatisfactory items have notes
+                    items_without_notes = [item for item in unsatisfactory_items if not item.get('notes')]
+                    if items_without_notes:
+                        success = False
+                        details += f" ({len(items_without_notes)} unsatisfactory items missing notes)"
+                    else:
+                        details += f", {len(unsatisfactory_items)} unsatisfactory items with fault explanations"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Create Checklist with Fault Explanations", success, details)
+            return success, checklist_id
+        except Exception as e:
+            self.log_test("Create Checklist with Fault Explanations", False, f"Exception: {str(e)}")
+            return False, ""
+
+    def test_checklist_retrieval_with_notes(self, checklist_id: str) -> bool:
+        """Test retrieving checklist and verify notes field is populated"""
+        try:
+            response = requests.get(f"{self.base_url}/api/checklists/{checklist_id}", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                result = response.json()
+                details = f"Status: {response.status_code}, ID: {result.get('id', '')[:8]}..."
+                
+                # Verify notes field exists and is populated for unsatisfactory items
+                checklist_items = result.get('checklist_items', [])
+                unsatisfactory_items = [item for item in checklist_items if item.get('status') == 'unsatisfactory']
+                
+                if not unsatisfactory_items:
+                    success = False
+                    details += " (No unsatisfactory items found)"
+                else:
+                    items_with_notes = [item for item in unsatisfactory_items if item.get('notes')]
+                    if len(items_with_notes) != len(unsatisfactory_items):
+                        success = False
+                        details += f" ({len(unsatisfactory_items) - len(items_with_notes)} unsatisfactory items missing notes)"
+                    else:
+                        details += f", {len(items_with_notes)} unsatisfactory items with notes retrieved"
+            else:
+                details = f"Status: {response.status_code}"
+                
+            self.log_test("Retrieve Checklist with Notes", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Retrieve Checklist with Notes", False, f"Exception: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run comprehensive API tests"""
         print("🚀 Starting Machine Checklist API Tests")
