@@ -806,6 +806,9 @@ function NewChecklist() {
                 <p className="text-red-700 font-medium text-sm">
                   Do not carry on with this check or until this issue is recorded and sorted.
                 </p>
+                <p className="text-red-600 text-xs mt-2 italic">
+                  Example: "Low tread on tyres, Have notified [manager name] to order a new tyre" or "Fixed issue with lights"
+                </p>
               </div>
               <label className="block text-sm font-medium mb-2">
                 Please explain the fault:
