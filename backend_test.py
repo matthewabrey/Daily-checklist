@@ -357,7 +357,7 @@ class MachineChecklistAPITester:
                 except:
                     details += ", No JSON response"
             else:
-                details += f" (Expected 401), Response: {response.text[:100]}"
+                details += f" (Expected 400/401), Response: {response.text[:100]}"
                 
             self.log_test(f"Employee Login (Invalid: {employee_number})", success, details)
             return success
