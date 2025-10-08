@@ -304,6 +304,18 @@ frontend:
           agent: "testing"
           comment: "RECORDS PAGE UPDATED ISSUE DISPLAY TESTING COMPLETED: ✅ CRITICAL SUCCESS - The Records page has been successfully updated to display specific unsatisfactory issues instead of generic 'Issues found' message. ✅ COMPREHENSIVE VERIFICATION: Created test checklist with unsatisfactory items (Tire condition and pressure with note 'Left front tire low pressure', Lights operational, Engine oil level with note 'Oil slightly below minimum line') and verified correct display in Records section. ✅ VERIFIED FORMAT ELEMENTS: 'Issues Found:' header with AlertCircle icon present, bullet points (•) for each unsatisfactory item working correctly, specific item names displayed in red text, notes shown in italics with quotes, proper indentation and spacing implemented. ✅ TESTING RESULTS: Found 5 'Issues Found:' headers, 10 bullet points, red text styling (19 elements), italic elements (4 elements) for notes, all test content items found in Records display. ✅ EXPECTED BEHAVIOR CONFIRMED: Records now show format like '⚠ Issues Found: • Tire condition and pressure \"Left front tire low pressure\" • Lights operational • Engine oil level \"Oil slightly below minimum line\"' instead of generic message. The updated Records page functionality is working perfectly as requested."
 
+  - task: "Mandatory fault explanations for unsatisfactory items"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implemented mandatory fault explanation popup modal. When a checklist item is marked unsatisfactory (✗), a popup appears requiring fault explanation before continuing. Features: Red-themed modal with warning message 'Do not carry on with this check or until this issue is recorded and sorted', textarea for explanation, prevents submission without explanation, modal shows item context, proper validation and error handling."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
