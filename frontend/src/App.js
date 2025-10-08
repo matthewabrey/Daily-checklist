@@ -724,7 +724,12 @@ function NewChecklist() {
   };
 
   const canProceedToStep2 = selectedCheckType !== '';
-  const allItemsAddressed = selectedCheckType === 'workshop_service' ? workshopNotes.trim() !== '' : checklistItems.every(item => item.status !== 'unchecked');
+  const allItemsAddressed = selectedCheckType === 'workshop_service' 
+    ? workshopNotes.trim() !== '' 
+    : checklistItems.every(item => 
+        item.status !== 'unchecked' && 
+        (item.status !== 'unsatisfactory' || (item.notes && item.notes.trim() !== ''))
+      );
 
   return (
     <div className="space-y-6">
