@@ -102,28 +102,50 @@ class MachineChecklistAPITester:
             self.log_test("Get Machine Makes", False, f"Exception: {str(e)}")
             return False, []
 
-    def test_get_models_by_make(self, make: str) -> tuple[bool, List[str]]:
-        """Test machine models by make endpoint"""
+    def test_get_names_by_make(self, make: str) -> tuple[bool, List[str]]:
+        """Test machine names by make endpoint"""
         try:
             encoded_make = requests.utils.quote(make)
-            response = requests.get(f"{self.base_url}/api/assets/models/{encoded_make}", timeout=10)
+            response = requests.get(f"{self.base_url}/api/assets/names/{encoded_make}", timeout=10)
             success = response.status_code == 200
-            models_data = []
+            names_data = []
             
             if success:
-                models_data = response.json()
-                models_count = len(models_data)
-                details = f"Status: {response.status_code}, Models for '{make}': {models_count}"
-                if models_data:
-                    details += f", Sample: {models_data[0]}"
+                names_data = response.json()
+                names_count = len(names_data)
+                details = f"Status: {response.status_code}, Names for '{make}': {names_count}"
+                if names_data:
+                    details += f", Sample: {names_data[0]}"
             else:
                 details = f"Status: {response.status_code}"
                 
-            self.log_test(f"Get Models for '{make}'", success, details)
-            return success, models_data
+            self.log_test(f"Get Names for '{make}'", success, details)
+            return success, names_data
         except Exception as e:
-            self.log_test(f"Get Models for '{make}'", False, f"Exception: {str(e)}")
+            self.log_test(f"Get Names for '{make}'", False, f"Exception: {str(e)}")
             return False, []
+
+    def test_get_checktype_by_make_and_name(self, make: str, name: str) -> tuple[bool, str]:
+        """Test check type by make and name endpoint"""
+        try:
+            encoded_make = requests.utils.quote(make)
+            encoded_name = requests.utils.quote(name)
+            response = requests.get(f"{self.base_url}/api/assets/checktype/{encoded_make}/{encoded_name}", timeout=10)
+            success = response.status_code == 200
+            check_type = ""
+            
+            if success:
+                result = response.json()
+                check_type = result.get('check_type', '')
+                details = f"Status: {response.status_code}, Check Type: '{check_type}'"
+            else:
+                details = f"Status: {response.status_code}"
+                
+            self.log_test(f"Get Check Type for '{make}' - '{name}'", success, details)
+            return success, check_type
+        except Exception as e:
+            self.log_test(f"Get Check Type for '{make}' - '{name}'", False, f"Exception: {str(e)}")
+            return False, ""
 
     def test_create_checklist(self, staff_name: str, machine_make: str, machine_model: str) -> tuple[bool, str]:
         """Test creating a checklist"""
