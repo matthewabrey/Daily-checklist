@@ -339,7 +339,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Camera functionality and permissions"
+    - "N/A option for checklist items"
   stuck_tasks:
     - "Camera functionality and permissions"
   test_all: false
