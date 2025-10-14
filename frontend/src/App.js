@@ -739,8 +739,8 @@ function NewChecklist() {
   const allItemsAddressed = selectedCheckType === 'workshop_service' 
     ? workshopNotes.trim() !== '' 
     : checklistItems.every(item => 
-        item.status !== 'unchecked' && 
-        (item.status !== 'unsatisfactory' || (item.notes && item.notes.trim() !== ''))
+        (item.status === 'satisfactory' || item.status === 'n/a' || 
+         (item.status === 'unsatisfactory' && item.notes && item.notes.trim() !== ''))
       );
 
   return (
