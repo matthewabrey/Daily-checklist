@@ -1064,6 +1064,15 @@ function NewChecklist() {
                           >
                             ✗
                           </Button>
+                          <Button
+                            variant={item.status === 'n/a' ? 'default' : 'outline'}
+                            size="sm"
+                            className={`w-8 h-8 p-0 text-xs ${item.status === 'n/a' ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'hover:bg-gray-50 text-gray-600'}`}
+                            onClick={() => handleItemChange(index, 'status', item.status === 'n/a' ? 'unchecked' : 'n/a')}
+                            data-testid={`checklist-na-${index}`}
+                          >
+                            N/A
+                          </Button>
                         </div>
                         <div className="flex-1">
                           <label className={`text-sm font-medium cursor-pointer ${item.status === 'unsatisfactory' ? 'text-red-700' : ''}`}>
