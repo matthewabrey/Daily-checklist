@@ -1075,11 +1075,17 @@ function NewChecklist() {
                           </Button>
                         </div>
                         <div className="flex-1">
-                          <label className={`text-sm font-medium cursor-pointer ${item.status === 'unsatisfactory' ? 'text-red-700' : ''}`}>
+                          <label className={`text-sm font-medium cursor-pointer ${
+                            item.status === 'unsatisfactory' ? 'text-red-700' : 
+                            item.status === 'n/a' ? 'text-gray-500' : ''
+                          }`}>
                             {item.item}
                           </label>
                           {item.status === 'unsatisfactory' && (
                             <div className="mt-1 text-xs text-red-600 font-medium">⚠ Unsatisfactory - Requires attention</div>
+                          )}
+                          {item.status === 'n/a' && (
+                            <div className="mt-1 text-xs text-gray-500 font-medium">ℹ Not Applicable</div>
                           )}
                           
                           {/* Photo section */}
