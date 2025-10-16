@@ -1960,6 +1960,8 @@ function Records() {
                       return { bg: 'bg-orange-100', icon: <AlertCircle className="h-6 w-6 text-orange-600" /> };
                     case 'workshop_service': 
                       return { bg: 'bg-blue-100', icon: <Settings className="h-6 w-6 text-blue-600" /> };
+                    case 'NEW MACHINE': 
+                      return { bg: 'bg-purple-100', icon: <Database className="h-6 w-6 text-purple-600" /> };
                     default: 
                       return { bg: 'bg-gray-100', icon: <CheckCircle2 className="h-6 w-6 text-gray-600" /> };
                   }
