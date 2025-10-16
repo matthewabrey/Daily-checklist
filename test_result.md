@@ -351,7 +351,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "N/A option for checklist items"
+    - "Add Machine functionality"
   stuck_tasks:
     - "Camera functionality and permissions"
   test_all: false
