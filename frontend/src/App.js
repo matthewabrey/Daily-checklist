@@ -703,6 +703,12 @@ function NewChecklist() {
       return;
     }
 
+    // Validate safety confirmation
+    if (!safetyConfirmed) {
+      toast.error('Please confirm that you have checked similar machine safety procedures');
+      return;
+    }
+
     // Create a MACHINE ADD record
     try {
       const machineAddRecord = {
