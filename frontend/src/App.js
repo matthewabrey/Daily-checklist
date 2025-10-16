@@ -893,6 +893,92 @@ function NewChecklist() {
         </div>
       )}
 
+      {/* Add Machine Modal */}
+      {showAddMachineModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-[10000]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-green-600">
+                <Database className="h-5 w-5 inline mr-2" />
+                Add New Machine
+              </h3>
+              <Button variant="ghost" size="sm" onClick={closeAddMachineModal}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-blue-700 text-sm">
+                  This will create a "MACHINE ADD" record for review by administrators.
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">Machine Make *</label>
+                <input
+                  type="text"
+                  value={newMachine.make}
+                  onChange={(e) => setNewMachine(prev => ({...prev, make: e.target.value}))}
+                  placeholder="e.g., John Deere, Caterpillar, JCB"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">Machine Name/Model *</label>
+                <input
+                  type="text"
+                  value={newMachine.name}
+                  onChange={(e) => setNewMachine(prev => ({...prev, name: e.target.value}))}
+                  placeholder="e.g., 6145R, DP30NTD, 320E"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">Year Made *</label>
+                <input
+                  type="text"
+                  value={newMachine.yearMade}
+                  onChange={(e) => setNewMachine(prev => ({...prev, yearMade: e.target.value}))}
+                  placeholder="e.g., 2020, 2023"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">Serial Number / Machine Number *</label>
+                <input
+                  type="text"
+                  value={newMachine.serialNumber}
+                  onChange={(e) => setNewMachine(prev => ({...prev, serialNumber: e.target.value}))}
+                  placeholder="e.g., CT14F04465, ABC123456"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <Button variant="outline" onClick={closeAddMachineModal}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleAddMachine}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={!newMachine.make.trim() || !newMachine.name.trim() || 
+                         !newMachine.yearMade.trim() || !newMachine.serialNumber.trim()}
+              >
+                Submit Request
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button 
