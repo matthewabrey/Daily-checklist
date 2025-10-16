@@ -365,6 +365,7 @@ function NewChecklist() {
     yearMade: '',
     serialNumber: ''
   });
+  const [safetyConfirmed, setSafetyConfirmed] = useState(false);
   const navigate = useNavigate();
 
   // Redirect if not authenticated
