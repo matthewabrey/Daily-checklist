@@ -331,6 +331,18 @@ frontend:
           agent: "main"
           comment: "Added N/A (Not Applicable) option to all checklist items. Users now have three options for each item: ✓ (satisfactory), ✗ (unsatisfactory), and N/A. Features: Gray-themed N/A button, visual feedback when selected (grayed out text), 'ℹ Not Applicable' status indicator, updated validation logic to treat N/A as addressed item, consistent styling across both checklist views."
 
+  - task: "Add Machine functionality"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Added 'Add Machine' feature to machine selection screen. When users can't find their machine, they can click 'Add New Machine' to open a modal with fields for Machine Make, Machine Name, Year Made, and Serial Number. Creates a special 'MACHINE ADD' record for administrator review. Features: Green-themed modal, form validation, informational message about admin review, proper error handling and success notifications."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
