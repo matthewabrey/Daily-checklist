@@ -201,6 +201,7 @@ const Dashboard = memo(function Dashboard() {
                     case 'daily_check': return 'Daily check';
                     case 'grader_startup': return 'Grader startup';
                     case 'workshop_service': return 'Workshop service';
+                    case 'NEW MACHINE': return 'New Machine';
                     default: return 'Check';
                   }
                 };
