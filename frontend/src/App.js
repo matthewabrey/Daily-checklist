@@ -747,6 +747,7 @@ function NewChecklist() {
   const closeAddMachineModal = () => {
     setShowAddMachineModal(false);
     setNewMachine({ make: '', name: '', yearMade: '', serialNumber: '' });
+    setSafetyConfirmed(false);
   };
 
   const handleSubmit = async () => {
