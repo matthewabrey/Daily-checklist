@@ -971,6 +971,24 @@ function NewChecklist() {
               </div>
             </div>
             
+            {/* Safety Confirmation */}
+            <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <Checkbox
+                  id="safety-confirmation"
+                  checked={safetyConfirmed}
+                  onCheckedChange={setSafetyConfirmed}
+                  className="mt-1"
+                />
+                <label 
+                  htmlFor="safety-confirmation" 
+                  className="text-sm text-orange-800 cursor-pointer"
+                >
+                  I have checked along similar machine checks and confirm it is safe to take out.
+                </label>
+              </div>
+            </div>
+            
             <div className="flex justify-end space-x-3 mt-6">
               <Button variant="outline" onClick={closeAddMachineModal}>
                 Cancel
@@ -979,7 +997,8 @@ function NewChecklist() {
                 onClick={handleAddMachine}
                 className="bg-green-600 hover:bg-green-700 text-white"
                 disabled={!newMachine.make.trim() || !newMachine.name.trim() || 
-                         !newMachine.yearMade.trim() || !newMachine.serialNumber.trim()}
+                         !newMachine.yearMade.trim() || !newMachine.serialNumber.trim() || 
+                         !safetyConfirmed}
               >
                 Submit Request
               </Button>
