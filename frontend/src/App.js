@@ -694,6 +694,54 @@ function NewChecklist() {
     setFaultExplanation('');
   };
 
+  const handleAddMachine = async () => {
+    // Validate all fields
+    if (!newMachine.make.trim() || !newMachine.name.trim() || 
+        !newMachine.yearMade.trim() || !newMachine.serialNumber.trim()) {
+      toast.error('Please fill in all machine details');
+      return;
+    }
+
+    // Create a MACHINE ADD record
+    try {
+      const machineAddRecord = {
+        employee_number: employee.employee_number,
+        staff_name: employee.name,
+        machine_make: newMachine.make.trim(),
+        machine_model: newMachine.name.trim(),
+        check_type: 'MACHINE ADD',
+        checklist_items: [],
+        workshop_notes: `New machine added:\nMake: ${newMachine.make.trim()}\nName/Model: ${newMachine.name.trim()}\nYear Made: ${newMachine.yearMade.trim()}\nSerial Number: ${newMachine.serialNumber.trim()}`,
+        workshop_photos: []
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/checklists`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(machineAddRecord)
+      });
+
+      if (response.ok) {
+        toast.success('Machine addition request recorded successfully!');
+        setShowAddMachineModal(false);
+        setNewMachine({ make: '', name: '', yearMade: '', serialNumber: '' });
+        navigate('/');
+      } else {
+        throw new Error('Failed to record machine addition');
+      }
+    } catch (error) {
+      console.error('Error recording machine addition:', error);
+      toast.error('Failed to record machine addition. Please try again.');
+    }
+  };
+
+  const closeAddMachineModal = () => {
+    setShowAddMachineModal(false);
+    setNewMachine({ make: '', name: '', yearMade: '', serialNumber: '' });
+  };
+
   const handleSubmit = async () => {
     // Check for unsatisfactory items without explanations
     if (selectedCheckType === 'daily_check') {
