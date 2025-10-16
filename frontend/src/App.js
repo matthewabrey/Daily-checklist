@@ -214,6 +214,8 @@ const Dashboard = memo(function Dashboard() {
                       return { bg: 'bg-orange-100', icon: <AlertCircle className="h-4 w-4 text-orange-600" /> };
                     case 'workshop_service': 
                       return { bg: 'bg-blue-100', icon: <Settings className="h-4 w-4 text-blue-600" /> };
+                    case 'NEW MACHINE': 
+                      return { bg: 'bg-purple-100', icon: <Database className="h-4 w-4 text-purple-600" /> };
                     default: 
                       return { bg: 'bg-gray-100', icon: <CheckCircle2 className="h-4 w-4 text-gray-600" /> };
                   }
