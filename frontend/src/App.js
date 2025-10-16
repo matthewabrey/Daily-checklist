@@ -1937,7 +1937,7 @@ function Records() {
                 } else {
                   statusInfo = (
                     <Badge variant="outline" className="mb-1">
-                      Workshop Service
+                      {checklist.check_type === 'NEW MACHINE' ? 'New Machine' : 'Workshop Service'}
                     </Badge>
                   );
                 }
