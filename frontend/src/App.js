@@ -716,7 +716,7 @@ function NewChecklist() {
         staff_name: employee.name,
         machine_make: newMachine.make.trim(),
         machine_model: newMachine.name.trim(),
-        check_type: 'MACHINE ADD',
+        check_type: 'NEW MACHINE',
         checklist_items: [],
         workshop_notes: `New machine added:\nMake: ${newMachine.make.trim()}\nName/Model: ${newMachine.name.trim()}\nYear Made: ${newMachine.yearMade.trim()}\nSerial Number: ${newMachine.serialNumber.trim()}`,
         workshop_photos: []
