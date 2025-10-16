@@ -358,6 +358,13 @@ function NewChecklist() {
   const [showFaultModal, setShowFaultModal] = useState(false);
   const [currentFaultIndex, setCurrentFaultIndex] = useState(-1);
   const [faultExplanation, setFaultExplanation] = useState('');
+  const [showAddMachineModal, setShowAddMachineModal] = useState(false);
+  const [newMachine, setNewMachine] = useState({
+    make: '',
+    name: '',
+    yearMade: '',
+    serialNumber: ''
+  });
   const navigate = useNavigate();
 
   // Redirect if not authenticated
