@@ -922,7 +922,7 @@ function NewChecklist() {
             <div className="space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-blue-700 text-sm">
-                  This will create a "MACHINE ADD" record for review by administrators.
+                  This will create a "NEW MACHINE" record for review by administrators.
                 </p>
               </div>
               
