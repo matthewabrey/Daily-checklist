@@ -734,6 +734,7 @@ function NewChecklist() {
         toast.success('Machine addition request recorded successfully!');
         setShowAddMachineModal(false);
         setNewMachine({ make: '', name: '', yearMade: '', serialNumber: '' });
+        setSafetyConfirmed(false);
         navigate('/');
       } else {
         throw new Error('Failed to record machine addition');
