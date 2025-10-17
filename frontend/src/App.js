@@ -646,6 +646,56 @@ function NewChecklist() {
     }
   };
 
+  const uploadPhoto = (itemIndex) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = false;
+    
+    input.onchange = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        // Check file size (limit to 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error('File size must be less than 5MB');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const photoData = {
+            id: Date.now(),
+            data: e.target.result,
+            timestamp: new Date().toISOString()
+          };
+
+          if (itemIndex === -1) {
+            // Workshop photo
+            setWorkshopPhotos(prev => [...prev, photoData]);
+            toast.success('Photo uploaded for workshop notes!');
+          } else {
+            // Checklist item photo
+            const updatedItems = [...checklistItems];
+            if (!updatedItems[itemIndex].photos) {
+              updatedItems[itemIndex].photos = [];
+            }
+            updatedItems[itemIndex].photos.push(photoData);
+            setChecklistItems(updatedItems);
+            toast.success('Photo uploaded for checklist item!');
+          }
+        };
+        
+        reader.onerror = () => {
+          toast.error('Error reading file. Please try again.');
+        };
+        
+        reader.readAsDataURL(file);
+      }
+    };
+    
+    input.click();
+  };
+
   const handleItemChange = (index, field, value) => {
     const updatedItems = [...checklistItems];
     
