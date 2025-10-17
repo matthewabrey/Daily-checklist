@@ -1420,15 +1420,26 @@ function NewChecklist() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <label className="text-sm font-medium">Photos</label>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => takePhoto(-1)}
-                          className="text-sm"
-                        >
-                          <Camera className="h-4 w-4 mr-2" />
-                          Take Photo
-                        </Button>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => takePhoto(-1)}
+                            className="text-sm"
+                          >
+                            <Camera className="h-4 w-4 mr-2" />
+                            Take Photo
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => uploadPhoto(-1)}
+                            className="text-sm"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload Photo
+                          </Button>
+                        </div>
                       </div>
                       
                       <p className="text-sm text-orange-600 font-medium bg-orange-50 p-2 rounded">
