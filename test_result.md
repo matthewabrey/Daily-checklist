@@ -343,6 +343,18 @@ frontend:
           agent: "main"
           comment: "Added 'Add Machine' feature to machine selection screen. When users can't find their machine, they can click 'Add New Machine' to open a modal with fields for Machine Make, Machine Name, Year Made, and Serial Number. Creates a special 'MACHINE ADD' record for administrator review. Features: Green-themed modal, form validation, informational message about admin review, proper error handling and success notifications."
 
+  - task: "Upload Photo functionality alongside Take Photo"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Added 'Upload Photo' option alongside existing 'Take Photo' functionality. Users can now either take photos with camera or upload existing photos from their device. Features: File selection with image format validation, 5MB file size limit, FileReader API for base64 conversion, same photo storage structure as camera photos, support for both checklist items and workshop photos, success/error notifications for upload feedback."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
