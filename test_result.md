@@ -363,7 +363,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Add Machine functionality"
+    - "Upload Photo functionality alongside Take Photo"
   stuck_tasks:
     - "Camera functionality and permissions"
   test_all: false
