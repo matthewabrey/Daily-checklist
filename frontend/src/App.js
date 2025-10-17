@@ -1339,7 +1339,16 @@ function NewChecklist() {
                                 className="text-xs"
                               >
                                 <Camera className="h-3 w-3 mr-1" />
-                                Add Photo
+                                Take Photo
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => uploadPhoto(index)}
+                                className="text-xs"
+                              >
+                                <Upload className="h-3 w-3 mr-1" />
+                                Upload Photo
                               </Button>
                               {item.photos && item.photos.length > 0 && (
                                 <span className="text-xs text-gray-600">
