@@ -241,6 +241,21 @@ const Dashboard = memo(function Dashboard() {
                       </p>
                     </div>
                   </div>
+                  {/* NEW MACHINE details for Dashboard */}
+                  {checklist.check_type === 'NEW MACHINE' && checklist.workshop_notes && (
+                    <div className="mt-2 mx-3 sm:mx-4 p-2 sm:p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <h4 className="text-xs font-semibold text-purple-800 mb-1">Machine Details:</h4>
+                      <div className="text-xs text-purple-700 space-y-0.5">
+                        {checklist.workshop_notes.split('\n').slice(1).map((line, index) => (
+                          line.trim() && (
+                            <div key={index}>
+                              <span className="font-medium">{line.trim()}</span>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 );
               })}
             </div>
