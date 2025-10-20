@@ -2079,6 +2079,22 @@ function Records() {
                               </div>
                             ) : null;
                           })()}
+                          
+                          {/* NEW MACHINE details */}
+                          {checklist.check_type === 'NEW MACHINE' && checklist.workshop_notes && (
+                            <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                              <h4 className="text-sm font-semibold text-purple-800 mb-2">Machine Details:</h4>
+                              <div className="text-xs text-purple-700 space-y-1">
+                                {checklist.workshop_notes.split('\n').slice(1).map((line, index) => (
+                                  line.trim() && (
+                                    <div key={index} className="flex">
+                                      <span className="font-medium">{line.trim()}</span>
+                                    </div>
+                                  )
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>
