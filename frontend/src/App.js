@@ -224,38 +224,40 @@ const Dashboard = memo(function Dashboard() {
                 const iconConfig = getIconAndColor(checklist.check_type);
                 
                 return (
-                  <div key={checklist.id} className="flex items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-gray-50" data-testid={`checklist-item-${checklist.id}`}>
-                    <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
-                      <div className={`p-2 rounded-lg ${iconConfig.bg} flex-shrink-0`}>
-                        {iconConfig.icon}
+                  <div key={checklist.id}>
+                    <div className="flex items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-gray-50" data-testid={`checklist-item-${checklist.id}`}>
+                      <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
+                        <div className={`p-2 rounded-lg ${iconConfig.bg} flex-shrink-0`}>
+                          {iconConfig.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm sm:text-base truncate">{checklist.machine_make} {checklist.machine_model}</p>
+                          <p className="text-xs sm:text-sm text-gray-600 truncate">{getCheckTypeDisplay(checklist.check_type)} by {checklist.staff_name}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm sm:text-base truncate">{checklist.machine_make} {checklist.machine_model}</p>
-                        <p className="text-xs sm:text-sm text-gray-600 truncate">{getCheckTypeDisplay(checklist.check_type)} by {checklist.staff_name}</p>
+                      <div className="text-right flex-shrink-0">
+                        {statusBadge}
+                        <p className="text-xs text-gray-500">
+                          {new Date(checklist.completed_at).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      {statusBadge}
-                      <p className="text-xs text-gray-500">
-                        {new Date(checklist.completed_at).toLocaleDateString()}
-                      </p>
-                    </div>
+                    {/* NEW MACHINE details for Dashboard */}
+                    {checklist.check_type === 'NEW MACHINE' && checklist.workshop_notes && (
+                      <div className="mt-2 mx-3 sm:mx-4 p-2 sm:p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <h4 className="text-xs font-semibold text-purple-800 mb-1">Machine Details:</h4>
+                        <div className="text-xs text-purple-700 space-y-0.5">
+                          {checklist.workshop_notes.split('\n').slice(1).map((line, index) => (
+                            line.trim() && (
+                              <div key={index}>
+                                <span className="font-medium">{line.trim()}</span>
+                              </div>
+                            )
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {/* NEW MACHINE details for Dashboard */}
-                  {checklist.check_type === 'NEW MACHINE' && checklist.workshop_notes && (
-                    <div className="mt-2 mx-3 sm:mx-4 p-2 sm:p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                      <h4 className="text-xs font-semibold text-purple-800 mb-1">Machine Details:</h4>
-                      <div className="text-xs text-purple-700 space-y-0.5">
-                        {checklist.workshop_notes.split('\n').slice(1).map((line, index) => (
-                          line.trim() && (
-                            <div key={index}>
-                              <span className="font-medium">{line.trim()}</span>
-                            </div>
-                          )
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 );
               })}
             </div>
