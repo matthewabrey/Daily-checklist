@@ -2569,20 +2569,20 @@ function GeneralRepairRecord() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end space-x-4">
-        <Button 
-          variant="outline" 
-          onClick={() => navigate('/')}
-          disabled={isSubmitting}
-        >
-          Cancel
-        </Button>
+      <div className="flex justify-start space-x-4">
         <Button 
           onClick={handleSubmit}
           disabled={!selectedMake || !selectedName || !problemDescription.trim() || isSubmitting}
           className="bg-orange-600 hover:bg-orange-700 text-white"
         >
           {isSubmitting ? 'Submitting...' : 'Submit Repair Record'}
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={() => navigate('/')}
+          disabled={isSubmitting}
+        >
+          Cancel
         </Button>
       </div>
     </div>
