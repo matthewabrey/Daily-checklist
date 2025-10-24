@@ -1865,7 +1865,9 @@ function Records() {
     try {
       const response = await fetch(`${API_BASE_URL}/api/checklists`);
       const data = await response.json();
-      setChecklists(data);
+      // Filter out GENERAL REPAIR records - keep those only on Repairs Needed page
+      const filteredChecklists = data.filter(checklist => checklist.check_type !== 'GENERAL REPAIR');
+      setChecklists(filteredChecklists);
     } catch (error) {
       console.error('Error fetching checklists:', error);
       toast.error('Failed to load checklist records');
