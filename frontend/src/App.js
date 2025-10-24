@@ -1231,15 +1231,8 @@ function NewChecklist() {
                 </div>
               </div>
               
-              {machineCheckType && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm font-medium text-blue-900">
-                    Checklist Type: <span className="text-blue-700">{machineCheckType}</span>
-                  </p>
-                </div>
-              )}
-              
-              <div className="flex justify-end">
+              {/* Next: Check Type Button - moved to left side below Add New Machine */}
+              <div className="mt-4">
                 <Button 
                   onClick={() => setStep(2)} 
                   disabled={!selectedMake || !selectedName}
@@ -1249,6 +1242,14 @@ function NewChecklist() {
                   Next: Check Type
                 </Button>
               </div>
+              
+              {machineCheckType && (
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm font-medium text-blue-900">
+                    Checklist Type: <span className="text-blue-700">{machineCheckType}</span>
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
