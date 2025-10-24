@@ -2098,6 +2098,8 @@ function Records() {
                       return { bg: 'bg-blue-100', icon: <Settings className="h-6 w-6 text-blue-600" /> };
                     case 'NEW MACHINE': 
                       return { bg: 'bg-purple-100', icon: <Database className="h-6 w-6 text-purple-600" /> };
+                    case 'REPAIR COMPLETED': 
+                      return { bg: 'bg-emerald-100', icon: <Wrench className="h-6 w-6 text-emerald-600" /> };
                     default: 
                       return { bg: 'bg-gray-100', icon: <CheckCircle2 className="h-6 w-6 text-gray-600" /> };
                   }
