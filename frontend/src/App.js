@@ -250,6 +250,7 @@ const Dashboard = memo(function Dashboard() {
                     case 'workshop_service': return 'Workshop service';
                     case 'NEW MACHINE': return 'New Machine';
                     case 'REPAIR COMPLETED': return 'Repair Completed';
+                    case 'GENERAL REPAIR': return 'General Repair';
                     default: return 'Check';
                   }
                 };
@@ -2089,6 +2090,7 @@ function Records() {
                     case 'workshop_service': return 'Workshop service';
                     case 'NEW MACHINE': return 'New Machine';
                     case 'REPAIR COMPLETED': return 'Repair Completed';
+                    case 'GENERAL REPAIR': return 'General Repair';
                     default: return 'Check';
                   }
                 };
