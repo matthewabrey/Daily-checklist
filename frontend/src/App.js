@@ -136,6 +136,44 @@ const Dashboard = memo(function Dashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* General Repair Warning Modal */}
+      {showRepairWarning && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-[10000]">
+            <div className="flex items-center mb-4">
+              <AlertCircle className="h-6 w-6 text-orange-600 mr-3" />
+              <h3 className="text-lg font-semibold text-orange-800">Important Notice</h3>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 leading-relaxed">
+                This is for general repair reporting. If this repair is <strong>urgent</strong> or is a <strong>health and safety issue</strong>, please report directly to your manager immediately.
+              </p>
+              <div className="mt-4 p-3 bg-orange-50 border-l-4 border-orange-400 rounded">
+                <p className="text-sm text-orange-800">
+                  <strong>⚠ Remember:</strong> Critical safety issues require immediate supervisor notification.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end">
+              <Button 
+                onClick={() => {
+                  setShowRepairWarning(false);
+                  navigate('/general-repair-record');
+                }}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                I Understand - Continue
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="text-center sm:text-left">
         <div>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">Machine Checklist Dashboard</h1>
