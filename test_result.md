@@ -355,6 +355,18 @@ frontend:
           agent: "main"
           comment: "Added 'Upload Photo' option alongside existing 'Take Photo' functionality. Users can now either take photos with camera or upload existing photos from their device. Features: File selection with image format validation, 5MB file size limit, FileReader API for base64 conversion, same photo storage structure as camera photos, support for both checklist items and workshop photos, success/error notifications for upload feedback."
 
+  - task: "Dashboard statistics fix and Repairs Needed page"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Fixed dashboard statistics by fetching all checklists for accurate counts. Updated 'Total Checklists' to 'Total Checks Completed' with correct count. Enhanced 'Today's Checks' to show breakdown by equipment type (Mounted Machines, Vehicles, etc.). Removed 'Safety Status' panel. Created new 'Repairs Needed' page that extracts unsatisfactory items from all checklists, allows marking repairs complete with notes and photos, creates 'REPAIR COMPLETED' records. Added red-themed navigation link and proper routing."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
