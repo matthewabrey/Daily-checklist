@@ -923,7 +923,40 @@ class MachineChecklistAPITester:
                     valid_staff_name = staff['name']
                     break
         
-        # MANDATORY FAULT EXPLANATIONS TESTS - Main focus of review request
+        # GENERAL REPAIR TESTS - Main focus of current review request
+        print("\n🔧 GENERAL REPAIR RECORD TESTS")
+        print("-" * 50)
+        
+        general_repair_id = ""
+        general_repair_with_photos_id = ""
+        
+        if login_success:
+            # Test 1: Create basic GENERAL REPAIR record
+            repair_success, general_repair_id = self.test_general_repair_record_creation(
+                test_employee_number, valid_staff_name
+            )
+            
+            # Test 2: Create GENERAL REPAIR record with photos
+            repair_photos_success, general_repair_with_photos_id = self.test_general_repair_record_with_photos(
+                test_employee_number, valid_staff_name
+            )
+            
+            # Test 3: Retrieve GENERAL REPAIR record
+            if repair_success and general_repair_id:
+                self.test_general_repair_record_retrieval(general_repair_id)
+            
+            # Test 4: Retrieve GENERAL REPAIR record with photos
+            if repair_photos_success and general_repair_with_photos_id:
+                self.test_general_repair_record_retrieval(general_repair_with_photos_id)
+            
+            # Test 5: Validation error handling
+            self.test_general_repair_validation_errors()
+            
+            # Test 6: GENERAL REPAIR records in checklist list
+            if repair_success and general_repair_id:
+                self.test_general_repair_in_checklist_list(general_repair_id)
+
+        # MANDATORY FAULT EXPLANATIONS TESTS - Previous functionality
         print("\n⚠️  MANDATORY FAULT EXPLANATIONS TESTS")
         print("-" * 50)
         
