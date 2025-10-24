@@ -2608,9 +2608,10 @@ function RepairsNeeded() {
       const response = await fetch(`${API_BASE_URL}/api/checklists`);
       const checklists = await response.json();
       
-      // Extract all unsatisfactory items from checklists
+      // Extract all unsatisfactory items from checklists AND general repair records
       const repairItems = [];
       checklists.forEach(checklist => {
+        // Add unsatisfactory checklist items
         if (checklist.checklist_items) {
           checklist.checklist_items.forEach((item, index) => {
             if (item.status === 'unsatisfactory') {
@@ -2624,11 +2625,39 @@ function RepairsNeeded() {
                 completedAt: checklist.completed_at,
                 staffName: checklist.staff_name,
                 checkType: checklist.check_type,
-                repaired: false, // Track if repair is completed
+                repaired: false,
                 repairNotes: '',
-                repairPhotos: []
+                repairPhotos: [],
+                type: 'unsatisfactory_item'
               });
             }
+          });
+        }
+        
+        // Add GENERAL REPAIR records
+        if (checklist.check_type === 'GENERAL REPAIR') {
+          // Extract problem description from workshop_notes
+          const problemDescription = checklist.workshop_notes
+            .split('\n')
+            .slice(1) // Skip the "GENERAL REPAIR REPORT:" line
+            .map(line => line.replace('Problem Description: ', ''))
+            .join(' ')
+            .trim();
+            
+          repairItems.push({
+            id: `${checklist.id}-general`,
+            checklistId: checklist.id,
+            itemIndex: -1, // No specific checklist item
+            item: 'General Equipment Issue',
+            notes: problemDescription,
+            machine: `${checklist.machine_make} ${checklist.machine_model}`,
+            completedAt: checklist.completed_at,
+            staffName: checklist.staff_name,
+            checkType: checklist.check_type,
+            repaired: false,
+            repairNotes: '',
+            repairPhotos: [],
+            type: 'general_repair'
           });
         }
       });
