@@ -3056,6 +3056,39 @@ function RepairsNeeded() {
         </div>
       )}
 
+      {/* Repair Camera Modal */}
+      {showRepairCamera && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-[10000]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-green-600">Take Repair Photo</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowRepairCamera(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <video
+                id="repair-camera-video"
+                autoPlay
+                playsInline
+                className="w-full rounded-lg"
+              />
+              <Button 
+                onClick={captureRepairPhoto}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                Capture Photo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button 
