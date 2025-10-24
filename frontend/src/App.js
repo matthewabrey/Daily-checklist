@@ -2366,7 +2366,9 @@ function GeneralRepairRecord() {
         toast.success('Repair record submitted successfully!');
         navigate('/');
       } else {
-        throw new Error('Failed to submit repair record');
+        const errorData = await response.text();
+        console.error('Server response:', response.status, errorData);
+        throw new Error(`Server error: ${response.status} - ${errorData}`);
       }
     } catch (error) {
       console.error('Error submitting repair record:', error);
