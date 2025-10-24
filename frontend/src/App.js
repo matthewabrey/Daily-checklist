@@ -158,6 +158,15 @@ const Dashboard = memo(function Dashboard() {
             <FileText className="mr-2 h-4 w-4" />
             View Records
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/repairs-needed')}
+            className="w-full sm:w-auto text-sm sm:text-base py-3 sm:py-2 border-red-300 text-red-600 hover:bg-red-50"
+            data-testid="repairs-needed-btn"
+          >
+            <AlertCircle className="mr-2 h-4 w-4" />
+            Repairs Needed
+          </Button>
         </div>
       </div>
 
