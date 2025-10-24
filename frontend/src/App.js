@@ -2171,6 +2171,354 @@ function Records() {
   );
 }
 
+// Repairs Needed Component
+function RepairsNeeded() {
+  const [repairs, setRepairs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showRepairModal, setShowRepairModal] = useState(false);
+  const [currentRepair, setCurrentRepair] = useState(null);
+  const [repairNotes, setRepairNotes] = useState('');
+  const [repairPhotos, setRepairPhotos] = useState([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchRepairs();
+  }, []);
+
+  const fetchRepairs = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/checklists`);
+      const checklists = await response.json();
+      
+      // Extract all unsatisfactory items from checklists
+      const repairItems = [];
+      checklists.forEach(checklist => {
+        if (checklist.checklist_items) {
+          checklist.checklist_items.forEach((item, index) => {
+            if (item.status === 'unsatisfactory') {
+              repairItems.push({
+                id: `${checklist.id}-${index}`,
+                checklistId: checklist.id,
+                itemIndex: index,
+                item: item.item,
+                notes: item.notes || '',
+                machine: `${checklist.machine_make} ${checklist.machine_model}`,
+                completedAt: checklist.completed_at,
+                staffName: checklist.staff_name,
+                checkType: checklist.check_type,
+                repaired: false, // Track if repair is completed
+                repairNotes: '',
+                repairPhotos: []
+              });
+            }
+          });
+        }
+      });
+      
+      setRepairs(repairItems);
+    } catch (error) {
+      console.error('Error fetching repairs:', error);
+      toast.error('Failed to load repair items');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRepairComplete = (repair) => {
+    setCurrentRepair(repair);
+    setRepairNotes('');
+    setRepairPhotos([]);
+    setShowRepairModal(true);
+  };
+
+  const uploadRepairPhoto = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = false;
+    
+    input.onchange = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error('File size must be less than 5MB');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const photoData = {
+            id: Date.now(),
+            data: e.target.result,
+            timestamp: new Date().toISOString()
+          };
+          setRepairPhotos(prev => [...prev, photoData]);
+          toast.success('Photo uploaded for repair documentation!');
+        };
+        
+        reader.onerror = () => {
+          toast.error('Error reading file. Please try again.');
+        };
+        
+        reader.readAsDataURL(file);
+      }
+    };
+    
+    input.click();
+  };
+
+  const deleteRepairPhoto = (photoId) => {
+    setRepairPhotos(prev => prev.filter(photo => photo.id !== photoId));
+  };
+
+  const submitRepairCompletion = async () => {
+    if (!repairNotes.trim()) {
+      toast.error('Please add notes describing the repair work completed');
+      return;
+    }
+
+    try {
+      // Create a repair completion record
+      const repairRecord = {
+        employee_number: '0000', // System record
+        staff_name: 'Maintenance Team',
+        machine_make: currentRepair.machine.split(' ')[0],
+        machine_model: currentRepair.machine.split(' ').slice(1).join(' '),
+        check_type: 'REPAIR COMPLETED',
+        checklist_items: [],
+        workshop_notes: `REPAIR COMPLETED:\nOriginal Issue: ${currentRepair.item}\nOriginal Notes: ${currentRepair.notes}\nRepair Notes: ${repairNotes.trim()}`,
+        workshop_photos: repairPhotos
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/checklists`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(repairRecord)
+      });
+
+      if (response.ok) {
+        toast.success('Repair completion recorded successfully!');
+        
+        // Mark repair as completed locally
+        setRepairs(prev => prev.map(repair => 
+          repair.id === currentRepair.id 
+            ? { ...repair, repaired: true, repairNotes: repairNotes, repairPhotos: repairPhotos }
+            : repair
+        ));
+        
+        setShowRepairModal(false);
+        setCurrentRepair(null);
+        setRepairNotes('');
+        setRepairPhotos([]);
+      } else {
+        throw new Error('Failed to record repair completion');
+      }
+    } catch (error) {
+      console.error('Error recording repair completion:', error);
+      toast.error('Failed to record repair completion. Please try again.');
+    }
+  };
+
+  const closeRepairModal = () => {
+    setShowRepairModal(false);
+    setCurrentRepair(null);
+    setRepairNotes('');
+    setRepairPhotos([]);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading repair items...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Repair Completion Modal */}
+      {showRepairModal && currentRepair && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-[10000]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-green-600">Mark Repair Complete</h3>
+              <Button variant="ghost" size="sm" onClick={closeRepairModal}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="bg-gray-50 border rounded-lg p-3">
+                <p className="text-sm font-medium text-gray-800">Machine: {currentRepair.machine}</p>
+                <p className="text-sm text-gray-600">Issue: {currentRepair.item}</p>
+                <p className="text-xs text-gray-500">Original Notes: {currentRepair.notes}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">Repair Work Completed *</label>
+                <Textarea
+                  value={repairNotes}
+                  onChange={(e) => setRepairNotes(e.target.value)}
+                  placeholder="Describe the repair work completed, parts replaced, actions taken..."
+                  className="min-h-[100px]"
+                />
+              </div>
+              
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">Repair Photos</label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={uploadRepairPhoto}
+                    className="text-sm"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Add Photo
+                  </Button>
+                </div>
+                
+                {repairPhotos.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {repairPhotos.map((photo) => (
+                      <div key={photo.id} className="relative">
+                        <img
+                          src={photo.data}
+                          alt="Repair photo"
+                          className="w-full h-16 object-cover rounded border"
+                        />
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="absolute -top-1 -right-1 w-5 h-5 p-0 rounded-full"
+                          onClick={() => deleteRepairPhoto(photo.id)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <Button variant="outline" onClick={closeRepairModal}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={submitRepairCompletion}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={!repairNotes.trim()}
+              >
+                Complete Repair
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Repairs Needed</h1>
+            <p className="text-gray-600 mt-2">Track and complete equipment repair issues</p>
+          </div>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+            Outstanding Issues ({repairs.filter(r => !r.repaired).length})
+          </CardTitle>
+          <CardDescription>Equipment issues requiring attention</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {repairs.filter(r => !r.repaired).length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <CheckCircle2 className="mx-auto h-12 w-12 text-green-400 mb-4" />
+              <p>No outstanding repairs needed</p>
+              <p className="text-sm">All equipment issues have been resolved</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {repairs.filter(r => !r.repaired).map((repair) => (
+                <Card key={repair.id} className="border-l-4 border-l-red-500">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg text-red-700">{repair.machine}</h3>
+                        <p className="text-gray-700 mt-1">{repair.item}</p>
+                        <p className="text-sm text-gray-600 mt-2 italic">"{repair.notes}"</p>
+                        <div className="flex items-center space-x-4 mt-3 text-xs text-gray-500">
+                          <span>Reported by: {repair.staffName}</span>
+                          <span>Date: {new Date(repair.completedAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => handleRepairComplete(repair)}
+                        className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                        size="sm"
+                      >
+                        Mark Complete
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {repairs.filter(r => r.repaired).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <CheckCircle2 className="h-5 w-5 text-green-600 mr-2" />
+              Completed Repairs ({repairs.filter(r => r.repaired).length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {repairs.filter(r => r.repaired).map((repair) => (
+                <Card key={repair.id} className="border-l-4 border-l-green-500 bg-green-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg text-green-700">{repair.machine}</h3>
+                        <p className="text-gray-700 mt-1">{repair.item}</p>
+                        <p className="text-sm text-green-600 mt-2">✓ Repair Completed</p>
+                      </div>
+                      <CheckCircle2 className="h-6 w-6 text-green-600" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // Admin Login Component
 function AdminLogin({ onLogin }) {
   const [password, setPassword] = useState('');
