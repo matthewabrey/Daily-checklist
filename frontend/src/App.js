@@ -2672,6 +2672,13 @@ function AppContent() {
                 >
                   Records
                 </Link>
+                <Link 
+                  to="/repairs-needed" 
+                  className="text-red-600 hover:text-red-700 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                  data-testid="nav-repairs"
+                >
+                  Repairs
+                </Link>
                 {/* Only show admin link if user has admin access */}
                 {isAdmin && (
                   <Link 
