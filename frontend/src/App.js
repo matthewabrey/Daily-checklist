@@ -2914,6 +2914,9 @@ function RepairsNeeded() {
         </div>
       )}
       
+      {/* Main Content - Only show when authenticated */}
+      {isAuthenticated && (
+        <>
       {/* Repair Completion Modal */}
       {showRepairModal && currentRepair && (
         <div 
