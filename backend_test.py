@@ -639,6 +639,230 @@ class MachineChecklistAPITester:
             self.log_test("Retrieve Checklist with Notes", False, f"Exception: {str(e)}")
             return False
 
+    def test_general_repair_record_creation(self, employee_number: str, staff_name: str) -> tuple[bool, str]:
+        """Test creating a GENERAL REPAIR record as specified in review request"""
+        try:
+            # Create GENERAL REPAIR record as specified in the review request
+            general_repair_data = {
+                "employee_number": employee_number,
+                "staff_name": staff_name,
+                "machine_make": "John Deere",
+                "machine_model": "6145R",
+                "check_type": "GENERAL REPAIR",
+                "checklist_items": [],
+                "workshop_notes": "GENERAL REPAIR REPORT:\nProblem Description: Test problem description",
+                "workshop_photos": []
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/checklists",
+                json=general_repair_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            checklist_id = ""
+            
+            if success:
+                result = response.json()
+                checklist_id = result.get('id', '')
+                details = f"Status: {response.status_code}, ID: {checklist_id[:8]}..."
+                
+                # Verify GENERAL REPAIR specific fields
+                if result.get('check_type') != "GENERAL REPAIR":
+                    success = False
+                    details += f" (Check type mismatch: expected 'GENERAL REPAIR', got '{result.get('check_type')}')"
+                elif not result.get('workshop_notes'):
+                    success = False
+                    details += " (Missing workshop_notes)"
+                elif "GENERAL REPAIR REPORT:" not in result.get('workshop_notes', ''):
+                    success = False
+                    details += " (Workshop notes content incorrect)"
+                else:
+                    details += f", Check Type: {result.get('check_type')}, Workshop Notes: Present"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:200]}"
+                
+            self.log_test("Create GENERAL REPAIR Record", success, details)
+            return success, checklist_id
+        except Exception as e:
+            self.log_test("Create GENERAL REPAIR Record", False, f"Exception: {str(e)}")
+            return False, ""
+
+    def test_general_repair_record_with_photos(self, employee_number: str, staff_name: str) -> tuple[bool, str]:
+        """Test creating a GENERAL REPAIR record with base64 photo data"""
+        try:
+            # Create sample base64 image data (1x1 pixel PNG)
+            sample_base64_image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+            
+            # Create GENERAL REPAIR record with photos
+            general_repair_data = {
+                "employee_number": employee_number,
+                "staff_name": staff_name,
+                "machine_make": "John Deere",
+                "machine_model": "6145R",
+                "check_type": "GENERAL REPAIR",
+                "checklist_items": [],
+                "workshop_notes": "GENERAL REPAIR REPORT:\nProblem Description: Hydraulic leak detected on left side\nRepair Action: Replaced hydraulic hose and fittings\nTesting: System pressure tested at 2500 PSI - no leaks detected",
+                "workshop_photos": [
+                    {
+                        "id": "photo1",
+                        "data": sample_base64_image,
+                        "timestamp": datetime.now().isoformat()
+                    },
+                    {
+                        "id": "photo2", 
+                        "data": sample_base64_image,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                ]
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/checklists",
+                json=general_repair_data,
+                headers={"Content-Type": "application/json"},
+                timeout=15  # Longer timeout for photo data
+            )
+            
+            success = response.status_code == 200
+            checklist_id = ""
+            
+            if success:
+                result = response.json()
+                checklist_id = result.get('id', '')
+                details = f"Status: {response.status_code}, ID: {checklist_id[:8]}..."
+                
+                # Verify GENERAL REPAIR with photos
+                if result.get('check_type') != "GENERAL REPAIR":
+                    success = False
+                    details += f" (Check type mismatch: expected 'GENERAL REPAIR', got '{result.get('check_type')}')"
+                elif not result.get('workshop_photos'):
+                    success = False
+                    details += " (Missing workshop_photos)"
+                elif len(result.get('workshop_photos', [])) != 2:
+                    success = False
+                    details += f" (Expected 2 photos, got {len(result.get('workshop_photos', []))})"
+                else:
+                    # Verify photo data structure
+                    photos = result.get('workshop_photos', [])
+                    valid_photos = all('id' in photo and 'data' in photo for photo in photos)
+                    if not valid_photos:
+                        success = False
+                        details += " (Invalid photo structure)"
+                    else:
+                        details += f", Photos: {len(photos)} uploaded successfully"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:200]}"
+                
+            self.log_test("Create GENERAL REPAIR Record with Photos", success, details)
+            return success, checklist_id
+        except Exception as e:
+            self.log_test("Create GENERAL REPAIR Record with Photos", False, f"Exception: {str(e)}")
+            return False, ""
+
+    def test_general_repair_record_retrieval(self, checklist_id: str) -> bool:
+        """Test retrieving GENERAL REPAIR record and verify all fields"""
+        try:
+            response = requests.get(f"{self.base_url}/api/checklists/{checklist_id}", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                result = response.json()
+                details = f"Status: {response.status_code}, ID: {result.get('id', '')[:8]}..."
+                
+                # Verify GENERAL REPAIR record structure
+                if result.get('check_type') != "GENERAL REPAIR":
+                    success = False
+                    details += f" (Check type mismatch: expected 'GENERAL REPAIR', got '{result.get('check_type')}')"
+                elif not result.get('workshop_notes'):
+                    success = False
+                    details += " (Missing workshop_notes in retrieved record)"
+                elif 'workshop_photos' not in result:
+                    success = False
+                    details += " (Missing workshop_photos field in retrieved record)"
+                else:
+                    photos_count = len(result.get('workshop_photos', []))
+                    details += f", Check Type: {result.get('check_type')}, Photos: {photos_count}"
+            else:
+                details = f"Status: {response.status_code}"
+                
+            self.log_test("Retrieve GENERAL REPAIR Record", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Retrieve GENERAL REPAIR Record", False, f"Exception: {str(e)}")
+            return False
+
+    def test_general_repair_validation_errors(self) -> bool:
+        """Test GENERAL REPAIR record validation and error handling"""
+        try:
+            # Test with missing required fields
+            invalid_data = {
+                "check_type": "GENERAL REPAIR",
+                "workshop_notes": "Test repair notes"
+                # Missing employee_number, staff_name, machine_make, machine_model
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/checklists",
+                json=invalid_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            # Should return 422 for validation error
+            success = response.status_code == 422
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                try:
+                    result = response.json()
+                    details += f", Validation Error: {result.get('detail', 'No error message')}"
+                except:
+                    details += ", No JSON response"
+            else:
+                details += f" (Expected 422 for validation error), Response: {response.text[:100]}"
+                
+            self.log_test("GENERAL REPAIR Validation Error Handling", success, details)
+            return success
+        except Exception as e:
+            self.log_test("GENERAL REPAIR Validation Error Handling", False, f"Exception: {str(e)}")
+            return False
+
+    def test_general_repair_in_checklist_list(self, expected_repair_id: str) -> bool:
+        """Test that GENERAL REPAIR records appear in checklist list"""
+        try:
+            response = requests.get(f"{self.base_url}/api/checklists", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                checklists = response.json()
+                details = f"Status: {response.status_code}, Total checklists: {len(checklists)}"
+                
+                # Find GENERAL REPAIR records
+                general_repair_records = [c for c in checklists if c.get('check_type') == 'GENERAL REPAIR']
+                
+                if not general_repair_records:
+                    success = False
+                    details += " (No GENERAL REPAIR records found in list)"
+                else:
+                    # Check if our specific record is in the list
+                    found_record = any(c.get('id') == expected_repair_id for c in general_repair_records)
+                    if not found_record:
+                        success = False
+                        details += f" (Expected GENERAL REPAIR record {expected_repair_id[:8]}... not found)"
+                    else:
+                        details += f", GENERAL REPAIR records: {len(general_repair_records)}, Target record found"
+            else:
+                details = f"Status: {response.status_code}"
+                
+            self.log_test("GENERAL REPAIR Records in List", success, details)
+            return success
+        except Exception as e:
+            self.log_test("GENERAL REPAIR Records in List", False, f"Exception: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run comprehensive API tests"""
         print("🚀 Starting Machine Checklist API Tests")
