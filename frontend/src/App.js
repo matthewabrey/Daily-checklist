@@ -2910,16 +2910,28 @@ function RepairsNeeded() {
           ) : (
             <div className="space-y-4">
               {repairs.filter(r => !r.repaired).map((repair) => (
-                <Card key={repair.id} className="border-l-4 border-l-red-500">
+                <Card key={repair.id} className={`border-l-4 ${repair.type === 'general_repair' ? 'border-l-orange-500' : 'border-l-red-500'}`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-lg text-red-700">{repair.machine}</h3>
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h3 className={`font-semibold text-lg ${repair.type === 'general_repair' ? 'text-orange-700' : 'text-red-700'}`}>
+                            {repair.machine}
+                          </h3>
+                          {repair.type === 'general_repair' && (
+                            <Badge variant="outline" className="text-xs border-orange-300 text-orange-600">
+                              General Repair
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-gray-700 mt-1">{repair.item}</p>
                         <p className="text-sm text-gray-600 mt-2 italic">"{repair.notes}"</p>
                         <div className="flex items-center space-x-4 mt-3 text-xs text-gray-500">
                           <span>Reported by: {repair.staffName}</span>
                           <span>Date: {new Date(repair.completedAt).toLocaleDateString()}</span>
+                          {repair.type === 'general_repair' && (
+                            <span className="text-orange-600 font-medium">• General Report</span>
+                          )}
                         </div>
                       </div>
                       <Button
