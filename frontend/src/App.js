@@ -2176,6 +2176,22 @@ function Records() {
                               </div>
                             </div>
                           )}
+                          
+                          {/* GENERAL REPAIR details */}
+                          {checklist.check_type === 'GENERAL REPAIR' && checklist.workshop_notes && (
+                            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                              <h4 className="text-sm font-semibold text-red-800 mb-2">Problem Report:</h4>
+                              <div className="text-xs text-red-700">
+                                {checklist.workshop_notes.split('\n').slice(1).map((line, index) => (
+                                  line.trim() && (
+                                    <div key={index}>
+                                      <span>{line.trim()}</span>
+                                    </div>
+                                  )
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>
