@@ -161,7 +161,7 @@ const Dashboard = memo(function Dashboard() {
           </Button>
           <Button 
             variant="outline" 
-            onClick={() => navigate('/general-repair-record')}
+            onClick={() => setShowRepairWarning(true)}
             className="w-full sm:w-auto text-sm sm:text-base py-3 sm:py-2 border-orange-300 text-orange-600 hover:bg-orange-50"
             data-testid="general-repair-record-btn"
           >
