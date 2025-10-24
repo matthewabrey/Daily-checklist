@@ -3161,13 +3161,6 @@ function AppContent() {
                   Home
                 </Link>
                 <Link 
-                  to="/new-checklist" 
-                  className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
-                  data-testid="nav-new-checklist"
-                >
-                  Check
-                </Link>
-                <Link 
                   to="/records" 
                   className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
                   data-testid="nav-records"
