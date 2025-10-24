@@ -2726,6 +2726,10 @@ function RepairsNeeded() {
 
     try {
       // Create a repair completion record
+      const repairTypeDescription = currentRepair.type === 'general_repair' 
+        ? 'General Repair Issue' 
+        : 'Checklist Item Issue';
+        
       const repairRecord = {
         employee_number: '0000', // System record
         staff_name: 'Maintenance Team',
@@ -2733,7 +2737,7 @@ function RepairsNeeded() {
         machine_model: currentRepair.machine.split(' ').slice(1).join(' '),
         check_type: 'REPAIR COMPLETED',
         checklist_items: [],
-        workshop_notes: `REPAIR COMPLETED:\nOriginal Issue: ${currentRepair.item}\nOriginal Notes: ${currentRepair.notes}\nRepair Notes: ${repairNotes.trim()}`,
+        workshop_notes: `REPAIR COMPLETED:\nType: ${repairTypeDescription}\nOriginal Issue: ${currentRepair.item}\nOriginal Notes: ${currentRepair.notes}\nRepair Notes: ${repairNotes.trim()}`,
         workshop_photos: repairPhotos
       };
 
