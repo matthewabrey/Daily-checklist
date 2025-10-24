@@ -2343,6 +2343,8 @@ function GeneralRepairRecord() {
 
     setIsSubmitting(true);
     try {
+      console.log('Submitting repair record...', { selectedMake, selectedName, problemDescription });
+      
       const repairRecord = {
         employee_number: employee.employee_number,
         staff_name: employee.name,
@@ -2353,6 +2355,9 @@ function GeneralRepairRecord() {
         workshop_notes: `GENERAL REPAIR REPORT:\nProblem Description: ${problemDescription.trim()}`,
         workshop_photos: repairPhotos
       };
+
+      console.log('Repair record payload:', repairRecord);
+      console.log('API URL:', `${API_BASE_URL}/api/checklists`);
 
       const response = await fetch(`${API_BASE_URL}/api/checklists`, {
         method: 'POST',
