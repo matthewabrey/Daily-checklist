@@ -3108,8 +3108,6 @@ function RepairsNeeded() {
           </CardContent>
         </Card>
       )}
-      </>
-      )}
     </div>
   );
 }
