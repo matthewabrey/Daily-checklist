@@ -2994,15 +2994,26 @@ function RepairsNeeded() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-medium">Repair Photos</label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={uploadRepairPhoto}
-                    className="text-sm"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Add Photo
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={takeRepairPhoto}
+                      className="text-sm"
+                    >
+                      <Camera className="h-4 w-4 mr-2" />
+                      Take Photo
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={uploadRepairPhoto}
+                      className="text-sm"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Photo
+                    </Button>
+                  </div>
                 </div>
                 
                 {repairPhotos.length > 0 && (
