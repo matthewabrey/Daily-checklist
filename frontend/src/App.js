@@ -2081,6 +2081,7 @@ function Records() {
                     <Badge variant="outline" className="mb-1">
                       {checklist.check_type === 'NEW MACHINE' ? 'New Machine' : 
                        checklist.check_type === 'REPAIR COMPLETED' ? 'Repair Completed' : 
+                       checklist.check_type === 'GENERAL REPAIR' ? 'General Repair' : 
                        'Workshop Service'}
                     </Badge>
                   );
