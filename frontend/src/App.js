@@ -2647,8 +2647,10 @@ function RepairsNeeded() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchRepairs();
-  }, []);
+    if (isAuthenticated) {
+      fetchRepairs();
+    }
+  }, [isAuthenticated]);
 
   const fetchRepairs = async () => {
     try {
