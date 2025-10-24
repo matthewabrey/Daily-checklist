@@ -2781,6 +2781,43 @@ function RepairsNeeded() {
     input.click();
   };
 
+  const takeRepairPhoto = () => {
+    setShowRepairCamera(true);
+  };
+
+  const captureRepairPhoto = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const video = document.getElementById('repair-camera-video');
+      video.srcObject = stream;
+      
+      setTimeout(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        
+        const photoData = {
+          id: Date.now(),
+          data: canvas.toDataURL('image/jpeg', 0.8),
+          timestamp: new Date().toISOString()
+        };
+        
+        setRepairPhotos(prev => [...prev, photoData]);
+        
+        // Stop the camera
+        stream.getTracks().forEach(track => track.stop());
+        setShowRepairCamera(false);
+        
+        toast.success('Photo captured for repair documentation!');
+      }, 100);
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      toast.error('Failed to access camera. Please try uploading a photo instead.');
+    }
+  };
+
   const deleteRepairPhoto = (photoId) => {
     setRepairPhotos(prev => prev.filter(photo => photo.id !== photoId));
   };
