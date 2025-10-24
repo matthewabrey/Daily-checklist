@@ -171,10 +171,10 @@ const Dashboard = memo(function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
         <Card data-testid="total-checklists-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Checklists</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Checks Completed</CardTitle>
             <ClipboardList className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -189,19 +189,19 @@ const Dashboard = memo(function Dashboard() {
             <Calendar className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.today}</div>
-            <p className="text-xs text-gray-600">Completed today</p>
-          </CardContent>
-        </Card>
-        
-        <Card data-testid="safety-status-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Safety Status</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">Active</div>
-            <p className="text-xs text-gray-600">All systems operational</p>
+            <div className="text-2xl font-bold text-green-600">{stats.todayTotal}</div>
+            {Object.keys(stats.todayByType).length > 0 && (
+              <div className="mt-2 space-y-1">
+                {Object.entries(stats.todayByType).map(([type, count]) => (
+                  <p key={type} className="text-xs text-gray-600">
+                    {type}: {count}
+                  </p>
+                ))}
+              </div>
+            )}
+            {Object.keys(stats.todayByType).length === 0 && (
+              <p className="text-xs text-gray-600">No checks completed today</p>
+            )}
           </CardContent>
         </Card>
       </div>
