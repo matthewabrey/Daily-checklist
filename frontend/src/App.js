@@ -87,15 +87,18 @@ const Dashboard = memo(function Dashboard() {
     try {
       // Fetch recent checklists for display
       const recentResponse = await fetch(`${API_BASE_URL}/api/checklists?limit=5`);
-      const recentChecklists = await recentResponse.json();
-      setRecentChecklists(recentChecklists);
+      const recentChecklistsData = await recentResponse.json();
+      // Filter out GENERAL REPAIR records from recent display
+      const filteredRecentChecklists = recentChecklistsData.filter(c => c.check_type !== 'GENERAL REPAIR');
+      setRecentChecklists(filteredRecentChecklists);
       
       // Fetch all checklists for accurate stats
       const allResponse = await fetch(`${API_BASE_URL}/api/checklists`);
       const allChecklists = await allResponse.json();
       
-      // Calculate total checks completed
-      const totalCompleted = allChecklists.length;
+      // Calculate total checks completed (excluding GENERAL REPAIR)
+      const regularChecklists = allChecklists.filter(c => c.check_type !== 'GENERAL REPAIR');
+      const totalCompleted = regularChecklists.length;
       
       // Calculate today's checks by type
       const today = new Date().toISOString().split('T')[0];
