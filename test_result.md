@@ -120,6 +120,18 @@ backend:
           agent: "testing"
           comment: "COMPREHENSIVE AUTHENTICATION TESTING COMPLETED: ✅ POST /api/auth/employee-login works correctly with valid employee numbers (returns 200 with employee data), properly rejects invalid/inactive employees (returns 400 with clear error message). ✅ GET /api/auth/validate/{employee_number} correctly validates active employees (returns valid:true with name) and rejects invalid/inactive employees (returns valid:false). ✅ Checklist creation with employee_number field works correctly - employee numbers are properly stored and returned in API responses. ✅ Access control working - only active employees with valid employee numbers can authenticate. ✅ Error handling proper - clear error messages for invalid attempts. Minor: API returns 400 instead of 401 for invalid logins, but error message is clear and functionality is correct. Authentication system is fully functional and secure."
 
+  - task: "GENERAL REPAIR record type backend support"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "COMPREHENSIVE GENERAL REPAIR BACKEND TESTING COMPLETED: ✅ CRITICAL SUCCESS - Backend API fully supports GENERAL REPAIR record type with no validation errors or schema issues. ✅ POST /api/checklists with GENERAL REPAIR records: Successfully created records with check_type='GENERAL REPAIR', empty checklist_items array, workshop_notes field populated, and workshop_photos array (both empty and with base64 image data). ✅ RECORD RETRIEVAL VERIFIED: GET /api/checklists and GET /api/checklists/{id} correctly return GENERAL REPAIR records with all fields intact. ✅ PHOTO SUPPORT CONFIRMED: workshop_photos field handles base64 image data correctly - tested with 2 photos containing full base64 PNG data, proper photo structure (id, data, timestamp) maintained. ✅ VALIDATION TESTING: Proper 422 validation errors for missing required fields (employee_number, staff_name, machine_make, machine_model), accepts empty check_type, handles very long workshop_notes (5KB+ text). ✅ CSV EXPORT WORKING: GENERAL REPAIR records appear correctly in CSV export. ✅ COMPREHENSIVE TEST RESULTS: 27/27 backend tests passed (100% success rate), created and verified multiple GENERAL REPAIR records, confirmed exact JSON structure from review request works perfectly. Backend is fully ready to handle GENERAL REPAIR submissions from GeneralRepairRecord component."
+
 frontend:
   - task: "New asset-based checklist system - Authentication & Navigation"
     implemented: true
