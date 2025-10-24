@@ -100,9 +100,9 @@ const Dashboard = memo(function Dashboard() {
       const regularChecklists = allChecklists.filter(c => c.check_type !== 'GENERAL REPAIR');
       const totalCompleted = regularChecklists.length;
       
-      // Calculate today's checks by type
+      // Calculate today's checks by type (excluding GENERAL REPAIR)
       const today = new Date().toISOString().split('T')[0];
-      const todayChecklists = allChecklists.filter(c => c.completed_at.startsWith(today));
+      const todayChecklists = regularChecklists.filter(c => c.completed_at.startsWith(today));
       
       // Group today's checks by machine type
       const todayByType = todayChecklists.reduce((acc, checklist) => {
