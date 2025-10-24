@@ -267,6 +267,8 @@ const Dashboard = memo(function Dashboard() {
                       return { bg: 'bg-purple-100', icon: <Database className="h-4 w-4 text-purple-600" /> };
                     case 'REPAIR COMPLETED': 
                       return { bg: 'bg-emerald-100', icon: <Wrench className="h-4 w-4 text-emerald-600" /> };
+                    case 'GENERAL REPAIR': 
+                      return { bg: 'bg-red-100', icon: <AlertTriangle className="h-4 w-4 text-red-600" /> };
                     default: 
                       return { bg: 'bg-gray-100', icon: <CheckCircle2 className="h-4 w-4 text-gray-600" /> };
                   }
