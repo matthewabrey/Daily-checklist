@@ -2109,6 +2109,8 @@ function Records() {
                       return { bg: 'bg-purple-100', icon: <Database className="h-6 w-6 text-purple-600" /> };
                     case 'REPAIR COMPLETED': 
                       return { bg: 'bg-emerald-100', icon: <Wrench className="h-6 w-6 text-emerald-600" /> };
+                    case 'GENERAL REPAIR': 
+                      return { bg: 'bg-red-100', icon: <AlertTriangle className="h-6 w-6 text-red-600" /> };
                     default: 
                       return { bg: 'bg-gray-100', icon: <CheckCircle2 className="h-6 w-6 text-gray-600" /> };
                   }
