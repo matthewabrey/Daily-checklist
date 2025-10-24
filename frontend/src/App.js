@@ -75,7 +75,7 @@ const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
 // Dashboard Component
 const Dashboard = memo(function Dashboard() {
   const [recentChecklists, setRecentChecklists] = useState([]);
-  const [stats, setStats] = useState({ total: 0, today: 0 });
+  const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0 });
   const navigate = useNavigate();
 
   useEffect(() => {
