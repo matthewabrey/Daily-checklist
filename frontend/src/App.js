@@ -84,14 +84,50 @@ const Dashboard = memo(function Dashboard() {
 
   const fetchRecentChecklists = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=5`);
-      const checklists = await response.json();
-      setRecentChecklists(checklists);
+      // Fetch recent checklists for display
+      const recentResponse = await fetch(`${API_BASE_URL}/api/checklists?limit=5`);
+      const recentChecklists = await recentResponse.json();
+      setRecentChecklists(recentChecklists);
       
-      // Calculate stats
+      // Fetch all checklists for accurate stats
+      const allResponse = await fetch(`${API_BASE_URL}/api/checklists`);
+      const allChecklists = await allResponse.json();
+      
+      // Calculate total checks completed
+      const totalCompleted = allChecklists.length;
+      
+      // Calculate today's checks by type
       const today = new Date().toISOString().split('T')[0];
-      const todayCount = checklists.filter(c => c.completed_at.startsWith(today)).length;
-      setStats({ total: checklists.length, today: todayCount });
+      const todayChecklists = allChecklists.filter(c => c.completed_at.startsWith(today));
+      
+      // Group today's checks by machine type
+      const todayByType = todayChecklists.reduce((acc, checklist) => {
+        // Convert check_type to user-friendly names
+        let typeName = checklist.check_type;
+        if (typeName === 'daily_check' || typeName === 'grader_startup') {
+          // Use machine check type if available, otherwise classify by make
+          if (checklist.machine_make.toLowerCase().includes('cat')) {
+            typeName = 'Mounted Machines';
+          } else if (checklist.machine_make.toLowerCase().includes('john deere')) {
+            typeName = 'Vehicles';
+          } else {
+            typeName = 'Other Equipment';
+          }
+        } else if (typeName === 'workshop_service') {
+          typeName = 'Workshop Service';
+        } else if (typeName === 'NEW MACHINE') {
+          typeName = 'New Machine Requests';
+        }
+        
+        acc[typeName] = (acc[typeName] || 0) + 1;
+        return acc;
+      }, {});
+      
+      setStats({ 
+        total: totalCompleted, 
+        todayByType: todayByType,
+        todayTotal: todayChecklists.length 
+      });
     } catch (error) {
       console.error('Error fetching checklists:', error);
     }
