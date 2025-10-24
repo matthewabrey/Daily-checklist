@@ -2182,6 +2182,382 @@ function Records() {
   );
 }
 
+// General Repair Record Component
+function GeneralRepairRecord() {
+  const [selectedMake, setSelectedMake] = useState('');
+  const [selectedName, setSelectedName] = useState('');
+  const [availableNames, setAvailableNames] = useState([]);
+  const [makes, setMakes] = useState([]);
+  const [problemDescription, setProblemDescription] = useState('');
+  const [repairPhotos, setRepairPhotos] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const { employee } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchMakes();
+  }, []);
+
+  useEffect(() => {
+    if (selectedMake) {
+      fetchNames(selectedMake);
+    } else {
+      setAvailableNames([]);
+    }
+  }, [selectedMake]);
+
+  const fetchMakes = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/assets/makes`);
+      const makesData = await response.json();
+      setMakes(makesData);
+    } catch (error) {
+      console.error('Error fetching makes:', error);
+      toast.error('Failed to load machine makes');
+    }
+  };
+
+  const fetchNames = async (make) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/assets/names/${encodeURIComponent(make)}`);
+      const namesData = await response.json();
+      setAvailableNames(namesData);
+    } catch (error) {
+      console.error('Error fetching names:', error);
+      toast.error('Failed to load machine names');
+    }
+  };
+
+  const takePhoto = () => {
+    setShowCamera(true);
+  };
+
+  const uploadPhoto = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = false;
+    
+    input.onchange = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error('File size must be less than 5MB');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const photoData = {
+            id: Date.now(),
+            data: e.target.result,
+            timestamp: new Date().toISOString()
+          };
+          setRepairPhotos(prev => [...prev, photoData]);
+          toast.success('Photo uploaded for repair record!');
+        };
+        
+        reader.onerror = () => {
+          toast.error('Error reading file. Please try again.');
+        };
+        
+        reader.readAsDataURL(file);
+      }
+    };
+    
+    input.click();
+  };
+
+  const capturePhoto = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const video = document.getElementById('camera-video');
+      video.srcObject = stream;
+      
+      setTimeout(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        
+        const photoData = {
+          id: Date.now(),
+          data: canvas.toDataURL('image/jpeg', 0.8),
+          timestamp: new Date().toISOString()
+        };
+        
+        setRepairPhotos(prev => [...prev, photoData]);
+        
+        // Stop the camera
+        stream.getTracks().forEach(track => track.stop());
+        setShowCamera(false);
+        
+        toast.success('Photo captured for repair record!');
+      }, 100);
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      toast.error('Failed to access camera. Please try uploading a photo instead.');
+    }
+  };
+
+  const deletePhoto = (photoId) => {
+    setRepairPhotos(prev => prev.filter(photo => photo.id !== photoId));
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedMake || !selectedName) {
+      toast.error('Please select a machine');
+      return;
+    }
+
+    if (!problemDescription.trim()) {
+      toast.error('Please describe the problem');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const repairRecord = {
+        employee_number: employee.employee_number,
+        staff_name: employee.name,
+        machine_make: selectedMake,
+        machine_model: selectedName,
+        check_type: 'GENERAL REPAIR',
+        checklist_items: [],
+        workshop_notes: `GENERAL REPAIR REPORT:\nProblem Description: ${problemDescription.trim()}`,
+        workshop_photos: repairPhotos
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/checklists`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(repairRecord)
+      });
+
+      if (response.ok) {
+        toast.success('Repair record submitted successfully!');
+        navigate('/');
+      } else {
+        throw new Error('Failed to submit repair record');
+      }
+    } catch (error) {
+      console.error('Error submitting repair record:', error);
+      toast.error('Failed to submit repair record. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Camera Modal */}
+      {showCamera && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-[10000]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Take Photo</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowCamera(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <video
+                id="camera-video"
+                autoPlay
+                playsInline
+                className="w-full rounded-lg"
+              />
+              <Button 
+                onClick={capturePhoto}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                Capture Photo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">General Repair Record</h1>
+            <p className="text-gray-600 mt-2">Report equipment problems and maintenance issues</p>
+          </div>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Wrench className="h-5 w-5 text-orange-600 mr-2" />
+            Equipment Selection
+          </CardTitle>
+          <CardDescription>Select the machine that requires repair or attention</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Machine Make Selection */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Machine Make *</label>
+            <select 
+              value={selectedMake} 
+              onChange={(e) => {
+                setSelectedMake(e.target.value);
+                setSelectedName('');
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+              data-testid="make-select"
+            >
+              <option value="">Select Machine Make</option>
+              {makes.map((make) => (
+                <option key={make} value={make}>{make}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Machine Name Selection */}
+          {selectedMake && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Machine Name/Model *</label>
+              <select 
+                value={selectedName} 
+                onChange={(e) => setSelectedName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                data-testid="name-select"
+              >
+                <option value="">Select Machine Name</option>
+                {availableNames.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {selectedMake && selectedName && (
+            <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+              <p className="text-sm font-medium text-orange-900">
+                Selected Machine: <span className="text-orange-700">{selectedMake} - {selectedName}</span>
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <FileText className="h-5 w-5 text-orange-600 mr-2" />
+            Problem Description
+          </CardTitle>
+          <CardDescription>Describe the issue, fault, or repair needed</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Problem Details *</label>
+            <Textarea
+              value={problemDescription}
+              onChange={(e) => setProblemDescription(e.target.value)}
+              placeholder="Describe the problem in detail: What's not working? What symptoms are you observing? When did it start? Any error messages or unusual sounds?"
+              className="min-h-[120px]"
+              data-testid="problem-description"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Be as specific as possible to help maintenance teams diagnose and fix the issue
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium">Problem Photos</label>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={takePhoto}
+                  className="text-sm"
+                >
+                  <Camera className="h-4 w-4 mr-2" />
+                  Take Photo
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={uploadPhoto}
+                  className="text-sm"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Photo
+                </Button>
+              </div>
+            </div>
+            
+            {repairPhotos.length > 0 && (
+              <div className="grid grid-cols-3 gap-3 mt-3">
+                {repairPhotos.map((photo) => (
+                  <div key={photo.id} className="relative">
+                    <img
+                      src={photo.data}
+                      alt="Problem photo"
+                      className="w-full h-20 object-cover rounded border"
+                      loading="lazy"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="absolute -top-1 -right-1 w-5 h-5 p-0 rounded-full"
+                      onClick={() => deletePhoto(photo.id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {repairPhotos.length === 0 && (
+              <p className="text-xs text-gray-500 mt-2">
+                Photos help maintenance teams understand the problem better
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end space-x-4">
+        <Button 
+          variant="outline" 
+          onClick={() => navigate('/')}
+          disabled={isSubmitting}
+        >
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleSubmit}
+          disabled={!selectedMake || !selectedName || !problemDescription.trim() || isSubmitting}
+          className="bg-orange-600 hover:bg-orange-700 text-white"
+        >
+          {isSubmitting ? 'Submitting...' : 'Submit Repair Record'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // Repairs Needed Component
 function RepairsNeeded() {
   const [repairs, setRepairs] = useState([]);
