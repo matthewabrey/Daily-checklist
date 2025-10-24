@@ -2652,6 +2652,23 @@ function RepairsNeeded() {
     }
   }, [isAuthenticated]);
 
+  const handlePasswordSubmit = () => {
+    if (password === '4444') {
+      setIsAuthenticated(true);
+      setShowPasswordModal(false);
+      toast.success('Access granted');
+    } else {
+      toast.error('Invalid password');
+      setPassword('');
+    }
+  };
+
+  const handlePasswordKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handlePasswordSubmit();
+    }
+  };
+
   const fetchRepairs = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/checklists`);
