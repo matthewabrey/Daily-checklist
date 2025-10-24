@@ -375,7 +375,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Upload Photo functionality alongside Take Photo"
+    - "Dashboard statistics fix and Repairs Needed page"
   stuck_tasks:
     - "Camera functionality and permissions"
   test_all: false
