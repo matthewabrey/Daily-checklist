@@ -2081,6 +2081,7 @@ function Records() {
                     case 'grader_startup': return 'Grader startup';
                     case 'workshop_service': return 'Workshop service';
                     case 'NEW MACHINE': return 'New Machine';
+                    case 'REPAIR COMPLETED': return 'Repair Completed';
                     default: return 'Check';
                   }
                 };
