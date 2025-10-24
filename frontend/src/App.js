@@ -2736,6 +2736,11 @@ function AppContent() {
                 <Records />
               </ProtectedRoute>
             } />
+            <Route path="/repairs-needed" element={
+              <ProtectedRoute>
+                <RepairsNeeded />
+              </ProtectedRoute>
+            } />
             <Route 
               path="/admin" 
               element={
