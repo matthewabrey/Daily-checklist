@@ -3250,7 +3250,7 @@ function RepairsNeeded() {
           ) : (
             <div className="space-y-4">
               {repairs.filter(r => !r.repaired).map((repair) => (
-                <Card key={repair.id} className={`border-l-4 ${repair.type === 'general_repair' ? 'border-l-orange-500' : 'border-l-red-500'} cursor-pointer hover:shadow-md transition-shadow`}>
+                <Card key={repair.id} className={`border-l-4 ${repair.type === 'general_repair' ? 'border-l-yellow-500' : 'border-l-red-500'} cursor-pointer hover:shadow-md transition-shadow`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div 
@@ -3258,12 +3258,16 @@ function RepairsNeeded() {
                         onClick={() => handleViewRepair(repair)}
                       >
                         <div className="flex items-center space-x-2 mb-1">
-                          <h3 className={`font-semibold text-lg ${repair.type === 'general_repair' ? 'text-orange-700' : 'text-red-700'}`}>
+                          <h3 className={`font-semibold text-lg ${repair.type === 'general_repair' ? 'text-yellow-700' : 'text-red-700'}`}>
                             {repair.machine}
                           </h3>
-                          {repair.type === 'general_repair' && (
-                            <Badge variant="outline" className="text-xs border-orange-300 text-orange-600">
+                          {repair.type === 'general_repair' ? (
+                            <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-600">
                               General Repair
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs border-red-300 text-red-600">
+                              Safety Check
                             </Badge>
                           )}
                         </div>
@@ -3273,9 +3277,8 @@ function RepairsNeeded() {
                           <span>Reported by: {repair.staffName}</span>
                           <span>Date: {new Date(repair.completedAt).toLocaleDateString()}</span>
                           {repair.type === 'general_repair' && (
-                            <span className="text-orange-600 font-medium">• General Report</span>
+                            <span className="text-yellow-600 font-medium">• General Report</span>
                           )}
-                          <span className="text-blue-600 font-medium">• Click to view details</span>
                         </div>
                       </div>
                       <div className="flex flex-col space-y-2 ml-4">
