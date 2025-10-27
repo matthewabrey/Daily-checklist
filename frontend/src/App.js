@@ -3101,6 +3101,122 @@ function RepairsNeeded() {
         </div>
       )}
 
+      {/* Repair Viewing Modal */}
+      {showViewingModal && viewingRepair && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 relative z-[10000] max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Repair Details</h3>
+              <Button variant="ghost" size="sm" onClick={closeViewingModal}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Machine Information */}
+              <div className="bg-gray-50 border rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <h4 className={`text-lg font-semibold ${viewingRepair.type === 'general_repair' ? 'text-orange-700' : 'text-red-700'}`}>
+                    {viewingRepair.machine}
+                  </h4>
+                  {viewingRepair.type === 'general_repair' && (
+                    <Badge variant="outline" className="border-orange-300 text-orange-600">
+                      General Repair
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-gray-700 font-medium">{viewingRepair.item}</p>
+                <div className="grid grid-cols-2 gap-4 mt-3 text-sm text-gray-600">
+                  <div>
+                    <span className="font-medium">Reported by:</span> {viewingRepair.staffName}
+                  </div>
+                  <div>
+                    <span className="font-medium">Date:</span> {new Date(viewingRepair.completedAt).toLocaleDateString()}
+                  </div>
+                  <div>
+                    <span className="font-medium">Check Type:</span> {viewingRepair.checkType}
+                  </div>
+                  <div>
+                    <span className="font-medium">Status:</span> 
+                    <span className="ml-1 text-red-600 font-medium">Outstanding</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Problem Description */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-2">Problem Description</h4>
+                <div className="bg-white border rounded-lg p-4">
+                  <p className="text-gray-700 leading-relaxed">{viewingRepair.notes}</p>
+                </div>
+              </div>
+
+              {/* Photos Section */}
+              {(() => {
+                // Get photos from the original checklist
+                const getRepairPhotos = async () => {
+                  try {
+                    const response = await fetch(`${API_BASE_URL}/api/checklists`);
+                    const checklists = await response.json();
+                    const originalChecklist = checklists.find(c => c.id === viewingRepair.checklistId);
+                    
+                    if (originalChecklist) {
+                      // For general repair, photos are in workshop_photos
+                      if (viewingRepair.type === 'general_repair') {
+                        return originalChecklist.workshop_photos || [];
+                      }
+                      // For checklist items, photos are in the specific item
+                      if (originalChecklist.checklist_items && originalChecklist.checklist_items[viewingRepair.itemIndex]) {
+                        return originalChecklist.checklist_items[viewingRepair.itemIndex].photos || [];
+                      }
+                    }
+                    return [];
+                  } catch (error) {
+                    console.error('Error fetching photos:', error);
+                    return [];
+                  }
+                };
+
+                // For now, we'll show a placeholder since this is a viewing modal
+                // In a real implementation, you'd want to fetch and store photos in state
+                return (
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Problem Photos</h4>
+                    <div className="bg-gray-50 border rounded-lg p-4">
+                      <p className="text-gray-500 text-center py-4">
+                        Photos from the original report would be displayed here
+                      </p>
+                      <p className="text-xs text-gray-400 text-center">
+                        Note: Photo viewing functionality can be enhanced to fetch and display original photos
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Actions */}
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <Button variant="outline" onClick={closeViewingModal}>
+                  Close
+                </Button>
+                <Button 
+                  onClick={() => {
+                    closeViewingModal();
+                    handleRepairComplete(viewingRepair);
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Mark as Complete
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button 
