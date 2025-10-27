@@ -2642,6 +2642,8 @@ function RepairsNeeded() {
   const [repairNotes, setRepairNotes] = useState('');
   const [repairPhotos, setRepairPhotos] = useState([]);
   const [showRepairCamera, setShowRepairCamera] = useState(false);
+  const [showViewingModal, setShowViewingModal] = useState(false);
+  const [viewingRepair, setViewingRepair] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(true);
