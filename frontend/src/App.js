@@ -2747,6 +2747,16 @@ function RepairsNeeded() {
     setShowRepairModal(true);
   };
 
+  const handleViewRepair = (repair) => {
+    setViewingRepair(repair);
+    setShowViewingModal(true);
+  };
+
+  const closeViewingModal = () => {
+    setShowViewingModal(false);
+    setViewingRepair(null);
+  };
+
   const uploadRepairPhoto = () => {
     const input = document.createElement('input');
     input.type = 'file';
