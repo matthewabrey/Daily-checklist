@@ -3119,12 +3119,16 @@ function RepairsNeeded() {
               {/* Machine Information */}
               <div className="bg-gray-50 border rounded-lg p-4">
                 <div className="flex items-center space-x-2 mb-2">
-                  <h4 className={`text-lg font-semibold ${viewingRepair.type === 'general_repair' ? 'text-orange-700' : 'text-red-700'}`}>
+                  <h4 className={`text-lg font-semibold ${viewingRepair.type === 'general_repair' ? 'text-yellow-700' : 'text-red-700'}`}>
                     {viewingRepair.machine}
                   </h4>
-                  {viewingRepair.type === 'general_repair' && (
-                    <Badge variant="outline" className="border-orange-300 text-orange-600">
+                  {viewingRepair.type === 'general_repair' ? (
+                    <Badge variant="outline" className="border-yellow-300 text-yellow-600">
                       General Repair
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-red-300 text-red-600">
+                      Safety Check
                     </Badge>
                   )}
                 </div>
