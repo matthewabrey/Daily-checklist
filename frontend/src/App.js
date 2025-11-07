@@ -127,10 +127,49 @@ const Dashboard = memo(function Dashboard() {
         return acc;
       }, {});
       
+      // Calculate repair statistics
+      const repairItems = [];
+      allChecklists.forEach(checklist => {
+        // Add unsatisfactory checklist items
+        if (checklist.checklist_items) {
+          checklist.checklist_items.forEach((item, index) => {
+            if (item.status === 'unsatisfactory') {
+              repairItems.push({
+                id: `${checklist.id}-${index}`,
+                completedAt: checklist.completed_at,
+                type: 'unsatisfactory_item'
+              });
+            }
+          });
+        }
+        
+        // Add GENERAL REPAIR records
+        if (checklist.check_type === 'GENERAL REPAIR') {
+          repairItems.push({
+            id: `${checklist.id}-general`,
+            completedAt: checklist.completed_at,
+            type: 'general_repair'
+          });
+        }
+      });
+      
+      // Calculate repairs due (outstanding repairs)
+      const repairsDue = repairItems.length;
+      
+      // Calculate repairs completed in last 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const repairsCompletedLast7Days = allChecklists.filter(checklist => 
+        checklist.check_type === 'REPAIR COMPLETED' && 
+        new Date(checklist.completed_at) >= sevenDaysAgo
+      ).length;
+      
       setStats({ 
         total: totalCompleted, 
         todayByType: todayByType,
-        todayTotal: todayChecklists.length 
+        todayTotal: todayChecklists.length,
+        repairsDue: repairsDue,
+        repairsCompletedLast7Days: repairsCompletedLast7Days
       });
     } catch (error) {
       console.error('Error fetching checklists:', error);
