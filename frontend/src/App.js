@@ -252,7 +252,7 @@ const Dashboard = memo(function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <Card data-testid="total-checklists-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Checks Completed</CardTitle>
@@ -283,6 +283,28 @@ const Dashboard = memo(function Dashboard() {
             {Object.keys(stats.todayByType).length === 0 && (
               <p className="text-xs text-gray-600">No checks completed today</p>
             )}
+          </CardContent>
+        </Card>
+
+        <Card data-testid="repairs-due-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Repairs Due</CardTitle>
+            <AlertCircle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats.repairsDue}</div>
+            <p className="text-xs text-gray-600">Outstanding issues</p>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="repairs-completed-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Repairs Completed</CardTitle>
+            <Wrench className="h-4 w-4 text-emerald-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-600">{stats.repairsCompletedLast7Days}</div>
+            <p className="text-xs text-gray-600">Last 7 days</p>
           </CardContent>
         </Card>
       </div>
