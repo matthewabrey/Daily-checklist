@@ -2754,7 +2754,7 @@ function GeneralRepairRecord() {
       <div className="flex justify-start space-x-4">
         <Button 
           onClick={handleSubmit}
-          disabled={!selectedMake || !selectedName || !problemDescription.trim() || isSubmitting}
+          disabled={!selectedMake || !selectedName || !problemDescription.trim() || !urgencyLevel || isSubmitting}
           className="bg-orange-600 hover:bg-orange-700 text-white"
         >
           {isSubmitting ? 'Submitting...' : 'Submit Repair Record'}
