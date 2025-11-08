@@ -156,6 +156,9 @@ const Dashboard = memo(function Dashboard() {
       // Calculate repairs due (outstanding repairs)
       const repairsDue = repairItems.length;
       
+      // Calculate non-acknowledged repairs (all repairs are initially non-acknowledged)
+      const nonAcknowledgedRepairs = repairItems.length; // All new repairs start as non-acknowledged
+      
       // Calculate repairs completed in last 7 days
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -169,6 +172,7 @@ const Dashboard = memo(function Dashboard() {
         todayByType: todayByType,
         todayTotal: todayChecklists.length,
         repairsDue: repairsDue,
+        nonAcknowledgedRepairs: nonAcknowledgedRepairs,
         repairsCompletedLast7Days: repairsCompletedLast7Days
       });
     } catch (error) {
