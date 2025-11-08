@@ -2457,6 +2457,11 @@ function GeneralRepairRecord() {
       return;
     }
 
+    if (!urgencyLevel) {
+      toast.error('Please select the urgency level');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       console.log('Submitting repair record...', { selectedMake, selectedName, problemDescription });
