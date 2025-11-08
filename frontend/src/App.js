@@ -2904,11 +2904,22 @@ function RepairsNeeded() {
 
   const getUrgencyLevel = (repair) => {
     if (repair.type === 'general_repair' && repair.notes) {
-      // Extract urgency level from workshop_notes
-      const lines = repair.notes.split('\n');
-      const urgencyLine = lines.find(line => line.includes('Urgency Level:'));
-      if (urgencyLine) {
-        return urgencyLine.replace('Urgency Level:', '').trim();
+      // The notes contain the full workshop_notes, need to extract from there
+      // Check if it contains "Urgency Level:" 
+      if (repair.notes.includes('Urgency Level:')) {
+        const urgencyMatch = repair.notes.match(/Urgency Level:\s*([^\n]+)/);
+        if (urgencyMatch) {
+          return urgencyMatch[1].trim();
+        }
+      }
+      
+      // Fallback: check if the description itself contains urgency keywords
+      if (repair.notes.includes('stopped machine')) {
+        return 'Breakdown has stopped machine';
+      } else if (repair.notes.includes('asap but still running')) {
+        return 'Breakdown will need repair asap but still running';
+      } else if (repair.notes.includes('not urgent')) {
+        return 'Breakdown is not urgent';
       }
     }
     return null;
