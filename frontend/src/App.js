@@ -2473,7 +2473,7 @@ function GeneralRepairRecord() {
         machine_model: selectedName,
         check_type: 'GENERAL REPAIR',
         checklist_items: [],
-        workshop_notes: `GENERAL REPAIR REPORT:\nProblem Description: ${problemDescription.trim()}`,
+        workshop_notes: `GENERAL REPAIR REPORT:\nUrgency Level: ${urgencyLevel}\nProblem Description: ${problemDescription.trim()}`,
         workshop_photos: repairPhotos
       };
 
