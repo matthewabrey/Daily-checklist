@@ -229,25 +229,16 @@ const Dashboard = memo(function Dashboard() {
           <Button 
             onClick={() => navigate('/new-checklist')} 
             className="bg-green-600 hover:bg-green-700 w-full sm:w-auto text-sm sm:text-base py-3 sm:py-2"
-            data-testid="new-checklist-btn"
+            data-testid="daily-check-btn"
           >
             <ClipboardList className="mr-2 h-4 w-4" />
-            New Checklist
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/records')}
-            className="w-full sm:w-auto text-sm sm:text-base py-3 sm:py-2"
-            data-testid="view-records-btn"
-          >
-            <FileText className="mr-2 h-4 w-4" />
-            View Records
+            Daily Check
           </Button>
           <Button 
             variant="outline" 
             onClick={() => setShowRepairWarning(true)}
             className="w-full sm:w-auto text-sm sm:text-base py-3 sm:py-2 border-orange-300 text-orange-600 hover:bg-orange-50"
-            data-testid="general-repair-record-btn"
+            data-testid="breakdown-repair-btn"
           >
             <Wrench className="mr-2 h-4 w-4" />
             Breakdown and repair reporting
