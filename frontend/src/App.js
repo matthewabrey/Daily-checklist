@@ -225,10 +225,10 @@ const Dashboard = memo(function Dashboard() {
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">Machine Checklist Dashboard</h1>
           <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Manage equipment startup checklists and safety inspections</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+        <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-6 w-full">
           <Button 
             onClick={() => navigate('/new-checklist')} 
-            className="bg-green-600 hover:bg-green-700 w-full sm:w-auto text-sm sm:text-base py-3 sm:py-2"
+            className="bg-green-600 hover:bg-green-700 flex-1 text-sm sm:text-base py-4 sm:py-6"
             data-testid="daily-check-btn"
           >
             <ClipboardList className="mr-2 h-4 w-4" />
@@ -237,7 +237,7 @@ const Dashboard = memo(function Dashboard() {
           <Button 
             variant="outline" 
             onClick={() => setShowRepairWarning(true)}
-            className="w-full sm:w-auto text-sm sm:text-base py-3 sm:py-2 border-orange-300 text-orange-600 hover:bg-orange-50"
+            className="flex-1 text-sm sm:text-base py-4 sm:py-6 border-orange-300 text-orange-600 hover:bg-orange-50"
             data-testid="breakdown-repair-btn"
           >
             <Wrench className="mr-2 h-4 w-4" />
