@@ -2820,6 +2820,16 @@ function RepairsNeeded() {
     setViewingRepair(null);
   };
 
+  const handleAcknowledge = (repair) => {
+    // Mark repair as acknowledged locally
+    setRepairs(prev => prev.map(r => 
+      r.id === repair.id 
+        ? { ...r, acknowledged: true }
+        : r
+    ));
+    toast.success('Repair acknowledged');
+  };
+
   const uploadRepairPhoto = () => {
     const input = document.createElement('input');
     input.type = 'file';
