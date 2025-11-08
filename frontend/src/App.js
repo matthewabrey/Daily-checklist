@@ -3331,7 +3331,14 @@ function RepairsNeeded() {
             </div>
           ) : (
             <div className="space-y-4">
-              {repairs.filter(r => !r.repaired).map((repair) => (
+              {repairs
+                .filter(r => !r.repaired)
+                .sort((a, b) => {
+                  // Sort unacknowledged repairs first
+                  if (a.acknowledged === b.acknowledged) return 0;
+                  return a.acknowledged ? 1 : -1;
+                })
+                .map((repair) => (
                 <Card key={repair.id} className={`border-l-4 ${repair.type === 'general_repair' ? 'border-l-yellow-500' : 'border-l-red-500'} cursor-pointer hover:shadow-md transition-shadow`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
