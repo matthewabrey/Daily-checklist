@@ -2902,6 +2902,49 @@ function RepairsNeeded() {
     setViewingRepair(null);
   };
 
+  const getUrgencyLevel = (repair) => {
+    if (repair.type === 'general_repair' && repair.notes) {
+      // Extract urgency level from workshop_notes
+      const lines = repair.notes.split('\n');
+      const urgencyLine = lines.find(line => line.includes('Urgency Level:'));
+      if (urgencyLine) {
+        return urgencyLine.replace('Urgency Level:', '').trim();
+      }
+    }
+    return null;
+  };
+
+  const getUrgencyColors = (repair) => {
+    const urgencyLevel = getUrgencyLevel(repair);
+    
+    if (repair.type === 'general_repair' && urgencyLevel) {
+      if (urgencyLevel.includes('stopped machine')) {
+        return {
+          border: 'border-l-red-500',
+          text: 'text-red-700',
+          badge: 'border-red-300 text-red-600'
+        };
+      } else if (urgencyLevel.includes('asap but still running')) {
+        return {
+          border: 'border-l-orange-500',
+          text: 'text-orange-700',
+          badge: 'border-orange-300 text-orange-600'
+        };
+      } else if (urgencyLevel.includes('not urgent')) {
+        return {
+          border: 'border-l-yellow-500',
+          text: 'text-yellow-700',
+          badge: 'border-yellow-300 text-yellow-600'
+        };
+      }
+    }
+    
+    // Default colors for safety checks or general repairs without urgency
+    return repair.type === 'general_repair' 
+      ? { border: 'border-l-yellow-500', text: 'text-yellow-700', badge: 'border-yellow-300 text-yellow-600' }
+      : { border: 'border-l-red-500', text: 'text-red-700', badge: 'border-red-300 text-red-600' };
+  };
+
   const handleAcknowledge = (repair) => {
     // Store acknowledged repair in localStorage
     const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
