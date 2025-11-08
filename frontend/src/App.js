@@ -2786,6 +2786,7 @@ function RepairsNeeded() {
             staffName: checklist.staff_name,
             checkType: checklist.check_type,
             repaired: false,
+            acknowledged: false,
             repairNotes: '',
             repairPhotos: [],
             type: 'general_repair'
