@@ -3196,18 +3196,25 @@ function RepairsNeeded() {
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-[10000]">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-green-600">Take Repair Photo</h3>
-              <Button variant="ghost" size="sm" onClick={() => setShowRepairCamera(false)}>
+              <Button variant="ghost" size="sm" onClick={closeRepairCamera}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
             
             <div className="space-y-4">
-              <video
-                id="repair-camera-video"
-                autoPlay
-                playsInline
-                className="w-full rounded-lg"
-              />
+              <div className="relative">
+                <video
+                  id="repair-camera-video"
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full rounded-lg bg-gray-200"
+                  style={{ aspectRatio: '4/3' }}
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-200 rounded-lg" id="camera-loading">
+                  <p className="text-gray-600">Loading camera...</p>
+                </div>
+              </div>
               <Button 
                 onClick={captureRepairPhoto}
                 className="w-full bg-green-600 hover:bg-green-700"
