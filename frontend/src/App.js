@@ -2743,6 +2743,9 @@ function RepairsNeeded() {
       const response = await fetch(`${API_BASE_URL}/api/checklists`);
       const checklists = await response.json();
       
+      // Get acknowledged repairs from localStorage
+      const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
+      
       // Extract all unsatisfactory items from checklists AND general repair records
       const repairItems = [];
       checklists.forEach(checklist => {
@@ -2750,8 +2753,9 @@ function RepairsNeeded() {
         if (checklist.checklist_items) {
           checklist.checklist_items.forEach((item, index) => {
             if (item.status === 'unsatisfactory') {
+              const repairId = `${checklist.id}-${index}`;
               repairItems.push({
-                id: `${checklist.id}-${index}`,
+                id: repairId,
                 checklistId: checklist.id,
                 itemIndex: index,
                 item: item.item,
@@ -2761,7 +2765,7 @@ function RepairsNeeded() {
                 staffName: checklist.staff_name,
                 checkType: checklist.check_type,
                 repaired: false,
-                acknowledged: false,
+                acknowledged: acknowledgedRepairs.includes(repairId),
                 repairNotes: '',
                 repairPhotos: [],
                 type: 'unsatisfactory_item'
@@ -2780,8 +2784,9 @@ function RepairsNeeded() {
             .join(' ')
             .trim();
             
+          const repairId = `${checklist.id}-general`;
           repairItems.push({
-            id: `${checklist.id}-general`,
+            id: repairId,
             checklistId: checklist.id,
             itemIndex: -1, // No specific checklist item
             item: 'General Equipment Issue',
@@ -2791,7 +2796,7 @@ function RepairsNeeded() {
             staffName: checklist.staff_name,
             checkType: checklist.check_type,
             repaired: false,
-            acknowledged: false,
+            acknowledged: acknowledgedRepairs.includes(repairId),
             repairNotes: '',
             repairPhotos: [],
             type: 'general_repair'
