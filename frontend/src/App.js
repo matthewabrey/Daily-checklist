@@ -2892,10 +2892,18 @@ function RepairsNeeded() {
       // Wait for modal to be visible, then set up video
       setTimeout(async () => {
         const video = document.getElementById('repair-camera-video');
+        const loadingDiv = document.getElementById('camera-loading');
         if (video) {
           video.srcObject = stream;
           // Store stream reference for cleanup
           window.repairCameraStream = stream;
+          
+          // Hide loading message when video starts playing
+          video.addEventListener('loadedmetadata', () => {
+            if (loadingDiv) {
+              loadingDiv.style.display = 'none';
+            }
+          });
         }
       }, 100);
     } catch (error) {
