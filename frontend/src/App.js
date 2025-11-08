@@ -2613,6 +2613,67 @@ function GeneralRepairRecord() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
+            <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
+            Urgency Level
+          </CardTitle>
+          <CardDescription>Select the urgency level for this breakdown</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-center space-x-3">
+              <input
+                type="radio"
+                id="stopped"
+                name="urgency"
+                value="Breakdown has stopped machine"
+                checked={urgencyLevel === 'Breakdown has stopped machine'}
+                onChange={(e) => setUrgencyLevel(e.target.value)}
+                className="w-4 h-4 text-red-600 focus:ring-red-500"
+              />
+              <label htmlFor="stopped" className="text-sm font-medium text-gray-900 cursor-pointer">
+                <span className="text-red-600 font-semibold">Breakdown has stopped machine</span>
+                <p className="text-xs text-gray-600 mt-1">Machine is not operational and requires immediate attention</p>
+              </label>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <input
+                type="radio"
+                id="urgent"
+                name="urgency"
+                value="Breakdown will need repair asap but still running"
+                checked={urgencyLevel === 'Breakdown will need repair asap but still running'}
+                onChange={(e) => setUrgencyLevel(e.target.value)}
+                className="w-4 h-4 text-orange-600 focus:ring-orange-500"
+              />
+              <label htmlFor="urgent" className="text-sm font-medium text-gray-900 cursor-pointer">
+                <span className="text-orange-600 font-semibold">Breakdown will need repair asap but still running</span>
+                <p className="text-xs text-gray-600 mt-1">Machine is operational but needs urgent repair to prevent failure</p>
+              </label>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <input
+                type="radio"
+                id="not-urgent"
+                name="urgency"
+                value="Breakdown is not urgent"
+                checked={urgencyLevel === 'Breakdown is not urgent'}
+                onChange={(e) => setUrgencyLevel(e.target.value)}
+                className="w-4 h-4 text-yellow-600 focus:ring-yellow-500"
+              />
+              <label htmlFor="not-urgent" className="text-sm font-medium text-gray-900 cursor-pointer">
+                <span className="text-yellow-600 font-semibold">Breakdown is not urgent</span>
+                <p className="text-xs text-gray-600 mt-1">Machine is operational with minor issues that can be scheduled</p>
+              </label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
             <FileText className="h-5 w-5 text-orange-600 mr-2" />
             Problem Description
           </CardTitle>
