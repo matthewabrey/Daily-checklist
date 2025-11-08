@@ -3569,7 +3569,7 @@ function RepairsNeeded() {
                               )}
                             </div>
                           </div>
-                      <div className="flex flex-row lg:flex-col gap-2 lg:space-y-0 lg:space-x-0 space-x-2 flex-shrink-0">
+                          <div className="flex flex-row lg:flex-col gap-2 lg:space-y-0 lg:space-x-0 space-x-2 flex-shrink-0">
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
