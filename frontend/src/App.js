@@ -235,9 +235,8 @@ const Dashboard = memo(function Dashboard() {
             Daily Check
           </Button>
           <Button 
-            variant="outline" 
             onClick={() => setShowRepairWarning(true)}
-            className="flex-1 text-sm sm:text-base py-4 sm:py-6 border-orange-300 text-orange-600 hover:bg-orange-50"
+            className="bg-orange-600 hover:bg-orange-700 text-white flex-1 text-sm sm:text-base py-4 sm:py-6"
             data-testid="breakdown-repair-btn"
           >
             <Wrench className="mr-2 h-4 w-4" />
