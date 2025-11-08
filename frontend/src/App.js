@@ -2925,6 +2925,24 @@ function RepairsNeeded() {
     return null;
   };
 
+  const getCleanDescription = (repair) => {
+    if (repair.type === 'general_repair' && repair.notes) {
+      // Remove "Urgency Level:" line from the description
+      let cleanDescription = repair.notes;
+      
+      // Remove the urgency level line if it exists
+      cleanDescription = cleanDescription.replace(/Urgency Level:\s*[^\n]+\n?/, '');
+      
+      // If it contains "Problem Description:", get everything after that
+      if (cleanDescription.includes('Problem Description:')) {
+        cleanDescription = cleanDescription.split('Problem Description:')[1]?.trim() || cleanDescription;
+      }
+      
+      return cleanDescription.trim();
+    }
+    return repair.notes;
+  };
+
   const getUrgencyColors = (repair) => {
     const urgencyLevel = getUrgencyLevel(repair);
     
