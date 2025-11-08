@@ -301,6 +301,17 @@ const Dashboard = memo(function Dashboard() {
           </CardContent>
         </Card>
 
+        <Card data-testid="non-acknowledged-repairs-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">New Repairs</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{stats.nonAcknowledgedRepairs}</div>
+            <p className="text-xs text-gray-600">Need acknowledgment</p>
+          </CardContent>
+        </Card>
+
         <Card data-testid="repairs-completed-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Completed</CardTitle>
