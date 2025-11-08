@@ -156,8 +156,9 @@ const Dashboard = memo(function Dashboard() {
       // Calculate repairs due (outstanding repairs)
       const repairsDue = repairItems.length;
       
-      // Calculate non-acknowledged repairs (all repairs are initially non-acknowledged)
-      const nonAcknowledgedRepairs = repairItems.length; // All new repairs start as non-acknowledged
+      // Calculate non-acknowledged repairs using localStorage
+      const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
+      const nonAcknowledgedRepairs = repairItems.filter(repair => !acknowledgedRepairs.includes(repair.id)).length;
       
       // Calculate repairs completed in last 7 days
       const sevenDaysAgo = new Date();
