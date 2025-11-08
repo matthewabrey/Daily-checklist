@@ -3605,11 +3605,13 @@ function RepairsNeeded() {
                         >
                           Mark Complete
                         </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()
+              )}
             </div>
           )}
         </CardContent>
