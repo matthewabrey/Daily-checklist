@@ -250,7 +250,7 @@ const Dashboard = memo(function Dashboard() {
             data-testid="general-repair-record-btn"
           >
             <Wrench className="mr-2 h-4 w-4" />
-            General Repair Record
+            Breakdown and repair reporting
           </Button>
         </div>
       </div>
