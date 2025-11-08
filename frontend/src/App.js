@@ -2328,6 +2328,7 @@ function GeneralRepairRecord() {
   const [availableNames, setAvailableNames] = useState([]);
   const [makes, setMakes] = useState([]);
   const [problemDescription, setProblemDescription] = useState('');
+  const [urgencyLevel, setUrgencyLevel] = useState('');
   const [repairPhotos, setRepairPhotos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
