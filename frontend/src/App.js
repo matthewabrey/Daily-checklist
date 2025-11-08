@@ -2826,6 +2826,13 @@ function RepairsNeeded() {
   };
 
   const handleAcknowledge = (repair) => {
+    // Store acknowledged repair in localStorage
+    const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
+    if (!acknowledgedRepairs.includes(repair.id)) {
+      acknowledgedRepairs.push(repair.id);
+      localStorage.setItem('acknowledgedRepairs', JSON.stringify(acknowledgedRepairs));
+    }
+    
     // Mark repair as acknowledged locally
     setRepairs(prev => prev.map(r => 
       r.id === repair.id 
