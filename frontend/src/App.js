@@ -3354,9 +3354,9 @@ function RepairsNeeded() {
                 .map((repair) => (
                 <Card key={repair.id} className={`border-l-4 ${repair.type === 'general_repair' ? 'border-l-yellow-500' : 'border-l-red-500'} cursor-pointer hover:shadow-md transition-shadow`}>
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                       <div 
-                        className="flex-1 cursor-pointer" 
+                        className="flex-1 cursor-pointer min-w-0" 
                         onClick={() => handleViewRepair(repair)}
                       >
                         <div className="flex items-center space-x-2 mb-1">
@@ -3373,17 +3373,23 @@ function RepairsNeeded() {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-gray-700 mt-1">{repair.item}</p>
-                        <p className="text-sm text-gray-600 mt-2 italic line-clamp-2">"{repair.notes.length > 80 ? repair.notes.substring(0, 80) + '...' : repair.notes}"</p>
-                        <div className="flex items-center space-x-4 mt-3 text-xs text-gray-500">
+                        <p className="text-gray-700 mt-1 font-medium">{repair.item}</p>
+                        <div className="text-sm text-gray-600 mt-2 italic break-words">
+                          <p className="line-clamp-3">"{repair.notes}"</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 mt-3 text-xs text-gray-500">
                           <span>Reported by: {repair.staffName}</span>
+                          <span>•</span>
                           <span>Date: {new Date(repair.completedAt).toLocaleDateString()}</span>
                           {repair.type === 'general_repair' && (
-                            <span className="text-yellow-600 font-medium">• General Report</span>
+                            <>
+                              <span>•</span>
+                              <span className="text-yellow-600 font-medium">General Report</span>
+                            </>
                           )}
                         </div>
                       </div>
-                      <div className="flex flex-col space-y-2 ml-4">
+                      <div className="flex flex-row lg:flex-col gap-2 lg:space-y-0 lg:space-x-0 space-x-2 flex-shrink-0">
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -3391,7 +3397,7 @@ function RepairsNeeded() {
                           }}
                           variant="outline"
                           size="sm"
-                          className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                          className="text-blue-600 border-blue-300 hover:bg-blue-50 flex-1 lg:flex-none lg:w-24"
                         >
                           View Details
                         </Button>
@@ -3402,7 +3408,7 @@ function RepairsNeeded() {
                           }}
                           variant="outline"
                           size="sm"
-                          className={`${repair.acknowledged 
+                          className={`flex-1 lg:flex-none lg:w-24 ${repair.acknowledged 
                             ? 'bg-orange-100 text-orange-700 border-orange-300' 
                             : 'text-orange-600 border-orange-300 hover:bg-orange-50'}`}
                           disabled={repair.acknowledged}
@@ -3414,7 +3420,7 @@ function RepairsNeeded() {
                             e.stopPropagation();
                             handleRepairComplete(repair);
                           }}
-                          className="bg-green-600 hover:bg-green-700 text-white"
+                          className="bg-green-600 hover:bg-green-700 text-white flex-1 lg:flex-none lg:w-24"
                           size="sm"
                         >
                           Mark Complete
