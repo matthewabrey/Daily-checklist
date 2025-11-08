@@ -3509,43 +3509,66 @@ function RepairsNeeded() {
                   return a.acknowledged ? 1 : -1;
                 })
                 .map((repair) => (
-                <Card key={repair.id} className={`border-l-4 ${repair.type === 'general_repair' ? 'border-l-yellow-500' : 'border-l-red-500'} cursor-pointer hover:shadow-md transition-shadow`}>
-                  <CardContent className="p-4">
-                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                      <div 
-                        className="flex-1 cursor-pointer min-w-0" 
-                        onClick={() => handleViewRepair(repair)}
-                      >
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className={`font-semibold text-lg ${repair.type === 'general_repair' ? 'text-yellow-700' : 'text-red-700'}`}>
-                            {repair.machine}
-                          </h3>
-                          {repair.type === 'general_repair' ? (
-                            <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-600">
-                              General Repair
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs border-red-300 text-red-600">
-                              Safety Check
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-gray-700 mt-1 font-medium">{repair.item}</p>
-                        <div className="text-sm text-gray-600 mt-2 italic break-words">
-                          <p className="line-clamp-3">"{repair.notes}"</p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 mt-3 text-xs text-gray-500">
-                          <span>Reported by: {repair.staffName}</span>
-                          <span>•</span>
-                          <span>Date: {new Date(repair.completedAt).toLocaleDateString()}</span>
-                          {repair.type === 'general_repair' && (
-                            <>
+                (() => {
+                  const colors = getUrgencyColors(repair);
+                  const urgencyLevel = getUrgencyLevel(repair);
+                  
+                  return (
+                    <Card key={repair.id} className={`border-l-4 ${colors.border} cursor-pointer hover:shadow-md transition-shadow`}>
+                      <CardContent className="p-4">
+                        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                          <div 
+                            className="flex-1 cursor-pointer min-w-0" 
+                            onClick={() => handleViewRepair(repair)}
+                          >
+                            <div className="flex items-center space-x-2 mb-1">
+                              <h3 className={`font-semibold text-lg ${colors.text}`}>
+                                {repair.machine}
+                              </h3>
+                              {repair.type === 'general_repair' ? (
+                                <Badge variant="outline" className={`text-xs ${colors.badge}`}>
+                                  General Repair
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs border-red-300 text-red-600">
+                                  Safety Check
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-gray-700 mt-1 font-medium">{repair.item}</p>
+                            
+                            {/* Urgency Level - separate line */}
+                            {urgencyLevel && (
+                              <div className="mt-2">
+                                <span className={`text-sm font-semibold ${colors.text}`}>
+                                  Urgency: {urgencyLevel}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {/* Problem Description - separate line */}
+                            <div className="text-sm text-gray-600 mt-2 italic break-words">
+                              <p className="line-clamp-3">
+                                "{repair.notes.includes('Problem Description:') 
+                                  ? repair.notes.split('Problem Description:')[1]?.trim() || repair.notes
+                                  : repair.notes}"
+                              </p>
+                            </div>
+                            
+                            <div className="flex flex-wrap items-center gap-2 mt-3 text-xs text-gray-500">
+                              <span>Reported by: {repair.staffName}</span>
                               <span>•</span>
-                              <span className="text-yellow-600 font-medium">General Report</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
+                              <span>Date: {new Date(repair.completedAt).toLocaleDateString()}</span>
+                              {repair.type === 'general_repair' && (
+                                <>
+                                  <span>•</span>
+                                  <span className={colors.text.replace('text-', 'text-').replace('-700', '-600') + ' font-medium'}>
+                                    General Report
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
                       <div className="flex flex-row lg:flex-col gap-2 lg:space-y-0 lg:space-x-0 space-x-2 flex-shrink-0">
                         <Button
                           onClick={(e) => {
