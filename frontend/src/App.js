@@ -2884,41 +2884,69 @@ function RepairsNeeded() {
     input.click();
   };
 
-  const takeRepairPhoto = () => {
-    setShowRepairCamera(true);
-  };
-
-  const captureRepairPhoto = async () => {
+  const takeRepairPhoto = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      const video = document.getElementById('repair-camera-video');
-      video.srcObject = stream;
+      setShowRepairCamera(true);
       
-      setTimeout(() => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0);
-        
-        const photoData = {
-          id: Date.now(),
-          data: canvas.toDataURL('image/jpeg', 0.8),
-          timestamp: new Date().toISOString()
-        };
-        
-        setRepairPhotos(prev => [...prev, photoData]);
-        
-        // Stop the camera
-        stream.getTracks().forEach(track => track.stop());
-        setShowRepairCamera(false);
-        
-        toast.success('Photo captured for repair documentation!');
+      // Wait for modal to be visible, then set up video
+      setTimeout(async () => {
+        const video = document.getElementById('repair-camera-video');
+        if (video) {
+          video.srcObject = stream;
+          // Store stream reference for cleanup
+          window.repairCameraStream = stream;
+        }
       }, 100);
     } catch (error) {
       console.error('Error accessing camera:', error);
-      toast.error('Failed to access camera. Please try uploading a photo instead.');
+      toast.error('Failed to access camera. Please check camera permissions.');
     }
+  };
+
+  const captureRepairPhoto = () => {
+    try {
+      const video = document.getElementById('repair-camera-video');
+      if (!video || !video.videoWidth) {
+        toast.error('Camera not ready. Please wait a moment and try again.');
+        return;
+      }
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+      
+      const photoData = {
+        id: Date.now(),
+        data: canvas.toDataURL('image/jpeg', 0.8),
+        timestamp: new Date().toISOString()
+      };
+      
+      setRepairPhotos(prev => [...prev, photoData]);
+      
+      // Stop the camera and close modal
+      if (window.repairCameraStream) {
+        window.repairCameraStream.getTracks().forEach(track => track.stop());
+        window.repairCameraStream = null;
+      }
+      setShowRepairCamera(false);
+      
+      toast.success('Photo captured for repair documentation!');
+    } catch (error) {
+      console.error('Error capturing photo:', error);
+      toast.error('Failed to capture photo. Please try again.');
+    }
+  };
+
+  const closeRepairCamera = () => {
+    // Stop camera when closing modal
+    if (window.repairCameraStream) {
+      window.repairCameraStream.getTracks().forEach(track => track.stop());
+      window.repairCameraStream = null;
+    }
+    setShowRepairCamera(false);
   };
 
   const deleteRepairPhoto = (photoId) => {
