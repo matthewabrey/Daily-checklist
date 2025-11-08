@@ -3373,6 +3373,20 @@ function RepairsNeeded() {
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
+                            handleAcknowledge(repair);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className={`${repair.acknowledged 
+                            ? 'bg-orange-100 text-orange-700 border-orange-300' 
+                            : 'text-orange-600 border-orange-300 hover:bg-orange-50'}`}
+                          disabled={repair.acknowledged}
+                        >
+                          {repair.acknowledged ? 'Acknowledged' : 'Acknowledge'}
+                        </Button>
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
                             handleRepairComplete(repair);
                           }}
                           className="bg-green-600 hover:bg-green-700 text-white"
