@@ -4531,6 +4531,16 @@ function AppContent() {
                 <Records />
               </ProtectedRoute>
             } />
+            <Route path="/all-checks" element={
+              <ProtectedRoute>
+                <AllChecksCompleted />
+              </ProtectedRoute>
+            } />
+            <Route path="/repairs-completed" element={
+              <ProtectedRoute>
+                <RepairsCompletedPage />
+              </ProtectedRoute>
+            } />
             <Route path="/repairs-needed" element={
               <ProtectedRoute>
                 <RepairsNeeded />
