@@ -106,21 +106,23 @@ const Dashboard = memo(function Dashboard() {
       
       // Group today's checks by machine type
       const todayByType = todayChecklists.reduce((acc, checklist) => {
-        // Convert check_type to user-friendly names
+        // Convert check_type to user-friendly names with consistent formatting
         let typeName = checklist.check_type;
         if (typeName === 'daily_check' || typeName === 'grader_startup') {
           // Use machine check type if available, otherwise classify by make
           if (checklist.machine_make.toLowerCase().includes('cat')) {
-            typeName = 'Mounted Machines';
+            typeName = 'Mounted machines';
           } else if (checklist.machine_make.toLowerCase().includes('john deere')) {
             typeName = 'Vehicles';
           } else {
-            typeName = 'Other Equipment';
+            typeName = 'Other equipment';
           }
         } else if (typeName === 'workshop_service') {
-          typeName = 'Workshop Service';
+          typeName = 'Workshop service';
         } else if (typeName === 'NEW MACHINE') {
-          typeName = 'New Machine Requests';
+          typeName = 'Machine add';
+        } else if (typeName === 'REPAIR COMPLETED') {
+          typeName = 'Repairs completed';
         }
         
         acc[typeName] = (acc[typeName] || 0) + 1;
