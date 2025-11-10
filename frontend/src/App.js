@@ -3772,7 +3772,7 @@ function AppContent() {
                   Repairs
                 </Link>
                 {/* Only show admin link if user has admin access */}
-                {isAdmin && (
+                {hasAdminAccess && (
                   <Link 
                     to="/admin" 
                     className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
@@ -3780,18 +3780,6 @@ function AppContent() {
                   >
                     Admin
                   </Link>
-                )}
-                {/* Show admin access button if not logged in as admin */}
-                {!isAdmin && (
-                  <Button 
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowAdminLogin(true)}
-                    className="text-gray-600 hover:text-green-600 text-xs sm:text-sm font-medium px-2 sm:px-3"
-                    data-testid="admin-access-btn"
-                  >
-                    Admin
-                  </Button>
                 )}
                 
                 {/* User info and logout */}
