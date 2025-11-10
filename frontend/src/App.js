@@ -3037,7 +3037,31 @@ function RepairsNeeded() {
         }
       });
       
-      setRepairs(repairItems);
+      // Filter based on view type
+      let filteredRepairs = repairItems;
+      if (viewType === 'new') {
+        // Show only non-acknowledged repairs
+        filteredRepairs = repairItems.filter(repair => !repair.acknowledged);
+      } else if (viewType === 'acknowledged') {
+        // Show only acknowledged but not completed repairs
+        filteredRepairs = repairItems.filter(repair => repair.acknowledged && !repair.repaired);
+        
+        // Sort by urgency priority for acknowledged repairs
+        filteredRepairs.sort((a, b) => {
+          const getUrgencyPriority = (repair) => {
+            const urgency = getUrgencyLevel(repair);
+            if (!urgency) return 4; // No urgency info = lowest priority
+            if (urgency.toLowerCase().includes('stopped')) return 1; // Highest priority
+            if (urgency.toLowerCase().includes('asap')) return 2;
+            if (urgency.toLowerCase().includes('not urgent')) return 3;
+            return 4;
+          };
+          
+          return getUrgencyPriority(a) - getUrgencyPriority(b);
+        });
+      }
+      
+      setRepairs(filteredRepairs);
     } catch (error) {
       console.error('Error fetching repairs:', error);
       toast.error('Failed to load repair items');
