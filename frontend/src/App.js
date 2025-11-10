@@ -3845,13 +3845,17 @@ function AppContent() {
             <Route 
               path="/admin" 
               element={
-                isAdmin ? <SharePointAdminComponent /> : <AdminLogin onLogin={handleAdminLogin} />
+                <AdminProtectedRoute>
+                  <SharePointAdminComponent />
+                </AdminProtectedRoute>
               } 
             />
             <Route 
               path="/auth/callback" 
               element={
-                isAdmin ? <SharePointAdminComponent /> : <AdminLogin onLogin={handleAdminLogin} />
+                <AdminProtectedRoute>
+                  <SharePointAdminComponent />
+                </AdminProtectedRoute>
               } 
             />
           </Routes>
