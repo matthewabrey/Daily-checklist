@@ -3713,7 +3713,7 @@ function RepairsNeeded() {
                   const urgencyLevel = getUrgencyLevel(repair);
                   
                   return (
-                    <Card key={repair.id} className={`border-l-4 ${colors.border} cursor-pointer hover:shadow-md transition-shadow`}>
+                    <Card key={repair.id} className={`border-l-4 ${colors.border} ${colors.bg} cursor-pointer hover:shadow-md transition-shadow`}>
                       <CardContent className="p-4">
                         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                           <div 
