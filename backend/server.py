@@ -44,6 +44,7 @@ class Staff(BaseModel):
     name: str
     active: bool = True
     workshop_control: Optional[str] = None  # "yes" or "no" from Workshop Control column
+    admin_control: Optional[str] = None  # "yes" or "no" from Admin Control column
     
 class ChecklistItem(BaseModel):
     item: str
