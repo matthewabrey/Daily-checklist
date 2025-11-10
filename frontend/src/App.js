@@ -3682,7 +3682,7 @@ function ProtectedRoute({ children }) {
   }
   
   if (!isAuthenticated) {
-    return <Login />;
+    return <EmployeeLogin />;
   }
   
   return children;
@@ -3714,7 +3714,7 @@ function AdminProtectedRoute({ children }) {
   }
   
   if (!isAuthenticated) {
-    return <Login />;
+    return <EmployeeLogin />;
   }
   
   if (!hasAdminAccess) {
