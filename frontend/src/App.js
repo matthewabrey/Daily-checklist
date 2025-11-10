@@ -3688,6 +3688,42 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+// Admin Protected Route Component
+function AdminProtectedRoute({ children }) {
+  const { isAuthenticated, employee, loading } = useAuth();
+  const navigate = useNavigate();
+  
+  const hasAdminAccess = employee?.admin_control?.toLowerCase() === 'yes';
+  
+  React.useEffect(() => {
+    if (!loading && isAuthenticated && !hasAdminAccess) {
+      toast.error('Access denied. You do not have Admin Control permission.');
+      navigate('/');
+    }
+  }, [hasAdminAccess, isAuthenticated, loading, navigate]);
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return <EmployeeLogin />;
+  }
+  
+  if (!hasAdminAccess) {
+    return null; // Will redirect in useEffect
+  }
+  
+  return children;
+}
+
 // Main App Content Component
 function AppContent() {
   const { isAuthenticated, employee, logout } = useAuth();
