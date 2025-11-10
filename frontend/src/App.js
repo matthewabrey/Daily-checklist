@@ -2065,6 +2065,133 @@ function Records() {
 
   return (
     <div className="space-y-6">
+      {/* Checklist Detail Modal */}
+      {showDetailModal && selectedChecklist && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Checklist Details</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={closeDetailModal}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Machine</h3>
+                  <p className="text-lg font-semibold">{selectedChecklist.machine_make} {selectedChecklist.machine_model}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Check Type</h3>
+                  <p className="text-lg">{selectedChecklist.check_type === 'daily_check' ? 'Daily Check' : 
+                                          selectedChecklist.check_type === 'grader_startup' ? 'Grader Startup' : 
+                                          selectedChecklist.check_type === 'workshop_service' ? 'Workshop Service' : 
+                                          selectedChecklist.check_type === 'NEW MACHINE' ? 'New Machine' : 
+                                          selectedChecklist.check_type === 'REPAIR COMPLETED' ? 'Repair Completed' : 
+                                          selectedChecklist.check_type}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Completed By</h3>
+                  <p className="text-lg">{selectedChecklist.staff_name}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Completed At</h3>
+                  <p className="text-lg">{new Date(selectedChecklist.completed_at).toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Checklist Items */}
+              {selectedChecklist.checklist_items && selectedChecklist.checklist_items.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Checklist Items</h3>
+                  <div className="space-y-3">
+                    {selectedChecklist.checklist_items.map((item, index) => (
+                      <div key={index} className={`p-4 rounded-lg border ${item.status === 'unsatisfactory' ? 'bg-red-50 border-red-200' : item.status === 'na' ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200'}`}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              {item.status === 'satisfactory' && <CheckCircle2 className="h-5 w-5 text-green-600" />}
+                              {item.status === 'unsatisfactory' && <X className="h-5 w-5 text-red-600" />}
+                              {item.status === 'na' && <span className="text-sm font-medium text-gray-600">N/A</span>}
+                              <p className="font-medium">{item.item}</p>
+                            </div>
+                            {item.notes && (
+                              <p className="text-sm text-gray-700 mt-2 italic">"{item.notes}"</p>
+                            )}
+                          </div>
+                          <Badge variant={item.status === 'unsatisfactory' ? 'destructive' : item.status === 'na' ? 'secondary' : 'default'}>
+                            {item.status === 'satisfactory' ? 'OK' : item.status === 'unsatisfactory' ? 'Issue' : 'N/A'}
+                          </Badge>
+                        </div>
+                        {/* Item Photos */}
+                        {item.photos && item.photos.length > 0 && (
+                          <div className="mt-3 grid grid-cols-3 gap-2">
+                            {item.photos.map((photo, photoIndex) => (
+                              <img
+                                key={photoIndex}
+                                src={photo.data}
+                                alt={`${item.item} - Photo ${photoIndex + 1}`}
+                                className="w-full h-24 object-cover rounded cursor-pointer hover:opacity-75"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const photos = [{...photo, title: item.item, type: 'checklist_item'}];
+                                  setSelectedPhotos(photos);
+                                  setCurrentPhotoIndex(0);
+                                  setShowPhotoModal(true);
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Workshop Notes */}
+              {selectedChecklist.workshop_notes && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Notes</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-gray-700 whitespace-pre-wrap">{selectedChecklist.workshop_notes}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Workshop Photos */}
+              {selectedChecklist.workshop_photos && selectedChecklist.workshop_photos.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Workshop Photos</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {selectedChecklist.workshop_photos.map((photo, index) => (
+                      <img
+                        key={index}
+                        src={photo.data}
+                        alt={`Workshop Photo ${index + 1}`}
+                        className="w-full h-32 object-cover rounded cursor-pointer hover:opacity-75"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPhotos(selectedChecklist.workshop_photos.map(p => ({...p, title: 'Workshop Photo', type: 'workshop'})));
+                          setCurrentPhotoIndex(index);
+                          setShowPhotoModal(true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Photo Modal */}
       {showPhotoModal && selectedPhotos.length > 0 && (
         <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999]">
