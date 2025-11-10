@@ -355,23 +355,557 @@ const Dashboard = memo(function Dashboard() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+});
 
-      {/* Recent Checklists */}
-      <Card data-testid="recent-checklists-card">
-        <CardHeader>
-          <CardTitle>Recent Checklists</CardTitle>
-          <CardDescription>Latest equipment inspections and startup checks</CardDescription>
+// Employee Login Component
+function EmployeeLogin() {
+  const { login } = useAuth();
+  const [employeeNumber, setEmployeeNumber] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!employeeNumber.trim()) {
+      toast.error('Please enter an employee number');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await login(employeeNumber);
+    } catch (error) {
+      // Error is handled in the login function
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <div className="flex items-center justify-center mb-4">
+            <div className="p-3 bg-green-100 rounded-full">
+              <ClipboardList className="h-8 w-8 text-green-600" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl text-center">Machine Checklist</CardTitle>
+          <CardDescription className="text-center">
+            Enter your employee number to continue
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {recentChecklists.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <ClipboardList className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-              <p>No checklists completed yet</p>
-              <p className="text-sm">Start your first equipment check</p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="employee-number" className="text-sm font-medium text-gray-700">
+                Employee Number
+              </label>
+              <input
+                id="employee-number"
+                type="text"
+                placeholder="Enter employee number"
+                value={employeeNumber}
+                onChange={(e) => setEmployeeNumber(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                disabled={isLoading}
+                autoFocus
+                data-testid="employee-number-input"
+              />
             </div>
-          ) : (
-            <div className="space-y-2 sm:space-y-4">
-              {recentChecklists.map((checklist) => {
+            <Button 
+              type="submit" 
+              className="w-full bg-green-600 hover:bg-green-700"
+              disabled={isLoading}
+              data-testid="login-btn"
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Logging in...
+                </>
+              ) : (
+                'Login'
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// NewChecklist Component
+function NewChecklist() {
+  const [machines, setMachines] = useState([]);
+  const [selectedMachine, setSelectedMachine] = useState(null);
+  const [selectedCheckType, setSelectedCheckType] = useState('');
+  const [machineCheckType, setMachineCheckType] = useState('');
+  const [checklistItems, setChecklistItems] = useState([]);
+  const [currentStep, setCurrentStep] = useState('machine'); // 'machine', 'checkType', 'checklist'
+  const [workshopNotes, setWorkshopNotes] = useState('');
+  const [workshopPhotos, setWorkshopPhotos] = useState([]);
+  const [showWorkshopCamera, setShowWorkshopCamera] = useState(false);
+  const [showAddMachineModal, setShowAddMachineModal] = useState(false);
+  const [newMachine, setNewMachine] = useState({ make: '', model: '', serialNumber: '', notes: '' });
+  const [safetyConfirmed, setSafetyConfirmed] = useState(false);
+  const [showFaultModal, setShowFaultModal] = useState(false);
+  const [currentFaultItem, setCurrentFaultItem] = useState(null);
+  const [faultExplanation, setFaultExplanation] = useState('');
+  const navigate = useNavigate();
+  const { employee } = useAuth();
+
+  useEffect(() => {
+    if (currentStep === 'machine') {
+      fetchMachines();
+    }
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (selectedCheckType && selectedMachine) {
+      fetchChecklistTemplate();
+    }
+  }, [selectedCheckType, selectedMachine]);
+
+  const fetchMachines = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/assets/names`);
+      const data = await response.json();
+      setMachines(data);
+    } catch (error) {
+      console.error('Error fetching machines:', error);
+      toast.error('Failed to load machines');
+    }
+  };
+
+  const fetchChecklistTemplate = async () => {
+    if (!selectedMachine || !selectedCheckType) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/checklist-templates/${selectedMachine.make}`);
+      const template = await response.json();
+      
+      let items = [];
+      if (selectedCheckType === 'daily_check' || selectedCheckType === 'grader_startup') {
+        items = template.checklist_items
+          .filter(item => {
+            // Filter based on check type
+            if (selectedCheckType === 'daily_check') {
+              return !item.check_type || item.check_type === 'daily_check' || item.check_type === machineCheckType;
+            } else if (selectedCheckType === 'grader_startup') {
+              return !item.check_type || item.check_type === 'grader_startup';
+            }
+            return true;
+          })
+          .map((item, index) => ({
+            id: index,
+            item: item.item,
+            status: null, // null, 'satisfactory', 'unsatisfactory', 'na'
+            notes: '',
+            photos: []
+          }));
+      } else {
+        // Workshop service uses all items
+        items = template.checklist_items.map((item, index) => ({
+          id: index,
+          item: item.item,
+          status: null,
+          notes: '',
+          photos: []
+        }));
+      }
+      
+      setChecklistItems(items);
+    } catch (error) {
+      console.error('Error fetching checklist template:', error);
+      toast.error('Failed to load checklist template');
+    }
+  };
+
+  const handleMachineSelect = (machine) => {
+    setSelectedMachine(machine);
+    
+    // Determine check type based on machine make
+    if (machine.check_type) {
+      setMachineCheckType(machine.check_type);
+    } else if (machine.make.toLowerCase().includes('cat')) {
+      setMachineCheckType('Mounted Machines');
+    } else if (machine.make.toLowerCase().includes('john deere')) {
+      setMachineCheckType('Vehicles');
+    } else {
+      setMachineCheckType('Other Equipment');
+    }
+  };
+
+  const handleCheckTypeSelect = (checkType) => {
+    setSelectedCheckType(checkType);
+    setCurrentStep('checklist');
+  };
+
+  const handleItemStatusChange = (itemId, status) => {
+    // If marking as unsatisfactory, show fault explanation modal
+    if (status === 'unsatisfactory') {
+      const item = checklistItems.find(i => i.id === itemId);
+      setCurrentFaultItem({ ...item, itemId });
+      setFaultExplanation('');
+      setShowFaultModal(true);
+      return;
+    }
+    
+    // For satisfactory or N/A, update directly
+    setChecklistItems(prev => prev.map(item => 
+      item.id === itemId ? { ...item, status, notes: '', photos: [] } : item
+    ));
+  };
+
+  const handleFaultExplanationSubmit = () => {
+    if (!faultExplanation.trim()) {
+      toast.error('Please provide an explanation for the fault');
+      return;
+    }
+
+    setChecklistItems(prev => prev.map(item => 
+      item.id === currentFaultItem.itemId 
+        ? { ...item, status: 'unsatisfactory', notes: faultExplanation }
+        : item
+    ));
+    
+    setShowFaultModal(false);
+    setCurrentFaultItem(null);
+    setFaultExplanation('');
+    toast.success('Fault explanation saved');
+  };
+
+  const handleItemPhotoCapture = (itemId, photoData) => {
+    setChecklistItems(prev => prev.map(item => 
+      item.id === itemId 
+        ? { ...item, photos: [...item.photos, { data: photoData, timestamp: new Date().toISOString() }] }
+        : item
+    ));
+  };
+
+  const handleWorkshopPhotoCapture = (photoData) => {
+    setWorkshopPhotos(prev => [...prev, { data: photoData, timestamp: new Date().toISOString() }]);
+  };
+
+  const handleSubmit = async () => {
+    // Validate all items have a status
+    const incompleteItems = checklistItems.filter(item => item.status === null);
+    if (incompleteItems.length > 0) {
+      toast.error(`Please complete all checklist items. ${incompleteItems.length} items remaining.`);
+      return;
+    }
+
+    try {
+      const checklistData = {
+        employee_number: employee.employee_number,
+        staff_name: employee.name,
+        machine_make: selectedMachine.make,
+        machine_model: selectedMachine.name,
+        check_type: selectedCheckType,
+        checklist_items: checklistItems.map(item => ({
+          item: item.item,
+          status: item.status,
+          notes: item.notes || '',
+          photos: item.photos
+        })),
+        workshop_notes: workshopNotes,
+        workshop_photos: workshopPhotos,
+        completed_at: new Date().toISOString()
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/checklists`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(checklistData)
+      });
+
+      if (response.ok) {
+        toast.success('Checklist submitted successfully');
+        navigate('/');
+      } else {
+        throw new Error('Failed to submit checklist');
+      }
+    } catch (error) {
+      console.error('Error submitting checklist:', error);
+      toast.error('Failed to submit checklist');
+    }
+  };
+
+  const handleAddMachine = async () => {
+    if (!newMachine.make || !newMachine.model) {
+      toast.error('Please provide machine make and model');
+      return;
+    }
+
+    if (!safetyConfirmed) {
+      toast.error('Please confirm the safety briefing checkbox');
+      return;
+    }
+
+    try {
+      const machineData = {
+        employee_number: employee.employee_number,
+        staff_name: employee.name,
+        machine_make: newMachine.make,
+        machine_model: newMachine.model,
+        check_type: 'NEW MACHINE',
+        checklist_items: [],
+        workshop_notes: `New Machine Request\nMake: ${newMachine.make}\nModel: ${newMachine.model}\nSerial Number: ${newMachine.serialNumber || 'N/A'}\nAdditional Notes: ${newMachine.notes || 'N/A'}\nSafety Briefing Confirmed: Yes`,
+        workshop_photos: workshopPhotos,
+        completed_at: new Date().toISOString()
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/checklists`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(machineData)
+      });
+
+      if (response.ok) {
+        toast.success('New machine request submitted successfully');
+        setShowAddMachineModal(false);
+        setNewMachine({ make: '', model: '', serialNumber: '', notes: '' });
+        setWorkshopPhotos([]);
+        setSafetyConfirmed(false);
+        navigate('/');
+      } else {
+        throw new Error('Failed to submit machine request');
+      }
+    } catch (error) {
+      console.error('Error submitting machine request:', error);
+      toast.error('Failed to submit machine request');
+    }
+  };
+
+  // Machine Selection Step
+  if (currentStep === 'machine') {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        {/* Add Machine Modal */}
+        {showAddMachineModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Add New Machine</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowAddMachineModal(false);
+                    setNewMachine({ make: '', model: '', serialNumber: '', notes: '' });
+                    setWorkshopPhotos([]);
+                    setSafetyConfirmed(false);
+                  }}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Machine Make *
+                  </label>
+                  <input
+                    type="text"
+                    value={newMachine.make}
+                    onChange={(e) => setNewMachine(prev => ({ ...prev, make: e.target.value }))}
+                    placeholder="e.g., Caterpillar, John Deere"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Machine Model *
+                  </label>
+                  <input
+                    type="text"
+                    value={newMachine.model}
+                    onChange={(e) => setNewMachine(prev => ({ ...prev, model: e.target.value }))}
+                    placeholder="e.g., D6T, 6145R"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Serial Number (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={newMachine.serialNumber}
+                    onChange={(e) => setNewMachine(prev => ({ ...prev, serialNumber: e.target.value }))}
+                    placeholder="Serial number"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Additional Notes (Optional)
+                  </label>
+                  <textarea
+                    value={newMachine.notes}
+                    onChange={(e) => setNewMachine(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Any additional information"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Photos (Optional)
+                  </label>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => setShowWorkshopCamera(true)}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      <Camera className="mr-2 h-4 w-4" />
+                      Take Photo
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.onchange = (e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              handleWorkshopPhotoCapture(reader.result);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        };
+                        input.click();
+                      }}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload Photo
+                    </Button>
+                  </div>
+                  {workshopPhotos.length > 0 && (
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {workshopPhotos.map((photo, index) => (
+                        <div key={index} className="relative">
+                          <img
+                            src={photo.data}
+                            alt={`Photo ${index + 1}`}
+                            className="w-full h-24 object-cover rounded"
+                          />
+                          <Button
+                            onClick={() => setWorkshopPhotos(prev => prev.filter((_, i) => i !== index))}
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-1 right-1 h-6 w-6 p-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Safety Briefing Checkbox */}
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                  <div className="flex items-start">
+                    <input
+                      type="checkbox"
+                      checked={safetyConfirmed}
+                      onChange={(e) => setSafetyConfirmed(e.target.checked)}
+                      className="mt-1 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                    />
+                    <label className="ml-3 text-sm">
+                      <span className="font-medium text-yellow-800">Safety Briefing Required</span>
+                      <p className="text-yellow-700 mt-1">
+                        I confirm that the operator has received a proper safety briefing for this machine before use. *
+                      </p>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowAddMachineModal(false);
+                      setNewMachine({ make: '', model: '', serialNumber: '', notes: '' });
+                      setWorkshopPhotos([]);
+                      setSafetyConfirmed(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleAddMachine}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    Submit Machine Request
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Camera Modal for Workshop Photos */}
+        {showWorkshopCamera && (
+          <CameraComponent
+            onCapture={handleWorkshopPhotoCapture}
+            onClose={() => setShowWorkshopCamera(false)}
+          />
+        )}
+
+        <div className="flex items-center space-x-2 sm:space-x-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/')}
+            data-testid="back-to-dashboard-btn"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-xl sm:text-3xl font-bold text-gray-900">Select Machine</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Choose the equipment for inspection</p>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <Button
+            onClick={() => setShowAddMachineModal(true)}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            <Database className="mr-2 h-4 w-4" />
+            Add New Machine
+          </Button>
+        </div>
+
+        <Card data-testid="machine-selection-card">
+          <CardHeader>
+            <CardTitle>Available Machines</CardTitle>
+            <CardDescription>{machines.length} machines in system</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {machines.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <ClipboardList className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+                <p>No machines available</p>
+                <p className="text-sm">Please contact admin to add machines</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {machines.map((machine) => {
                 let statusBadge;
                 if (checklist.check_type === 'daily_check' || checklist.check_type === 'grader_startup') {
                   const itemsSatisfactory = checklist.checklist_items.filter(item => item.status === 'satisfactory').length;
