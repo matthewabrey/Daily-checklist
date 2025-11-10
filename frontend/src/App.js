@@ -267,14 +267,18 @@ const Dashboard = memo(function Dashboard() {
         </Card>
 
         {/* 2. Repairs Due - Second */}
-        <Card data-testid="repairs-due-card">
+        <Card 
+          data-testid="repairs-due-card"
+          className="cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => navigate('/repairs-needed?view=acknowledged')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Due</CardTitle>
             <AlertCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{stats.repairsDue}</div>
-            <p className="text-xs text-gray-600">Outstanding issues</p>
+            <p className="text-xs text-gray-600">Acknowledged repairs</p>
           </CardContent>
         </Card>
 
