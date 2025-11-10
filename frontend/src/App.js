@@ -3727,6 +3727,9 @@ function AdminProtectedRoute({ children }) {
 // Main App Content Component
 function AppContent() {
   const { isAuthenticated, employee, logout } = useAuth();
+  
+  // Check if employee has admin control access
+  const hasAdminAccess = employee?.admin_control?.toLowerCase() === 'yes';
 
   return (
     <Router>
