@@ -2042,6 +2042,16 @@ function Records() {
     return count;
   };
 
+  const handleViewDetails = (checklist) => {
+    setSelectedChecklist(checklist);
+    setShowDetailModal(true);
+  };
+
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedChecklist(null);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
