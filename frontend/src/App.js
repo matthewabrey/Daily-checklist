@@ -438,16 +438,6 @@ function EmployeeLogin() {
 }
 
 // NewChecklist Component
-function NewChecklist() {
-  const [machines, setMachines] = useState([]);
-  const [selectedMachine, setSelectedMachine] = useState(null);
-  const [selectedCheckType, setSelectedCheckType] = useState('');
-  const [machineCheckType, setMachineCheckType] = useState('');
-  const [checklistItems, setChecklistItems] = useState([]);
-  const [currentStep, setCurrentStep] = useState('machine'); // 'machine', 'checkType', 'checklist'
-  const [workshopNotes, setWorkshopNotes] = useState('');
-  const [workshopPhotos, setWorkshopPhotos] = useState([]);
-  const [showWorkshopCamera, setShowWorkshopCamera] = useState(false);
   const [showAddMachineModal, setShowAddMachineModal] = useState(false);
   const [newMachine, setNewMachine] = useState({ make: '', model: '', serialNumber: '', notes: '' });
   const [safetyConfirmed, setSafetyConfirmed] = useState(false);
