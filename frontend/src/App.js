@@ -324,26 +324,34 @@ const Dashboard = memo(function Dashboard() {
         </Card>
         
         {/* 4. Total Checks - Fourth */}
-        <Card data-testid="total-checklists-card">
+        <Card 
+          data-testid="total-checklists-card"
+          className="cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => navigate('/all-checks')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Checks Completed</CardTitle>
             <ClipboardList className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{stats.total}</div>
-            <p className="text-xs text-gray-600">All time</p>
+            <p className="text-xs text-gray-600">Click to view all</p>
           </CardContent>
         </Card>
 
         {/* 5. Repairs Completed - Last */}
-        <Card data-testid="repairs-completed-card">
+        <Card 
+          data-testid="repairs-completed-card"
+          className="cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => navigate('/repairs-completed')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Completed</CardTitle>
             <Wrench className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-600">{stats.repairsCompletedLast7Days}</div>
-            <p className="text-xs text-gray-600">Last 7 days</p>
+            <p className="text-xs text-gray-600">Click to view all</p>
           </CardContent>
         </Card>
       </div>
