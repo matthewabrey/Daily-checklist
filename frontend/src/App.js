@@ -2494,6 +2494,466 @@ function Records() {
   );
 }
 
+// All Checks Completed Component
+function AllChecksCompleted() {
+  const [checklists, setChecklists] = useState([]);
+  const [filteredChecklists, setFilteredChecklists] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedMake, setSelectedMake] = useState('');
+  const [selectedModel, setSelectedModel] = useState('');
+  const [makes, setMakes] = useState([]);
+  const [models, setModels] = useState([]);
+  const [selectedChecklist, setSelectedChecklist] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchChecklists();
+  }, []);
+
+  useEffect(() => {
+    filterChecklists();
+  }, [selectedMake, selectedModel, checklists]);
+
+  const fetchChecklists = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/checklists`);
+      const data = await response.json();
+      // Exclude GENERAL REPAIR records
+      const regularChecks = data.filter(c => c.check_type !== 'GENERAL REPAIR');
+      setChecklists(regularChecks);
+      
+      // Extract unique makes and models
+      const uniqueMakes = [...new Set(regularChecks.map(c => c.machine_make))].sort();
+      setMakes(uniqueMakes);
+    } catch (error) {
+      console.error('Error fetching checklists:', error);
+      toast.error('Failed to load checklists');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterChecklists = () => {
+    let filtered = checklists;
+    
+    if (selectedMake) {
+      filtered = filtered.filter(c => c.machine_make === selectedMake);
+      
+      // Update available models based on selected make
+      const availableModels = [...new Set(filtered.map(c => c.machine_model))].sort();
+      setModels(availableModels);
+    } else {
+      setModels([]);
+      setSelectedModel('');
+    }
+    
+    if (selectedModel) {
+      filtered = filtered.filter(c => c.machine_model === selectedModel);
+    }
+    
+    setFilteredChecklists(filtered);
+  };
+
+  const handleViewDetails = (checklist) => {
+    setSelectedChecklist(checklist);
+    setShowDetailModal(true);
+  };
+
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedChecklist(null);
+  };
+
+  const handleMakeChange = (make) => {
+    setSelectedMake(make);
+    setSelectedModel(''); // Reset model when make changes
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading checks...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Detail Modal - reuse from Records */}
+      {showDetailModal && selectedChecklist && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Check Details</h2>
+              <Button variant="ghost" size="sm" onClick={closeDetailModal}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Machine</h3>
+                  <p className="text-lg font-semibold">{selectedChecklist.machine_make} {selectedChecklist.machine_model}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Check Type</h3>
+                  <p className="text-lg">{selectedChecklist.check_type === 'daily_check' ? 'Daily Check' : 
+                                          selectedChecklist.check_type === 'grader_startup' ? 'Grader Startup' : 
+                                          selectedChecklist.check_type === 'workshop_service' ? 'Workshop Service' : 
+                                          selectedChecklist.check_type}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Completed By</h3>
+                  <p className="text-lg">{selectedChecklist.staff_name}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Completed At</h3>
+                  <p className="text-lg">{new Date(selectedChecklist.completed_at).toLocaleString()}</p>
+                </div>
+              </div>
+
+              {selectedChecklist.checklist_items && selectedChecklist.checklist_items.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Checklist Items</h3>
+                  <div className="space-y-3">
+                    {selectedChecklist.checklist_items.map((item, index) => (
+                      <div key={index} className={`p-4 rounded-lg border ${item.status === 'unsatisfactory' ? 'bg-red-50 border-red-200' : item.status === 'na' ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200'}`}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              {item.status === 'satisfactory' && <CheckCircle2 className="h-5 w-5 text-green-600" />}
+                              {item.status === 'unsatisfactory' && <X className="h-5 w-5 text-red-600" />}
+                              {item.status === 'na' && <span className="text-sm font-medium text-gray-600">N/A</span>}
+                              <p className="font-medium">{item.item}</p>
+                            </div>
+                            {item.notes && (
+                              <p className="text-sm text-gray-700 mt-2 italic">"{item.notes}"</p>
+                            )}
+                          </div>
+                          <Badge variant={item.status === 'unsatisfactory' ? 'destructive' : item.status === 'na' ? 'secondary' : 'default'}>
+                            {item.status === 'satisfactory' ? 'OK' : item.status === 'unsatisfactory' ? 'Issue' : 'N/A'}
+                          </Badge>
+                        </div>
+                        {item.photos && item.photos.length > 0 && (
+                          <div className="mt-3 grid grid-cols-3 gap-2">
+                            {item.photos.map((photo, photoIndex) => (
+                              <img
+                                key={photoIndex}
+                                src={photo.data}
+                                alt={`${item.item} - Photo ${photoIndex + 1}`}
+                                className="w-full h-24 object-cover rounded"
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedChecklist.workshop_notes && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Notes</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-gray-700 whitespace-pre-wrap">{selectedChecklist.workshop_notes}</p>
+                  </div>
+                </div>
+              )}
+
+              {selectedChecklist.workshop_photos && selectedChecklist.workshop_photos.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Workshop Photos</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {selectedChecklist.workshop_photos.map((photo, index) => (
+                      <img
+                        key={index}
+                        src={photo.data}
+                        alt={`Workshop Photo ${index + 1}`}
+                        className="w-full h-32 object-cover rounded"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">All Checks Completed</h1>
+            <p className="text-gray-600 mt-2">View all equipment checks - {filteredChecklists.length} records</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filter Checks</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Machine Make</label>
+              <select
+                value={selectedMake}
+                onChange={(e) => handleMakeChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">All Makes</option>
+                {makes.map(make => (
+                  <option key={make} value={make}>{make}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Machine Model</label>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={!selectedMake}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+              >
+                <option value="">All Models</option>
+                {models.map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Checks List */}
+      <Card>
+        <CardContent className="p-6">
+          {filteredChecklists.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <FileText className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+              <p>No checks found</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredChecklists.map((checklist) => (
+                <Card
+                  key={checklist.id}
+                  className="hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => handleViewDetails(checklist)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-3 rounded-lg bg-green-100">
+                          <CheckCircle2 className="h-6 w-6 text-green-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg">{checklist.machine_make} {checklist.machine_model}</h3>
+                          <p className="text-gray-600">{checklist.check_type} by {checklist.staff_name}</p>
+                          <p className="text-sm text-gray-500">ID: {checklist.id.substring(0, 8)}...</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500">
+                          {new Date(checklist.completed_at).toLocaleDateString()} at {new Date(checklist.completed_at).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Repairs Completed Component
+function RepairsCompletedPage() {
+  const [repairs, setRepairs] = useState([]);
+  const [filteredRepairs, setFilteredRepairs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedMake, setSelectedMake] = useState('');
+  const [selectedModel, setSelectedModel] = useState('');
+  const [makes, setMakes] = useState([]);
+  const [models, setModels] = useState([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchRepairs();
+  }, []);
+
+  useEffect(() => {
+    filterRepairs();
+  }, [selectedMake, selectedModel, repairs]);
+
+  const fetchRepairs = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/checklists`);
+      const data = await response.json();
+      // Only get REPAIR COMPLETED records
+      const completedRepairs = data.filter(c => c.check_type === 'REPAIR COMPLETED');
+      setRepairs(completedRepairs);
+      
+      // Extract unique makes
+      const uniqueMakes = [...new Set(completedRepairs.map(c => c.machine_make))].sort();
+      setMakes(uniqueMakes);
+    } catch (error) {
+      console.error('Error fetching repairs:', error);
+      toast.error('Failed to load repairs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterRepairs = () => {
+    let filtered = repairs;
+    
+    if (selectedMake) {
+      filtered = filtered.filter(r => r.machine_make === selectedMake);
+      
+      // Update available models
+      const availableModels = [...new Set(filtered.map(r => r.machine_model))].sort();
+      setModels(availableModels);
+    } else {
+      setModels([]);
+      setSelectedModel('');
+    }
+    
+    if (selectedModel) {
+      filtered = filtered.filter(r => r.machine_model === selectedModel);
+    }
+    
+    setFilteredRepairs(filtered);
+  };
+
+  const handleMakeChange = (make) => {
+    setSelectedMake(make);
+    setSelectedModel('');
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading repairs...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Repairs Completed</h1>
+            <p className="text-gray-600 mt-2">All completed repairs - {filteredRepairs.length} records</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filter Repairs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Machine Make</label>
+              <select
+                value={selectedMake}
+                onChange={(e) => handleMakeChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">All Makes</option>
+                {makes.map(make => (
+                  <option key={make} value={make}>{make}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Machine Model</label>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={!selectedMake}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-gray-100"
+              >
+                <option value="">All Models</option>
+                {models.map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Repairs List */}
+      <Card>
+        <CardContent className="p-6">
+          {filteredRepairs.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Wrench className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+              <p>No completed repairs found</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredRepairs.map((repair) => (
+                <Card
+                  key={repair.id}
+                  className="hover:shadow-md transition-shadow"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-3 rounded-lg bg-emerald-100">
+                          <Wrench className="h-6 w-6 text-emerald-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg">{repair.machine_make} {repair.machine_model}</h3>
+                          <p className="text-gray-600">Repaired by {repair.staff_name}</p>
+                          {repair.workshop_notes && (
+                            <p className="text-sm text-gray-600 mt-1 italic line-clamp-2">{repair.workshop_notes}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge className="bg-emerald-100 text-emerald-800">Completed</Badge>
+                        <p className="text-sm text-gray-500 mt-2">
+                          {new Date(repair.completed_at).toLocaleDateString()} at {new Date(repair.completed_at).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // General Repair Record Component
 function GeneralRepairRecord() {
   const [selectedMake, setSelectedMake] = useState('');
