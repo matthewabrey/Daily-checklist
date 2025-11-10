@@ -2248,7 +2248,12 @@ function Records() {
                 const iconConfig = getIconAndColor(checklist.check_type);
                 
                 return (
-                  <Card key={checklist.id} className="hover:shadow-md transition-shadow" data-testid={`record-item-${checklist.id}`}>
+                  <Card 
+                    key={checklist.id} 
+                    className="hover:shadow-md transition-shadow cursor-pointer" 
+                    data-testid={`record-item-${checklist.id}`}
+                    onClick={() => handleViewDetails(checklist)}
+                  >
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
