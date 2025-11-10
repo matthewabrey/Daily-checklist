@@ -3153,71 +3153,8 @@ function RepairsNeeded() {
     setRepairPhotos([]);
   };
 
-  // Show password modal first, regardless of loading state
-  if (!isAuthenticated) {
-    return (
-      <div className="space-y-6">
-        {/* Password Protection Modal */}
-        {showPasswordModal && (
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[10000]"
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-          >
-            <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-              <div className="text-center mb-6">
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-                  <AlertCircle className="h-6 w-6 text-red-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Restricted Access
-                </h3>
-                <p className="text-sm text-gray-600">
-                  This page contains sensitive repair information. Please enter the access password.
-                </p>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyPress={handlePasswordKeyPress}
-                    placeholder="Enter password"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                    autoFocus
-                  />
-                </div>
-                
-                <div className="flex justify-between space-x-3">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate('/')}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handlePasswordSubmit}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                    disabled={!password.trim()}
-                  >
-                    Access
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Show loading only after authentication
-  if (loading && isAuthenticated) {
+  // Show loading
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
