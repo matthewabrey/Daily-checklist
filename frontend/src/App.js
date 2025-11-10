@@ -3691,28 +3691,14 @@ function ProtectedRoute({ children }) {
 // Main App Content Component
 function AppContent() {
   const { isAuthenticated, employee, logout } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const navigate = useNavigate();
+
+  // Check if employee has admin control access
+  const hasAdminAccess = employee?.admin_control?.toLowerCase() === 'yes';
 
   // Check if we're on admin route
   const currentPath = window.location.pathname;
   const isAdminRoute = currentPath === '/admin';
-
-  const handleAdminAccess = () => {
-    if (!isAdmin && isAdminRoute) {
-      setShowAdminLogin(true);
-    }
-  };
-
-  const handleAdminLogin = () => {
-    setIsAdmin(true);
-    setShowAdminLogin(false);
-  };
-
-  // Show admin login if needed
-  if (showAdminLogin) {
-    return <AdminLogin onLogin={handleAdminLogin} />;
-  }
 
   return (
     <Router>
