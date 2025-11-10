@@ -119,7 +119,7 @@ const Dashboard = memo(function Dashboard() {
           }
         } else if (typeName === 'workshop_service') {
           typeName = 'Workshop service';
-        } else if (typeName === 'NEW MACHINE') {
+        } else if (typeName === 'NEW MACHINE' || typeName === 'MACHINE ADD') {
           typeName = 'Machine add';
         } else if (typeName === 'REPAIR COMPLETED') {
           typeName = 'Repairs completed';
