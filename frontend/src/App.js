@@ -3758,20 +3758,23 @@ function RepairsNeeded() {
                         >
                           View Details
                         </Button>
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAcknowledge(repair);
-                          }}
-                          variant="outline"
-                          size="sm"
-                          className={`flex-1 lg:flex-none lg:w-24 ${repair.acknowledged 
-                            ? 'bg-orange-100 text-orange-700 border-orange-300' 
-                            : 'text-orange-600 border-orange-300 hover:bg-orange-50'}`}
-                          disabled={repair.acknowledged}
-                        >
-                          {repair.acknowledged ? 'Acknowledged' : 'Acknowledge'}
-                        </Button>
+                        {/* Only show Acknowledge button in 'new' view */}
+                        {viewType === 'new' && (
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAcknowledge(repair);
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className={`flex-1 lg:flex-none lg:w-24 ${repair.acknowledged 
+                              ? 'bg-orange-100 text-orange-700 border-orange-300' 
+                              : 'text-orange-600 border-orange-300 hover:bg-orange-50'}`}
+                            disabled={repair.acknowledged}
+                          >
+                            {repair.acknowledged ? 'Acknowledged' : 'Acknowledge'}
+                          </Button>
+                        )}
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
