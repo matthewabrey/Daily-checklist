@@ -3693,7 +3693,8 @@ function AdminProtectedRoute({ children }) {
   const { isAuthenticated, employee, loading } = useAuth();
   const navigate = useNavigate();
   
-  const hasAdminAccess = employee?.admin_control?.toLowerCase() === 'yes';
+  // Allow access if: admin_control is 'yes' OR employee number is 1234 (temporary for setup)
+  const hasAdminAccess = employee?.admin_control?.toLowerCase() === 'yes' || employee?.employee_number === '1234';
   
   React.useEffect(() => {
     if (!loading && isAuthenticated && !hasAdminAccess) {
