@@ -3633,8 +3633,14 @@ function RepairsNeeded() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Repairs Needed</h1>
-            <p className="text-gray-600 mt-2">Track and complete equipment repair issues</p>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {viewType === 'new' ? 'New Repairs' : 'Repairs Due'}
+            </h1>
+            <p className="text-gray-600 mt-2">
+              {viewType === 'new' 
+                ? 'New repair requests requiring acknowledgment' 
+                : 'Acknowledged repairs in priority order - ready for completion'}
+            </p>
           </div>
         </div>
       </div>
@@ -3642,17 +3648,34 @@ function RepairsNeeded() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
-            <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
-            Outstanding Issues ({repairs.filter(r => !r.repaired).length})
+            {viewType === 'new' ? (
+              <>
+                <AlertTriangle className="h-5 w-5 text-orange-600 mr-2" />
+                New Repairs ({repairs.filter(r => !r.repaired).length})
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+                Repairs Due ({repairs.filter(r => !r.repaired).length})
+              </>
+            )}
           </CardTitle>
-          <CardDescription>Equipment issues requiring attention</CardDescription>
+          <CardDescription>
+            {viewType === 'new' 
+              ? 'Review and acknowledge new repair requests' 
+              : 'Complete acknowledged repairs - sorted by urgency'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {repairs.filter(r => !r.repaired).length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <CheckCircle2 className="mx-auto h-12 w-12 text-green-400 mb-4" />
-              <p>No outstanding repairs needed</p>
-              <p className="text-sm">All equipment issues have been resolved</p>
+              <p>{viewType === 'new' ? 'No new repairs' : 'No repairs due'}</p>
+              <p className="text-sm">
+                {viewType === 'new' 
+                  ? 'All repair requests have been acknowledged' 
+                  : 'All acknowledged repairs have been completed'}
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
