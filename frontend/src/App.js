@@ -3050,8 +3050,13 @@ function RepairsNeeded() {
         // Show only acknowledged but not completed repairs
         filteredRepairs = repairItems.filter(repair => repair.acknowledged && !repair.repaired);
         
-        // Sort by urgency priority for acknowledged repairs
+        // Sort: Safety checks (unsatisfactory_item) first, then by urgency priority
         filteredRepairs.sort((a, b) => {
+          // Safety checks always come first
+          if (a.type === 'unsatisfactory_item' && b.type !== 'unsatisfactory_item') return -1;
+          if (a.type !== 'unsatisfactory_item' && b.type === 'unsatisfactory_item') return 1;
+          
+          // If both are same type, sort by urgency priority
           const getUrgencyPriority = (repair) => {
             const urgency = getUrgencyLevel(repair);
             if (!urgency) return 4; // No urgency info = lowest priority
