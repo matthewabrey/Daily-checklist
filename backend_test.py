@@ -1134,6 +1134,35 @@ class MachineChecklistAPITester:
             # Test retrieving checklist with notes
             if fault_success and fault_checklist_id:
                 self.test_checklist_retrieval_with_notes(fault_checklist_id)
+
+        # N/A OPTION TESTS - New functionality
+        print("\n❓ N/A OPTION TESTS")
+        print("-" * 30)
+        
+        na_checklist_id = ""
+        if login_success and cat_names:
+            # Test creating checklist with N/A options using Cat machine
+            na_success, na_checklist_id = self.test_checklist_with_na_option(
+                test_employee_number, valid_staff_name, "Cat", cat_names[0]
+            )
+
+        # REPAIRS NEEDED FUNCTIONALITY TESTS - New functionality
+        print("\n🔧 REPAIRS NEEDED FUNCTIONALITY TESTS")
+        print("-" * 50)
+        
+        machine_add_id = ""
+        repair_completed_id = ""
+        
+        if login_success:
+            # Test 1: Create MACHINE ADD record
+            machine_add_success, machine_add_id = self.test_machine_add_record_creation(
+                test_employee_number, valid_staff_name
+            )
+            
+            # Test 2: Create REPAIR COMPLETED record
+            repair_completed_success, repair_completed_id = self.test_repair_completed_record_creation(
+                test_employee_number, valid_staff_name
+            )
         
         # Test 6: Invalid employee login tests
         self.test_employee_login_invalid("INVALID999")
