@@ -155,12 +155,12 @@ const Dashboard = memo(function Dashboard() {
         }
       });
       
-      // Calculate repairs due (outstanding repairs)
-      const repairsDue = repairItems.length;
-      
       // Calculate non-acknowledged repairs using localStorage
       const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
       const nonAcknowledgedRepairs = repairItems.filter(repair => !acknowledgedRepairs.includes(repair.id)).length;
+      
+      // Calculate repairs due (acknowledged but not completed repairs)
+      const repairsDue = repairItems.filter(repair => acknowledgedRepairs.includes(repair.id)).length;
       
       // Calculate repairs completed in last 7 days
       const sevenDaysAgo = new Date();
