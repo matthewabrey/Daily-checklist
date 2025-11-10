@@ -3537,8 +3537,7 @@ function RepairsNeeded() {
                   if (a.acknowledged === b.acknowledged) return 0;
                   return a.acknowledged ? 1 : -1;
                 })
-                .map((repair) => (
-                (() => {
+                .map((repair) => {
                   const colors = getUrgencyColors(repair);
                   const urgencyLevel = getUrgencyLevel(repair);
                   
@@ -3639,8 +3638,7 @@ function RepairsNeeded() {
                       </CardContent>
                     </Card>
                   );
-                })()
-              )}
+                })}
             </div>
           )}
         </CardContent>
