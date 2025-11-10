@@ -3690,18 +3690,10 @@ function ProtectedRoute({ children }) {
 
 // Admin Protected Route Component
 function AdminProtectedRoute({ children }) {
-  const { isAuthenticated, employee, loading } = useAuth();
-  const navigate = useNavigate();
+  const { isAuthenticated, loading } = useAuth();
   
-  // Allow access if: admin_control is 'yes' OR employee number is 1234 (temporary for setup)
-  const hasAdminAccess = employee?.admin_control?.toLowerCase() === 'yes' || employee?.employee_number === '1234';
-  
-  React.useEffect(() => {
-    if (!loading && isAuthenticated && !hasAdminAccess) {
-      toast.error('Access denied. You do not have Admin Control permission.');
-      navigate('/');
-    }
-  }, [hasAdminAccess, isAuthenticated, loading, navigate]);
+  // TEMPORARY: Allow all authenticated users to access Admin for initial setup
+  // TODO: Re-enable admin_control check after uploading Name List with admin permissions
   
   if (loading) {
     return (
@@ -3718,10 +3710,7 @@ function AdminProtectedRoute({ children }) {
     return <EmployeeLogin />;
   }
   
-  if (!hasAdminAccess) {
-    return null; // Will redirect in useEffect
-  }
-  
+  // Temporarily allow all authenticated users
   return children;
 }
 
