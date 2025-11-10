@@ -235,7 +235,7 @@ const Dashboard = memo(function Dashboard() {
             data-testid="daily-check-btn"
           >
             <ClipboardList className="mr-2 h-4 w-4" />
-            Daily Check
+            Checks and Servicing
           </Button>
           <Button 
             onClick={() => setShowRepairWarning(true)}
