@@ -863,6 +863,170 @@ class MachineChecklistAPITester:
             self.log_test("GENERAL REPAIR Records in List", False, f"Exception: {str(e)}")
             return False
 
+    def test_checklist_with_na_option(self, employee_number: str, staff_name: str, machine_make: str, machine_model: str) -> tuple[bool, str]:
+        """Test creating a checklist with N/A option for items"""
+        try:
+            # Create checklist with mix of satisfactory/unsatisfactory/N/A items
+            checklist_items = [
+                {"item": "Oil level check - Engine oil at correct level", "status": "satisfactory", "notes": ""},
+                {"item": "Fuel level check - Adequate fuel for operation", "status": "satisfactory", "notes": ""},
+                {"item": "Tire condition and pressure", "status": "unsatisfactory", "notes": "Left front tire has low pressure"},
+                {"item": "Hydraulic fluid level - Within acceptable range", "status": "N/A", "notes": ""},
+                {"item": "Battery condition - Terminals clean, voltage adequate", "status": "satisfactory", "notes": ""},
+                {"item": "Lights operational", "status": "N/A", "notes": ""},
+                {"item": "Safety guards in place - All protective covers secured", "status": "satisfactory", "notes": ""},
+                {"item": "Emergency stop function - Test emergency stop button", "status": "satisfactory", "notes": ""},
+                {"item": "Warning lights operational - All safety lights working", "status": "satisfactory", "notes": ""},
+                {"item": "Engine oil level", "status": "N/A", "notes": ""},
+                {"item": "Air filter condition - Clean and properly sealed", "status": "satisfactory", "notes": ""},
+                {"item": "Cooling system - Radiator clear, coolant level adequate", "status": "satisfactory", "notes": ""},
+                {"item": "Brake system function - Service and parking brakes operational", "status": "satisfactory", "notes": ""},
+                {"item": "Steering operation - Smooth operation, no excessive play", "status": "satisfactory", "notes": ""},
+                {"item": "Fire extinguisher - Present and within service date", "status": "satisfactory", "notes": ""}
+            ]
+            
+            checklist_data = {
+                "employee_number": employee_number,
+                "staff_name": staff_name,
+                "machine_make": machine_make,
+                "machine_model": machine_model,
+                "check_type": "daily_check",
+                "checklist_items": checklist_items
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/checklists",
+                json=checklist_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            checklist_id = ""
+            
+            if success:
+                result = response.json()
+                checklist_id = result.get('id', '')
+                details = f"Status: {response.status_code}, ID: {checklist_id[:8]}..."
+                
+                # Verify N/A items are handled correctly
+                na_items = [item for item in result.get('checklist_items', []) if item.get('status') == 'N/A']
+                if len(na_items) != 3:
+                    success = False
+                    details += f" (Expected 3 N/A items, got {len(na_items)})"
+                else:
+                    details += f", {len(na_items)} N/A items handled correctly"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Create Checklist with N/A Options", success, details)
+            return success, checklist_id
+        except Exception as e:
+            self.log_test("Create Checklist with N/A Options", False, f"Exception: {str(e)}")
+            return False, ""
+
+    def test_machine_add_record_creation(self, employee_number: str, staff_name: str) -> tuple[bool, str]:
+        """Test creating a MACHINE ADD record for new machine requests"""
+        try:
+            # Create MACHINE ADD record
+            machine_add_data = {
+                "employee_number": employee_number,
+                "staff_name": staff_name,
+                "machine_make": "New Make",
+                "machine_model": "New Model XYZ-2024",
+                "check_type": "MACHINE ADD",
+                "checklist_items": [],
+                "workshop_notes": "MACHINE ADD REQUEST:\nMachine Make: New Make\nMachine Name: New Model XYZ-2024\nYear Made: 2024\nSerial Number: ABC123456\nRequested by: " + staff_name,
+                "workshop_photos": []
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/checklists",
+                json=machine_add_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            checklist_id = ""
+            
+            if success:
+                result = response.json()
+                checklist_id = result.get('id', '')
+                details = f"Status: {response.status_code}, ID: {checklist_id[:8]}..."
+                
+                # Verify MACHINE ADD specific fields
+                if result.get('check_type') != "MACHINE ADD":
+                    success = False
+                    details += f" (Check type mismatch: expected 'MACHINE ADD', got '{result.get('check_type')}')"
+                elif not result.get('workshop_notes'):
+                    success = False
+                    details += " (Missing workshop_notes)"
+                elif "MACHINE ADD REQUEST:" not in result.get('workshop_notes', ''):
+                    success = False
+                    details += " (Workshop notes content incorrect)"
+                else:
+                    details += f", Check Type: {result.get('check_type')}, Workshop Notes: Present"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:200]}"
+                
+            self.log_test("Create MACHINE ADD Record", success, details)
+            return success, checklist_id
+        except Exception as e:
+            self.log_test("Create MACHINE ADD Record", False, f"Exception: {str(e)}")
+            return False, ""
+
+    def test_repair_completed_record_creation(self, employee_number: str, staff_name: str) -> tuple[bool, str]:
+        """Test creating a REPAIR COMPLETED record for repairs needed functionality"""
+        try:
+            # Create REPAIR COMPLETED record
+            repair_completed_data = {
+                "employee_number": employee_number,
+                "staff_name": staff_name,
+                "machine_make": "John Deere",
+                "machine_model": "6145R",
+                "check_type": "REPAIR COMPLETED",
+                "checklist_items": [],
+                "workshop_notes": "REPAIR COMPLETED:\nOriginal Issue: Left front tire has low pressure\nRepair Action: Replaced tire and checked pressure\nCompleted by: " + staff_name + "\nDate: 2024-01-15",
+                "workshop_photos": []
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/checklists",
+                json=repair_completed_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            checklist_id = ""
+            
+            if success:
+                result = response.json()
+                checklist_id = result.get('id', '')
+                details = f"Status: {response.status_code}, ID: {checklist_id[:8]}..."
+                
+                # Verify REPAIR COMPLETED specific fields
+                if result.get('check_type') != "REPAIR COMPLETED":
+                    success = False
+                    details += f" (Check type mismatch: expected 'REPAIR COMPLETED', got '{result.get('check_type')}')"
+                elif not result.get('workshop_notes'):
+                    success = False
+                    details += " (Missing workshop_notes)"
+                elif "REPAIR COMPLETED:" not in result.get('workshop_notes', ''):
+                    success = False
+                    details += " (Workshop notes content incorrect)"
+                else:
+                    details += f", Check Type: {result.get('check_type')}, Workshop Notes: Present"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:200]}"
+                
+            self.log_test("Create REPAIR COMPLETED Record", success, details)
+            return success, checklist_id
+        except Exception as e:
+            self.log_test("Create REPAIR COMPLETED Record", False, f"Exception: {str(e)}")
+            return False, ""
+
     def run_all_tests(self):
         """Run comprehensive API tests"""
         print("🚀 Starting Machine Checklist API Tests")
