@@ -378,6 +378,21 @@ frontend:
         - working: "NA"
           agent: "main"
           comment: "Fixed dashboard statistics by fetching all checklists for accurate counts. Updated 'Total Checklists' to 'Total Checks Completed' with correct count. Enhanced 'Today's Checks' to show breakdown by equipment type (Mounted Machines, Vehicles, etc.). Removed 'Safety Status' panel. Created new 'Repairs Needed' page that extracts unsatisfactory items from all checklists, allows marking repairs complete with notes and photos, creates 'REPAIR COMPLETED' records. Added red-themed navigation link and proper routing."
+        - working: "NA"
+          agent: "main"
+          comment: "COMPILATION ERROR FIXED: Resolved frontend compilation error caused by incorrect IIFE syntax in .map() function at line 3643. Changed from .map((repair) => (() => {...})()) to .map((repair) => {...}) which is the correct React/JSX pattern. The issue was using an immediately invoked function expression inside map which caused 'Unexpected token, expected comma' error. Frontend now compiles successfully and app loads correctly."
+
+  - task: "Urgency-based color coding and repairs display"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Added urgency-based color coding for Repairs Needed page with helper functions (getUrgencyLevel, getUrgencyColors). Red for stopped machines, orange for ASAP repairs, yellow for non-urgent. Implemented separate urgency level display from problem description using getCleanDescription function. Added color-coded left border strip on repair cards and text colors matching urgency levels."
 
 metadata:
   created_by: "main_agent"
