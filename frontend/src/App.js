@@ -2782,33 +2782,21 @@ function RepairsNeeded() {
   const [showRepairCamera, setShowRepairCamera] = useState(false);
   const [showViewingModal, setShowViewingModal] = useState(false);
   const [viewingRepair, setViewingRepair] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [showPasswordModal, setShowPasswordModal] = useState(true);
   const navigate = useNavigate();
+  const { employee } = useAuth();
+
+  // Check if employee has workshop control access
+  const hasWorkshopAccess = employee?.workshop_control?.toLowerCase() === 'yes';
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchRepairs();
+    // Check workshop control permission
+    if (!hasWorkshopAccess) {
+      toast.error('Access denied. You do not have Workshop Control permission.');
+      navigate('/');
+      return;
     }
-  }, [isAuthenticated]);
-
-  const handlePasswordSubmit = () => {
-    if (password === 'Engine1') {
-      setIsAuthenticated(true);
-      setShowPasswordModal(false);
-      toast.success('Access granted');
-    } else {
-      toast.error('Invalid password');
-      setPassword('');
-    }
-  };
-
-  const handlePasswordKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handlePasswordSubmit();
-    }
-  };
+    fetchRepairs();
+  }, [hasWorkshopAccess, navigate]);
 
   const fetchRepairs = async () => {
     try {
