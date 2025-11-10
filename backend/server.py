@@ -270,7 +270,8 @@ async def employee_login(request: EmployeeLoginRequest):
                 "success": True,
                 "employee": {
                     "employee_number": employee["employee_number"],
-                    "name": employee["name"]
+                    "name": employee["name"],
+                    "workshop_control": employee.get("workshop_control", None)
                 }
             }
         else:
