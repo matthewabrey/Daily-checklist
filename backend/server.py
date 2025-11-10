@@ -616,15 +616,21 @@ async def upload_staff_file(file: UploadFile = File(...)):
                 name = str(row[name_col]).strip() if row[name_col] else ''
                 emp_number = str(row[number_col]).strip() if row[number_col] else ''
                 workshop_control = None
+                admin_control = None
+                
                 if workshop_col is not None and len(row) > workshop_col and row[workshop_col]:
                     workshop_control = str(row[workshop_col]).strip().lower()
+                
+                if admin_col is not None and len(row) > admin_col and row[admin_col]:
+                    admin_control = str(row[admin_col]).strip().lower()
                 
                 if name and emp_number and name.lower() not in ['name', 'staff', 'employee']:
                     staff_data.append({
                         "name": name,
                         "employee_number": emp_number,
                         "active": True,
-                        "workshop_control": workshop_control
+                        "workshop_control": workshop_control,
+                        "admin_control": admin_control
                     })
         
         if not staff_data:
