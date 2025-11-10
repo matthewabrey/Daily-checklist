@@ -288,11 +288,29 @@ const Dashboard = memo(function Dashboard() {
             <div className="text-2xl font-bold text-green-600">{stats.todayTotal}</div>
             {Object.keys(stats.todayByType).length > 0 && (
               <div className="mt-2 space-y-1">
-                {Object.entries(stats.todayByType).map(([type, count]) => (
-                  <p key={type} className="text-xs text-gray-600">
-                    {type}: {count}
-                  </p>
-                ))}
+                {(() => {
+                  // Define the desired order
+                  const order = ['Vehicles', 'Mounted machines', 'Other equipment', 'Machine add', 'Repairs completed', 'Workshop service'];
+                  
+                  // Sort entries based on the defined order
+                  const sortedEntries = Object.entries(stats.todayByType).sort(([typeA], [typeB]) => {
+                    const indexA = order.indexOf(typeA);
+                    const indexB = order.indexOf(typeB);
+                    
+                    // If type not in order array, put at end
+                    if (indexA === -1 && indexB === -1) return 0;
+                    if (indexA === -1) return 1;
+                    if (indexB === -1) return -1;
+                    
+                    return indexA - indexB;
+                  });
+                  
+                  return sortedEntries.map(([type, count]) => (
+                    <p key={type} className="text-xs text-gray-600">
+                      {type}: {count}
+                    </p>
+                  ));
+                })()}
               </div>
             )}
             {Object.keys(stats.todayByType).length === 0 && (
