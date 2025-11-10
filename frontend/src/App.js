@@ -3138,6 +3138,17 @@ function RepairsNeeded() {
   };
 
   const getUrgencyColors = (repair) => {
+    // Safety checks always get prominent red styling
+    if (repair.type === 'unsatisfactory_item') {
+      return {
+        border: 'border-l-red-600',
+        text: 'text-red-800',
+        badge: 'border-red-400 text-red-700',
+        bg: 'bg-red-50'
+      };
+    }
+    
+    // General repairs get color based on urgency level
     const urgencyLevel = getUrgencyLevel(repair);
     
     if (repair.type === 'general_repair' && urgencyLevel) {
@@ -3145,27 +3156,33 @@ function RepairsNeeded() {
         return {
           border: 'border-l-red-500',
           text: 'text-red-700',
-          badge: 'border-red-300 text-red-600'
+          badge: 'border-red-300 text-red-600',
+          bg: 'bg-white'
         };
       } else if (urgencyLevel.includes('asap but still running')) {
         return {
           border: 'border-l-orange-500',
           text: 'text-orange-700',
-          badge: 'border-orange-300 text-orange-600'
+          badge: 'border-orange-300 text-orange-600',
+          bg: 'bg-white'
         };
       } else if (urgencyLevel.includes('not urgent')) {
         return {
           border: 'border-l-yellow-500',
           text: 'text-yellow-700',
-          badge: 'border-yellow-300 text-yellow-600'
+          badge: 'border-yellow-300 text-yellow-600',
+          bg: 'bg-white'
         };
       }
     }
     
-    // Default colors for safety checks or general repairs without urgency
-    return repair.type === 'general_repair' 
-      ? { border: 'border-l-yellow-500', text: 'text-yellow-700', badge: 'border-yellow-300 text-yellow-600' }
-      : { border: 'border-l-red-500', text: 'text-red-700', badge: 'border-red-300 text-red-600' };
+    // Default colors for general repairs without urgency
+    return { 
+      border: 'border-l-yellow-500', 
+      text: 'text-yellow-700', 
+      badge: 'border-yellow-300 text-yellow-600',
+      bg: 'bg-white'
+    };
   };
 
   const handleAcknowledge = (repair) => {
