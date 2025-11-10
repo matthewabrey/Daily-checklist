@@ -248,17 +248,35 @@ const Dashboard = memo(function Dashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-6">
-        <Card data-testid="total-checklists-card">
+        {/* 1. New Repairs - First */}
+        <Card 
+          data-testid="non-acknowledged-repairs-card"
+          className="cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => navigate('/repairs-needed')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Checks Completed</CardTitle>
-            <ClipboardList className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium">New Repairs</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.total}</div>
-            <p className="text-xs text-gray-600">All time</p>
+            <div className="text-2xl font-bold text-orange-600">{stats.nonAcknowledgedRepairs}</div>
+            <p className="text-xs text-gray-600">Need acknowledgment</p>
           </CardContent>
         </Card>
-        
+
+        {/* 2. Repairs Due - Second */}
+        <Card data-testid="repairs-due-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Repairs Due</CardTitle>
+            <AlertCircle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats.repairsDue}</div>
+            <p className="text-xs text-gray-600">Outstanding issues</p>
+          </CardContent>
+        </Card>
+
+        {/* 3. Today's Checks - Third */}
         <Card data-testid="today-checklists-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Today's Checks</CardTitle>
@@ -280,33 +298,20 @@ const Dashboard = memo(function Dashboard() {
             )}
           </CardContent>
         </Card>
-
-        <Card data-testid="repairs-due-card">
+        
+        {/* 4. Total Checks - Fourth */}
+        <Card data-testid="total-checklists-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Repairs Due</CardTitle>
-            <AlertCircle className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-sm font-medium">Total Checks Completed</CardTitle>
+            <ClipboardList className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.repairsDue}</div>
-            <p className="text-xs text-gray-600">Outstanding issues</p>
+            <div className="text-2xl font-bold text-green-600">{stats.total}</div>
+            <p className="text-xs text-gray-600">All time</p>
           </CardContent>
         </Card>
 
-        <Card 
-          data-testid="non-acknowledged-repairs-card"
-          className="cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => navigate('/repairs-needed')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New Repairs</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.nonAcknowledgedRepairs}</div>
-            <p className="text-xs text-gray-600">Need acknowledgment</p>
-          </CardContent>
-        </Card>
-
+        {/* 5. Repairs Completed - Last */}
         <Card data-testid="repairs-completed-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Completed</CardTitle>
