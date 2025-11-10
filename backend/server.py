@@ -289,7 +289,11 @@ async def validate_employee(employee_number: str):
         }, {"_id": 0})
         
         if employee:
-            return {"valid": True, "name": employee["name"]}
+            return {
+                "valid": True, 
+                "name": employee["name"],
+                "workshop_control": employee.get("workshop_control", None)
+            }
         else:
             return {"valid": False}
     except Exception as e:
