@@ -2953,6 +2953,10 @@ function RepairsNeeded() {
   const [viewingRepair, setViewingRepair] = useState(null);
   const navigate = useNavigate();
   const { employee } = useAuth();
+  
+  // Get view type from URL parameter (default to 'new')
+  const searchParams = new URLSearchParams(window.location.search);
+  const viewType = searchParams.get('view') || 'new'; // 'new' or 'acknowledged'
 
   // Check if employee has workshop control access
   const hasWorkshopAccess = employee?.workshop_control?.toLowerCase() === 'yes';
@@ -2965,7 +2969,7 @@ function RepairsNeeded() {
       return;
     }
     fetchRepairs();
-  }, [hasWorkshopAccess, navigate]);
+  }, [hasWorkshopAccess, navigate, viewType]);
 
   const fetchRepairs = async () => {
     try {
