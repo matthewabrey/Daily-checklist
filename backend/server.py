@@ -265,8 +265,6 @@ async def employee_login(request: EmployeeLoginRequest):
             "active": True
         }, {"_id": 0})
         
-        print(f"DEBUG: Employee from DB: {employee}")  # Debug logging
-        
         if employee:
             return {
                 "success": True,
