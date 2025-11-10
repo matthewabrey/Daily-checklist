@@ -562,16 +562,19 @@ async def upload_staff_file(file: UploadFile = File(...)):
         workbook = openpyxl.load_workbook(BytesIO(file_content))
         sheet = workbook[workbook.sheetnames[0]]  # Use first sheet, not active
         
-        # Get headers and find name/employee number columns
+        # Get headers and find name/employee number/workshop control columns
         headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
         name_col = None
         number_col = None
+        workshop_col = None
         
         for i, header in enumerate(headers):
             if 'name' in header and 'employee' not in header:
                 name_col = i
             elif 'number' in header or 'employee' in header or 'emp' in header:
                 number_col = i
+            elif 'workshop' in header and 'control' in header:
+                workshop_col = i
         
         # Fallback: assume first column is names, second is numbers
         if name_col is None:
@@ -588,12 +591,16 @@ async def upload_staff_file(file: UploadFile = File(...)):
             if row and len(row) > max(name_col, number_col):
                 name = str(row[name_col]).strip() if row[name_col] else ''
                 emp_number = str(row[number_col]).strip() if row[number_col] else ''
+                workshop_control = None
+                if workshop_col is not None and len(row) > workshop_col and row[workshop_col]:
+                    workshop_control = str(row[workshop_col]).strip().lower()
                 
                 if name and emp_number and name.lower() not in ['name', 'staff', 'employee']:
                     staff_data.append({
                         "name": name,
                         "employee_number": emp_number,
-                        "active": True
+                        "active": True,
+                        "workshop_control": workshop_control
                     })
         
         if not staff_data:
