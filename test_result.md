@@ -417,7 +417,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Dashboard statistics fix and Repairs Needed page"
+    - "Camera functionality and permissions"
   stuck_tasks:
     - "Camera functionality and permissions"
   test_all: false
