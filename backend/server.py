@@ -299,6 +299,21 @@ async def validate_employee(employee_number: str):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Validation failed: {str(e)}")
 
+@app.get("/api/debug/check-admin")
+async def debug_check_admin():
+    """Debug endpoint to check admin account workshop_control - REMOVE IN PRODUCTION"""
+    try:
+        admin = await db.staff.find_one({"employee_number": "4444"}, {"_id": 0})
+        db_name = os.environ.get("DB_NAME", "not_set")
+        return {
+            "db_name": db_name,
+            "admin_found": admin is not None,
+            "admin_data": admin if admin else None,
+            "code_version": "2024-11-10-v2-with-workshop-control"
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/api/admin/deactivate-employee/{employee_number}")
 async def deactivate_employee(employee_number: str):
     """Deactivate employee (block access)"""
