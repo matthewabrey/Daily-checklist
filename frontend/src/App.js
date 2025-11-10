@@ -437,7 +437,7 @@ function EmployeeLogin() {
   );
 }
 
-// NewChecklist Component
+// Records Component
   const [showAddMachineModal, setShowAddMachineModal] = useState(false);
   const [newMachine, setNewMachine] = useState({ make: '', model: '', serialNumber: '', notes: '' });
   const [safetyConfirmed, setSafetyConfirmed] = useState(false);
