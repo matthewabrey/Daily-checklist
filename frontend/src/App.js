@@ -1929,6 +1929,8 @@ function Records() {
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [selectedChecklist, setSelectedChecklist] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
