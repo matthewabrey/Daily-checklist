@@ -390,9 +390,25 @@ function EmployeeLogin() {
 
     setIsLoading(true);
     try {
-      await login(employeeNumber);
+      // Call backend API to validate employee
+      const response = await fetch(`${API_BASE_URL}/api/auth/employee-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_number: employeeNumber })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Login with full employee object from backend
+        login(data.employee);
+        toast.success(`Welcome, ${data.employee.name}!`);
+      } else {
+        toast.error('Invalid employee number');
+      }
     } catch (error) {
-      // Error is handled in the login function
+      console.error('Login error:', error);
+      toast.error('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
