@@ -417,7 +417,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Camera functionality and permissions"
+    - "Repairs reappearing bug fix"
   stuck_tasks:
     - "Camera functionality and permissions"
   test_all: false
