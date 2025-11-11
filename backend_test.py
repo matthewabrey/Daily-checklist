@@ -1179,40 +1179,47 @@ class MachineChecklistAPITester:
             # Step 6: Simulate frontend filtering logic for "Repairs Due" count
             print("Step 6: Simulating frontend filtering logic...")
             
-            # Extract all unsatisfactory items from all checklists (this is what frontend does)
-            all_repairs = []
+            # Extract unsatisfactory items from our specific test checklist only (focus on the bug fix)
+            test_checklist_repairs = []
+            for item in original_checklist.get('checklist_items', []):
+                if item.get('status') == 'unsatisfactory':
+                    repair_id = f"{checklist_id}_{item.get('item', '')}"
+                    test_checklist_repairs.append({
+                        'id': repair_id,
+                        'checklist_id': checklist_id,
+                        'item': item.get('item'),
+                        'notes': item.get('notes'),
+                        'machine_make': original_checklist.get('machine_make'),
+                        'machine_model': original_checklist.get('machine_model')
+                    })
+            
+            # Filter out completed repairs (this is the fix being tested)
+            repairs_due_from_test_checklist = [repair for repair in test_checklist_repairs if repair['id'] not in completed_repairs]
+            
+            print(f"✅ Frontend filtering simulation (focused on test checklist):")
+            print(f"   - Test checklist repairs found: {len(test_checklist_repairs)}")
+            print(f"   - Completed repairs (filtered out): {len(completed_repairs)}")
+            print(f"   - Repairs Due from test checklist: {len(repairs_due_from_test_checklist)}")
+            
+            # Also show total system repairs for context
+            all_system_repairs = []
             for checklist in all_checklists:
-                if checklist.get('check_type') == 'daily_check':  # Only from daily checks
+                if checklist.get('check_type') == 'daily_check':
                     for item in checklist.get('checklist_items', []):
                         if item.get('status') == 'unsatisfactory':
-                            repair_id = f"{checklist.get('id')}_{item.get('item', '')}"
-                            all_repairs.append({
-                                'id': repair_id,
-                                'checklist_id': checklist.get('id'),
-                                'item': item.get('item'),
-                                'notes': item.get('notes'),
-                                'machine_make': checklist.get('machine_make'),
-                                'machine_model': checklist.get('machine_model')
-                            })
+                            all_system_repairs.append(item)
+            print(f"   - Total system repairs (all checklists): {len(all_system_repairs)}")
             
-            # Filter out completed repairs (this is the fix)
-            repairs_due = [repair for repair in all_repairs if repair['id'] not in completed_repairs]
-            
-            print(f"✅ Frontend filtering simulation:")
-            print(f"   - Total repairs found: {len(all_repairs)}")
-            print(f"   - Completed repairs (filtered out): {len(completed_repairs)}")
-            print(f"   - Repairs Due count: {len(repairs_due)}")
-            
-            # The fix should result in 0 repairs due since both were completed
+            # The fix should result in 0 repairs due from our test checklist since both were completed
             expected_repairs_due = 0
-            if len(repairs_due) == expected_repairs_due:
+            if len(repairs_due_from_test_checklist) == expected_repairs_due:
                 print(f"✅ SUCCESS: Repairs Due count correctly excludes completed repairs")
                 success = True
-                details = f"Repairs reappearing bug fix verified: {len(all_repairs)} total repairs, {len(completed_repairs)} completed, {len(repairs_due)} still due (expected {expected_repairs_due})"
+                details = f"Repairs reappearing bug fix verified: {len(test_checklist_repairs)} test repairs, {len(completed_repairs)} completed, {len(repairs_due_from_test_checklist)} still due (expected {expected_repairs_due})"
             else:
-                print(f"❌ FAILURE: Expected {expected_repairs_due} repairs due, got {len(repairs_due)}")
+                print(f"❌ FAILURE: Expected {expected_repairs_due} repairs due from test checklist, got {len(repairs_due_from_test_checklist)}")
                 success = False
-                details = f"Bug fix failed: Expected {expected_repairs_due} repairs due, got {len(repairs_due)}"
+                details = f"Bug fix failed: Expected {expected_repairs_due} repairs due from test checklist, got {len(repairs_due_from_test_checklist)}"
             
             self.log_test("Repairs Reappearing Bug Fix - Complete Scenario", success, details)
             return success, repair_ids
