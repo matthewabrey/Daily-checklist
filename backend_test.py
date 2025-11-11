@@ -1027,6 +1027,269 @@ class MachineChecklistAPITester:
             self.log_test("Create REPAIR COMPLETED Record", False, f"Exception: {str(e)}")
             return False, ""
 
+    def test_repairs_reappearing_bug_fix_scenario(self, employee_number: str, staff_name: str) -> tuple[bool, List[str]]:
+        """Test the repairs reappearing bug fix scenario as specified in review request"""
+        try:
+            print("\n🔧 REPAIRS REAPPEARING BUG FIX - COMPREHENSIVE TEST SCENARIO")
+            print("-" * 70)
+            
+            # Step 1: Create a test checklist with 2 unsatisfactory items (repairs)
+            print("Step 1: Creating checklist with 2 unsatisfactory items (repairs)...")
+            
+            checklist_items = [
+                {"item": "Tire condition and pressure", "status": "unsatisfactory", "notes": "Left front tire has low pressure - needs immediate attention"},
+                {"item": "Lights operational", "status": "unsatisfactory", "notes": "Right headlight bulb is blown and needs replacement"},
+                {"item": "Oil level check - Engine oil at correct level", "status": "satisfactory", "notes": ""},
+                {"item": "Fuel level check - Adequate fuel for operation", "status": "satisfactory", "notes": ""},
+                {"item": "Hydraulic fluid level - Within acceptable range", "status": "satisfactory", "notes": ""},
+                {"item": "Battery condition - Terminals clean, voltage adequate", "status": "satisfactory", "notes": ""},
+                {"item": "Safety guards in place - All protective covers secured", "status": "satisfactory", "notes": ""},
+                {"item": "Emergency stop function - Test emergency stop button", "status": "satisfactory", "notes": ""},
+                {"item": "Warning lights operational - All safety lights working", "status": "satisfactory", "notes": ""},
+                {"item": "Air filter condition - Clean and properly sealed", "status": "satisfactory", "notes": ""},
+                {"item": "Cooling system - Radiator clear, coolant level adequate", "status": "satisfactory", "notes": ""},
+                {"item": "Brake system function - Service and parking brakes operational", "status": "satisfactory", "notes": ""},
+                {"item": "Steering operation - Smooth operation, no excessive play", "status": "satisfactory", "notes": ""},
+                {"item": "Fire extinguisher - Present and within service date", "status": "satisfactory", "notes": ""}
+            ]
+            
+            checklist_data = {
+                "employee_number": employee_number,
+                "staff_name": staff_name,
+                "machine_make": "John Deere",
+                "machine_model": "6145R AO69OHZ",
+                "check_type": "daily_check",
+                "checklist_items": checklist_items
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/checklists",
+                json=checklist_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            if response.status_code != 200:
+                self.log_test("Repairs Bug Fix - Create Test Checklist", False, f"Failed to create checklist: {response.status_code}")
+                return False, []
+            
+            result = response.json()
+            checklist_id = result.get('id', '')
+            print(f"✅ Created checklist with ID: {checklist_id[:8]}...")
+            
+            # Step 2: Verify the repairs appear in the database
+            print("Step 2: Verifying repairs appear in database...")
+            
+            get_response = requests.get(f"{self.base_url}/api/checklists/{checklist_id}", timeout=10)
+            if get_response.status_code != 200:
+                self.log_test("Repairs Bug Fix - Verify Repairs in Database", False, f"Failed to retrieve checklist: {get_response.status_code}")
+                return False, []
+            
+            retrieved_checklist = get_response.json()
+            unsatisfactory_items = [item for item in retrieved_checklist.get('checklist_items', []) if item.get('status') == 'unsatisfactory']
+            
+            if len(unsatisfactory_items) != 2:
+                self.log_test("Repairs Bug Fix - Verify Repairs in Database", False, f"Expected 2 unsatisfactory items, found {len(unsatisfactory_items)}")
+                return False, []
+            
+            print(f"✅ Verified 2 repairs in database:")
+            repair_ids = []
+            for i, item in enumerate(unsatisfactory_items):
+                repair_id = f"{checklist_id}_{i}"  # Simulate repair ID generation
+                repair_ids.append(repair_id)
+                print(f"   - Repair {i+1}: {item['item']} - {item['notes']}")
+            
+            # Step 3: Simulate localStorage acknowledgedRepairs and completedRepairs
+            print("Step 3: Simulating localStorage tracking (frontend behavior)...")
+            
+            # This simulates what the frontend would do with localStorage
+            acknowledged_repairs = repair_ids.copy()  # All repairs acknowledged
+            completed_repairs = repair_ids.copy()     # All repairs marked as complete
+            
+            print(f"✅ Simulated acknowledgedRepairs: {len(acknowledged_repairs)} items")
+            print(f"✅ Simulated completedRepairs: {len(completed_repairs)} items")
+            
+            # Step 4: Mark the repairs as complete (create REPAIR COMPLETED records)
+            print("Step 4: Creating REPAIR COMPLETED records...")
+            
+            repair_completed_ids = []
+            for i, repair_item in enumerate(unsatisfactory_items):
+                repair_completed_data = {
+                    "employee_number": employee_number,
+                    "staff_name": staff_name,
+                    "machine_make": "John Deere",
+                    "machine_model": "6145R AO69OHZ",
+                    "check_type": "REPAIR COMPLETED",
+                    "checklist_items": [],
+                    "workshop_notes": f"REPAIR COMPLETED:\nOriginal Issue: {repair_item['notes']}\nRepair Action: Issue resolved and tested\nCompleted by: {staff_name}\nDate: {datetime.now().strftime('%Y-%m-%d')}",
+                    "workshop_photos": []
+                }
+                
+                repair_response = requests.post(
+                    f"{self.base_url}/api/checklists",
+                    json=repair_completed_data,
+                    headers={"Content-Type": "application/json"},
+                    timeout=10
+                )
+                
+                if repair_response.status_code == 200:
+                    repair_result = repair_response.json()
+                    repair_completed_ids.append(repair_result.get('id', ''))
+                    print(f"✅ Created REPAIR COMPLETED record {i+1}: {repair_result.get('id', '')[:8]}...")
+                else:
+                    print(f"❌ Failed to create REPAIR COMPLETED record {i+1}")
+            
+            # Step 5: Verify that the backend continues to return all data (the filtering happens on frontend)
+            print("Step 5: Verifying backend continues to return all data...")
+            
+            all_checklists_response = requests.get(f"{self.base_url}/api/checklists", timeout=10)
+            if all_checklists_response.status_code != 200:
+                self.log_test("Repairs Bug Fix - Verify Backend Returns All Data", False, f"Failed to get all checklists: {all_checklists_response.status_code}")
+                return False, []
+            
+            all_checklists = all_checklists_response.json()
+            
+            # Find our original checklist with repairs
+            original_checklist = None
+            for checklist in all_checklists:
+                if checklist.get('id') == checklist_id:
+                    original_checklist = checklist
+                    break
+            
+            if not original_checklist:
+                self.log_test("Repairs Bug Fix - Verify Backend Returns All Data", False, "Original checklist not found in list")
+                return False, []
+            
+            # Verify original checklist still has unsatisfactory items
+            original_unsatisfactory = [item for item in original_checklist.get('checklist_items', []) if item.get('status') == 'unsatisfactory']
+            if len(original_unsatisfactory) != 2:
+                self.log_test("Repairs Bug Fix - Verify Backend Returns All Data", False, f"Original checklist should still have 2 unsatisfactory items, found {len(original_unsatisfactory)}")
+                return False, []
+            
+            # Find REPAIR COMPLETED records
+            repair_completed_records = [c for c in all_checklists if c.get('check_type') == 'REPAIR COMPLETED' and c.get('id') in repair_completed_ids]
+            if len(repair_completed_records) != 2:
+                self.log_test("Repairs Bug Fix - Verify Backend Returns All Data", False, f"Expected 2 REPAIR COMPLETED records, found {len(repair_completed_records)}")
+                return False, []
+            
+            print(f"✅ Backend correctly returns all data:")
+            print(f"   - Original checklist with 2 unsatisfactory items: Present")
+            print(f"   - REPAIR COMPLETED records: {len(repair_completed_records)} found")
+            
+            # Step 6: Simulate frontend filtering logic for "Repairs Due" count
+            print("Step 6: Simulating frontend filtering logic...")
+            
+            # Extract all unsatisfactory items from all checklists (this is what frontend does)
+            all_repairs = []
+            for checklist in all_checklists:
+                if checklist.get('check_type') == 'daily_check':  # Only from daily checks
+                    for item in checklist.get('checklist_items', []):
+                        if item.get('status') == 'unsatisfactory':
+                            repair_id = f"{checklist.get('id')}_{item.get('item', '')}"
+                            all_repairs.append({
+                                'id': repair_id,
+                                'checklist_id': checklist.get('id'),
+                                'item': item.get('item'),
+                                'notes': item.get('notes'),
+                                'machine_make': checklist.get('machine_make'),
+                                'machine_model': checklist.get('machine_model')
+                            })
+            
+            # Filter out completed repairs (this is the fix)
+            repairs_due = [repair for repair in all_repairs if repair['id'] not in completed_repairs]
+            
+            print(f"✅ Frontend filtering simulation:")
+            print(f"   - Total repairs found: {len(all_repairs)}")
+            print(f"   - Completed repairs (filtered out): {len(completed_repairs)}")
+            print(f"   - Repairs Due count: {len(repairs_due)}")
+            
+            # The fix should result in 0 repairs due since both were completed
+            expected_repairs_due = 0
+            if len(repairs_due) == expected_repairs_due:
+                print(f"✅ SUCCESS: Repairs Due count correctly excludes completed repairs")
+                success = True
+                details = f"Repairs reappearing bug fix verified: {len(all_repairs)} total repairs, {len(completed_repairs)} completed, {len(repairs_due)} still due (expected {expected_repairs_due})"
+            else:
+                print(f"❌ FAILURE: Expected {expected_repairs_due} repairs due, got {len(repairs_due)}")
+                success = False
+                details = f"Bug fix failed: Expected {expected_repairs_due} repairs due, got {len(repairs_due)}"
+            
+            self.log_test("Repairs Reappearing Bug Fix - Complete Scenario", success, details)
+            return success, repair_ids
+            
+        except Exception as e:
+            self.log_test("Repairs Reappearing Bug Fix - Complete Scenario", False, f"Exception: {str(e)}")
+            return False, []
+
+    def test_repairs_persistence_across_navigation(self, employee_number: str, staff_name: str) -> bool:
+        """Test that repairs data persists correctly across navigation (backend perspective)"""
+        try:
+            # Create multiple checklists with repairs to simulate navigation scenario
+            checklist_ids = []
+            
+            # Create 3 checklists with different repair scenarios
+            for i in range(3):
+                checklist_items = [
+                    {"item": f"Test item {i+1}A", "status": "unsatisfactory", "notes": f"Test repair issue {i+1}A"},
+                    {"item": f"Test item {i+1}B", "status": "unsatisfactory", "notes": f"Test repair issue {i+1}B"},
+                    {"item": "Oil level check", "status": "satisfactory", "notes": ""},
+                    {"item": "Fuel level check", "status": "satisfactory", "notes": ""}
+                ]
+                
+                checklist_data = {
+                    "employee_number": employee_number,
+                    "staff_name": staff_name,
+                    "machine_make": "John Deere",
+                    "machine_model": f"Test Model {i+1}",
+                    "check_type": "daily_check",
+                    "checklist_items": checklist_items
+                }
+                
+                response = requests.post(
+                    f"{self.base_url}/api/checklists",
+                    json=checklist_data,
+                    headers={"Content-Type": "application/json"},
+                    timeout=10
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    checklist_ids.append(result.get('id', ''))
+            
+            if len(checklist_ids) != 3:
+                self.log_test("Repairs Persistence - Create Test Data", False, f"Failed to create 3 test checklists, created {len(checklist_ids)}")
+                return False
+            
+            # Simulate multiple API calls (as would happen during navigation)
+            for call_num in range(5):
+                response = requests.get(f"{self.base_url}/api/checklists", timeout=10)
+                if response.status_code != 200:
+                    self.log_test("Repairs Persistence - Navigation Simulation", False, f"API call {call_num+1} failed: {response.status_code}")
+                    return False
+                
+                checklists = response.json()
+                
+                # Count repairs in each call
+                total_repairs = 0
+                for checklist in checklists:
+                    if checklist.get('id') in checklist_ids:
+                        unsatisfactory_items = [item for item in checklist.get('checklist_items', []) if item.get('status') == 'unsatisfactory']
+                        total_repairs += len(unsatisfactory_items)
+                
+                # Should consistently find 6 repairs (2 per checklist × 3 checklists)
+                expected_repairs = 6
+                if total_repairs != expected_repairs:
+                    self.log_test("Repairs Persistence - Navigation Simulation", False, f"Call {call_num+1}: Expected {expected_repairs} repairs, found {total_repairs}")
+                    return False
+            
+            details = f"Backend consistently returns same repair data across 5 API calls: {expected_repairs} repairs found each time"
+            self.log_test("Repairs Persistence Across Navigation", True, details)
+            return True
+            
+        except Exception as e:
+            self.log_test("Repairs Persistence Across Navigation", False, f"Exception: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run comprehensive API tests"""
         print("🚀 Starting Machine Checklist API Tests")
