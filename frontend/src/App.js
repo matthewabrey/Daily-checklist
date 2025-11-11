@@ -3557,6 +3557,8 @@ function RepairsNeeded() {
                 item: item.item,
                 notes: item.notes || '',
                 machine: `${checklist.machine_make} ${checklist.machine_model}`,
+                machine_make: checklist.machine_make,
+                machine_model: checklist.machine_model,
                 completedAt: checklist.completed_at,
                 staffName: checklist.staff_name,
                 checkType: checklist.check_type,
