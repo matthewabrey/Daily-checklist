@@ -341,8 +341,7 @@ function Dashboard() {
         {/* 4. Total Checks - Fourth */}
         <Card 
           data-testid="total-checklists-card"
-          className="cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => navigate('/all-checks')}
+          className="hover:shadow-lg transition-shadow"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Checks Completed</CardTitle>
@@ -350,15 +349,22 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{stats.total}</div>
-            <p className="text-xs text-gray-600">Click to view all</p>
+            <p className="text-xs text-gray-600 mb-2">All time</p>
+            <Button 
+              onClick={() => navigate('/all-checks')}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              View All Checks
+            </Button>
           </CardContent>
         </Card>
 
         {/* 5. Repairs Completed - Last */}
         <Card 
           data-testid="repairs-completed-card"
-          className="cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => navigate('/repairs-completed')}
+          className="hover:shadow-lg transition-shadow"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Completed</CardTitle>
@@ -366,7 +372,15 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-600">{stats.repairsCompletedLast7Days}</div>
-            <p className="text-xs text-gray-600">Click to view all</p>
+            <p className="text-xs text-gray-600 mb-2">Last 7 days</p>
+            <Button 
+              onClick={() => navigate('/repairs-completed')}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              View Completed Repairs
+            </Button>
           </CardContent>
         </Card>
       </div>
