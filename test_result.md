@@ -417,11 +417,11 @@ metadata:
 
   - task: "REPAIR COMPLETED records not showing in Repairs Completed page"
     implemented: true
-    working: true
-    file: "/app/backend/server.py"
+    working: false
+    file: "/app/frontend/src/App.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         - working: false
           agent: "user"
@@ -429,6 +429,12 @@ metadata:
         - working: true
           agent: "testing"
           comment: "REPAIR COMPLETED RECORDS TESTING COMPLETED: ✅ CRITICAL SUCCESS - Backend API fully supports REPAIR COMPLETED records creation and retrieval with no issues. ✅ COMPREHENSIVE TESTING RESULTS: Created 2 REPAIR COMPLETED records via POST /api/checklists with check_type='REPAIR COMPLETED', verified records have current completed_at timestamps (automatically added by backend), retrieved all checklists via GET /api/checklists and confirmed REPAIR COMPLETED records appear correctly. ✅ FILTERING VERIFICATION: Successfully filtered records by check_type === 'REPAIR COMPLETED' - found 16 total REPAIR COMPLETED records including our 2 test records. ✅ RECORD STRUCTURE VERIFIED: All required fields present (id, check_type, completed_at, machine_make, machine_model, staff_name, workshop_notes), completed_at timestamps are current and properly formatted, individual record retrieval working correctly. ✅ REPAIRSCOMPLETEDPAGE COMPATIBILITY: Record structure matches exactly what RepairsCompletedPage expects for displaying completed repairs. ✅ 33/33 backend tests passed (100% success rate). Backend is creating and returning REPAIR COMPLETED records correctly - if records aren't showing in frontend, the issue is likely in RepairsCompletedPage logic, not backend API."
+        - working: false
+          agent: "user"
+          comment: "User tried refreshing in preview but completed repairs still not showing. Issue persists."
+        - working: "NA"
+          agent: "main"
+          comment: "FIXED MACHINE PARSING ISSUE: Troubleshoot agent identified that submitRepairCompletion was failing to parse machine_make and machine_model correctly from currentRepair.machine string. Fixed by: 1) Adding machine_make and machine_model fields directly to repair objects when they're created in fetchRepairs (lines 3559-3560 and 3590-3591), 2) Updated submitRepairCompletion to use currentRepair.machine_make and currentRepair.machine_model directly instead of string splitting (lines 3894-3895). This ensures REPAIR COMPLETED records are created with correct machine data that RepairsCompletedPage can display."
 
 test_plan:
   current_focus:
