@@ -255,8 +255,8 @@ function Dashboard() {
           data-testid="non-acknowledged-repairs-card"
           className="cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => {
-            console.log('New Repairs card clicked');
-            navigate('/repairs-needed?view=new');
+            console.log('New Repairs card clicked, navigate:', navigate);
+            window.location.href = '/repairs-needed?view=new';
           }}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
