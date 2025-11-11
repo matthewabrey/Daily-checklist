@@ -1095,9 +1095,11 @@ class MachineChecklistAPITester:
             print(f"✅ Verified 2 repairs in database:")
             repair_ids = []
             for i, item in enumerate(unsatisfactory_items):
-                repair_id = f"{checklist_id}_{i}"  # Simulate repair ID generation
+                # Generate repair ID the same way frontend would (using item name for uniqueness)
+                repair_id = f"{checklist_id}_{item.get('item', '')}"
                 repair_ids.append(repair_id)
                 print(f"   - Repair {i+1}: {item['item']} - {item['notes']}")
+                print(f"     Repair ID: {repair_id}")
             
             # Step 3: Simulate localStorage acknowledgedRepairs and completedRepairs
             print("Step 3: Simulating localStorage tracking (frontend behavior)...")
