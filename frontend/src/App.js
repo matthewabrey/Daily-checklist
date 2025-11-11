@@ -3000,7 +3000,8 @@ function RepairsCompletedPage() {
               {filteredRepairs.map((repair) => (
                 <Card
                   key={repair.id}
-                  className="hover:shadow-md transition-shadow"
+                  className="hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => handleViewDetails(repair)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
