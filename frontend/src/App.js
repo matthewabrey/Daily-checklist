@@ -357,7 +357,7 @@ function Dashboard() {
       </div>
     </div>
   );
-});
+}
 
 // Employee Login Component
 function EmployeeLogin() {
