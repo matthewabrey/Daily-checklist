@@ -2786,6 +2786,16 @@ function RepairsCompletedPage() {
     setSelectedModel('');
   };
 
+  const handleViewDetails = (repair) => {
+    setSelectedRepair(repair);
+    setShowDetailModal(true);
+  };
+
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedRepair(null);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
