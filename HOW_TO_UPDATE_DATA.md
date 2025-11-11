@@ -52,14 +52,14 @@ If you prefer to use the API directly:
 
 ### Update Staff
 ```bash
-curl -X POST https://checkmate-app-79.preview.emergentagent.com/api/admin/update-staff \
+curl -X POST https://repairflow-20.preview.emergentagent.com/api/admin/update-staff \
   -H "Content-Type: application/json" \
   -d '["Staff Name 1", "Staff Name 2", "Staff Name 3"]'
 ```
 
 ### Update Assets
 ```bash
-curl -X POST https://checkmate-app-79.preview.emergentagent.com/api/admin/update-assets \
+curl -X POST https://repairflow-20.preview.emergentagent.com/api/admin/update-assets \
   -H "Content-Type: application/json" \
   -d '[{"make": "John Deere", "model": "6145R"}, {"make": "Cat", "model": "DP30NTD"}]'
 ```
