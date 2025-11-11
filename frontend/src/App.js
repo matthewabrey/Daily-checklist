@@ -3893,8 +3893,8 @@ function RepairsNeeded() {
       const repairRecord = {
         employee_number: '0000', // System record
         staff_name: 'Maintenance Team',
-        machine_make: currentRepair.machine.split(' ')[0],
-        machine_model: currentRepair.machine.split(' ').slice(1).join(' '),
+        machine_make: currentRepair.machine_make || 'Unknown',
+        machine_model: currentRepair.machine_model || 'Unknown',
         check_type: 'REPAIR COMPLETED',
         checklist_items: [],
         workshop_notes: `REPAIR COMPLETED:\nType: ${repairTypeDescription}\nOriginal Issue: ${currentRepair.item}\nOriginal Notes: ${currentRepair.notes}\nRepair Notes: ${repairNotes.trim()}`,
