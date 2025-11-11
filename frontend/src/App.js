@@ -2729,6 +2729,8 @@ function RepairsCompletedPage() {
   const [selectedModel, setSelectedModel] = useState('');
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
+  const [selectedRepair, setSelectedRepair] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
