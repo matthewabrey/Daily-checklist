@@ -2627,6 +2627,14 @@ function AllChecksCompleted() {
             <p className="text-gray-600 mt-2">View all equipment checks - {filteredChecklists.length} records</p>
           </div>
         </div>
+        <Button 
+          onClick={handleExport} 
+          variant="outline"
+          className="bg-green-600 hover:bg-green-700 text-white"
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Export to Excel
+        </Button>
       </div>
 
       {/* Filters */}
