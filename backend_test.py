@@ -1299,6 +1299,190 @@ class MachineChecklistAPITester:
             self.log_test("Repairs Persistence Across Navigation", False, f"Exception: {str(e)}")
             return False
 
+    def test_repair_completed_records_issue(self, employee_number: str, staff_name: str) -> bool:
+        """Test the specific REPAIR COMPLETED records issue reported by user"""
+        try:
+            print("\n🔍 REPAIR COMPLETED RECORDS ISSUE - SPECIFIC USER SCENARIO TEST")
+            print("-" * 70)
+            
+            # Step 1: Create REPAIR COMPLETED record via POST /api/checklists
+            print("Step 1: Creating REPAIR COMPLETED record via POST /api/checklists...")
+            
+            repair_completed_data = {
+                "employee_number": employee_number,
+                "staff_name": staff_name,
+                "machine_make": "John Deere",
+                "machine_model": "6145R AO69OHZ",
+                "check_type": "REPAIR COMPLETED",
+                "checklist_items": [],
+                "workshop_notes": "REPAIR COMPLETED:\nOriginal Issue: Hydraulic leak on left side\nRepair Action: Replaced hydraulic hose and fittings\nCompleted by: " + staff_name + "\nDate: " + datetime.now().strftime('%Y-%m-%d'),
+                "workshop_photos": []
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/checklists",
+                json=repair_completed_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            if response.status_code != 200:
+                self.log_test("REPAIR COMPLETED Issue - Create Record", False, f"Failed to create record: {response.status_code}")
+                return False
+            
+            result = response.json()
+            repair_id = result.get('id', '')
+            print(f"✅ Created REPAIR COMPLETED record: {repair_id[:8]}...")
+            
+            # Step 2: Verify the record is created with correct fields
+            print("Step 2: Verifying record structure and fields...")
+            
+            # Check check_type
+            if result.get('check_type') != 'REPAIR COMPLETED':
+                self.log_test("REPAIR COMPLETED Issue - Verify Structure", False, f"Wrong check_type: expected 'REPAIR COMPLETED', got '{result.get('check_type')}'")
+                return False
+            
+            # Check completed_at timestamp is present and current
+            completed_at = result.get('completed_at')
+            if not completed_at:
+                self.log_test("REPAIR COMPLETED Issue - Verify Structure", False, "Missing completed_at timestamp")
+                return False
+            
+            # Parse timestamp and verify it's recent (within last minute)
+            try:
+                if isinstance(completed_at, str):
+                    completed_time = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
+                else:
+                    completed_time = completed_at
+                
+                time_diff = abs((datetime.now(timezone.utc) - completed_time.replace(tzinfo=timezone.utc)).total_seconds())
+                if time_diff > 60:  # More than 1 minute old
+                    self.log_test("REPAIR COMPLETED Issue - Verify Structure", False, f"Timestamp not current: {time_diff} seconds old")
+                    return False
+                
+                print(f"✅ completed_at timestamp verified: {completed_at} (current)")
+            except Exception as e:
+                self.log_test("REPAIR COMPLETED Issue - Verify Structure", False, f"Invalid timestamp format: {str(e)}")
+                return False
+            
+            # Step 3: Create a second REPAIR COMPLETED record (user reported 2 repairs)
+            print("Step 3: Creating second REPAIR COMPLETED record...")
+            
+            repair_completed_data2 = {
+                "employee_number": employee_number,
+                "staff_name": staff_name,
+                "machine_make": "Cat",
+                "machine_model": "DP30NTD",
+                "check_type": "REPAIR COMPLETED",
+                "checklist_items": [],
+                "workshop_notes": "REPAIR COMPLETED:\nOriginal Issue: Brake system malfunction\nRepair Action: Replaced brake pads and fluid\nCompleted by: " + staff_name + "\nDate: " + datetime.now().strftime('%Y-%m-%d'),
+                "workshop_photos": []
+            }
+            
+            response2 = requests.post(
+                f"{self.base_url}/api/checklists",
+                json=repair_completed_data2,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            if response2.status_code != 200:
+                self.log_test("REPAIR COMPLETED Issue - Create Second Record", False, f"Failed to create second record: {response2.status_code}")
+                return False
+            
+            result2 = response2.json()
+            repair_id2 = result2.get('id', '')
+            print(f"✅ Created second REPAIR COMPLETED record: {repair_id2[:8]}...")
+            
+            # Step 4: Retrieve all checklists and verify REPAIR COMPLETED records appear
+            print("Step 4: Retrieving all checklists via GET /api/checklists...")
+            
+            get_response = requests.get(f"{self.base_url}/api/checklists", timeout=10)
+            if get_response.status_code != 200:
+                self.log_test("REPAIR COMPLETED Issue - Retrieve All Checklists", False, f"Failed to retrieve checklists: {get_response.status_code}")
+                return False
+            
+            all_checklists = get_response.json()
+            print(f"✅ Retrieved {len(all_checklists)} total checklists")
+            
+            # Step 5: Filter by check_type === 'REPAIR COMPLETED'
+            print("Step 5: Filtering by check_type === 'REPAIR COMPLETED'...")
+            
+            repair_completed_records = [c for c in all_checklists if c.get('check_type') == 'REPAIR COMPLETED']
+            print(f"✅ Found {len(repair_completed_records)} REPAIR COMPLETED records")
+            
+            # Verify our specific records are in the list
+            our_repair_ids = [repair_id, repair_id2]
+            found_our_records = [r for r in repair_completed_records if r.get('id') in our_repair_ids]
+            
+            if len(found_our_records) != 2:
+                self.log_test("REPAIR COMPLETED Issue - Verify Records in List", False, f"Expected 2 of our records in list, found {len(found_our_records)}")
+                return False
+            
+            print(f"✅ Both of our REPAIR COMPLETED records found in list")
+            
+            # Step 6: Verify completed_at field is present and properly formatted
+            print("Step 6: Verifying completed_at field in retrieved records...")
+            
+            for i, record in enumerate(found_our_records):
+                completed_at = record.get('completed_at')
+                if not completed_at:
+                    self.log_test("REPAIR COMPLETED Issue - Verify completed_at Field", False, f"Record {i+1} missing completed_at field")
+                    return False
+                
+                # Verify timestamp format
+                try:
+                    if isinstance(completed_at, str):
+                        datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
+                    print(f"✅ Record {i+1} completed_at field verified: {completed_at}")
+                except Exception as e:
+                    self.log_test("REPAIR COMPLETED Issue - Verify completed_at Field", False, f"Record {i+1} invalid timestamp: {str(e)}")
+                    return False
+            
+            # Step 7: Verify the record structure matches what RepairsCompletedPage expects
+            print("Step 7: Verifying record structure for RepairsCompletedPage compatibility...")
+            
+            for i, record in enumerate(found_our_records):
+                required_fields = ['id', 'check_type', 'completed_at', 'machine_make', 'machine_model', 'staff_name', 'workshop_notes']
+                missing_fields = [field for field in required_fields if field not in record or not record[field]]
+                
+                if missing_fields:
+                    self.log_test("REPAIR COMPLETED Issue - Verify Record Structure", False, f"Record {i+1} missing required fields: {missing_fields}")
+                    return False
+                
+                print(f"✅ Record {i+1} structure verified - all required fields present")
+            
+            # Step 8: Test individual record retrieval
+            print("Step 8: Testing individual record retrieval...")
+            
+            for i, record_id in enumerate(our_repair_ids):
+                individual_response = requests.get(f"{self.base_url}/api/checklists/{record_id}", timeout=10)
+                if individual_response.status_code != 200:
+                    self.log_test("REPAIR COMPLETED Issue - Individual Record Retrieval", False, f"Failed to retrieve record {i+1}: {individual_response.status_code}")
+                    return False
+                
+                individual_record = individual_response.json()
+                if individual_record.get('check_type') != 'REPAIR COMPLETED':
+                    self.log_test("REPAIR COMPLETED Issue - Individual Record Retrieval", False, f"Record {i+1} wrong check_type in individual retrieval")
+                    return False
+                
+                print(f"✅ Individual retrieval of record {i+1} successful")
+            
+            print("\n🎉 REPAIR COMPLETED RECORDS ISSUE TEST - ALL CHECKS PASSED")
+            print("✅ REPAIR COMPLETED records are being created correctly")
+            print("✅ Records have proper check_type: 'REPAIR COMPLETED'")
+            print("✅ Records have current completed_at timestamp")
+            print("✅ Records are retrievable via GET /api/checklists")
+            print("✅ Records can be filtered by check_type === 'REPAIR COMPLETED'")
+            print("✅ Record structure matches RepairsCompletedPage expectations")
+            
+            self.log_test("REPAIR COMPLETED Records Issue - Complete Test", True, f"All checks passed: 2 records created and verified")
+            return True
+            
+        except Exception as e:
+            self.log_test("REPAIR COMPLETED Records Issue - Complete Test", False, f"Exception: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run comprehensive API tests"""
         print("🚀 Starting Machine Checklist API Tests")
