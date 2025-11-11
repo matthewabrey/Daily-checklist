@@ -3,7 +3,7 @@
 import requests
 import sys
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any
 
 class MachineChecklistAPITester:
