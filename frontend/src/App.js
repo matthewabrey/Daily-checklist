@@ -3538,8 +3538,9 @@ function RepairsNeeded() {
       const response = await fetch(`${API_BASE_URL}/api/checklists`);
       const checklists = await response.json();
       
-      // Get acknowledged repairs from localStorage
+      // Get acknowledged and completed repairs from localStorage
       const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
+      const completedRepairs = JSON.parse(localStorage.getItem('completedRepairs') || '[]');
       
       // Extract all unsatisfactory items from checklists AND general repair records
       const repairItems = [];
@@ -3559,7 +3560,7 @@ function RepairsNeeded() {
                 completedAt: checklist.completed_at,
                 staffName: checklist.staff_name,
                 checkType: checklist.check_type,
-                repaired: false,
+                repaired: completedRepairs.includes(repairId),
                 acknowledged: acknowledgedRepairs.includes(repairId),
                 repairNotes: '',
                 repairPhotos: [],
@@ -3590,7 +3591,7 @@ function RepairsNeeded() {
             completedAt: checklist.completed_at,
             staffName: checklist.staff_name,
             checkType: checklist.check_type,
-            repaired: false,
+            repaired: completedRepairs.includes(repairId),
             acknowledged: acknowledgedRepairs.includes(repairId),
             repairNotes: '',
             repairPhotos: [],
