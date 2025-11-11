@@ -276,11 +276,7 @@ function Dashboard() {
         {/* 2. Repairs Due - Second */}
         <Card 
           data-testid="repairs-due-card"
-          className="cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => {
-            console.log('Repairs Due card clicked');
-            navigate('/repairs-needed?view=acknowledged');
-          }}
+          className="hover:shadow-lg transition-shadow"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Due</CardTitle>
@@ -288,7 +284,15 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{stats.repairsDue}</div>
-            <p className="text-xs text-gray-600">Acknowledged repairs</p>
+            <p className="text-xs text-gray-600 mb-2">Acknowledged repairs</p>
+            <Button 
+              onClick={() => navigate('/repairs-needed?view=acknowledged')}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              View Repairs Due
+            </Button>
           </CardContent>
         </Card>
 
