@@ -253,11 +253,7 @@ function Dashboard() {
         {/* 1. New Repairs - First */}
         <Card 
           data-testid="non-acknowledged-repairs-card"
-          className="cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => {
-            console.log('New Repairs card clicked, navigate:', navigate);
-            window.location.href = '/repairs-needed?view=new';
-          }}
+          className="hover:shadow-lg transition-shadow"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">New Repairs</CardTitle>
@@ -265,7 +261,15 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">{stats.nonAcknowledgedRepairs}</div>
-            <p className="text-xs text-gray-600">Need acknowledgment</p>
+            <p className="text-xs text-gray-600 mb-2">Need acknowledgment</p>
+            <Button 
+              onClick={() => navigate('/repairs-needed?view=new')}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              View New Repairs
+            </Button>
           </CardContent>
         </Card>
 
