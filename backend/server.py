@@ -311,7 +311,7 @@ async def debug_check_admin():
             "db_name": db_name,
             "admin_found": admin is not None,
             "admin_data": admin if admin else None,
-            "code_version": "2024-11-10-v2-with-workshop-control"
+            "code_version": "2024-11-11-v3-navigation-buttons"
         }
     except Exception as e:
         return {"error": str(e)}
