@@ -423,6 +423,21 @@ test_plan:
   test_all: false
   test_priority: "high_first"
 
+  - task: "Repairs reappearing bug fix"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "User reported: When marking 2 repairs as complete, they appear completed but then reappear on the dashboard when navigating back. The repairs are not being properly removed from the 'Repairs Due' count."
+        - working: "NA"
+          agent: "main"
+          comment: "IMPLEMENTED FIX: Added completedRepairs localStorage tracking to persist repair completion status across page navigation. Changes: 1) submitRepairCompletion now adds completed repair ID to completedRepairs localStorage array, 2) Dashboard fetchDashboardData now filters out completed repairs when calculating repairsDue count, 3) RepairsNeeded fetchRepairs now checks completedRepairs localStorage and marks repairs as repaired:true. This ensures completed repairs don't reappear when navigating back to dashboard."
+
 agent_communication:
     - agent: "main"
       message: "Starting implementation of employee authentication integration and performance optimization. Will replace staff selection with authentication flow and optimize loading speeds."
