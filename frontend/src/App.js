@@ -227,6 +227,7 @@ function Dashboard() {
         <div>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">Machine Checklist Dashboard</h1>
           <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Manage equipment startup checklists and safety inspections</p>
+          <p className="text-xs text-gray-400 mt-1">v3.0-nav-buttons</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-6 w-full">
           <Button 
