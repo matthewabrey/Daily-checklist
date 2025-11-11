@@ -3911,6 +3911,13 @@ function RepairsNeeded() {
             : repair
         ));
         
+        // Add to completedRepairs in localStorage to persist completion status
+        const completedRepairs = JSON.parse(localStorage.getItem('completedRepairs') || '[]');
+        if (!completedRepairs.includes(currentRepair.id)) {
+          completedRepairs.push(currentRepair.id);
+          localStorage.setItem('completedRepairs', JSON.stringify(completedRepairs));
+        }
+        
         setShowRepairModal(false);
         setCurrentRepair(null);
         setRepairNotes('');
