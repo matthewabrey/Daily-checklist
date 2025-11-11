@@ -1634,6 +1634,13 @@ class MachineChecklistAPITester:
             repair_completed_success, repair_completed_id = self.test_repair_completed_record_creation(
                 test_employee_number, valid_staff_name
             )
+            
+            # Test 3: REPAIR COMPLETED records issue - User reported problem
+            print("\n🔍 REPAIR COMPLETED RECORDS ISSUE - USER REPORTED PROBLEM")
+            print("-" * 60)
+            repair_issue_success = self.test_repair_completed_records_issue(
+                test_employee_number, valid_staff_name
+            )
         
         # Test 6: Invalid employee login tests
         self.test_employee_login_invalid("INVALID999")
