@@ -1409,6 +1409,21 @@ class MachineChecklistAPITester:
                 test_employee_number, valid_staff_name, "Cat", cat_names[0]
             )
 
+        # REPAIRS REAPPEARING BUG FIX TESTS - Main focus of current review request
+        print("\n🚨 REPAIRS REAPPEARING BUG FIX TESTS - PRIORITY")
+        print("-" * 60)
+        
+        if login_success:
+            # Test the complete repairs reappearing bug fix scenario
+            bug_fix_success, repair_ids = self.test_repairs_reappearing_bug_fix_scenario(
+                test_employee_number, valid_staff_name
+            )
+            
+            # Test repairs persistence across navigation
+            persistence_success = self.test_repairs_persistence_across_navigation(
+                test_employee_number, valid_staff_name
+            )
+
         # REPAIRS NEEDED FUNCTIONALITY TESTS - New functionality
         print("\n🔧 REPAIRS NEEDED FUNCTIONALITY TESTS")
         print("-" * 50)
