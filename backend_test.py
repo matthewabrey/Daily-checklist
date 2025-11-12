@@ -1593,6 +1593,9 @@ class MachineChecklistAPITester:
         # Test 5b: Valid employee validation with 4444
         validate_success = self.test_employee_validate_valid(test_employee_number)
         
+        # Test 5c: Admin control permission check for employee 4444 - PRIORITY TEST
+        admin_control_success = self.test_admin_control_permission_4444()
+        
         # Find staff name for employee 4444
         valid_staff_name = "Admin User"  # Default from backend initialization
         if staff_success and staff_data:
