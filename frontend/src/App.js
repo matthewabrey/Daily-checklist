@@ -370,7 +370,7 @@ function Dashboard() {
           </CardContent>
         </Card>
         
-        {/* 4. Total Checks - Fourth */}
+        {/* 5. Total Checks - Fifth */}
         <Card 
           data-testid="total-checklists-card"
           className="hover:shadow-lg transition-shadow"
