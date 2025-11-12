@@ -329,7 +329,7 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* 3. Today's Checks - Third */}
+        {/* 4. Today's Checks - Fourth */}
         <Card data-testid="today-checklists-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Today's Checks</CardTitle>
