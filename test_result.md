@@ -451,6 +451,21 @@ metadata:
           agent: "main"
           comment: "FIXED ADMIN PAGE ERROR: Found orphaned code from RepairsCompletedPage component (showDetailModal, selectedRepair, closeDetailModal) that was incorrectly placed inside SharePointAdminComponent's return statement (lines 1783-1845). This caused undefined variable errors preventing admin page from loading. Removed the orphaned repair detail modal code. Admin page should now load correctly and allow file uploads for staff list and asset list."
 
+  - task: "Employee 4444 admin_control permission verification"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: false
+          agent: "testing"
+          comment: "ISSUE FOUND: Employee 4444 admin_control field was None/missing instead of 'yes'. API endpoint GET /api/auth/validate/4444 was not returning admin_control field."
+        - working: true
+          agent: "testing"
+          comment: "ADMIN CONTROL PERMISSION FIXED: ✅ Updated backend server.py to set admin_control='yes' for employee 4444 during initialization (line 212). ✅ Modified validate_employee endpoint to return admin_control field alongside workshop_control (lines 294-298). ✅ Updated existing database record for employee 4444 to have admin_control='yes'. ✅ VERIFICATION COMPLETE: GET /api/auth/validate/4444 now correctly returns {'valid': true, 'name': 'Admin User', 'workshop_control': 'yes', 'admin_control': 'yes'}. Employee 4444 now has proper admin panel access permissions."
+
 test_plan:
   current_focus:
     - "Admin page error preventing file uploads"
