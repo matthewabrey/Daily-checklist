@@ -4762,6 +4762,11 @@ function AppContent() {
                 <RepairsCompletedPage />
               </ProtectedRoute>
             } />
+            <Route path="/machine-additions" element={
+              <ProtectedRoute>
+                <MachineAdditionsPage />
+              </ProtectedRoute>
+            } />
             <Route path="/repairs-needed" element={
               <ProtectedRoute>
                 <RepairsNeeded />
