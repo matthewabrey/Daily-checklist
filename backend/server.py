@@ -294,7 +294,8 @@ async def validate_employee(employee_number: str):
             return {
                 "valid": True, 
                 "name": employee["name"],
-                "workshop_control": employee.get("workshop_control", None)
+                "workshop_control": employee.get("workshop_control", None),
+                "admin_control": employee.get("admin_control", None)
             }
         else:
             return {"valid": False}
