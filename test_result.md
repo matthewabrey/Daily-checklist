@@ -436,9 +436,24 @@ metadata:
           agent: "main"
           comment: "FIXED MACHINE PARSING ISSUE: Troubleshoot agent identified that submitRepairCompletion was failing to parse machine_make and machine_model correctly from currentRepair.machine string. Fixed by: 1) Adding machine_make and machine_model fields directly to repair objects when they're created in fetchRepairs (lines 3559-3560 and 3590-3591), 2) Updated submitRepairCompletion to use currentRepair.machine_make and currentRepair.machine_model directly instead of string splitting (lines 3894-3895). This ensures REPAIR COMPLETED records are created with correct machine data that RepairsCompletedPage can display."
 
+  - task: "Admin page error preventing file uploads"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "User reported admin page sends an error and they can't upload new name list or asset list"
+        - working: "NA"
+          agent: "main"
+          comment: "FIXED ADMIN PAGE ERROR: Found orphaned code from RepairsCompletedPage component (showDetailModal, selectedRepair, closeDetailModal) that was incorrectly placed inside SharePointAdminComponent's return statement (lines 1783-1845). This caused undefined variable errors preventing admin page from loading. Removed the orphaned repair detail modal code. Admin page should now load correctly and allow file uploads for staff list and asset list."
+
 test_plan:
   current_focus:
-    - "REPAIR COMPLETED records not showing in Repairs Completed page"
+    - "Admin page error preventing file uploads"
   stuck_tasks:
     - "Camera functionality and permissions"
   test_all: false
