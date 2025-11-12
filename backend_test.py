@@ -1483,6 +1483,64 @@ class MachineChecklistAPITester:
             self.log_test("REPAIR COMPLETED Records Issue - Complete Test", False, f"Exception: {str(e)}")
             return False
 
+    def test_admin_control_permission_4444(self) -> bool:
+        """Test admin_control permission for employee 4444 as specified in review request"""
+        try:
+            print("\n🔐 ADMIN CONTROL PERMISSION CHECK FOR EMPLOYEE 4444")
+            print("-" * 60)
+            
+            # Call GET /api/auth/validate/4444 to check employee data
+            print("Step 1: Calling GET /api/auth/validate/4444...")
+            response = requests.get(f"{self.base_url}/api/auth/validate/4444", timeout=10)
+            
+            success = response.status_code == 200
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                result = response.json()
+                print(f"✅ API Response received: {result}")
+                
+                # Check if employee is valid
+                if not result.get('valid'):
+                    success = False
+                    details += " (Employee 4444 not found or inactive)"
+                    print(f"❌ Employee 4444 is not valid or active")
+                else:
+                    print(f"✅ Employee 4444 is valid: {result.get('name', 'Unknown')}")
+                    
+                    # Check admin_control field
+                    admin_control = result.get('admin_control')
+                    print(f"🔍 admin_control field value: {admin_control}")
+                    
+                    if admin_control == "yes":
+                        print(f"✅ SUCCESS: Employee 4444 has admin_control set to 'yes'")
+                        details += f", admin_control: 'yes' (CORRECT)"
+                    elif admin_control is None:
+                        success = False
+                        print(f"❌ ISSUE: Employee 4444 admin_control field is None/missing")
+                        details += f", admin_control: None (SHOULD BE 'yes')"
+                    else:
+                        success = False
+                        print(f"❌ ISSUE: Employee 4444 admin_control is '{admin_control}' (SHOULD BE 'yes')")
+                        details += f", admin_control: '{admin_control}' (SHOULD BE 'yes')"
+                    
+                    # Also check workshop_control for completeness
+                    workshop_control = result.get('workshop_control')
+                    print(f"ℹ️  workshop_control field value: {workshop_control}")
+                    details += f", workshop_control: {workshop_control}"
+            else:
+                print(f"❌ API call failed with status {response.status_code}")
+                details += f", Response: {response.text[:100]}"
+                
+            self.log_test("Admin Control Permission Check for Employee 4444", success, details)
+            return success
+            
+        except Exception as e:
+            error_msg = f"Exception: {str(e)}"
+            print(f"❌ Exception occurred: {error_msg}")
+            self.log_test("Admin Control Permission Check for Employee 4444", False, error_msg)
+            return False
+
     def run_all_tests(self):
         """Run comprehensive API tests"""
         print("🚀 Starting Machine Checklist API Tests")
