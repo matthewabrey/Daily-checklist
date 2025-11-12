@@ -209,7 +209,7 @@ async def initialize_data():
             await db.staff.insert_one(staff_dict)
             
         # Add admin employee 
-        admin_staff = Staff(employee_number="4444", name="Admin User")
+        admin_staff = Staff(employee_number="4444", name="Admin User", admin_control="yes")
         admin_dict = admin_staff.dict()
         await db.staff.insert_one(admin_dict)
 
