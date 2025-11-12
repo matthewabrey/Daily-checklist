@@ -173,13 +173,19 @@ function Dashboard() {
         new Date(checklist.completed_at) >= sevenDaysAgo
       ).length;
       
+      // Calculate pending machine additions (MACHINE ADD records)
+      const pendingMachineAdditions = allChecklists.filter(checklist => 
+        checklist.check_type === 'MACHINE ADD' || checklist.check_type === 'NEW MACHINE'
+      ).length;
+      
       setStats({ 
         total: totalCompleted, 
         todayByType: todayByType,
         todayTotal: todayChecklists.length,
         repairsDue: repairsDue,
         nonAcknowledgedRepairs: nonAcknowledgedRepairs,
-        repairsCompletedLast7Days: repairsCompletedLast7Days
+        repairsCompletedLast7Days: repairsCompletedLast7Days,
+        pendingMachineAdditions: pendingMachineAdditions
       });
     } catch (error) {
       console.error('Error fetching checklists:', error);
