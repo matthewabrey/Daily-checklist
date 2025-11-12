@@ -283,7 +283,30 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* 2. Repairs Due - Second */}
+        {/* 2. New Machines Added - Second */}
+        <Card 
+          data-testid="machine-additions-card"
+          className="hover:shadow-lg transition-shadow border-blue-200 bg-blue-50"
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-blue-900">New Machines Added</CardTitle>
+            <TruckIcon className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{stats.pendingMachineAdditions}</div>
+            <p className="text-xs text-blue-700 mb-2">Pending review</p>
+            <Button 
+              onClick={() => navigate('/machine-additions')}
+              variant="outline"
+              size="sm"
+              className="w-full border-blue-300 text-blue-700 hover:bg-blue-100"
+            >
+              View Machine Requests
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* 3. Repairs Due - Third */}
         <Card 
           data-testid="repairs-due-card"
           className="hover:shadow-lg transition-shadow"
