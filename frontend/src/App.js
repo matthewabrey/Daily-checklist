@@ -393,7 +393,7 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* 5. Repairs Completed - Last */}
+        {/* 6. Repairs Completed - Last */}
         <Card 
           data-testid="repairs-completed-card"
           className="hover:shadow-lg transition-shadow"
