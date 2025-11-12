@@ -3017,6 +3017,166 @@ function RepairsCompletedPage() {
   );
 }
 
+// Machine Additions Page Component
+function MachineAdditionsPage() {
+  const [machineRequests, setMachineRequests] = useState([]);
+  const [filteredRequests, setFilteredRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchMachineRequests();
+  }, []);
+
+  const fetchMachineRequests = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/checklists`);
+      const data = await response.json();
+      // Get MACHINE ADD or NEW MACHINE records
+      const machineAddRequests = data.filter(c => 
+        c.check_type === 'MACHINE ADD' || c.check_type === 'NEW MACHINE'
+      );
+      setMachineRequests(machineAddRequests);
+      setFilteredRequests(machineAddRequests);
+    } catch (error) {
+      console.error('Error fetching machine requests:', error);
+      toast.error('Failed to load machine requests');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewDetails = (request) => {
+    setSelectedRequest(request);
+    setShowDetailModal(true);
+  };
+
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedRequest(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading machine requests...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Detail Modal */}
+      {showDetailModal && selectedRequest && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Machine Request Details</h2>
+              <Button variant="ghost" size="sm" onClick={closeDetailModal}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Machine Make</h3>
+                  <p className="text-lg font-semibold">{selectedRequest.machine_make}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Machine Model</h3>
+                  <p className="text-lg font-semibold">{selectedRequest.machine_model}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Requested By</h3>
+                  <p className="text-lg">{selectedRequest.staff_name}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Request Date</h3>
+                  <p className="text-lg">{new Date(selectedRequest.completed_at).toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Request Details */}
+              {selectedRequest.workshop_notes && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Request Details</h3>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <p className="text-gray-700 whitespace-pre-wrap">{selectedRequest.workshop_notes}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">New Machine Requests</h1>
+            <p className="text-gray-600 mt-2">Machines added by staff pending review</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Machine Requests List */}
+      <Card>
+        <CardContent className="p-6">
+          {filteredRequests.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Truck className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+              <p>No machine requests found</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredRequests.map((request) => (
+                <Card
+                  key={request.id}
+                  className="hover:shadow-md transition-shadow cursor-pointer border-blue-200 bg-blue-50"
+                  onClick={() => handleViewDetails(request)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-3 rounded-lg bg-blue-200">
+                          <Truck className="h-6 w-6 text-blue-700" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg text-blue-900">{request.machine_make} {request.machine_model}</h3>
+                          <p className="text-blue-700">Requested by {request.staff_name}</p>
+                          {request.workshop_notes && (
+                            <p className="text-sm text-blue-600 mt-1 italic line-clamp-2">{request.workshop_notes}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge className="bg-blue-200 text-blue-800">Pending Review</Badge>
+                        <p className="text-sm text-blue-600 mt-2">
+                          {new Date(request.completed_at).toLocaleDateString()} at {new Date(request.completed_at).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // General Repair Record Component
 function GeneralRepairRecord() {
   const [selectedMake, setSelectedMake] = useState('');
