@@ -174,8 +174,12 @@ function Dashboard() {
       ).length;
       
       // Calculate pending machine additions (MACHINE ADD records)
-      const pendingMachineAdditions = allChecklists.filter(checklist => 
+      const acknowledgedMachines = JSON.parse(localStorage.getItem('acknowledgedMachines') || '[]');
+      const machineAdditions = allChecklists.filter(checklist => 
         checklist.check_type === 'MACHINE ADD' || checklist.check_type === 'NEW MACHINE'
+      );
+      const pendingMachineAdditions = machineAdditions.filter(machine => 
+        !acknowledgedMachines.includes(machine.id)
       ).length;
       
       setStats({ 
