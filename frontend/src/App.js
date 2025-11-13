@@ -3174,12 +3174,14 @@ function MachineAdditionsPage() {
               {filteredRequests.map((request) => (
                 <Card
                   key={request.id}
-                  className="hover:shadow-md transition-shadow cursor-pointer border-blue-200 bg-blue-50"
-                  onClick={() => handleViewDetails(request)}
+                  className="hover:shadow-md transition-shadow border-blue-200 bg-blue-50"
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
+                      <div 
+                        className="flex items-center space-x-4 flex-1 cursor-pointer"
+                        onClick={() => handleViewDetails(request)}
+                      >
                         <div className="p-3 rounded-lg bg-blue-200">
                           <Truck className="h-6 w-6 text-blue-700" />
                         </div>
@@ -3191,11 +3193,22 @@ function MachineAdditionsPage() {
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex flex-col items-end space-y-2">
                         <Badge className="bg-blue-200 text-blue-800">Pending Review</Badge>
-                        <p className="text-sm text-blue-600 mt-2">
+                        <p className="text-sm text-blue-600">
                           {new Date(request.completed_at).toLocaleDateString()} at {new Date(request.completed_at).toLocaleTimeString()}
                         </p>
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAcknowledge(request);
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          size="sm"
+                        >
+                          <CheckCircle2 className="h-4 w-4 mr-1" />
+                          Acknowledge
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
