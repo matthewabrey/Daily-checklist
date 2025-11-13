@@ -3042,14 +3042,42 @@ function MachineAdditionsPage() {
       const machineAddRequests = data.filter(c => 
         c.check_type === 'MACHINE ADD' || c.check_type === 'NEW MACHINE'
       );
-      setMachineRequests(machineAddRequests);
-      setFilteredRequests(machineAddRequests);
+      
+      // Get acknowledged machines from localStorage
+      const acknowledgedMachines = JSON.parse(localStorage.getItem('acknowledgedMachines') || '[]');
+      
+      // Mark machines as acknowledged
+      const requestsWithAckStatus = machineAddRequests.map(req => ({
+        ...req,
+        acknowledged: acknowledgedMachines.includes(req.id)
+      }));
+      
+      setMachineRequests(requestsWithAckStatus);
+      // Show only non-acknowledged by default
+      setFilteredRequests(requestsWithAckStatus.filter(r => !r.acknowledged));
     } catch (error) {
       console.error('Error fetching machine requests:', error);
       toast.error('Failed to load machine requests');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAcknowledge = (request) => {
+    // Add to acknowledged machines in localStorage
+    const acknowledgedMachines = JSON.parse(localStorage.getItem('acknowledgedMachines') || '[]');
+    if (!acknowledgedMachines.includes(request.id)) {
+      acknowledgedMachines.push(request.id);
+      localStorage.setItem('acknowledgedMachines', JSON.stringify(acknowledgedMachines));
+    }
+    
+    // Update local state
+    setMachineRequests(prev => prev.map(r => 
+      r.id === request.id ? { ...r, acknowledged: true } : r
+    ));
+    setFilteredRequests(prev => prev.filter(r => r.id !== request.id));
+    
+    toast.success('Machine request acknowledged');
   };
 
   const handleViewDetails = (request) => {
