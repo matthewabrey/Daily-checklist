@@ -466,7 +466,7 @@ metadata:
           agent: "testing"
           comment: "ADMIN CONTROL PERMISSION FIXED: ✅ Updated backend server.py to set admin_control='yes' for employee 4444 during initialization (line 212). ✅ Modified validate_employee endpoint to return admin_control field alongside workshop_control (lines 294-298). ✅ Updated existing database record for employee 4444 to have admin_control='yes'. ✅ VERIFICATION COMPLETE: GET /api/auth/validate/4444 now correctly returns {'valid': true, 'name': 'Admin User', 'workshop_control': 'yes', 'admin_control': 'yes'}. Employee 4444 now has proper admin panel access permissions."
 
-  - task: "New Machines Added dashboard card"
+  - task: "New Machines Added dashboard card with Acknowledge button"
     implemented: true
     working: false
     file: "/app/frontend/src/App.js"
@@ -477,6 +477,9 @@ metadata:
         - working: "NA"
           agent: "main"
           comment: "USER REQUEST: Add a different/distinct box on dashboard to show when new machines have been added. IMPLEMENTATION: 1) Added pendingMachineAdditions calculation in fetchDashboardData to count MACHINE ADD and NEW MACHINE records, 2) Added new dashboard card 'New Machines Added' with blue color scheme (blue-50 bg, blue-200 border) positioned between New Repairs and Repairs Due cards, 3) Created MachineAdditionsPage component to display list of machine addition requests with filtering and detail modal, 4) Added /machine-additions route, 5) Updated grid layout from 5 to 6 columns to accommodate new card. Card displays count, 'Pending review' description, truck icon, and 'View Machine Requests' button. Machine additions now have distinct visual identity separate from other dashboard items."
+        - working: "NA"
+          agent: "main"
+          comment: "USER REQUEST: Add Acknowledge button to remove machines from 'New Machines Added' after review. IMPLEMENTATION: 1) Added localStorage tracking for acknowledgedMachines array (similar to acknowledgedRepairs pattern), 2) Updated dashboard calculation to filter out acknowledged machines from pendingMachineAdditions count, 3) Updated MachineAdditionsPage fetchMachineRequests to mark machines as acknowledged and filter to show only non-acknowledged by default, 4) Added handleAcknowledge function that adds machine ID to localStorage and updates UI state, 5) Added blue 'Acknowledge' button with CheckCircle2 icon on each machine request card with stopPropagation to prevent modal opening. When acknowledged, machines are removed from the list and the dashboard count decreases."
 
 test_plan:
   current_focus:
