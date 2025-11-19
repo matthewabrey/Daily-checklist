@@ -3708,7 +3708,7 @@ function RepairsNeeded() {
 
   const fetchRepairs = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklists`);
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=0`);
       const checklists = await response.json();
       
       // Get acknowledged and completed repairs from localStorage
