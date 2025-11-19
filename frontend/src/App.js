@@ -92,8 +92,8 @@ function Dashboard() {
       const filteredRecentChecklists = recentChecklistsData.filter(c => c.check_type !== 'GENERAL REPAIR');
       setRecentChecklists(filteredRecentChecklists);
       
-      // Fetch all checklists for accurate stats
-      const allResponse = await fetch(`${API_BASE_URL}/api/checklists`);
+      // Fetch all checklists for accurate stats (limit=0 means get all)
+      const allResponse = await fetch(`${API_BASE_URL}/api/checklists?limit=0`);
       const allChecklists = await allResponse.json();
       
       // Calculate total checks completed (excluding GENERAL REPAIR)
