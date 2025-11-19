@@ -481,9 +481,24 @@ metadata:
           agent: "main"
           comment: "USER REQUEST: Add Acknowledge button to remove machines from 'New Machines Added' after review. IMPLEMENTATION: 1) Added localStorage tracking for acknowledgedMachines array (similar to acknowledgedRepairs pattern), 2) Updated dashboard calculation to filter out acknowledged machines from pendingMachineAdditions count, 3) Updated MachineAdditionsPage fetchMachineRequests to mark machines as acknowledged and filter to show only non-acknowledged by default, 4) Added handleAcknowledge function that adds machine ID to localStorage and updates UI state, 5) Added blue 'Acknowledge' button with CheckCircle2 icon on each machine request card with stopPropagation to prevent modal opening. When acknowledged, machines are removed from the list and the dashboard count decreases."
 
+  - task: "Fix record limit - showing only 50 checks instead of all"
+    implemented: true
+    working: false
+    file: "/app/backend/server.py, /app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "User reported that live app only shows 50 checks in memory instead of all historical records. Also CSV export was corrupted (wrong file format)."
+        - working: "NA"
+          agent: "main"
+          comment: "FIXED RECORD LIMIT ISSUE: 1) Backend /api/checklists had default limit=50 parameter, updated to accept limit=None to fetch all records, 2) Updated all frontend fetch calls to use ?limit=0 to explicitly request all records (Dashboard stats, AllChecksCompleted, RepairsCompletedPage, MachineAdditionsPage, RepairsNeeded, Records), 3) Fixed CSV export - was calling wrong endpoint and had wrong file extension (.xlsx instead of .csv), now correctly exports as CSV format that Excel can open. Database stores all records permanently - no data loss, just wasn't being fetched."
+
 test_plan:
   current_focus:
-    - "New Machines Added dashboard card"
+    - "Fix record limit - showing only 50 checks instead of all"
   stuck_tasks:
     - "Camera functionality and permissions"
   test_all: false
