@@ -2480,7 +2480,7 @@ function AllChecksCompleted() {
 
   const fetchChecklists = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklists`);
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=0`);
       const data = await response.json();
       // Exclude GENERAL REPAIR records
       const regularChecks = data.filter(c => c.check_type !== 'GENERAL REPAIR');
