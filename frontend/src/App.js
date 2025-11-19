@@ -2796,7 +2796,7 @@ function RepairsCompletedPage() {
 
   const fetchRepairs = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklists`);
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=0`);
       const data = await response.json();
       // Only get REPAIR COMPLETED records
       const completedRepairs = data.filter(c => c.check_type === 'REPAIR COMPLETED');
