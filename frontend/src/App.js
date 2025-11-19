@@ -3039,7 +3039,7 @@ function MachineAdditionsPage() {
 
   const fetchMachineRequests = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklists`);
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=0`);
       const data = await response.json();
       // Get MACHINE ADD or NEW MACHINE records
       const machineAddRequests = data.filter(c => 
