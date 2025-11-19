@@ -415,8 +415,12 @@ async def create_checklist(checklist: Checklist):
     return ChecklistResponse(**checklist.dict())
 
 @app.get("/api/checklists", response_model=List[ChecklistResponse])
-async def get_checklists(limit: int = 50, skip: int = 0):
-    checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=None)
+async def get_checklists(limit: int = None, skip: int = 0):
+    # If limit is None or 0, fetch all records
+    if limit is None or limit == 0:
+        checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).to_list(length=None)
+    else:
+        checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=None)
     
     # Parse datetime strings back to datetime objects
     for checklist in checklists:
