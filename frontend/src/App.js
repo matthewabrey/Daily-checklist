@@ -2535,7 +2535,7 @@ function AllChecksCompleted() {
 
   const handleExport = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklists/export/csv`);
+      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel`);
       if (!response.ok) {
         throw new Error('Export failed');
       }
@@ -2543,12 +2543,12 @@ function AllChecksCompleted() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `all_checks_${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `all_checks_${new Date().toISOString().split('T')[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success('Checks exported successfully to CSV');
+      toast.success('Checks exported successfully to Excel');
     } catch (error) {
       console.error('Export error:', error);
       toast.error('Failed to export checks');
