@@ -2686,7 +2686,7 @@ function AllChecksCompleted() {
           className="bg-green-600 hover:bg-green-700 text-white"
         >
           <Download className="mr-2 h-4 w-4" />
-          Export to CSV
+          Export to Excel
         </Button>
       </div>
 
