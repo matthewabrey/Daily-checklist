@@ -1097,6 +1097,85 @@ async def export_checklists_csv():
         headers={"Content-Disposition": "attachment; filename=machine_checklists.csv"}
     )
 
+@app.get("/api/checklists/export/excel")
+async def export_checklists_excel():
+    from fastapi.responses import StreamingResponse
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    
+    checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).to_list(length=None)
+    
+    # Create workbook and worksheet
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "All Checks"
+    
+    # Write header with formatting
+    headers = ["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Items Satisfactory", "Items Unsatisfactory", "Items Total", "Notes", "Workshop Details"]
+    ws.append(headers)
+    
+    # Format header row
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+    
+    # Write data
+    for checklist in checklists:
+        if checklist['check_type'] in ['daily_check', 'grader_startup']:
+            items_satisfactory = sum(1 for item in checklist['checklist_items'] if item['status'] == 'satisfactory')
+            items_unsatisfactory = sum(1 for item in checklist['checklist_items'] if item['status'] == 'unsatisfactory')
+            items_total = len(checklist['checklist_items'])
+            notes = "; ".join([item['notes'] for item in checklist['checklist_items'] if item.get('notes')])
+            workshop_details = ""
+        else:
+            items_satisfactory = 0
+            items_unsatisfactory = 0
+            items_total = 0
+            notes = ""
+            workshop_details = checklist.get('workshop_notes', '')
+        
+        ws.append([
+            checklist['id'],
+            checklist['staff_name'],
+            checklist['machine_make'],
+            checklist['machine_model'],
+            checklist['check_type'],
+            str(checklist['completed_at']),
+            checklist['status'],
+            items_satisfactory,
+            items_unsatisfactory,
+            items_total,
+            notes,
+            workshop_details
+        ])
+    
+    # Auto-adjust column widths
+    for column in ws.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws.column_dimensions[column_letter].width = adjusted_width
+    
+    # Save to BytesIO
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={"Content-Disposition": "attachment; filename=all_checks.xlsx"}
+    )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
