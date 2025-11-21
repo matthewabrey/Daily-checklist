@@ -1547,8 +1547,8 @@ class MachineChecklistAPITester:
             print("\n🔍 CHECKLIST ITEMS TRANSLATION KEY VERIFICATION")
             print("-" * 60)
             
-            # Get a few checklists from the database
-            response = requests.get(f"{self.base_url}/api/checklists?limit=5", timeout=10)
+            # Get more checklists from the database to find more checklist items
+            response = requests.get(f"{self.base_url}/api/checklists?limit=20", timeout=10)
             success = response.status_code == 200
             
             if success:
