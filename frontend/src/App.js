@@ -2136,7 +2136,7 @@ function Records() {
                               {item.status === 'satisfactory' && <CheckCircle2 className="h-5 w-5 text-green-600" />}
                               {item.status === 'unsatisfactory' && <X className="h-5 w-5 text-red-600" />}
                               {item.status === 'na' && <span className="text-sm font-medium text-gray-600">N/A</span>}
-                              <p className="font-medium">{item.item}</p>
+                              <p className="font-medium">{tItem(item.item)}</p>
                             </div>
                             {item.notes && (
                               <p className="text-sm text-gray-700 mt-2 italic">"{item.notes}"</p>
@@ -2638,7 +2638,7 @@ function AllChecksCompleted() {
                               {item.status === 'satisfactory' && <CheckCircle2 className="h-5 w-5 text-green-600" />}
                               {item.status === 'unsatisfactory' && <X className="h-5 w-5 text-red-600" />}
                               {item.status === 'na' && <span className="text-sm font-medium text-gray-600">N/A</span>}
-                              <p className="font-medium">{item.item}</p>
+                              <p className="font-medium">{tItem(item.item)}</p>
                             </div>
                             {item.notes && (
                               <p className="text-sm text-gray-700 mt-2 italic">"{item.notes}"</p>
