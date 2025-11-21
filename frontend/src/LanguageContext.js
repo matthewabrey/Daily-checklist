@@ -26,13 +26,25 @@ export const LanguageProvider = ({ children }) => {
     return translations[language]?.[key] || translations['en'][key] || key;
   };
 
+  // Function to translate checklist items
+  const tItem = (itemText) => {
+    if (!itemText) return itemText;
+    
+    // Try to find exact match in checklist items
+    const translated = translations[language]?.checklistItems?.[itemText];
+    if (translated) return translated;
+    
+    // If no translation found, return original text
+    return itemText;
+  };
+
   useEffect(() => {
     // Save language preference
     localStorage.setItem('appLanguage', language);
   }, [language]);
 
   return (
-    <LanguageContext.Provider value={{ language, changeLanguage, t }}>
+    <LanguageContext.Provider value={{ language, changeLanguage, t, tItem }}>
       {children}
     </LanguageContext.Provider>
   );
