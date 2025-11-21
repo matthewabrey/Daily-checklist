@@ -1521,7 +1521,7 @@ function NewChecklist() {
                             item.status === 'unsatisfactory' ? 'text-red-700' : 
                             item.status === 'n/a' ? 'text-gray-500' : ''
                           }`}>
-                            {item.item}
+                            {tItem(item.item)}
                           </label>
                           {item.status === 'unsatisfactory' && (
                             <div className="mt-1 text-xs text-red-600 font-medium">⚠ Unsatisfactory - Requires attention</div>
