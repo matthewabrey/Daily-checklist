@@ -2484,6 +2484,7 @@ function Records() {
 
 // All Checks Completed Component
 function AllChecksCompleted() {
+  const { t, tItem } = useTranslation();
   const [checklists, setChecklists] = useState([]);
   const [filteredChecklists, setFilteredChecklists] = useState([]);
   const [loading, setLoading] = useState(true);
