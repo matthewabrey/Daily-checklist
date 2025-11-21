@@ -544,6 +544,7 @@ function EmployeeLogin() {
 // New Checklist Component
 function NewChecklist() {
   const { employee, isAuthenticated } = useAuth();
+  const { t, tItem } = useTranslation();
   const [step, setStep] = useState(1);
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedName, setSelectedName] = useState('');
