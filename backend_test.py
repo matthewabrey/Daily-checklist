@@ -1635,6 +1635,11 @@ class MachineChecklistAPITester:
             print("❌ Health check failed - stopping tests")
             return self.generate_report()
         
+        # SPECIAL REQUEST: Check checklist items for translation keys
+        print("\n🌐 TRANSLATION KEY VERIFICATION REQUEST")
+        print("-" * 50)
+        self.test_checklist_items_for_translation_keys()
+        
         # Test 2: Get staff
         staff_success, staff_data = self.test_get_staff()
         if not staff_success:
