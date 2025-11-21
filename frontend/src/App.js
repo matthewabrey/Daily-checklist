@@ -8,6 +8,8 @@ import { Textarea } from './components/ui/textarea';
 import { Badge } from './components/ui/badge';
 import { Separator } from './components/ui/separator';
 import { toast } from 'sonner';
+import { useTranslation } from './LanguageContext';
+import { languages } from './translations';
 import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck } from 'lucide-react';
 import './App.css';
 
