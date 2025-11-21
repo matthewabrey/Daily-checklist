@@ -399,6 +399,34 @@ export const translations = {
     recordsTitle: "Записи",
     
     selectLanguage: "Изберете език",
+    
+    checklistItems: {
+      "Check engine oil level": "Проверете нивото на моторното масло",
+      "Check coolant level": "Проверете нивото на охладителната течност",
+      "Check hydraulic oil level": "Проверете нивото на хидравличното масло",
+      "Check fuel level": "Проверете нивото на горивото",
+      "Check tire pressure": "Проверете налягането в гумите",
+      "Check tire condition": "Проверете състоянието на гумите",
+      "Inspect brakes": "Проверете спирачките",
+      "Check lights": "Проверете светлините",
+      "Check indicators": "Проверете мигачите",
+      "Check mirrors": "Проверете огледалата",
+      "Check wipers": "Проверете чистачките",
+      "Check horn": "Проверете клаксона",
+      "Check seat belt": "Проверете предпазния колан",
+      "Check fire extinguisher": "Проверете пожарогасителя",
+      "Check warning lights": "Проверете предупредителните лампички",
+      "Check battery": "Проверете акумулатора",
+      "Check air filter": "Проверете въздушния филтър",
+      "Inspect tracks/chains": "Проверете вериги/гъсеници",
+      "Check hydraulic hoses": "Проверете хидравличните маркучи",
+      "Check for leaks": "Проверете за течове",
+      "Check steering": "Проверете волана",
+      "Visual damage inspection": "Визуална проверка за повреди",
+      "Check reversing alarm": "Проверете аларма за заден ход",
+      "Check beacon": "Проверете маяка",
+      "General condition": "Общо състояние",
+    }
   },
   
   ru: {
