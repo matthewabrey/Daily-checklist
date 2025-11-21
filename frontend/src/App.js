@@ -1940,6 +1940,7 @@ function SharePointAdminComponent() {
 }
 // Records Component
 function Records() {
+  const { t, tItem } = useTranslation();
   const [checklists, setChecklists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
