@@ -124,6 +124,35 @@ export const translations = {
     
     // Language
     selectLanguage: "Select Language",
+    
+    // Common Checklist Items - These will be matched and translated
+    checklistItems: {
+      "Check engine oil level": "Check engine oil level",
+      "Check coolant level": "Check coolant level",
+      "Check hydraulic oil level": "Check hydraulic oil level",
+      "Check fuel level": "Check fuel level",
+      "Check tire pressure": "Check tire pressure",
+      "Check tire condition": "Check tire condition",
+      "Inspect brakes": "Inspect brakes",
+      "Check lights": "Check lights",
+      "Check indicators": "Check indicators",
+      "Check mirrors": "Check mirrors",
+      "Check wipers": "Check wipers",
+      "Check horn": "Check horn",
+      "Check seat belt": "Check seat belt",
+      "Check fire extinguisher": "Check fire extinguisher",
+      "Check warning lights": "Check warning lights",
+      "Check battery": "Check battery",
+      "Check air filter": "Check air filter",
+      "Inspect tracks/chains": "Inspect tracks/chains",
+      "Check hydraulic hoses": "Check hydraulic hoses",
+      "Check for leaks": "Check for leaks",
+      "Check steering": "Check steering",
+      "Visual damage inspection": "Visual damage inspection",
+      "Check reversing alarm": "Check reversing alarm",
+      "Check beacon": "Check beacon",
+      "General condition": "General condition",
+    }
   },
   
   pl: {
