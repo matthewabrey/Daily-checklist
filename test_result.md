@@ -502,9 +502,21 @@ metadata:
           agent: "main"
           comment: "FIXED EXCEL EXPORT: Created proper Excel export using openpyxl library. Added new endpoint /api/checklists/export/excel that generates true .xlsx files with formatting (blue header with white text, auto-adjusted column widths). Updated frontend to use new endpoint. File now downloads as proper .xlsx that Excel can open without errors. Kept CSV endpoint for compatibility."
 
+  - task: "Multi-language support with checklist item translation"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/translations.js, /app/frontend/src/LanguageContext.js, /app/frontend/src/App.js, /app/frontend/src/index.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "MULTI-LANGUAGE SUPPORT IMPLEMENTED: Created complete translation system for 6 languages (English, Polish, Bulgarian, Russian, Lithuanian, Ukrainian). Added translations for 100+ UI elements and 25 common checklist items. Created LanguageContext with t() for UI translation and tItem() for checklist item translation. Updated login page with language selector dropdown with flag emojis. Applied translations to NewChecklist component (where users perform checks), Records component (detail modal), and AllChecksCompleted component. Language preference saved to localStorage and persists across sessions. Checklist items like 'Check engine oil level' now automatically translate based on selected language. Machine names, employee names remain untranslated as requested. Excel exports always in English as requested."
+
 test_plan:
   current_focus:
-    - "Fix record limit - showing only 50 checks instead of all"
+    - "Multi-language support with checklist item translation"
   stuck_tasks:
     - "Camera functionality and permissions"
   test_all: false
