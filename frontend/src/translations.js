@@ -810,6 +810,34 @@ export const translations = {
     recordsTitle: "Записи",
     
     selectLanguage: "Виберіть мову",
+    
+    checklistItems: {
+      "Check engine oil level": "Перевірте рівень моторної оливи",
+      "Check coolant level": "Перевірте рівень охолоджувальної рідини",
+      "Check hydraulic oil level": "Перевірте рівень гідравлічної оливи",
+      "Check fuel level": "Перевірте рівень палива",
+      "Check tire pressure": "Перевірте тиск у шинах",
+      "Check tire condition": "Перевірте стан шин",
+      "Inspect brakes": "Перевірте гальма",
+      "Check lights": "Перевірте фари",
+      "Check indicators": "Перевірте покажчики повороту",
+      "Check mirrors": "Перевірте дзеркала",
+      "Check wipers": "Перевірте склоочисники",
+      "Check horn": "Перевірте звуковий сигнал",
+      "Check seat belt": "Перевірте ремінь безпеки",
+      "Check fire extinguisher": "Перевірте вогнегасник",
+      "Check warning lights": "Перевірте сигнальні лампи",
+      "Check battery": "Перевірте акумулятор",
+      "Check air filter": "Перевірте повітряний фільтр",
+      "Inspect tracks/chains": "Перевірте гусениці/ланцюги",
+      "Check hydraulic hoses": "Перевірте гідравлічні шланги",
+      "Check for leaks": "Перевірте на витоки",
+      "Check steering": "Перевірте кермове управління",
+      "Visual damage inspection": "Візуальний огляд пошкоджень",
+      "Check reversing alarm": "Перевірте сигнал заднього ходу",
+      "Check beacon": "Перевірте маяк",
+      "General condition": "Загальний стан",
+    }
   }
 };
 
