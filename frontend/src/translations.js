@@ -673,6 +673,34 @@ export const translations = {
     recordsTitle: "Įrašai",
     
     selectLanguage: "Pasirinkite kalbą",
+    
+    checklistItems: {
+      "Check engine oil level": "Patikrinkite variklio alyvos lygį",
+      "Check coolant level": "Patikrinkite aušinimo skysčio lygį",
+      "Check hydraulic oil level": "Patikrinkite hidraulinės alyvos lygį",
+      "Check fuel level": "Patikrinkite kuro lygį",
+      "Check tire pressure": "Patikrinkite padangų slėgį",
+      "Check tire condition": "Patikrinkite padangų būklę",
+      "Inspect brakes": "Patikrinkite stabdžius",
+      "Check lights": "Patikrinkite šviesas",
+      "Check indicators": "Patikrinkite posūkius",
+      "Check mirrors": "Patikrinkite veidrodžius",
+      "Check wipers": "Patikrinkite valytuvus",
+      "Check horn": "Patikrinkite signalą",
+      "Check seat belt": "Patikrinkite saugos diržą",
+      "Check fire extinguisher": "Patikrinkite gesintuvą",
+      "Check warning lights": "Patikrinkite įspėjamuosius ženklus",
+      "Check battery": "Patikrinkite akumuliatorių",
+      "Check air filter": "Patikrinkite oro filtrą",
+      "Inspect tracks/chains": "Patikrinkite vikšrus/grandines",
+      "Check hydraulic hoses": "Patikrinkite hidraulines žarnas",
+      "Check for leaks": "Patikrinkite ar nėra nuotėkių",
+      "Check steering": "Patikrinkite vairą",
+      "Visual damage inspection": "Vizualinė pažeidimų apžiūra",
+      "Check reversing alarm": "Patikrinkite atbulinės eigos signalą",
+      "Check beacon": "Patikrinkite švyturėlį",
+      "General condition": "Bendra būklė",
+    }
   },
   
   uk: {
