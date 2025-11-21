@@ -1541,6 +1541,89 @@ class MachineChecklistAPITester:
             self.log_test("Admin Control Permission Check for Employee 4444", False, error_msg)
             return False
 
+    def test_checklist_items_for_translation_keys(self) -> bool:
+        """Test to extract checklist items from database for translation key verification"""
+        try:
+            print("\n🔍 CHECKLIST ITEMS TRANSLATION KEY VERIFICATION")
+            print("-" * 60)
+            
+            # Get a few checklists from the database
+            response = requests.get(f"{self.base_url}/api/checklists?limit=5", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                checklists = response.json()
+                details = f"Status: {response.status_code}, Retrieved {len(checklists)} checklists"
+                
+                print(f"📊 Retrieved {len(checklists)} checklists from database")
+                
+                # Extract all unique checklist item texts
+                unique_items = set()
+                all_items = []
+                
+                for i, checklist in enumerate(checklists):
+                    print(f"\n📋 Checklist {i+1}:")
+                    print(f"   ID: {checklist.get('id', 'N/A')[:12]}...")
+                    print(f"   Staff: {checklist.get('staff_name', 'N/A')}")
+                    print(f"   Machine: {checklist.get('machine_make', 'N/A')} {checklist.get('machine_model', 'N/A')}")
+                    print(f"   Check Type: {checklist.get('check_type', 'N/A')}")
+                    
+                    checklist_items = checklist.get('checklist_items', [])
+                    print(f"   Items Count: {len(checklist_items)}")
+                    
+                    if checklist_items:
+                        print(f"   📝 Checklist Items:")
+                        for j, item in enumerate(checklist_items):
+                            item_text = item.get('item', '')
+                            if item_text:
+                                unique_items.add(item_text)
+                                all_items.append({
+                                    'checklist_id': checklist.get('id', ''),
+                                    'item_text': item_text,
+                                    'status': item.get('status', ''),
+                                    'notes': item.get('notes', '')
+                                })
+                                print(f"      {j+1:2d}. {item_text}")
+                                if item.get('status') == 'unsatisfactory' and item.get('notes'):
+                                    print(f"          Status: {item.get('status')} - {item.get('notes')}")
+                    else:
+                        print(f"   ⚠️  No checklist items found (possibly workshop service or special record type)")
+                
+                print(f"\n📈 SUMMARY:")
+                print(f"   Total checklists analyzed: {len(checklists)}")
+                print(f"   Total checklist items found: {len(all_items)}")
+                print(f"   Unique checklist item texts: {len(unique_items)}")
+                
+                print(f"\n🔤 UNIQUE CHECKLIST ITEM TEXTS FOR TRANSLATION KEYS:")
+                print("=" * 60)
+                for i, item_text in enumerate(sorted(unique_items), 1):
+                    print(f"{i:2d}. {item_text}")
+                
+                # Also show the exact structure for translation key mapping
+                print(f"\n🗂️  DETAILED ITEM STRUCTURE (for translation key mapping):")
+                print("=" * 60)
+                for item in all_items[:10]:  # Show first 10 for detailed analysis
+                    print(f"Checklist ID: {item['checklist_id'][:12]}...")
+                    print(f"Item Text: '{item['item_text']}'")
+                    print(f"Status: {item['status']}")
+                    if item['notes']:
+                        print(f"Notes: {item['notes']}")
+                    print("-" * 40)
+                
+                if len(all_items) > 10:
+                    print(f"... and {len(all_items) - 10} more items")
+                
+                details += f", Unique items: {len(unique_items)}, Total items: {len(all_items)}"
+                
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:200]}"
+                
+            self.log_test("Checklist Items for Translation Keys", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Checklist Items for Translation Keys", False, f"Exception: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run comprehensive API tests"""
         print("🚀 Starting Machine Checklist API Tests")
