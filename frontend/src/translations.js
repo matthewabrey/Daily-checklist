@@ -262,6 +262,34 @@ export const translations = {
     recordsTitle: "Rekordy",
     
     selectLanguage: "Wybierz język",
+    
+    checklistItems: {
+      "Check engine oil level": "Sprawdź poziom oleju silnikowego",
+      "Check coolant level": "Sprawdź poziom płynu chłodzącego",
+      "Check hydraulic oil level": "Sprawdź poziom oleju hydraulicznego",
+      "Check fuel level": "Sprawdź poziom paliwa",
+      "Check tire pressure": "Sprawdź ciśnienie w oponach",
+      "Check tire condition": "Sprawdź stan opon",
+      "Inspect brakes": "Sprawdź hamulce",
+      "Check lights": "Sprawdź światła",
+      "Check indicators": "Sprawdź kierunkowskazy",
+      "Check mirrors": "Sprawdź lusterka",
+      "Check wipers": "Sprawdź wycieraczki",
+      "Check horn": "Sprawdź klakson",
+      "Check seat belt": "Sprawdź pasy bezpieczeństwa",
+      "Check fire extinguisher": "Sprawdź gaśnicę",
+      "Check warning lights": "Sprawdź lampki ostrzegawcze",
+      "Check battery": "Sprawdź akumulator",
+      "Check air filter": "Sprawdź filtr powietrza",
+      "Inspect tracks/chains": "Sprawdź gąsienice/łańcuchy",
+      "Check hydraulic hoses": "Sprawdź węże hydrauliczne",
+      "Check for leaks": "Sprawdź czy nie ma wycieków",
+      "Check steering": "Sprawdź kierownicę",
+      "Visual damage inspection": "Oględziny wizualne",
+      "Check reversing alarm": "Sprawdź alarm cofania",
+      "Check beacon": "Sprawdź kogut",
+      "General condition": "Stan ogólny",
+    }
   },
   
   bg: {
