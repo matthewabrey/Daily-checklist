@@ -414,6 +414,90 @@ async def create_checklist(checklist: Checklist):
     await db.checklists.insert_one(checklist_dict)
     return ChecklistResponse(**checklist.dict())
 
+@app.get("/api/dashboard/stats")
+async def get_dashboard_stats():
+    """Optimized endpoint for dashboard statistics"""
+    from datetime import datetime, timedelta
+    
+    # Get today's date
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    seven_days_ago = today - timedelta(days=7)
+    
+    # Total checks completed (excluding GENERAL REPAIR)
+    total_completed = await db.checklists.count_documents({
+        "check_type": {"$nin": ["GENERAL REPAIR"]}
+    })
+    
+    # Today's checks by type
+    today_str = today.isoformat()
+    today_checklists = await db.checklists.find({
+        "completed_at": {"$gte": today_str},
+        "check_type": {"$nin": ["GENERAL REPAIR"]}
+    }, {"_id": 0, "check_type": 1, "machine_make": 1}).to_list(length=None)
+    
+    # Group today's checks by type
+    today_by_type = {}
+    for checklist in today_checklists:
+        check_type = checklist.get('check_type', '')
+        machine_make = checklist.get('machine_make', '').lower()
+        
+        if check_type in ['daily_check', 'grader_startup']:
+            if 'cat' in machine_make:
+                type_name = 'Mounted machines'
+            elif 'john deere' in machine_make:
+                type_name = 'Vehicles'
+            else:
+                type_name = 'Other equipment'
+        elif check_type == 'workshop_service':
+            type_name = 'Workshop service'
+        elif check_type in ['NEW MACHINE', 'MACHINE ADD']:
+            type_name = 'Machine add'
+        elif check_type == 'REPAIR COMPLETED':
+            type_name = 'Repairs completed'
+        else:
+            type_name = 'Other'
+        
+        today_by_type[type_name] = today_by_type.get(type_name, 0) + 1
+    
+    # Count unsatisfactory items
+    unsatisfactory_count = 0
+    checklists_with_items = await db.checklists.find({
+        "checklist_items": {"$exists": True, "$ne": []}
+    }, {"_id": 0, "id": 1, "checklist_items": 1}).to_list(length=None)
+    
+    for checklist in checklists_with_items:
+        for item in checklist.get('checklist_items', []):
+            if item.get('status') == 'unsatisfactory':
+                unsatisfactory_count += 1
+    
+    # Count GENERAL REPAIR records
+    general_repairs_count = await db.checklists.count_documents({
+        "check_type": "GENERAL REPAIR"
+    })
+    
+    total_repairs = unsatisfactory_count + general_repairs_count
+    
+    # Repairs completed in last 7 days
+    seven_days_ago_str = seven_days_ago.isoformat()
+    repairs_completed_last_7_days = await db.checklists.count_documents({
+        "check_type": "REPAIR COMPLETED",
+        "completed_at": {"$gte": seven_days_ago_str}
+    })
+    
+    # Machine additions pending
+    machine_additions_count = await db.checklists.count_documents({
+        "check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]}
+    })
+    
+    return {
+        "total_completed": total_completed,
+        "today_by_type": today_by_type,
+        "today_total": len(today_checklists),
+        "total_repairs": total_repairs,
+        "repairs_completed_last_7_days": repairs_completed_last_7_days,
+        "machine_additions_count": machine_additions_count
+    }
+
 @app.get("/api/checklists", response_model=List[ChecklistResponse])
 async def get_checklists(limit: int = None, skip: int = 0):
     # If limit is None or 0, fetch all records
