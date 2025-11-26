@@ -129,6 +129,9 @@ function Dashboard() {
         repairsCompletedLast7Days: statsData.repairs_completed_last_7_days,
         pendingMachineAdditions: Math.max(0, pendingMachineAdditions)
       });
+      
+      // Update last refreshed timestamp
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching checklists:', error);
     }
