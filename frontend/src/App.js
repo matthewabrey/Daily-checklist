@@ -95,104 +95,29 @@ function Dashboard() {
       const filteredRecentChecklists = recentChecklistsData.filter(c => c.check_type !== 'GENERAL REPAIR');
       setRecentChecklists(filteredRecentChecklists);
       
-      // Fetch all checklists for accurate stats (limit=0 means get all)
-      const allResponse = await fetch(`${API_BASE_URL}/api/checklists?limit=0`);
-      const allChecklists = await allResponse.json();
+      // Fetch optimized dashboard stats from backend (much faster!)
+      const statsResponse = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
+      const statsData = await statsResponse.json();
       
-      // Calculate total checks completed (excluding GENERAL REPAIR)
-      const regularChecklists = allChecklists.filter(c => c.check_type !== 'GENERAL REPAIR');
-      const totalCompleted = regularChecklists.length;
-      
-      // Calculate today's checks by type (excluding GENERAL REPAIR)
-      const today = new Date().toISOString().split('T')[0];
-      const todayChecklists = regularChecklists.filter(c => c.completed_at.startsWith(today));
-      
-      // Group today's checks by machine type
-      const todayByType = todayChecklists.reduce((acc, checklist) => {
-        // Convert check_type to user-friendly names with consistent formatting
-        let typeName = checklist.check_type;
-        if (typeName === 'daily_check' || typeName === 'grader_startup') {
-          // Use machine check type if available, otherwise classify by make
-          if (checklist.machine_make.toLowerCase().includes('cat')) {
-            typeName = 'Mounted machines';
-          } else if (checklist.machine_make.toLowerCase().includes('john deere')) {
-            typeName = 'Vehicles';
-          } else {
-            typeName = 'Other equipment';
-          }
-        } else if (typeName === 'workshop_service') {
-          typeName = 'Workshop service';
-        } else if (typeName === 'NEW MACHINE' || typeName === 'MACHINE ADD') {
-          typeName = 'Machine add';
-        } else if (typeName === 'REPAIR COMPLETED') {
-          typeName = 'Repairs completed';
-        }
-        
-        acc[typeName] = (acc[typeName] || 0) + 1;
-        return acc;
-      }, {});
-      
-      // Calculate repair statistics
-      const repairItems = [];
-      allChecklists.forEach(checklist => {
-        // Add unsatisfactory checklist items
-        if (checklist.checklist_items) {
-          checklist.checklist_items.forEach((item, index) => {
-            if (item.status === 'unsatisfactory') {
-              repairItems.push({
-                id: `${checklist.id}-${index}`,
-                completedAt: checklist.completed_at,
-                type: 'unsatisfactory_item'
-              });
-            }
-          });
-        }
-        
-        // Add GENERAL REPAIR records
-        if (checklist.check_type === 'GENERAL REPAIR') {
-          repairItems.push({
-            id: `${checklist.id}-general`,
-            completedAt: checklist.completed_at,
-            type: 'general_repair'
-          });
-        }
-      });
-      
-      // Calculate non-acknowledged repairs using localStorage
+      // Get localStorage data for client-side filtering
       const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
       const completedRepairs = JSON.parse(localStorage.getItem('completedRepairs') || '[]');
-      const nonAcknowledgedRepairs = repairItems.filter(repair => !acknowledgedRepairs.includes(repair.id)).length;
-      
-      // Calculate repairs due (acknowledged but not completed repairs)
-      const repairsDue = repairItems.filter(repair => 
-        acknowledgedRepairs.includes(repair.id) && !completedRepairs.includes(repair.id)
-      ).length;
-      
-      // Calculate repairs completed in last 7 days
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const repairsCompletedLast7Days = allChecklists.filter(checklist => 
-        checklist.check_type === 'REPAIR COMPLETED' && 
-        new Date(checklist.completed_at) >= sevenDaysAgo
-      ).length;
-      
-      // Calculate pending machine additions (MACHINE ADD records)
       const acknowledgedMachines = JSON.parse(localStorage.getItem('acknowledgedMachines') || '[]');
-      const machineAdditions = allChecklists.filter(checklist => 
-        checklist.check_type === 'MACHINE ADD' || checklist.check_type === 'NEW MACHINE'
-      );
-      const pendingMachineAdditions = machineAdditions.filter(machine => 
-        !acknowledgedMachines.includes(machine.id)
-      ).length;
+      
+      // Adjust stats based on localStorage (for acknowledged/completed items)
+      // Note: Backend gives us total repairs, we filter based on localStorage for acknowledged/completed
+      const nonAcknowledgedRepairs = statsData.total_repairs - acknowledgedRepairs.length;
+      const repairsDue = acknowledgedRepairs.length - completedRepairs.length;
+      const pendingMachineAdditions = statsData.machine_additions_count - acknowledgedMachines.length;
       
       setStats({ 
-        total: totalCompleted, 
-        todayByType: todayByType,
-        todayTotal: todayChecklists.length,
-        repairsDue: repairsDue,
-        nonAcknowledgedRepairs: nonAcknowledgedRepairs,
-        repairsCompletedLast7Days: repairsCompletedLast7Days,
-        pendingMachineAdditions: pendingMachineAdditions
+        total: statsData.total_completed,
+        todayByType: statsData.today_by_type,
+        todayTotal: statsData.today_total,
+        repairsDue: Math.max(0, repairsDue),
+        nonAcknowledgedRepairs: Math.max(0, nonAcknowledgedRepairs),
+        repairsCompletedLast7Days: statsData.repairs_completed_last_7_days,
+        pendingMachineAdditions: Math.max(0, pendingMachineAdditions)
       });
     } catch (error) {
       console.error('Error fetching checklists:', error);
