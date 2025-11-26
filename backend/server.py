@@ -489,9 +489,10 @@ async def get_dashboard_stats():
         "completed_at": {"$gte": seven_days_ago_str}
     })
     
-    # Machine additions pending
+    # Machine additions pending (LAST 7 DAYS)
     machine_additions_count = await db.checklists.count_documents({
-        "check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]}
+        "check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]},
+        "completed_at": {"$gte": seven_days_ago_str}
     })
     
     return {
