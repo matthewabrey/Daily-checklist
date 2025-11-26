@@ -1086,7 +1086,7 @@ function NewChecklist() {
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
         >
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-[10000]">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto relative z-[10000]">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-green-600">
                 <Database className="h-5 w-5 inline mr-2" />
