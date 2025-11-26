@@ -517,9 +517,24 @@ metadata:
           agent: "testing"
           comment: "CHECKLIST ITEMS TRANSLATION KEY VERIFICATION COMPLETED: ✅ CRITICAL SUCCESS - Successfully extracted and analyzed checklist items from database to verify translation key compatibility. ✅ COMPREHENSIVE DATABASE ANALYSIS: Retrieved 50 checklists from database, found 21 checklists with actual checklist items, identified 26 unique checklist item texts that need translation keys. ✅ COMPLETE CHECKLIST ITEMS LIST FOR TRANSLATION: 1. Air filter condition - Clean and properly sealed, 2. Battery condition - Terminals clean, voltage adequate, 3. Brake system function - Service and parking brakes operational, 4. Cooling system - Radiator clear, coolant level adequate, 5. Emergency stop function - Test emergency stop button, 6. Engine oil level, 7. Fire extinguisher - Present and within service date, 8. Fuel level check, 9. Fuel level check - Adequate fuel for operation, 10. Hydraulic fluid level - Within acceptable range, 11. Lights and signals - All operational lights working, 12. Lights operational, 13. Oil level check, 14. Oil level check - Engine oil at correct level, 15. Operator seat condition - Seat belt and controls functional, 16. Safety guards in place - All protective covers secured, 17. Steering operation - Smooth operation, no excessive play, 18. Test item 1A, 19. Test item 1B, 20. Test item 2A, 21. Test item 2B, 22. Test item 3A, 23. Test item 3B, 24. Tire condition and pressure, 25. Tire/track condition - No visible damage or excessive wear, 26. Warning lights operational - All safety lights working. ✅ TRANSLATION KEY MAPPING READY: All 26 unique checklist item texts have been extracted and can now be added to translation files to ensure exact matching between database content and translation keys. Backend API working correctly for checklist item retrieval."
 
+  - task: "Dashboard loading performance optimization"
+    implemented: true
+    working: false
+    file: "/app/backend/server.py, /app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "User reported dashboard numbers take a long time to appear after login. Stats load slowly."
+        - working: "NA"
+          agent: "main"
+          comment: "DASHBOARD PERFORMANCE OPTIMIZED: Created new backend endpoint /api/dashboard/stats that calculates all statistics on the server side using MongoDB aggregations instead of fetching all records to frontend. Old approach: Fetched ALL checklists (limit=0) to frontend and calculated stats in JavaScript (slow with large datasets). New approach: Backend calculates stats using efficient MongoDB queries (count_documents, filtered finds) and returns only the final numbers. Frontend now makes 2 lightweight API calls instead of processing thousands of records. Stats endpoint returns: total_completed, today_by_type, today_total, total_repairs, repairs_completed_last_7_days, machine_additions_count. Dashboard should now load numbers instantly, even with large datasets. localStorage filtering still applied client-side for acknowledged/completed items."
+
 test_plan:
   current_focus:
-    - "Multi-language support with checklist item translation"
+    - "Dashboard loading performance optimization"
   stuck_tasks:
     - "Camera functionality and permissions"
   test_all: false
