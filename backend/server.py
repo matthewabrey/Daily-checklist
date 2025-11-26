@@ -416,16 +416,19 @@ async def create_checklist(checklist: Checklist):
 
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats():
-    """Optimized endpoint for dashboard statistics"""
+    """Optimized endpoint for dashboard statistics - Last 7 days focus"""
     from datetime import datetime, timedelta
     
-    # Get today's date
-    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # Get today's date and 7 days ago
+    now = datetime.now()
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     seven_days_ago = today - timedelta(days=7)
+    seven_days_ago_str = seven_days_ago.isoformat()
     
-    # Total checks completed (excluding GENERAL REPAIR)
+    # Total checks completed in LAST 7 DAYS (excluding GENERAL REPAIR) - MUCH FASTER!
     total_completed = await db.checklists.count_documents({
-        "check_type": {"$nin": ["GENERAL REPAIR"]}
+        "check_type": {"$nin": ["GENERAL REPAIR"]},
+        "completed_at": {"$gte": seven_days_ago_str}
     })
     
     # Today's checks by type
