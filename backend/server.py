@@ -432,9 +432,9 @@ async def get_dashboard_stats():
     })
     
     # Today's checks by type
-    today_str = today.isoformat()
+    today_str = today.date().isoformat()  # Use just the date part (YYYY-MM-DD)
     today_checklists = await db.checklists.find({
-        "completed_at": {"$gte": today_str},
+        "completed_at": {"$regex": f"^{today_str}"},  # Match date prefix
         "check_type": {"$nin": ["GENERAL REPAIR"]}
     }, {"_id": 0, "check_type": 1, "machine_make": 1}).to_list(length=None)
     
