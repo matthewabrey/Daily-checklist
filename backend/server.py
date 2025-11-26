@@ -462,10 +462,11 @@ async def get_dashboard_stats():
         
         today_by_type[type_name] = today_by_type.get(type_name, 0) + 1
     
-    # Count unsatisfactory items
+    # Count unsatisfactory items (LAST 7 DAYS only for speed)
     unsatisfactory_count = 0
     checklists_with_items = await db.checklists.find({
-        "checklist_items": {"$exists": True, "$ne": []}
+        "checklist_items": {"$exists": True, "$ne": []},
+        "completed_at": {"$gte": seven_days_ago_str}
     }, {"_id": 0, "id": 1, "checklist_items": 1}).to_list(length=None)
     
     for checklist in checklists_with_items:
@@ -473,9 +474,10 @@ async def get_dashboard_stats():
             if item.get('status') == 'unsatisfactory':
                 unsatisfactory_count += 1
     
-    # Count GENERAL REPAIR records
+    # Count GENERAL REPAIR records (LAST 7 DAYS)
     general_repairs_count = await db.checklists.count_documents({
-        "check_type": "GENERAL REPAIR"
+        "check_type": "GENERAL REPAIR",
+        "completed_at": {"$gte": seven_days_ago_str}
     })
     
     total_repairs = unsatisfactory_count + general_repairs_count
