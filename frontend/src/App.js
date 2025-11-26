@@ -83,7 +83,16 @@ function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Initial fetch
     fetchRecentChecklists();
+    
+    // Auto-refresh every 30 seconds
+    const refreshInterval = setInterval(() => {
+      fetchRecentChecklists();
+    }, 30000); // 30 seconds
+    
+    // Cleanup interval on component unmount
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const fetchRecentChecklists = async () => {
