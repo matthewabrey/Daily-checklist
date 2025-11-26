@@ -532,9 +532,21 @@ metadata:
           agent: "main"
           comment: "DASHBOARD PERFORMANCE OPTIMIZED: Created new backend endpoint /api/dashboard/stats that calculates all statistics on the server side using MongoDB aggregations instead of fetching all records to frontend. Old approach: Fetched ALL checklists (limit=0) to frontend and calculated stats in JavaScript (slow with large datasets). New approach: Backend calculates stats using efficient MongoDB queries (count_documents, filtered finds) and returns only the final numbers. Frontend now makes 2 lightweight API calls instead of processing thousands of records. Stats endpoint returns: total_completed, today_by_type, today_total, total_repairs, repairs_completed_last_7_days, machine_additions_count. Dashboard should now load numbers instantly, even with large datasets. localStorage filtering still applied client-side for acknowledged/completed items."
 
+  - task: "Dashboard auto-refresh every 30 seconds"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "USER REQUEST: Add auto-refresh to dashboard so numbers update automatically. IMPLEMENTATION: Added setInterval polling that calls fetchRecentChecklists every 30 seconds (30000ms). Added cleanup on component unmount to prevent memory leaks. Added visual indicators: 'Auto-updates every 30s' text with RefreshCw icon, and 'Last updated: HH:MM:SS' timestamp that shows exact time of last data fetch. Dashboard now automatically refreshes while user is viewing it, keeping data fresh without manual browser refresh. Interval clears when user navigates away from dashboard to save resources."
+
 test_plan:
   current_focus:
-    - "Dashboard loading performance optimization"
+    - "Dashboard auto-refresh every 30 seconds"
   stuck_tasks:
     - "Camera functionality and permissions"
   test_all: false
