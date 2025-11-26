@@ -181,7 +181,18 @@ function Dashboard() {
         <div>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
           <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">{t('dashboardSubtitle')}</p>
-          <p className="text-xs text-gray-400 mt-1">v3.0-nav-buttons</p>
+          <div className="flex items-center space-x-2 mt-1">
+            <p className="text-xs text-gray-400">v3.0-nav-buttons</p>
+            <span className="text-gray-300">•</span>
+            <p className="text-xs text-gray-400">
+              <RefreshCw className="h-3 w-3 inline mr-1" />
+              Auto-updates every 30s
+            </p>
+            <span className="text-gray-300">•</span>
+            <p className="text-xs text-gray-400">
+              Last updated: {lastUpdated.toLocaleTimeString()}
+            </p>
+          </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-6 w-full">
           <Button 
