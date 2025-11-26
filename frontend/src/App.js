@@ -80,6 +80,7 @@ function Dashboard() {
   const [recentChecklists, setRecentChecklists] = useState([]);
   const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0 });
   const [showRepairWarning, setShowRepairWarning] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
   const navigate = useNavigate();
 
   useEffect(() => {
