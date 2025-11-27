@@ -4154,6 +4154,11 @@ function RepairsNeeded() {
       });
 
       if (response.ok) {
+        // Mark as completed in database
+        await fetch(`${API_BASE_URL}/api/repair-status/complete?repair_id=${currentRepair.id}`, {
+          method: 'POST'
+        });
+        
         toast.success('Repair completion recorded successfully!');
         
         // Mark repair as completed locally
@@ -4162,13 +4167,6 @@ function RepairsNeeded() {
             ? { ...repair, repaired: true, repairNotes: repairNotes, repairPhotos: repairPhotos }
             : repair
         ));
-        
-        // Add to completedRepairs in localStorage to persist completion status
-        const completedRepairs = JSON.parse(localStorage.getItem('completedRepairs') || '[]');
-        if (!completedRepairs.includes(currentRepair.id)) {
-          completedRepairs.push(currentRepair.id);
-          localStorage.setItem('completedRepairs', JSON.stringify(completedRepairs));
-        }
         
         setShowRepairModal(false);
         setCurrentRepair(null);
