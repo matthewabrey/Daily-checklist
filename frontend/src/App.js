@@ -3962,6 +3962,48 @@ function RepairsNeeded() {
     
     toast.success(`${newAcknowledgements.length} repairs acknowledged and moved to Repairs Due`);
   };
+  
+  const getProgressNotes = (repairId) => {
+    const allNotes = JSON.parse(localStorage.getItem('repairProgressNotes') || '{}');
+    return allNotes[repairId] || [];
+  };
+  
+  const handleAddProgressNote = (repairId) => {
+    setEditingProgressNotes(repairId);
+    setProgressNoteText('');
+  };
+  
+  const saveProgressNote = (repairId) => {
+    if (!progressNoteText.trim()) {
+      toast.error('Please enter a note');
+      return;
+    }
+    
+    const allNotes = JSON.parse(localStorage.getItem('repairProgressNotes') || '{}');
+    if (!allNotes[repairId]) {
+      allNotes[repairId] = [];
+    }
+    
+    allNotes[repairId].push({
+      text: progressNoteText.trim(),
+      date: new Date().toISOString(),
+      author: employee?.name || 'Unknown'
+    });
+    
+    localStorage.setItem('repairProgressNotes', JSON.stringify(allNotes));
+    
+    setEditingProgressNotes(null);
+    setProgressNoteText('');
+    toast.success('Progress note added');
+    
+    // Refresh to show new note
+    fetchRepairs();
+  };
+  
+  const cancelProgressNote = () => {
+    setEditingProgressNotes(null);
+    setProgressNoteText('');
+  };
 
   const uploadRepairPhoto = () => {
     const input = document.createElement('input');
