@@ -3750,6 +3750,7 @@ function RepairsNeeded() {
             .trim();
             
           const repairId = `${checklist.id}-general`;
+          const status = repairStatuses[repairId] || {};
           repairItems.push({
             id: repairId,
             checklistId: checklist.id,
@@ -3762,8 +3763,9 @@ function RepairsNeeded() {
             completedAt: checklist.completed_at,
             staffName: checklist.staff_name,
             checkType: checklist.check_type,
-            repaired: repairStatuses[repairId]?.completed || false,
-            acknowledged: repairStatuses[repairId]?.acknowledged || false,
+            repaired: status.completed || false,
+            acknowledged: status.acknowledged || false,
+            progress_notes: status.progress_notes || [],
             repairNotes: '',
             repairPhotos: [],
             type: 'general_repair'
