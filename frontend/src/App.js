@@ -3985,31 +3985,44 @@ function RepairsNeeded() {
     setProgressNoteText('');
   };
   
-  const saveProgressNote = (repairId) => {
+  const saveProgressNote = async (repairId) => {
     if (!progressNoteText.trim()) {
       toast.error('Please enter a note');
       return;
     }
     
-    const allNotes = JSON.parse(localStorage.getItem('repairProgressNotes') || '{}');
-    if (!allNotes[repairId]) {
-      allNotes[repairId] = [];
+    try {
+      // Save to database
+      const response = await fetch(`${API_BASE_URL}/api/repair-status/add-note?repair_id=${repairId}&note_text=${encodeURIComponent(progressNoteText.trim())}&author=${encodeURIComponent(employee?.name || 'Unknown')}`, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) throw new Error('Failed to add note');
+      
+      // Also save to localStorage for backwards compatibility
+      const allNotes = JSON.parse(localStorage.getItem('repairProgressNotes') || '{}');
+      if (!allNotes[repairId]) {
+        allNotes[repairId] = [];
+      }
+      
+      allNotes[repairId].push({
+        text: progressNoteText.trim(),
+        date: new Date().toISOString(),
+        author: employee?.name || 'Unknown'
+      });
+      
+      localStorage.setItem('repairProgressNotes', JSON.stringify(allNotes));
+      
+      setEditingProgressNotes(null);
+      setProgressNoteText('');
+      toast.success('Progress note added');
+      
+      // Refresh to show new note
+      fetchRepairs();
+    } catch (error) {
+      console.error('Error adding progress note:', error);
+      toast.error('Failed to add progress note');
     }
-    
-    allNotes[repairId].push({
-      text: progressNoteText.trim(),
-      date: new Date().toISOString(),
-      author: employee?.name || 'Unknown'
-    });
-    
-    localStorage.setItem('repairProgressNotes', JSON.stringify(allNotes));
-    
-    setEditingProgressNotes(null);
-    setProgressNoteText('');
-    toast.success('Progress note added');
-    
-    // Refresh to show new note
-    fetchRepairs();
   };
   
   const cancelProgressNote = () => {
