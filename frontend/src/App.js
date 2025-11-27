@@ -3947,22 +3947,32 @@ function RepairsNeeded() {
     }
   };
   
-  const handleAcknowledgeAll = () => {
-    // Get all current repairs and acknowledge them
-    const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
-    const newAcknowledgements = repairs.filter(r => !r.acknowledged).map(r => r.id);
-    
-    const updatedAcknowledged = [...new Set([...acknowledgedRepairs, ...newAcknowledgements])];
-    localStorage.setItem('acknowledgedRepairs', JSON.stringify(updatedAcknowledged));
-    
-    // Remove all from view if in "new" mode
-    if (viewType === 'new') {
-      setRepairs([]);
-    } else {
-      setRepairs(prev => prev.map(r => ({ ...r, acknowledged: true })));
+  const handleAcknowledgeAll = async () => {
+    try {
+      const newAcknowledgements = repairs.filter(r => !r.acknowledged);
+      
+      // Acknowledge all in database
+      await Promise.all(newAcknowledgements.map(r => 
+        fetch(`${API_BASE_URL}/api/repair-status/acknowledge?repair_id=${r.id}`, { method: 'POST' })
+      ));
+      
+      // Also update localStorage
+      const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
+      const updatedAcknowledged = [...new Set([...acknowledgedRepairs, ...newAcknowledgements.map(r => r.id)])];
+      localStorage.setItem('acknowledgedRepairs', JSON.stringify(updatedAcknowledged));
+      
+      // Remove all from view if in "new" mode
+      if (viewType === 'new') {
+        setRepairs([]);
+      } else {
+        setRepairs(prev => prev.map(r => ({ ...r, acknowledged: true })));
+      }
+      
+      toast.success(`${newAcknowledgements.length} repairs acknowledged and moved to Repairs Due`);
+    } catch (error) {
+      console.error('Error acknowledging repairs:', error);
+      toast.error('Failed to acknowledge all repairs');
     }
-    
-    toast.success(`${newAcknowledgements.length} repairs acknowledged and moved to Repairs Due`);
   };
   
   const getProgressNotes = (repairId) => {
