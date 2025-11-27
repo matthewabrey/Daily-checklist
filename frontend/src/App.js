@@ -3929,13 +3929,36 @@ function RepairsNeeded() {
       localStorage.setItem('acknowledgedRepairs', JSON.stringify(acknowledgedRepairs));
     }
     
-    // Mark repair as acknowledged locally
-    setRepairs(prev => prev.map(r => 
-      r.id === repair.id 
-        ? { ...r, acknowledged: true }
-        : r
-    ));
-    toast.success('Repair acknowledged');
+    // Remove from current view (for "new" view) or mark acknowledged (for other views)
+    if (viewType === 'new') {
+      setRepairs(prev => prev.filter(r => r.id !== repair.id));
+    } else {
+      setRepairs(prev => prev.map(r => 
+        r.id === repair.id 
+          ? { ...r, acknowledged: true }
+          : r
+      ));
+    }
+    
+    toast.success('Repair acknowledged and moved to Repairs Due');
+  };
+  
+  const handleAcknowledgeAll = () => {
+    // Get all current repairs and acknowledge them
+    const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
+    const newAcknowledgements = repairs.filter(r => !r.acknowledged).map(r => r.id);
+    
+    const updatedAcknowledged = [...new Set([...acknowledgedRepairs, ...newAcknowledgements])];
+    localStorage.setItem('acknowledgedRepairs', JSON.stringify(updatedAcknowledged));
+    
+    // Remove all from view if in "new" mode
+    if (viewType === 'new') {
+      setRepairs([]);
+    } else {
+      setRepairs(prev => prev.map(r => ({ ...r, acknowledged: true })));
+    }
+    
+    toast.success(`${newAcknowledgements.length} repairs acknowledged and moved to Repairs Due`);
   };
 
   const uploadRepairPhoto = () => {
