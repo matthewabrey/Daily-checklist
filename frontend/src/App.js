@@ -358,7 +358,7 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-600">{stats.repairsCompletedLast7Days}</div>
-            <p className="text-xs text-gray-600 mb-2">Last 7 days</p>
+            <p className="text-xs text-gray-600 mb-2">All time</p>
             <Button 
               onClick={() => navigate('/repairs-completed')}
               variant="outline"
