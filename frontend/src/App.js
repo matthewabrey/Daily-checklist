@@ -2777,46 +2777,8 @@ function RepairsCompletedPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Migrate old localStorage acknowledgements to database (one-time migration)
-    migrateLocalStorageToDatabase();
     fetchRepairs();
   }, []);
-  
-  const migrateLocalStorageToDatabase = async () => {
-    try {
-      // Check if migration already done
-      const migrationDone = localStorage.getItem('acknowledgementsMigrated');
-      if (migrationDone) return;
-      
-      // Get old localStorage data
-      const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
-      const completedRepairs = JSON.parse(localStorage.getItem('completedRepairs') || '[]');
-      
-      // Migrate acknowledged repairs to database
-      if (acknowledgedRepairs.length > 0) {
-        await Promise.all(acknowledgedRepairs.map(repairId => 
-          fetch(`${API_BASE_URL}/api/repair-status/acknowledge?repair_id=${repairId}`, { 
-            method: 'POST' 
-          }).catch(err => console.error(`Failed to migrate ${repairId}:`, err))
-        ));
-      }
-      
-      // Migrate completed repairs to database
-      if (completedRepairs.length > 0) {
-        await Promise.all(completedRepairs.map(repairId => 
-          fetch(`${API_BASE_URL}/api/repair-status/complete?repair_id=${repairId}`, { 
-            method: 'POST' 
-          }).catch(err => console.error(`Failed to migrate ${repairId}:`, err))
-        ));
-      }
-      
-      // Mark migration as done
-      localStorage.setItem('acknowledgementsMigrated', 'true');
-      console.log(`Migrated ${acknowledgedRepairs.length} acknowledged and ${completedRepairs.length} completed repairs to database`);
-    } catch (error) {
-      console.error('Migration error:', error);
-    }
-  };
 
   useEffect(() => {
     filterRepairs();
