@@ -31,6 +31,12 @@ DB_NAME = os.environ.get("DB_NAME", "test_database")
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
+# Collections
+# db.checklists - checklist records
+# db.assets - machine/asset data
+# db.staff - staff data
+# db.repair_status - tracks acknowledged/completed status of repairs (NEW)
+
 # Pydantic models
 class Asset(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
