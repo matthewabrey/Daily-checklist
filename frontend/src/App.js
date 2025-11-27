@@ -3913,26 +3913,38 @@ function RepairsNeeded() {
     };
   };
 
-  const handleAcknowledge = (repair) => {
-    // Store acknowledged repair in localStorage
-    const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
-    if (!acknowledgedRepairs.includes(repair.id)) {
-      acknowledgedRepairs.push(repair.id);
-      localStorage.setItem('acknowledgedRepairs', JSON.stringify(acknowledgedRepairs));
+  const handleAcknowledge = async (repair) => {
+    try {
+      // Store in database
+      const response = await fetch(`${API_BASE_URL}/api/repair-status/acknowledge?repair_id=${repair.id}`, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) throw new Error('Failed to acknowledge');
+      
+      // Also keep in localStorage for backwards compatibility during transition
+      const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
+      if (!acknowledgedRepairs.includes(repair.id)) {
+        acknowledgedRepairs.push(repair.id);
+        localStorage.setItem('acknowledgedRepairs', JSON.stringify(acknowledgedRepairs));
+      }
+      
+      // Remove from current view (for "new" view) or mark acknowledged (for other views)
+      if (viewType === 'new') {
+        setRepairs(prev => prev.filter(r => r.id !== repair.id));
+      } else {
+        setRepairs(prev => prev.map(r => 
+          r.id === repair.id 
+            ? { ...r, acknowledged: true }
+            : r
+        ));
+      }
+      
+      toast.success('Repair acknowledged and moved to Repairs Due');
+    } catch (error) {
+      console.error('Error acknowledging repair:', error);
+      toast.error('Failed to acknowledge repair');
     }
-    
-    // Remove from current view (for "new" view) or mark acknowledged (for other views)
-    if (viewType === 'new') {
-      setRepairs(prev => prev.filter(r => r.id !== repair.id));
-    } else {
-      setRepairs(prev => prev.map(r => 
-        r.id === repair.id 
-          ? { ...r, acknowledged: true }
-          : r
-      ));
-    }
-    
-    toast.success('Repair acknowledged and moved to Repairs Due');
   };
   
   const handleAcknowledgeAll = () => {
