@@ -2452,6 +2452,10 @@ function AllChecksCompleted() {
   const [selectedChecklist, setSelectedChecklist] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const navigate = useNavigate();
+  
+  // Check if we're filtering for today's checks
+  const urlParams = new URLSearchParams(window.location.search);
+  const filterToday = urlParams.get('filter') === 'today';
 
   useEffect(() => {
     fetchChecklists();
