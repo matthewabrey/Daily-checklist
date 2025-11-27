@@ -3964,8 +3964,9 @@ function RepairsNeeded() {
   };
   
   const getProgressNotes = (repairId) => {
-    const allNotes = JSON.parse(localStorage.getItem('repairProgressNotes') || '{}');
-    return allNotes[repairId] || [];
+    // Get from repair object which was loaded from database
+    const repair = repairs.find(r => r.id === repairId);
+    return repair?.progress_notes || [];
   };
   
   const handleAddProgressNote = (repairId) => {
