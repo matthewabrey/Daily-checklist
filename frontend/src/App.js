@@ -111,13 +111,13 @@ function Dashboard() {
       
       // Backend now calculates accurate counts from database (no more localStorage confusion!)
       setStats({ 
-        total: statsData.total_completed,
-        todayByType: statsData.today_by_type,
-        todayTotal: statsData.today_total,
-        repairsDue: statsData.repairs_due,
-        nonAcknowledgedRepairs: statsData.new_repairs,
-        repairsCompletedLast7Days: statsData.repairs_completed_last_7_days,
-        pendingMachineAdditions: statsData.machine_additions_count
+        total: statsData.total_completed || 0,
+        todayByType: statsData.today_by_type || {},
+        todayTotal: statsData.today_total || 0,
+        repairsDue: statsData.repairs_due || 0,
+        nonAcknowledgedRepairs: statsData.new_repairs || 0,
+        repairsCompletedLast7Days: statsData.repairs_completed_last_7_days || 0,
+        pendingMachineAdditions: statsData.machine_additions_count || 0
       });
       
       // Update last refreshed timestamp
