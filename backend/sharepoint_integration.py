@@ -25,7 +25,7 @@ class SharePointExcelIntegration:
         self.client_id = os.environ.get('AZURE_CLIENT_ID')
         self.client_secret = os.environ.get('AZURE_CLIENT_SECRET') 
         self.tenant_id = os.environ.get('AZURE_TENANT_ID')
-        self.redirect_uri = os.environ.get('AZURE_REDIRECT_URI', 'https://repairflow-20.preview.emergentagent.com/auth/callback')
+        self.redirect_uri = os.environ.get('AZURE_REDIRECT_URI', 'https://equipcheck-5.preview.emergentagent.com/auth/callback')
         
         # SharePoint file URLs (your actual files)
         self.staff_file_url = "https://rgafarms-my.sharepoint.com/:x:/g/personal/matt_abrey-farms_co_uk/EVJlVIDkvf9Po1vj5SmNGGcBeiFhLR4uYeJXH-Jrr9XCeQ?e=XjybDY"
