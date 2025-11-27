@@ -528,13 +528,28 @@ async def get_dashboard_stats():
         "completed_at": {"$gte": seven_days_ago_str}
     })
     
+    # Machine additions - check which are acknowledged
+    machine_additions_list = await db.checklists.find({
+        "check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]},
+        "completed_at": {"$gte": seven_days_ago_str}
+    }, {"_id": 0, "id": 1}).to_list(length=None)
+    
+    machine_ids = [m["id"] for m in machine_additions_list]
+    machine_statuses = await db.repair_status.find({
+        "repair_id": {"$in": machine_ids}
+    }, {"_id": 0, "repair_id": 1, "acknowledged": 1}).to_list(length=None)
+    
+    machine_status_lookup = {s["repair_id"]: s for s in machine_statuses}
+    pending_machine_additions = sum(1 for mid in machine_ids if not machine_status_lookup.get(mid, {}).get("acknowledged", False))
+    
     return {
         "total_completed": total_completed,
         "today_by_type": today_by_type,
         "today_total": len(today_checklists),
-        "total_repairs": total_repairs,
+        "new_repairs": new_repairs_count,
+        "repairs_due": repairs_due_count,
         "repairs_completed_last_7_days": repairs_completed_last_7_days,
-        "machine_additions_count": machine_additions_count
+        "machine_additions_count": pending_machine_additions
     }
 
 @app.get("/api/checklists", response_model=List[ChecklistResponse])
