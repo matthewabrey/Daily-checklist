@@ -542,7 +542,7 @@ async def get_dashboard_stats():
         "today_total": len(today_checklists),
         "new_repairs": new_repairs_count,
         "repairs_due": repairs_due_count,
-        "repairs_completed_last_7_days": repairs_completed_last_7_days,
+        "repairs_completed": repairs_completed_all_time,
         "machine_additions_count": pending_machine_additions
     }
 
