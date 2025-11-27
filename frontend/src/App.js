@@ -335,7 +335,7 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{stats.total}</div>
-            <p className="text-xs text-gray-600 mb-2">Last 7 days</p>
+            <p className="text-xs text-gray-600 mb-2">All time</p>
             <Button 
               onClick={() => navigate('/all-checks')}
               variant="outline"
