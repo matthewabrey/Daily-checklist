@@ -4590,6 +4590,80 @@ function RepairsNeeded() {
                                 </>
                               )}
                             </div>
+                            
+                            {/* Progress Notes Section - Only in acknowledged view */}
+                            {viewType === 'acknowledged' && (
+                              <div className="mt-4 pt-4 border-t border-gray-200">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-sm font-semibold text-gray-700">Progress Notes</h4>
+                                  {editingProgressNotes !== repair.id && (
+                                    <Button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAddProgressNote(repair.id);
+                                      }}
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs h-7"
+                                    >
+                                      + Add Note
+                                    </Button>
+                                  )}
+                                </div>
+                                
+                                {/* Note input field */}
+                                {editingProgressNotes === repair.id && (
+                                  <div className="mb-3 bg-white p-3 rounded border border-gray-300">
+                                    <Textarea
+                                      value={progressNoteText}
+                                      onChange={(e) => setProgressNoteText(e.target.value)}
+                                      placeholder="Add a progress note (e.g., 'Ordered parts', 'Waiting for technician', etc.)"
+                                      className="mb-2"
+                                      rows={2}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <div className="flex gap-2">
+                                      <Button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          saveProgressNote(repair.id);
+                                        }}
+                                        size="sm"
+                                        className="bg-blue-600 hover:bg-blue-700"
+                                      >
+                                        Save Note
+                                      </Button>
+                                      <Button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          cancelProgressNote();
+                                        }}
+                                        variant="outline"
+                                        size="sm"
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {/* Display existing notes */}
+                                <div className="space-y-2">
+                                  {getProgressNotes(repair.id).length === 0 ? (
+                                    <p className="text-xs text-gray-400 italic">No progress notes yet</p>
+                                  ) : (
+                                    getProgressNotes(repair.id).map((note, idx) => (
+                                      <div key={idx} className="bg-blue-50 p-2 rounded text-xs border border-blue-200">
+                                        <p className="text-gray-700">{note.text}</p>
+                                        <p className="text-gray-500 mt-1">
+                                          {note.author} • {new Date(note.date).toLocaleString()}
+                                        </p>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                           <div className="flex flex-row lg:flex-col gap-2 lg:space-y-0 lg:space-x-0 space-x-2 flex-shrink-0">
                         <Button
