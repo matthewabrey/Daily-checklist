@@ -4435,24 +4435,37 @@ function RepairsNeeded() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            {viewType === 'new' ? (
-              <>
-                <AlertTriangle className="h-5 w-5 text-orange-600 mr-2" />
-                New Repairs ({repairs.filter(r => !r.repaired).length})
-              </>
-            ) : (
-              <>
-                <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
-                Repairs Due ({repairs.filter(r => !r.repaired).length})
-              </>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center">
+                {viewType === 'new' ? (
+                  <>
+                    <AlertTriangle className="h-5 w-5 text-orange-600 mr-2" />
+                    New Repairs ({repairs.filter(r => !r.repaired).length})
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+                    Repairs Due ({repairs.filter(r => !r.repaired).length})
+                  </>
+                )}
+              </CardTitle>
+              <CardDescription>
+                {viewType === 'new' 
+                  ? 'Review and acknowledge new repair requests' 
+                  : 'Complete acknowledged repairs - sorted by urgency'}
+              </CardDescription>
+            </div>
+            {viewType === 'new' && repairs.filter(r => !r.repaired && !r.acknowledged).length > 0 && (
+              <Button 
+                onClick={handleAcknowledgeAll}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Acknowledge All ({repairs.filter(r => !r.repaired && !r.acknowledged).length})
+              </Button>
             )}
-          </CardTitle>
-          <CardDescription>
-            {viewType === 'new' 
-              ? 'Review and acknowledge new repair requests' 
-              : 'Complete acknowledged repairs - sorted by urgency'}
-          </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           {repairs.filter(r => !r.repaired).length === 0 ? (
