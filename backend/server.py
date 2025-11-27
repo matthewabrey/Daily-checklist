@@ -470,10 +470,9 @@ async def get_dashboard_stats():
     # Get repair IDs and their status from database
     repair_ids = []
     
-    # Count unsatisfactory items (LAST 7 DAYS only for speed)
+    # Count unsatisfactory items - ALL TIME
     checklists_with_items = await db.checklists.find({
-        "checklist_items": {"$exists": True, "$ne": []},
-        "completed_at": {"$gte": seven_days_ago_str}
+        "checklist_items": {"$exists": True, "$ne": []}
     }, {"_id": 0, "id": 1, "checklist_items": 1}).to_list(length=None)
     
     for checklist in checklists_with_items:
@@ -481,10 +480,9 @@ async def get_dashboard_stats():
             if item.get('status') == 'unsatisfactory':
                 repair_ids.append(f"{checklist['id']}-{index}")
     
-    # Count GENERAL REPAIR records (LAST 7 DAYS)
+    # Count GENERAL REPAIR records - ALL TIME
     general_repairs = await db.checklists.find({
-        "check_type": "GENERAL REPAIR",
-        "completed_at": {"$gte": seven_days_ago_str}
+        "check_type": "GENERAL REPAIR"
     }, {"_id": 0, "id": 1}).to_list(length=None)
     
     for checklist in general_repairs:
