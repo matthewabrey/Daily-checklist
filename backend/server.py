@@ -512,11 +512,9 @@ async def get_dashboard_stats():
         else:
             new_repairs_count += 1
     
-    # Repairs completed in last 7 days
-    seven_days_ago_str = seven_days_ago.isoformat()
-    repairs_completed_last_7_days = await db.checklists.count_documents({
-        "check_type": "REPAIR COMPLETED",
-        "completed_at": {"$gte": seven_days_ago_str}
+    # Repairs completed - ALL TIME
+    repairs_completed_all_time = await db.checklists.count_documents({
+        "check_type": "REPAIR COMPLETED"
     })
     
     # Machine additions pending (LAST 7 DAYS)
