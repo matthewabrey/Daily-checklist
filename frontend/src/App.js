@@ -2487,6 +2487,12 @@ function AllChecksCompleted() {
   const filterChecklists = () => {
     let filtered = checklists;
     
+    // Filter for today's checks if specified
+    if (filterToday) {
+      const today = new Date().toISOString().split('T')[0];
+      filtered = filtered.filter(c => c.completed_at.startsWith(today));
+    }
+    
     if (selectedMake) {
       filtered = filtered.filter(c => c.machine_make === selectedMake);
       
