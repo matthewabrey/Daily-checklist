@@ -2669,8 +2669,15 @@ function AllChecksCompleted() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">All Checks Completed</h1>
-            <p className="text-gray-600 mt-2">View all equipment checks - {filteredChecklists.length} records</p>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {filterToday ? "Today's Checks" : "All Checks Completed"}
+            </h1>
+            <p className="text-gray-600 mt-2">
+              {filterToday 
+                ? `Checks completed today - ${filteredChecklists.length} records` 
+                : `View all equipment checks - ${filteredChecklists.length} records`
+              }
+            </p>
           </div>
         </div>
         <Button 
