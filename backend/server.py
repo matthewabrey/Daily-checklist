@@ -1272,6 +1272,74 @@ async def export_checklists_excel():
         headers={"Content-Disposition": "attachment; filename=all_checks.xlsx"}
     )
 
+# Repair Status Management Endpoints
+class RepairStatusUpdate(BaseModel):
+    repair_id: str
+    acknowledged: Optional[bool] = None
+    completed: Optional[bool] = None
+    progress_notes: Optional[List[dict]] = None
+
+@app.get("/api/repair-status/{repair_id}")
+async def get_repair_status(repair_id: str):
+    """Get status of a specific repair"""
+    status = await db.repair_status.find_one({"repair_id": repair_id}, {"_id": 0})
+    if not status:
+        return {"repair_id": repair_id, "acknowledged": False, "completed": False, "progress_notes": []}
+    return status
+
+@app.get("/api/repair-status/bulk")
+async def get_bulk_repair_status():
+    """Get status for all repairs"""
+    statuses = await db.repair_status.find({}, {"_id": 0}).to_list(length=None)
+    # Return as a dictionary keyed by repair_id for easy lookup
+    return {status["repair_id"]: status for status in statuses}
+
+@app.post("/api/repair-status/acknowledge")
+async def acknowledge_repair(repair_id: str):
+    """Mark a repair as acknowledged"""
+    await db.repair_status.update_one(
+        {"repair_id": repair_id},
+        {"$set": {
+            "repair_id": repair_id,
+            "acknowledged": True,
+            "acknowledged_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    return {"success": True, "message": "Repair acknowledged"}
+
+@app.post("/api/repair-status/complete")
+async def complete_repair(repair_id: str):
+    """Mark a repair as completed"""
+    await db.repair_status.update_one(
+        {"repair_id": repair_id},
+        {"$set": {
+            "completed": True,
+            "completed_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    return {"success": True, "message": "Repair marked as complete"}
+
+@app.post("/api/repair-status/add-note")
+async def add_progress_note(repair_id: str, note_text: str, author: str):
+    """Add a progress note to a repair"""
+    note = {
+        "text": note_text,
+        "author": author,
+        "date": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.repair_status.update_one(
+        {"repair_id": repair_id},
+        {
+            "$push": {"progress_notes": note},
+            "$setOnInsert": {"repair_id": repair_id, "acknowledged": False, "completed": False}
+        },
+        upsert=True
+    )
+    return {"success": True, "message": "Progress note added", "note": note}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
