@@ -3056,21 +3056,26 @@ function MachineAdditionsPage() {
     }
   };
 
-  const handleAcknowledge = (request) => {
-    // Add to acknowledged machines in localStorage
-    const acknowledgedMachines = JSON.parse(localStorage.getItem('acknowledgedMachines') || '[]');
-    if (!acknowledgedMachines.includes(request.id)) {
-      acknowledgedMachines.push(request.id);
-      localStorage.setItem('acknowledgedMachines', JSON.stringify(acknowledgedMachines));
+  const handleAcknowledge = async (request) => {
+    try {
+      // Save to database
+      const response = await fetch(`${API_BASE_URL}/api/repair-status/acknowledge?repair_id=${request.id}`, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) throw new Error('Failed to acknowledge');
+      
+      // Update local state
+      setMachineRequests(prev => prev.map(r => 
+        r.id === request.id ? { ...r, acknowledged: true } : r
+      ));
+      setFilteredRequests(prev => prev.filter(r => r.id !== request.id));
+      
+      toast.success('Machine request acknowledged');
+    } catch (error) {
+      console.error('Error acknowledging machine:', error);
+      toast.error('Failed to acknowledge machine request');
     }
-    
-    // Update local state
-    setMachineRequests(prev => prev.map(r => 
-      r.id === request.id ? { ...r, acknowledged: true } : r
-    ));
-    setFilteredRequests(prev => prev.filter(r => r.id !== request.id));
-    
-    toast.success('Machine request acknowledged');
   };
 
   const handleViewDetails = (request) => {
