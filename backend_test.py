@@ -1853,9 +1853,205 @@ class MachineChecklistAPITester:
             "failed_tests_details": failed_tests
         }
 
+    def test_dashboard_stats_new_repairs_debug(self) -> bool:
+        """Debug the '14 New Repairs' count mismatch issue"""
+        try:
+            print("\n🔍 DEBUGGING '14 NEW REPAIRS' COUNT MISMATCH")
+            print("=" * 60)
+            
+            # Step 1: Call GET /api/dashboard/stats - verify new_repairs count
+            print("Step 1: Checking dashboard stats...")
+            stats_response = requests.get(f"{self.base_url}/api/dashboard/stats", timeout=15)
+            
+            if stats_response.status_code != 200:
+                self.log_test("Dashboard Stats Debug - Get Stats", False, f"Failed to get dashboard stats: {stats_response.status_code}")
+                return False
+            
+            stats_data = stats_response.json()
+            new_repairs_count = stats_data.get('new_repairs', 0)
+            repairs_due_count = stats_data.get('repairs_due', 0)
+            total_completed = stats_data.get('total_completed', 0)
+            
+            print(f"✅ Dashboard Stats Retrieved:")
+            print(f"   - New Repairs: {new_repairs_count}")
+            print(f"   - Repairs Due: {repairs_due_count}")
+            print(f"   - Total Completed: {total_completed}")
+            print(f"   - Today's Total: {stats_data.get('today_total', 0)}")
+            
+            # Step 2: Call GET /api/checklists?limit=0 - get all checklists
+            print("\nStep 2: Getting all checklists...")
+            checklists_response = requests.get(f"{self.base_url}/api/checklists?limit=0", timeout=15)
+            
+            if checklists_response.status_code != 200:
+                self.log_test("Dashboard Stats Debug - Get All Checklists", False, f"Failed to get all checklists: {checklists_response.status_code}")
+                return False
+            
+            all_checklists = checklists_response.json()
+            print(f"✅ Retrieved {len(all_checklists)} total checklists")
+            
+            # Step 3: Count unsatisfactory items and GENERAL REPAIR records
+            print("\nStep 3: Analyzing unsatisfactory items and GENERAL REPAIR records...")
+            
+            unsatisfactory_items = []
+            general_repair_records = []
+            repair_completed_records = []
+            
+            # Filter to last 7 days only (matching backend logic)
+            from datetime import datetime, timedelta
+            seven_days_ago = datetime.now() - timedelta(days=7)
+            seven_days_ago_str = seven_days_ago.isoformat()
+            
+            recent_checklists = []
+            for checklist in all_checklists:
+                completed_at = checklist.get('completed_at', '')
+                if isinstance(completed_at, str) and completed_at >= seven_days_ago_str:
+                    recent_checklists.append(checklist)
+            
+            print(f"✅ Found {len(recent_checklists)} checklists from last 7 days")
+            
+            for checklist in recent_checklists:
+                check_type = checklist.get('check_type', '')
+                checklist_id = checklist.get('id', '')
+                
+                if check_type == 'GENERAL REPAIR':
+                    general_repair_records.append({
+                        'id': checklist_id,
+                        'repair_id': f"{checklist_id}-general",
+                        'notes': checklist.get('workshop_notes', ''),
+                        'machine': f"{checklist.get('machine_make', '')} {checklist.get('machine_model', '')}"
+                    })
+                elif check_type == 'REPAIR COMPLETED':
+                    repair_completed_records.append(checklist)
+                elif checklist.get('checklist_items'):
+                    # Count unsatisfactory items
+                    for index, item in enumerate(checklist.get('checklist_items', [])):
+                        if item.get('status') == 'unsatisfactory':
+                            unsatisfactory_items.append({
+                                'checklist_id': checklist_id,
+                                'repair_id': f"{checklist_id}-{index}",
+                                'item': item.get('item', ''),
+                                'notes': item.get('notes', ''),
+                                'machine': f"{checklist.get('machine_make', '')} {checklist.get('machine_model', '')}"
+                            })
+            
+            print(f"✅ Analysis Results:")
+            print(f"   - Unsatisfactory items: {len(unsatisfactory_items)}")
+            print(f"   - GENERAL REPAIR records: {len(general_repair_records)}")
+            print(f"   - REPAIR COMPLETED records: {len(repair_completed_records)}")
+            print(f"   - Total potential repairs: {len(unsatisfactory_items) + len(general_repair_records)}")
+            
+            # Step 4: Check if repair_status collection has any data
+            print("\nStep 4: Checking repair_status collection...")
+            
+            # Get all repair IDs
+            all_repair_ids = []
+            for item in unsatisfactory_items:
+                all_repair_ids.append(item['repair_id'])
+            for repair in general_repair_records:
+                all_repair_ids.append(repair['repair_id'])
+            
+            print(f"✅ Generated {len(all_repair_ids)} repair IDs to check")
+            
+            # Check repair status for a sample of repairs
+            sample_repair_ids = all_repair_ids[:5]  # Check first 5
+            repair_statuses_found = 0
+            
+            for repair_id in sample_repair_ids:
+                status_response = requests.get(f"{self.base_url}/api/repair-status/{repair_id}", timeout=10)
+                if status_response.status_code == 200:
+                    status_data = status_response.json()
+                    if status_data.get('acknowledged') or status_data.get('completed'):
+                        repair_statuses_found += 1
+                        print(f"   - {repair_id}: acknowledged={status_data.get('acknowledged')}, completed={status_data.get('completed')}")
+            
+            print(f"✅ Found {repair_statuses_found} repair statuses out of {len(sample_repair_ids)} checked")
+            
+            # Step 5: Verify the calculation logic
+            print("\nStep 5: Verifying calculation logic...")
+            
+            # Simulate backend calculation
+            expected_new_repairs = 0
+            expected_repairs_due = 0
+            
+            # This matches the backend logic in /api/dashboard/stats
+            for repair_id in all_repair_ids:
+                # Check if repair has status (simplified - in real backend this queries repair_status collection)
+                # For this test, assume no statuses exist (empty repair_status collection)
+                is_acknowledged = False
+                is_completed = False
+                
+                if is_completed:
+                    continue  # Don't count completed repairs
+                elif is_acknowledged:
+                    expected_repairs_due += 1
+                else:
+                    expected_new_repairs += 1
+            
+            print(f"✅ Expected Calculation (assuming empty repair_status collection):")
+            print(f"   - Expected New Repairs: {expected_new_repairs}")
+            print(f"   - Expected Repairs Due: {expected_repairs_due}")
+            print(f"   - Actual New Repairs: {new_repairs_count}")
+            print(f"   - Actual Repairs Due: {repairs_due_count}")
+            
+            # Step 6: Show detailed breakdown
+            print("\nStep 6: Detailed breakdown of repairs...")
+            
+            if unsatisfactory_items:
+                print(f"\n📋 Unsatisfactory Items ({len(unsatisfactory_items)}):")
+                for i, item in enumerate(unsatisfactory_items[:10]):  # Show first 10
+                    print(f"   {i+1}. {item['machine']} - {item['item']}")
+                    print(f"      Notes: {item['notes']}")
+                    print(f"      Repair ID: {item['repair_id']}")
+                if len(unsatisfactory_items) > 10:
+                    print(f"   ... and {len(unsatisfactory_items) - 10} more")
+            
+            if general_repair_records:
+                print(f"\n🔧 GENERAL REPAIR Records ({len(general_repair_records)}):")
+                for i, repair in enumerate(general_repair_records[:5]):  # Show first 5
+                    print(f"   {i+1}. {repair['machine']}")
+                    print(f"      Notes: {repair['notes'][:100]}...")
+                    print(f"      Repair ID: {repair['repair_id']}")
+            
+            # Step 7: Conclusion
+            print("\nStep 7: Diagnosis...")
+            
+            total_backend_repairs = len(unsatisfactory_items) + len(general_repair_records)
+            
+            if new_repairs_count == total_backend_repairs:
+                print(f"✅ DIAGNOSIS: Backend count ({new_repairs_count}) matches total repairs ({total_backend_repairs})")
+                print("   This suggests repair_status collection is empty (no acknowledgements recorded)")
+                print("   Frontend localStorage might have old acknowledgements, causing mismatch")
+                success = True
+                details = f"Backend correctly counts {new_repairs_count} new repairs, frontend localStorage may have stale data"
+            elif new_repairs_count == 14 and total_backend_repairs != 14:
+                print(f"⚠️  DIAGNOSIS: Backend shows 14 new repairs but analysis found {total_backend_repairs} total repairs")
+                print("   This suggests there may be additional repairs not captured in recent data")
+                print("   Or the backend calculation includes older data beyond 7 days")
+                success = False
+                details = f"Mismatch: Backend reports 14 but analysis found {total_backend_repairs} repairs"
+            else:
+                print(f"❌ DIAGNOSIS: Unexpected count mismatch")
+                print(f"   Backend: {new_repairs_count}, Analysis: {total_backend_repairs}")
+                success = False
+                details = f"Count mismatch: Backend={new_repairs_count}, Analysis={total_backend_repairs}"
+            
+            self.log_test("Dashboard Stats Debug - New Repairs Count Analysis", success, details)
+            return success
+            
+        except Exception as e:
+            self.log_test("Dashboard Stats Debug - New Repairs Count Analysis", False, f"Exception: {str(e)}")
+            return False
+
 def main():
     """Main test execution"""
     tester = MachineChecklistAPITester()
+    
+    # Run the specific debug test for "14 New Repairs" count mismatch
+    print("🔍 RUNNING SPECIFIC DEBUG TEST FOR '14 NEW REPAIRS' COUNT MISMATCH")
+    print("=" * 70)
+    tester.test_dashboard_stats_new_repairs_debug()
+    
+    # Also run comprehensive tests
     report = tester.run_all_tests()
     
     # Return appropriate exit code
