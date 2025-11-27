@@ -3953,19 +3953,12 @@ function RepairsNeeded() {
 
   const handleAcknowledge = async (repair) => {
     try {
-      // Store in database
+      // Store in database ONLY (no more localStorage!)
       const response = await fetch(`${API_BASE_URL}/api/repair-status/acknowledge?repair_id=${repair.id}`, {
         method: 'POST'
       });
       
       if (!response.ok) throw new Error('Failed to acknowledge');
-      
-      // Also keep in localStorage for backwards compatibility during transition
-      const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
-      if (!acknowledgedRepairs.includes(repair.id)) {
-        acknowledgedRepairs.push(repair.id);
-        localStorage.setItem('acknowledgedRepairs', JSON.stringify(acknowledgedRepairs));
-      }
       
       // Remove from current view (for "new" view) or mark acknowledged (for other views)
       if (viewType === 'new') {
