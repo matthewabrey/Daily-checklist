@@ -321,8 +321,16 @@ function Dashboard() {
               </div>
             )}
             {Object.keys(stats.todayByType).length === 0 && (
-              <p className="text-xs text-gray-600">No checks completed today</p>
+              <p className="text-xs text-gray-600 mb-2">No checks completed today</p>
             )}
+            <Button 
+              onClick={() => navigate('/all-checks?filter=today')}
+              variant="outline"
+              size="sm"
+              className="w-full mt-2"
+            >
+              View Today's Checks
+            </Button>
           </CardContent>
         </Card>
         
