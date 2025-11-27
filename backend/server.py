@@ -525,10 +525,9 @@ async def get_dashboard_stats():
         "completed_at": {"$gte": seven_days_ago_str}
     })
     
-    # Machine additions - check which are acknowledged
+    # Machine additions - check which are acknowledged - ALL TIME
     machine_additions_list = await db.checklists.find({
-        "check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]},
-        "completed_at": {"$gte": seven_days_ago_str}
+        "check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]}
     }, {"_id": 0, "id": 1}).to_list(length=None)
     
     machine_ids = [m["id"] for m in machine_additions_list]
