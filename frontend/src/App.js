@@ -3765,8 +3765,8 @@ function RepairsNeeded() {
                 completedAt: checklist.completed_at,
                 staffName: checklist.staff_name,
                 checkType: checklist.check_type,
-                repaired: completedRepairs.includes(repairId),
-                acknowledged: acknowledgedRepairs.includes(repairId),
+                repaired: repairStatuses[repairId]?.completed || false,
+                acknowledged: repairStatuses[repairId]?.acknowledged || false,
                 repairNotes: '',
                 repairPhotos: [],
                 type: 'unsatisfactory_item'
