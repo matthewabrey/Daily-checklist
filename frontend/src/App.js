@@ -3741,9 +3741,9 @@ function RepairsNeeded() {
       const response = await fetch(`${API_BASE_URL}/api/checklists?limit=0`);
       const checklists = await response.json();
       
-      // Get acknowledged and completed repairs from localStorage
-      const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
-      const completedRepairs = JSON.parse(localStorage.getItem('completedRepairs') || '[]');
+      // Get repair statuses from DATABASE (no more localStorage!)
+      const statusResponse = await fetch(`${API_BASE_URL}/api/repair-status/bulk`);
+      const repairStatuses = await statusResponse.json();
       
       // Extract all unsatisfactory items from checklists AND general repair records
       const repairItems = [];
