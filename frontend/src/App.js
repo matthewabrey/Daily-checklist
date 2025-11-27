@@ -105,29 +105,19 @@ function Dashboard() {
       const filteredRecentChecklists = recentChecklistsData.filter(c => c.check_type !== 'GENERAL REPAIR');
       setRecentChecklists(filteredRecentChecklists);
       
-      // Fetch optimized dashboard stats from backend (much faster!)
+      // Fetch optimized dashboard stats from backend - now includes accurate counts!
       const statsResponse = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
       const statsData = await statsResponse.json();
       
-      // Get localStorage data for client-side filtering
-      const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
-      const completedRepairs = JSON.parse(localStorage.getItem('completedRepairs') || '[]');
-      const acknowledgedMachines = JSON.parse(localStorage.getItem('acknowledgedMachines') || '[]');
-      
-      // Adjust stats based on localStorage (for acknowledged/completed items)
-      // Note: Backend gives us total repairs, we filter based on localStorage for acknowledged/completed
-      const nonAcknowledgedRepairs = statsData.total_repairs - acknowledgedRepairs.length;
-      const repairsDue = acknowledgedRepairs.length - completedRepairs.length;
-      const pendingMachineAdditions = statsData.machine_additions_count - acknowledgedMachines.length;
-      
+      // Backend now calculates accurate counts from database (no more localStorage confusion!)
       setStats({ 
         total: statsData.total_completed,
         todayByType: statsData.today_by_type,
         todayTotal: statsData.today_total,
-        repairsDue: Math.max(0, repairsDue),
-        nonAcknowledgedRepairs: Math.max(0, nonAcknowledgedRepairs),
+        repairsDue: statsData.repairs_due,
+        nonAcknowledgedRepairs: statsData.new_repairs,
         repairsCompletedLast7Days: statsData.repairs_completed_last_7_days,
-        pendingMachineAdditions: Math.max(0, pendingMachineAdditions)
+        pendingMachineAdditions: statsData.machine_additions_count
       });
       
       // Update last refreshed timestamp
