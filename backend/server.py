@@ -95,97 +95,10 @@ async def initialize_data():
     asset_count = await db.assets.count_documents({})
     staff_count = await db.staff.count_documents({})
     
+    # Skip asset initialization - assets should be uploaded via Admin Panel
+    # using AssetList.xlsx with proper format (Check Type | Name | Make)
     if asset_count == 0:
-        # Asset data from Excel
-        assets_data = [
-            {"make": "Cat", "model": "DP30NTD"},
-            {"make": "Cat", "model": "EP25N"},
-            {"make": "Cat", "model": "DP40N"},
-            {"make": "John Deere", "model": "6145R"},
-            {"make": "John Deere", "model": "6145R AFM"},
-            {"make": "John Deere", "model": "6155R AFM"},
-            {"make": "John Deere", "model": "6155R"},
-            {"make": "John Deere", "model": "9470RX"},
-            {"make": "John Deere", "model": "9RX 470"},
-            {"make": "John Deere", "model": "9870CTS combine"},
-            {"make": "John Deere", "model": "6140R"},
-            {"make": "John Deere", "model": "6R 145"},
-            {"make": "John Deere", "model": "7R 330"},
-            {"make": "John Deere", "model": "7R Carrots"},
-            {"make": "John Deere", "model": "8RT 370"},
-            {"make": "John Deere", "model": "8RT"},
-            {"make": "John Deere", "model": "9RX 640"},
-            {"make": "Bateman", "model": "RB35 self propelled sprayer"},
-            {"make": "Bateman", "model": "RB55 self propelled sprayer"},
-            {"make": "Class", "model": "Lexion 750TT combine"},
-            {"make": "Daewoo", "model": "B18T-2CH00190"},
-            {"make": "JCB", "model": "520S Loadall"},
-            {"make": "JCB", "model": "530-70 Loadall"},
-            {"make": "JCB", "model": "541-70 Loadall"},
-            {"make": "JCB", "model": "542-70 Loadall"},
-            {"make": "JCB", "model": "560-80 Loadall"},
-            {"make": "Toyota", "model": "ZK 31281"},
-            {"make": "Asa-Lift", "model": "T4000D 4 row trailed carrot harvester"},
-            {"make": "Bailey", "model": "14t twin axle dump trailer"},
-            {"make": "Bailey", "model": "18t twin axle rootcrop tipping trailer"},
-            {"make": "Bailey", "model": "Beeteaper 18t twin axle tipping trailer"},
-            {"make": "Bailey", "model": "Tri axle 12 box trailer"},
-            {"make": "Grimme", "model": "GT170S potato harvester"},
-            {"make": "Grimme", "model": "GZ1700 DLS onion harvester"},
-            {"make": "Grimme", "model": "Varitron 270 potato harvester"},
-            {"make": "Grimme", "model": "CS150 multiweb destoner"},
-            {"make": "Grimme", "model": "CS150 Multiweb destoner"},
-            {"make": "Brian James", "model": "Tri axle tilbed 16ft trailer"},
-            {"make": "Brian Legg", "model": "Single axle low loader trailer"},
-            {"make": "Bye", "model": "Twin axle double drive Power Dolly"},
-            {"make": "Chiefian", "model": "Twin axle low loader"},
-            {"make": "Delta", "model": "4 row onion set planter"},
-            {"make": "Don Bur", "model": "Tri axle 40ft skelly trailer"},
-            {"make": "Downs", "model": "Freestanding flat belt conveyor 33ft long 1000mm wide"},
-            {"make": "Downs", "model": "Freestanding flat belt conveyor 20ft long 1000mm wide"},
-            {"make": "Downs", "model": "Wolfhound telescopic elevator 17m 900mm wide"},
-            {"make": "Downs", "model": "Telescopic elevator with power transmission wheels"},
-            {"make": "Gardiner", "model": "10 box twin axle trailer"},
-            {"make": "Herbert", "model": "Elevator with square hopper"},
-            {"make": "Herbert", "model": "Mobile grader 1800 6ft wide"},
-            {"make": "Ifor Williams", "model": "LM105GHD 10ft twin axle drop side trailer"},
-            {"make": "Jones", "model": "Single bed windrower"},
-            {"make": "Logic", "model": "Trailed slug pelleter/fertiliser spreader"},
-            {"make": "Miedema", "model": "Structural PM20 potato planter"},
-            {"make": "Richard Western", "model": "6t single axle dump trailer"},
-            {"make": "Richard Western", "model": "14t twin axle root crop tipping trailer"},
-            {"make": "Richard Western", "model": "Twin axle 8 box trailer"},
-            {"make": "Richard Western", "model": "Single axle low loader trailer"},
-            {"make": "Samon", "model": "Favourite single bed windrower"},
-            {"make": "Samon", "model": "SU2LS onion loader"},
-            {"make": "Samon", "model": "Triple bed windrower"},
-            {"make": "SDC", "model": "Tri axle curtain side trailer"},
-            {"make": "SDC", "model": "Tri axle 40ft skelly trailer"},
-            {"make": "Horsch", "model": "Sprinter 6ST 6m tine coulter drill"},
-            {"make": "Simba", "model": "Pronto 6DC 6m disc coulter drill"},
-            {"make": "Simon", "model": "2RGS 2 row carrot top lifter"},
-            {"make": "Simon", "model": "T2R 2 row carrot top lifter"},
-            {"make": "Standen", "model": "T2 onion harvester"},
-            {"make": "Standen", "model": "SP244 potato planter"},
-            {"make": "Pearson", "model": "Uniweb destoner"},
-            {"make": "Stanhay", "model": "5 row single bed onion drill"},
-            {"make": "Stanhay", "model": "12 row triple bed rigid onion drill"},
-            {"make": "Stronga", "model": "Hookloada twin axle trailer"},
-            {"make": "Tong", "model": "Destoner 1502005"},
-            {"make": "Underhaug", "model": "Destoner 1512005"},
-            {"make": "Wilcox", "model": "Tri axle bulker"},
-            {"make": "Kuhn", "model": "36m twin disc fertiliser spreader"},
-            {"make": "Kverneland", "model": "Exacta TL 24m fertiliser spreader"},
-            {"make": "Team/Bye", "model": "3 bed front mounted band sprayer"},
-            {"make": "Team/Bye", "model": "Stainless steel front tank"},
-            {"make": "Dewulf", "model": "Structural DS30 P40-50 trailed planter"},
-            {"make": "KRM Bredal", "model": "F4 4000 36m fertiliser spreader"}
-        ]
-        
-        for asset_data in assets_data:
-            asset = Asset(**asset_data)
-            asset_dict = asset.dict()
-            await db.assets.insert_one(asset_dict)
+        print("No assets found. Please upload AssetList.xlsx via Admin Panel.")
     
     if staff_count == 0:
         # Staff data from Excel
