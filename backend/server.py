@@ -468,25 +468,52 @@ async def get_dashboard_stats():
         
         today_by_type[type_name] = today_by_type.get(type_name, 0) + 1
     
+    # Get repair IDs and their status from database
+    repair_ids = []
+    
     # Count unsatisfactory items (LAST 7 DAYS only for speed)
-    unsatisfactory_count = 0
     checklists_with_items = await db.checklists.find({
         "checklist_items": {"$exists": True, "$ne": []},
         "completed_at": {"$gte": seven_days_ago_str}
     }, {"_id": 0, "id": 1, "checklist_items": 1}).to_list(length=None)
     
     for checklist in checklists_with_items:
-        for item in checklist.get('checklist_items', []):
+        for index, item in enumerate(checklist.get('checklist_items', [])):
             if item.get('status') == 'unsatisfactory':
-                unsatisfactory_count += 1
+                repair_ids.append(f"{checklist['id']}-{index}")
     
     # Count GENERAL REPAIR records (LAST 7 DAYS)
-    general_repairs_count = await db.checklists.count_documents({
+    general_repairs = await db.checklists.find({
         "check_type": "GENERAL REPAIR",
         "completed_at": {"$gte": seven_days_ago_str}
-    })
+    }, {"_id": 0, "id": 1}).to_list(length=None)
     
-    total_repairs = unsatisfactory_count + general_repairs_count
+    for checklist in general_repairs:
+        repair_ids.append(f"{checklist['id']}-general")
+    
+    # Get status of all repairs from database
+    repair_statuses = await db.repair_status.find({
+        "repair_id": {"$in": repair_ids}
+    }, {"_id": 0, "repair_id": 1, "acknowledged": 1, "completed": 1}).to_list(length=None)
+    
+    # Create status lookup
+    status_lookup = {s["repair_id"]: s for s in repair_statuses}
+    
+    # Count new, acknowledged, and completed repairs
+    new_repairs_count = 0
+    repairs_due_count = 0
+    
+    for repair_id in repair_ids:
+        status = status_lookup.get(repair_id, {})
+        is_acknowledged = status.get("acknowledged", False)
+        is_completed = status.get("completed", False)
+        
+        if is_completed:
+            continue  # Don't count completed repairs
+        elif is_acknowledged:
+            repairs_due_count += 1
+        else:
+            new_repairs_count += 1
     
     # Repairs completed in last 7 days
     seven_days_ago_str = seven_days_ago.isoformat()
