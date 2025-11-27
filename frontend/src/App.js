@@ -3686,6 +3686,8 @@ function RepairsNeeded() {
   const [showRepairCamera, setShowRepairCamera] = useState(false);
   const [showViewingModal, setShowViewingModal] = useState(false);
   const [viewingRepair, setViewingRepair] = useState(null);
+  const [editingProgressNotes, setEditingProgressNotes] = useState(null);
+  const [progressNoteText, setProgressNoteText] = useState('');
   const navigate = useNavigate();
   const { employee } = useAuth();
   
