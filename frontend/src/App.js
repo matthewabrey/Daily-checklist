@@ -3980,26 +3980,12 @@ function RepairsNeeded() {
     }
     
     try {
-      // Save to database
+      // Save to database ONLY
       const response = await fetch(`${API_BASE_URL}/api/repair-status/add-note?repair_id=${repairId}&note_text=${encodeURIComponent(progressNoteText.trim())}&author=${encodeURIComponent(employee?.name || 'Unknown')}`, {
         method: 'POST'
       });
       
       if (!response.ok) throw new Error('Failed to add note');
-      
-      // Also save to localStorage for backwards compatibility
-      const allNotes = JSON.parse(localStorage.getItem('repairProgressNotes') || '{}');
-      if (!allNotes[repairId]) {
-        allNotes[repairId] = [];
-      }
-      
-      allNotes[repairId].push({
-        text: progressNoteText.trim(),
-        date: new Date().toISOString(),
-        author: employee?.name || 'Unknown'
-      });
-      
-      localStorage.setItem('repairProgressNotes', JSON.stringify(allNotes));
       
       setEditingProgressNotes(null);
       setProgressNoteText('');
