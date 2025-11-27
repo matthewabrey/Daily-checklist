@@ -3982,15 +3982,10 @@ function RepairsNeeded() {
     try {
       const newAcknowledgements = repairs.filter(r => !r.acknowledged);
       
-      // Acknowledge all in database
+      // Acknowledge all in database ONLY
       await Promise.all(newAcknowledgements.map(r => 
         fetch(`${API_BASE_URL}/api/repair-status/acknowledge?repair_id=${r.id}`, { method: 'POST' })
       ));
-      
-      // Also update localStorage
-      const acknowledgedRepairs = JSON.parse(localStorage.getItem('acknowledgedRepairs') || '[]');
-      const updatedAcknowledged = [...new Set([...acknowledgedRepairs, ...newAcknowledgements.map(r => r.id)])];
-      localStorage.setItem('acknowledgedRepairs', JSON.stringify(updatedAcknowledged));
       
       // Remove all from view if in "new" mode
       if (viewType === 'new') {
