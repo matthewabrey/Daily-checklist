@@ -116,7 +116,7 @@ function Dashboard() {
         todayTotal: statsData.today_total || 0,
         repairsDue: statsData.repairs_due || 0,
         nonAcknowledgedRepairs: statsData.new_repairs || 0,
-        repairsCompletedLast7Days: statsData.repairs_completed_last_7_days || 0,
+        repairsCompletedLast7Days: statsData.repairs_completed || 0,
         pendingMachineAdditions: statsData.machine_additions_count || 0
       });
       
