@@ -2042,20 +2042,350 @@ class MachineChecklistAPITester:
             self.log_test("Dashboard Stats Debug - New Repairs Count Analysis", False, f"Exception: {str(e)}")
             return False
 
+    def test_dashboard_stats_api(self) -> bool:
+        """Test dashboard stats API with expected production data counts"""
+        try:
+            response = requests.get(f"{self.base_url}/api/dashboard/stats", timeout=15)
+            success = response.status_code == 200
+            
+            if success:
+                stats = response.json()
+                details = f"Status: {response.status_code}"
+                
+                # Expected values from review request
+                expected_total_completed = 976  # 946 daily + 5 grader + 25 workshop
+                
+                # Verify required fields exist
+                required_fields = ['total_completed', 'today_by_type', 'today_total', 'new_repairs', 'repairs_due', 'repairs_completed', 'machine_additions_count']
+                missing_fields = [field for field in required_fields if field not in stats]
+                
+                if missing_fields:
+                    success = False
+                    details += f", Missing fields: {missing_fields}"
+                else:
+                    total_completed = stats.get('total_completed', 0)
+                    today_by_type = stats.get('today_by_type', {})
+                    new_repairs = stats.get('new_repairs', 0)
+                    repairs_due = stats.get('repairs_due', 0)
+                    repairs_completed = stats.get('repairs_completed', 0)
+                    machine_additions = stats.get('machine_additions_count', 0)
+                    
+                    details += f", Total Completed: {total_completed}"
+                    details += f", Today's Checks: {stats.get('today_total', 0)}"
+                    details += f", New Repairs: {new_repairs}"
+                    details += f", Repairs Due: {repairs_due}"
+                    details += f", Repairs Completed: {repairs_completed}"
+                    details += f", Machine Additions: {machine_additions}"
+                    
+                    # Check if total_completed matches expected (allow some variance for test data)
+                    if total_completed < 900:  # Should be close to 976
+                        success = False
+                        details += f" (Expected ~{expected_total_completed}, got {total_completed})"
+                    
+                    # Verify today_by_type structure
+                    if not isinstance(today_by_type, dict):
+                        success = False
+                        details += " (today_by_type should be dict)"
+                    else:
+                        details += f", Today by type: {today_by_type}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:200]}"
+                
+            self.log_test("Dashboard Stats API", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Dashboard Stats API", False, f"Exception: {str(e)}")
+            return False
+
+    def test_checklists_with_limit_zero(self) -> bool:
+        """Test getting all checklists with limit=0 (should return all 1,055 checklists)"""
+        try:
+            response = requests.get(f"{self.base_url}/api/checklists?limit=0", timeout=20)
+            success = response.status_code == 200
+            
+            if success:
+                checklists = response.json()
+                count = len(checklists)
+                details = f"Status: {response.status_code}, Total checklists: {count}"
+                
+                # Expected from review request: 1,055 checklists
+                expected_count = 1055
+                
+                if count < 1000:  # Should be close to 1,055
+                    success = False
+                    details += f" (Expected ~{expected_count}, got {count})"
+                else:
+                    # Verify structure of first checklist
+                    if checklists:
+                        first_checklist = checklists[0]
+                        required_fields = ['id', 'staff_name', 'machine_make', 'machine_model', 'check_type', 'completed_at']
+                        missing_fields = [field for field in required_fields if field not in first_checklist]
+                        if missing_fields:
+                            success = False
+                            details += f", Missing fields in checklist: {missing_fields}"
+                        else:
+                            details += f", Sample check_type: {first_checklist.get('check_type')}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:200]}"
+                
+            self.log_test("Get All Checklists (limit=0)", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Get All Checklists (limit=0)", False, f"Exception: {str(e)}")
+            return False
+
+    def test_checklists_with_limit_ten(self) -> bool:
+        """Test getting checklists with limit=10"""
+        try:
+            response = requests.get(f"{self.base_url}/api/checklists?limit=10", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                checklists = response.json()
+                count = len(checklists)
+                details = f"Status: {response.status_code}, Checklists returned: {count}"
+                
+                if count != 10:
+                    success = False
+                    details += f" (Expected exactly 10, got {count})"
+                else:
+                    # Verify datetime parsing works
+                    if checklists:
+                        first_checklist = checklists[0]
+                        completed_at = first_checklist.get('completed_at')
+                        if completed_at:
+                            details += f", Latest completed_at: {str(completed_at)[:19]}"
+            else:
+                details = f"Status: {response.status_code}"
+                
+            self.log_test("Get Checklists (limit=10)", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Get Checklists (limit=10)", False, f"Exception: {str(e)}")
+            return False
+
+    def test_assets_makes_count(self) -> bool:
+        """Test assets makes endpoint should return 46 makes"""
+        try:
+            response = requests.get(f"{self.base_url}/api/assets/makes", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                makes = response.json()
+                count = len(makes)
+                details = f"Status: {response.status_code}, Makes count: {count}"
+                
+                # Expected from review request: 46 makes
+                expected_count = 46
+                
+                if count < 40:  # Should be close to 46
+                    success = False
+                    details += f" (Expected ~{expected_count}, got {count})"
+                else:
+                    details += f", Sample makes: {makes[:5]}"
+            else:
+                details = f"Status: {response.status_code}"
+                
+            self.log_test("Assets Makes Count", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Assets Makes Count", False, f"Exception: {str(e)}")
+            return False
+
+    def test_csv_export_all_checklists(self) -> bool:
+        """Test CSV export includes ALL 1,055 checklists"""
+        try:
+            response = requests.get(f"{self.base_url}/api/checklists/export/csv", timeout=30)
+            success = response.status_code == 200
+            
+            if success:
+                content = response.text
+                lines = content.split('\n')
+                # Subtract 1 for header row, and filter out empty lines
+                data_lines = [line for line in lines[1:] if line.strip()]
+                count = len(data_lines)
+                
+                details = f"Status: {response.status_code}, CSV rows: {count}"
+                
+                # Expected from review request: ALL 1,055 checklists
+                expected_count = 1055
+                
+                if count < 1000:  # Should be close to 1,055
+                    success = False
+                    details += f" (Expected ~{expected_count}, got {count})"
+                else:
+                    # Verify CSV headers
+                    if lines:
+                        headers = lines[0].split(',')
+                        expected_headers = ['ID', 'Staff Name', 'Machine Make', 'Machine Model', 'Check Type']
+                        missing_headers = [h for h in expected_headers if h not in headers]
+                        if missing_headers:
+                            success = False
+                            details += f", Missing headers: {missing_headers}"
+                        else:
+                            # Check for different check types in CSV
+                            check_types = set()
+                            for line in data_lines[:100]:  # Sample first 100 rows
+                                parts = line.split(',')
+                                if len(parts) > 4:
+                                    check_types.add(parts[4].strip('"'))
+                            details += f", Check types found: {list(check_types)[:5]}"
+            else:
+                details = f"Status: {response.status_code}"
+                
+            self.log_test("CSV Export All Checklists", success, details)
+            return success
+        except Exception as e:
+            self.log_test("CSV Export All Checklists", False, f"Exception: {str(e)}")
+            return False
+
+    def test_excel_export_validity(self) -> bool:
+        """Test Excel export generates valid .xlsx file"""
+        try:
+            response = requests.get(f"{self.base_url}/api/checklists/export/excel", timeout=30)
+            success = response.status_code == 200
+            
+            if success:
+                content_type = response.headers.get('content-type', '')
+                content_disposition = response.headers.get('content-disposition', '')
+                content_length = len(response.content)
+                
+                details = f"Status: {response.status_code}, Content-Type: {content_type}, Size: {content_length} bytes"
+                
+                # Verify it's an Excel file
+                if 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' not in content_type:
+                    success = False
+                    details += " (Not Excel content type)"
+                elif 'attachment' not in content_disposition:
+                    success = False
+                    details += " (Not attachment)"
+                elif '.xlsx' not in content_disposition:
+                    success = False
+                    details += " (Not .xlsx filename)"
+                elif content_length < 10000:  # Excel files should be reasonably sized
+                    success = False
+                    details += " (File too small for Excel with 1000+ records)"
+                else:
+                    # Check Excel file signature (first few bytes)
+                    excel_signature = response.content[:4]
+                    if excel_signature != b'PK\x03\x04':  # ZIP signature (Excel is ZIP-based)
+                        success = False
+                        details += " (Invalid Excel file signature)"
+            else:
+                details = f"Status: {response.status_code}"
+                
+            self.log_test("Excel Export Validity", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Excel Export Validity", False, f"Exception: {str(e)}")
+            return False
+
+    def test_dashboard_performance(self) -> bool:
+        """Test dashboard stats API performance (should load within reasonable time)"""
+        try:
+            import time
+            start_time = time.time()
+            
+            response = requests.get(f"{self.base_url}/api/dashboard/stats", timeout=10)
+            
+            end_time = time.time()
+            response_time = end_time - start_time
+            
+            success = response.status_code == 200 and response_time < 5.0  # Should respond within 5 seconds
+            
+            if success:
+                details = f"Status: {response.status_code}, Response time: {response_time:.2f}s"
+                
+                if response_time > 3.0:
+                    details += " (Slow but acceptable)"
+                elif response_time > 1.0:
+                    details += " (Good performance)"
+                else:
+                    details += " (Excellent performance)"
+            else:
+                if response.status_code != 200:
+                    details = f"Status: {response.status_code}"
+                else:
+                    details = f"Status: {response.status_code}, Response time: {response_time:.2f}s (Too slow)"
+                
+            self.log_test("Dashboard Performance", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Dashboard Performance", False, f"Exception: {str(e)}")
+            return False
+
+    def run_dashboard_focused_tests(self):
+        """Run dashboard-focused tests as requested in review"""
+        print("🚀 STARTING DASHBOARD FUNCTIONALITY TESTING")
+        print("=" * 60)
+        print("📋 Testing complete dashboard functionality after fixing 'dashboard not reading correct figures' issue")
+        print("=" * 60)
+        
+        # Basic connectivity test
+        if not self.test_health_check():
+            print("❌ Health check failed - aborting tests")
+            return False
+        
+        # DASHBOARD FUNCTIONALITY TESTS (PRIMARY FOCUS)
+        print("\n📊 DASHBOARD STATS API TESTS")
+        print("-" * 40)
+        
+        # Test dashboard stats API with expected production data
+        self.test_dashboard_stats_api()
+        
+        # Test dashboard performance
+        self.test_dashboard_performance()
+        
+        print("\n📋 CHECKLISTS API TESTS")
+        print("-" * 30)
+        
+        # Test checklists retrieval with different limits
+        self.test_checklists_with_limit_zero()  # Should return all 1,055
+        self.test_checklists_with_limit_ten()   # Should return exactly 10
+        
+        print("\n🏭 ASSETS API TESTS")
+        print("-" * 20)
+        
+        # Test assets API
+        self.test_assets_makes_count()  # Should return 46 makes
+        
+        print("\n📤 EXPORT FUNCTIONALITY TESTS")
+        print("-" * 35)
+        
+        # Test export functionality with all data
+        self.test_csv_export_all_checklists()  # Should include all 1,055
+        self.test_excel_export_validity()      # Should generate valid .xlsx
+        
+        # Print final results
+        print("\n" + "=" * 60)
+        print("🏁 DASHBOARD TESTING COMPLETED")
+        print(f"Tests Run: {self.tests_run}")
+        print(f"Tests Passed: {self.tests_passed}")
+        print(f"Success Rate: {(self.tests_passed/self.tests_run)*100:.1f}%")
+        
+        if self.tests_passed == self.tests_run:
+            print("🎉 ALL DASHBOARD TESTS PASSED!")
+            return True
+        else:
+            print(f"⚠️  {self.tests_run - self.tests_passed} TESTS FAILED")
+            return False
+
 def main():
     """Main test execution"""
     tester = MachineChecklistAPITester()
     
-    # Run the specific debug test for "14 New Repairs" count mismatch
-    print("🔍 RUNNING SPECIFIC DEBUG TEST FOR '14 NEW REPAIRS' COUNT MISMATCH")
+    # Run dashboard-focused tests as requested in review
+    print("🎯 RUNNING DASHBOARD FUNCTIONALITY TESTS AS REQUESTED")
+    print("=" * 70)
+    dashboard_success = tester.run_dashboard_focused_tests()
+    
+    # Also run the specific debug test for "14 New Repairs" count mismatch
+    print("\n🔍 RUNNING SPECIFIC DEBUG TEST FOR '14 NEW REPAIRS' COUNT MISMATCH")
     print("=" * 70)
     tester.test_dashboard_stats_new_repairs_debug()
     
-    # Also run comprehensive tests
-    report = tester.run_all_tests()
-    
-    # Return appropriate exit code
-    return 0 if report['failed_tests'] == 0 else 1
+    # Return appropriate exit code based on dashboard tests
+    return 0 if dashboard_success else 1
 
 if __name__ == "__main__":
     sys.exit(main())
