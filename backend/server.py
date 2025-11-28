@@ -344,9 +344,9 @@ async def get_dashboard_stats():
     seven_days_ago = today - timedelta(days=7)
     seven_days_ago_str = seven_days_ago.isoformat()
     
-    # Total checks completed - ALL TIME (excluding GENERAL REPAIR)
+    # Total checks completed - ALL TIME (only actual equipment checks, not repairs or machine additions)
     total_completed = await db.checklists.count_documents({
-        "check_type": {"$nin": ["GENERAL REPAIR"]}
+        "check_type": {"$in": ["daily_check", "grader_startup", "workshop_service"]}
     })
     
     # Today's checks by type
