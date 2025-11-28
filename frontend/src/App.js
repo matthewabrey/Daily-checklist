@@ -2448,28 +2448,28 @@ function Records() {
                   </Card>
                 );
               })}
+              
+              {/* Load More Button */}
+              {hasMore && checklists.length > 0 && (
+                <div className="mt-6 text-center">
+                  <Button 
+                    onClick={loadMore} 
+                    disabled={loadingMore}
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
+                        Loading more...
+                      </>
+                    ) : (
+                      `Load More Records (${ITEMS_PER_PAGE} at a time)`
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
-            
-            {/* Load More Button */}
-            {hasMore && checklists.length > 0 && (
-              <div className="mt-6 text-center">
-                <Button 
-                  onClick={loadMore} 
-                  disabled={loadingMore}
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                >
-                  {loadingMore ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
-                      Loading more...
-                    </>
-                  ) : (
-                    `Load More Records (${ITEMS_PER_PAGE} at a time)`
-                  )}
-                </Button>
-              </div>
-            )}
           )}
         </CardContent>
       </Card>
