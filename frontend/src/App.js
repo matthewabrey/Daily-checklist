@@ -2483,13 +2483,17 @@ function AllChecksCompleted() {
   const [checklists, setChecklists] = useState([]);
   const [filteredChecklists, setFilteredChecklists] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
   const [selectedChecklist, setSelectedChecklist] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const navigate = useNavigate();
+  
+  const ITEMS_PER_PAGE = 50;
   
   // Check if we're filtering for today's checks
   const urlParams = new URLSearchParams(window.location.search);
@@ -2503,22 +2507,45 @@ function AllChecksCompleted() {
     filterChecklists();
   }, [selectedMake, selectedModel, checklists]);
 
-  const fetchChecklists = async () => {
+  const fetchChecklists = async (append = false) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=0`);
+      if (append) {
+        setLoadingMore(true);
+      }
+      
+      const skip = append ? checklists.length : 0;
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}`);
       const data = await response.json();
+      
       // Exclude GENERAL REPAIR records
       const regularChecks = data.filter(c => c.check_type !== 'GENERAL REPAIR');
-      setChecklists(regularChecks);
+      
+      if (append) {
+        setChecklists(prev => [...prev, ...regularChecks]);
+      } else {
+        setChecklists(regularChecks);
+      }
       
       // Extract unique makes and models
-      const uniqueMakes = [...new Set(regularChecks.map(c => c.machine_make))].sort();
+      const allChecklists = append ? [...checklists, ...regularChecks] : regularChecks;
+      const uniqueMakes = [...new Set(allChecklists.map(c => c.machine_make))].sort();
       setMakes(uniqueMakes);
+      
+      // Check if there are more items to load
+      setHasMore(regularChecks.length === ITEMS_PER_PAGE);
+      
     } catch (error) {
       console.error('Error fetching checklists:', error);
       toast.error('Failed to load checklists');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+  
+  const loadMore = () => {
+    if (!loadingMore && hasMore && !selectedMake && !selectedModel) {
+      fetchChecklists(true);
     }
   };
 
