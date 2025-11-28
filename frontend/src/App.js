@@ -4955,6 +4955,28 @@ function RepairsNeeded() {
                     </Card>
                   );
                 })}
+              
+              {/* Load More Button */}
+              {hasMore && repairs.length > 0 && (
+                <div className="mt-6 text-center">
+                  <Button 
+                    onClick={loadMore} 
+                    disabled={loadingMore}
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
+                        Loading more...
+                      </>
+                    ) : (
+                      `Load More Repairs (${ITEMS_PER_PAGE} at a time)`
+                    )}
+                  </Button>
+                  <p className="text-sm text-gray-500 mt-2">Showing {repairs.filter(r => !r.repaired).length} repairs</p>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
