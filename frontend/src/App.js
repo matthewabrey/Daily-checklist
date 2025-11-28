@@ -1890,29 +1890,56 @@ function Records() {
   const { t, tItem } = useTranslation();
   const [checklists, setChecklists] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [selectedChecklist, setSelectedChecklist] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
   const navigate = useNavigate();
+  
+  const ITEMS_PER_PAGE = 50;
 
   useEffect(() => {
     fetchChecklists();
   }, []);
 
-  const fetchChecklists = async () => {
+  const fetchChecklists = async (append = false) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=0`);
+      if (append) {
+        setLoadingMore(true);
+      }
+      
+      const skip = append ? checklists.length : 0;
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}`);
       const data = await response.json();
+      
       // Filter out GENERAL REPAIR records - keep those only on Repairs Needed page
       const filteredChecklists = data.filter(checklist => checklist.check_type !== 'GENERAL REPAIR');
-      setChecklists(filteredChecklists);
+      
+      if (append) {
+        setChecklists(prev => [...prev, ...filteredChecklists]);
+      } else {
+        setChecklists(filteredChecklists);
+      }
+      
+      // Check if there are more items to load
+      setHasMore(filteredChecklists.length === ITEMS_PER_PAGE);
+      
     } catch (error) {
       console.error('Error fetching checklists:', error);
       toast.error('Failed to load checklist records');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+  
+  const loadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchChecklists(true);
     }
   };
 
