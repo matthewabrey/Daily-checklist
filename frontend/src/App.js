@@ -3940,9 +3940,12 @@ function RepairsNeeded() {
       const statusResponse = await fetch(`${API_BASE_URL}/api/repair-status/bulk`);
       const repairStatuses = await statusResponse.json();
       
+      // Use all checklists (combined from previous and new fetches)
+      const allChecklistsToProcess = append ? allChecklists : checklists;
+      
       // Extract all unsatisfactory items from checklists AND general repair records
       const repairItems = [];
-      checklists.forEach(checklist => {
+      allChecklistsToProcess.forEach(checklist => {
         // Add unsatisfactory checklist items
         if (checklist.checklist_items) {
           checklist.checklist_items.forEach((item, index) => {
