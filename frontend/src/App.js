@@ -2831,6 +2831,35 @@ function AllChecksCompleted() {
                 </Card>
               ))}
             </div>
+            
+            {/* Load More Button - only show when not filtering */}
+            {hasMore && filteredChecklists.length > 0 && !selectedMake && !selectedModel && (
+              <div className="mt-6 text-center">
+                <Button 
+                  onClick={loadMore} 
+                  disabled={loadingMore}
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  {loadingMore ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
+                      Loading more...
+                    </>
+                  ) : (
+                    `Load More Checks (${ITEMS_PER_PAGE} at a time)`
+                  )}
+                </Button>
+                <p className="text-sm text-gray-500 mt-2">Showing {filteredChecklists.length} checks</p>
+              </div>
+            )}
+            
+            {/* Info message when filtering */}
+            {(selectedMake || selectedModel) && (
+              <div className="mt-4 text-center text-sm text-gray-500">
+                <p>Filtering applied. Clear filters to load more records.</p>
+              </div>
+            )}
           )}
         </CardContent>
       </Card>
