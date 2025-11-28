@@ -546,6 +546,8 @@ metadata:
 
 test_plan:
   current_focus:
+    - "Dashboard statistics fix and Repairs Needed page"
+    - "Dashboard loading performance optimization"
     - "Dashboard auto-refresh every 30 seconds"
   stuck_tasks:
     - "Camera functionality and permissions"
