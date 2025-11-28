@@ -3398,6 +3398,28 @@ function MachineAdditionsPage() {
                   </CardContent>
                 </Card>
               ))}
+              
+              {/* Load More Button */}
+              {hasMore && filteredRequests.length > 0 && (
+                <div className="mt-6 text-center">
+                  <Button 
+                    onClick={loadMore} 
+                    disabled={loadingMore}
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
+                        Loading more...
+                      </>
+                    ) : (
+                      `Load More Requests (${ITEMS_PER_PAGE} at a time)`
+                    )}
+                  </Button>
+                  <p className="text-sm text-gray-500 mt-2">Showing {filteredRequests.length} requests</p>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
