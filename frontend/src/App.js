@@ -3882,6 +3882,7 @@ function GeneralRepairRecord() {
 function RepairsNeeded() {
   const [repairs, setRepairs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showRepairModal, setShowRepairModal] = useState(false);
   const [currentRepair, setCurrentRepair] = useState(null);
   const [repairNotes, setRepairNotes] = useState('');
@@ -3891,8 +3892,12 @@ function RepairsNeeded() {
   const [viewingRepair, setViewingRepair] = useState(null);
   const [editingProgressNotes, setEditingProgressNotes] = useState(null);
   const [progressNoteText, setProgressNoteText] = useState('');
+  const [hasMore, setHasMore] = useState(true);
+  const [allChecklists, setAllChecklists] = useState([]);
   const navigate = useNavigate();
   const { employee } = useAuth();
+  
+  const ITEMS_PER_PAGE = 50;
   
   // Get view type from URL parameter (default to 'new')
   const searchParams = new URLSearchParams(window.location.search);
@@ -3911,10 +3916,25 @@ function RepairsNeeded() {
     fetchRepairs();
   }, [hasWorkshopAccess, navigate, viewType]);
 
-  const fetchRepairs = async () => {
+  const fetchRepairs = async (append = false) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=0`);
+      if (append) {
+        setLoadingMore(true);
+      }
+      
+      const skip = append ? allChecklists.length : 0;
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}`);
       const checklists = await response.json();
+      
+      // Store all fetched checklists
+      if (append) {
+        setAllChecklists(prev => [...prev, ...checklists]);
+      } else {
+        setAllChecklists(checklists);
+      }
+      
+      // Check if there are more items to load
+      setHasMore(checklists.length === ITEMS_PER_PAGE);
       
       // Get repair statuses from DATABASE (no more localStorage!)
       const statusResponse = await fetch(`${API_BASE_URL}/api/repair-status/bulk`);
