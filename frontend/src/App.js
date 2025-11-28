@@ -3179,18 +3179,28 @@ function MachineAdditionsPage() {
   const [machineRequests, setMachineRequests] = useState([]);
   const [filteredRequests, setFilteredRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const navigate = useNavigate();
+  
+  const ITEMS_PER_PAGE = 50;
 
   useEffect(() => {
     fetchMachineRequests();
   }, []);
 
-  const fetchMachineRequests = async () => {
+  const fetchMachineRequests = async (append = false) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=0`);
+      if (append) {
+        setLoadingMore(true);
+      }
+      
+      const skip = append ? machineRequests.length : 0;
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}`);
       const data = await response.json();
+      
       // Get MACHINE ADD or NEW MACHINE records
       const machineAddRequests = data.filter(c => 
         c.check_type === 'MACHINE ADD' || c.check_type === 'NEW MACHINE'
