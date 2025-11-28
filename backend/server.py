@@ -467,11 +467,14 @@ async def get_checklists(limit: int = None, skip: int = 0):
     else:
         checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=None)
     
+    print(f"[DEBUG] get_checklists: Found {len(checklists)} checklists from DB")
+    
     # Parse datetime strings back to datetime objects
     for checklist in checklists:
         if isinstance(checklist['completed_at'], str):
             checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'])
     
+    print(f"[DEBUG] get_checklists: Returning {len(checklists)} checklists after datetime parsing")
     return checklists
 
 @app.get("/api/checklists/{checklist_id}", response_model=ChecklistResponse)
