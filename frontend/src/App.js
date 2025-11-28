@@ -3215,14 +3215,30 @@ function MachineAdditionsPage() {
         acknowledged: acknowledgedMachines.includes(req.id)
       }));
       
-      setMachineRequests(requestsWithAckStatus);
-      // Show only non-acknowledged by default
-      setFilteredRequests(requestsWithAckStatus.filter(r => !r.acknowledged));
+      if (append) {
+        setMachineRequests(prev => [...prev, ...requestsWithAckStatus]);
+        setFilteredRequests(prev => [...prev, ...requestsWithAckStatus.filter(r => !r.acknowledged)]);
+      } else {
+        setMachineRequests(requestsWithAckStatus);
+        // Show only non-acknowledged by default
+        setFilteredRequests(requestsWithAckStatus.filter(r => !r.acknowledged));
+      }
+      
+      // Check if there are more items to load
+      setHasMore(machineAddRequests.length === ITEMS_PER_PAGE);
+      
     } catch (error) {
       console.error('Error fetching machine requests:', error);
       toast.error('Failed to load machine requests');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+  
+  const loadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchMachineRequests(true);
     }
   };
 
