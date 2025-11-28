@@ -4044,6 +4044,13 @@ function RepairsNeeded() {
       toast.error('Failed to load repair items');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+  
+  const loadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchRepairs(true);
     }
   };
 
