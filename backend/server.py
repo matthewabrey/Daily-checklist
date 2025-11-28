@@ -345,6 +345,7 @@ async def get_dashboard_stats():
     seven_days_ago_str = seven_days_ago.isoformat()
     
     # Total checks completed - ALL TIME (only actual equipment checks, not repairs or machine additions)
+    # Note: If performance becomes an issue, can filter by last 7 days: "completed_at": {"$gte": seven_days_ago_str}
     total_completed = await db.checklists.count_documents({
         "check_type": {"$in": ["daily_check", "grader_startup", "workshop_service"]}
     })
