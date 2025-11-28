@@ -2872,13 +2872,17 @@ function RepairsCompletedPage() {
   const [repairs, setRepairs] = useState([]);
   const [filteredRepairs, setFilteredRepairs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
   const [selectedRepair, setSelectedRepair] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const navigate = useNavigate();
+  
+  const ITEMS_PER_PAGE = 50;
 
   useEffect(() => {
     fetchRepairs();
@@ -2888,22 +2892,45 @@ function RepairsCompletedPage() {
     filterRepairs();
   }, [selectedMake, selectedModel, repairs]);
 
-  const fetchRepairs = async () => {
+  const fetchRepairs = async (append = false) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=0`);
+      if (append) {
+        setLoadingMore(true);
+      }
+      
+      const skip = append ? repairs.length : 0;
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}`);
       const data = await response.json();
+      
       // Only get REPAIR COMPLETED records
       const completedRepairs = data.filter(c => c.check_type === 'REPAIR COMPLETED');
-      setRepairs(completedRepairs);
+      
+      if (append) {
+        setRepairs(prev => [...prev, ...completedRepairs]);
+      } else {
+        setRepairs(completedRepairs);
+      }
       
       // Extract unique makes
-      const uniqueMakes = [...new Set(completedRepairs.map(c => c.machine_make))].sort();
+      const allRepairs = append ? [...repairs, ...completedRepairs] : completedRepairs;
+      const uniqueMakes = [...new Set(allRepairs.map(c => c.machine_make))].sort();
       setMakes(uniqueMakes);
+      
+      // Check if there are more items to load
+      setHasMore(completedRepairs.length === ITEMS_PER_PAGE);
+      
     } catch (error) {
       console.error('Error fetching repairs:', error);
       toast.error('Failed to load repairs');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+  
+  const loadMore = () => {
+    if (!loadingMore && hasMore && !selectedMake && !selectedModel) {
+      fetchRepairs(true);
     }
   };
 
