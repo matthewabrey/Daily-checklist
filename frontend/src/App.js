@@ -3917,7 +3917,8 @@ function RepairsNeeded() {
       }
       
       const skip = append ? allChecklists.length : 0;
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}`);
+      // Use optimized endpoint that only fetches checklists with repairs
+      const response = await fetch(`${API_BASE_URL}/api/checklists-with-repairs?limit=${ITEMS_PER_PAGE}&skip=${skip}`);
       const checklists = await response.json();
       
       // Store all fetched checklists
