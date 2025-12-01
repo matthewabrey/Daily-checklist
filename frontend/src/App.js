@@ -3915,6 +3915,10 @@ function RepairsNeeded() {
     // Clear old localStorage data (migration to database-only storage)
     localStorage.removeItem('acknowledgedMachines');
     localStorage.removeItem('acknowledgedRepairs');
+    // Reset state and refetch when viewType changes
+    setAllChecklists([]);
+    setRepairs([]);
+    setLoading(true);
     fetchRepairs();
   }, [hasWorkshopAccess, navigate, viewType]);
 
