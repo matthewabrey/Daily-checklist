@@ -500,6 +500,26 @@ async def get_checklist(checklist_id: str):
     
     return ChecklistResponse(**checklist)
 
+@app.get("/api/checklists-with-repairs")
+async def get_checklists_with_repairs(limit: int = 50, skip: int = 0):
+    """Get checklists that have unsatisfactory items OR are GENERAL REPAIR records"""
+    # Build query to get checklists with unsatisfactory items or GENERAL REPAIR
+    query = {
+        "$or": [
+            {"check_type": "GENERAL REPAIR"},
+            {"checklist_items.status": "unsatisfactory"}
+        ]
+    }
+    
+    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=None)
+    
+    # Parse datetime strings
+    for checklist in checklists:
+        if isinstance(checklist.get('completed_at'), str):
+            checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'])
+    
+    return checklists
+
 @app.post("/api/admin/update-staff")
 async def update_staff_list(staff_names: List[str]):
     """Update the staff list by replacing all existing staff with new list"""
