@@ -3912,6 +3912,9 @@ function RepairsNeeded() {
       navigate('/');
       return;
     }
+    // Clear old localStorage data (migration to database-only storage)
+    localStorage.removeItem('acknowledgedMachines');
+    localStorage.removeItem('acknowledgedRepairs');
     fetchRepairs();
   }, [hasWorkshopAccess, navigate, viewType]);
 
