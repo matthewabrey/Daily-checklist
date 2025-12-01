@@ -2899,11 +2899,9 @@ function RepairsCompletedPage() {
       }
       
       const skip = append ? repairs.length : 0;
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}`);
-      const data = await response.json();
-      
-      // Only get REPAIR COMPLETED records
-      const completedRepairs = data.filter(c => c.check_type === 'REPAIR COMPLETED');
+      // Fetch only REPAIR COMPLETED records from backend
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}&check_type=REPAIR COMPLETED`);
+      const completedRepairs = await response.json();
       
       if (append) {
         setRepairs(prev => [...prev, ...completedRepairs]);
