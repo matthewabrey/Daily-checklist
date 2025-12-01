@@ -4172,15 +4172,16 @@ function RepairsNeeded() {
       
       if (!response.ok) throw new Error('Failed to acknowledge');
       
-      // Remove from current view (for "new" view) or mark acknowledged (for other views)
+      // Update the repairs list
+      setRepairs(prev => prev.map(r => 
+        r.id === repair.id 
+          ? { ...r, acknowledged: true }
+          : r
+      ));
+      
+      // If on "new" view, filter out acknowledged repairs
       if (viewType === 'new') {
-        setRepairs(prev => prev.filter(r => r.id !== repair.id));
-      } else {
-        setRepairs(prev => prev.map(r => 
-          r.id === repair.id 
-            ? { ...r, acknowledged: true }
-            : r
-        ));
+        setRepairs(prev => prev.filter(r => !r.acknowledged));
       }
       
       toast.success('Repair acknowledged and moved to Repairs Due');
