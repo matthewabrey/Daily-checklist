@@ -3198,13 +3198,9 @@ function MachineAdditionsPage() {
       }
       
       const skip = append ? machineRequests.length : 0;
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}`);
-      const data = await response.json();
-      
-      // Get MACHINE ADD or NEW MACHINE records
-      const machineAddRequests = data.filter(c => 
-        c.check_type === 'MACHINE ADD' || c.check_type === 'NEW MACHINE'
-      );
+      // Fetch only MACHINE ADD or NEW MACHINE records from backend
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}&check_type=MACHINE ADD,NEW MACHINE`);
+      const machineAddRequests = await response.json();
       
       // Get acknowledged machines from localStorage
       const acknowledgedMachines = JSON.parse(localStorage.getItem('acknowledgedMachines') || '[]');
