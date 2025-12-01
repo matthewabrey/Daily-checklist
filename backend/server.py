@@ -1262,6 +1262,13 @@ class RepairStatusUpdate(BaseModel):
     completed: Optional[bool] = None
     progress_notes: Optional[List[dict]] = None
 
+@app.get("/api/repair-status/bulk")
+async def get_bulk_repair_status():
+    """Get status for all repairs"""
+    statuses = await db.repair_status.find({}, {"_id": 0}).to_list(length=None)
+    # Return as a dictionary keyed by repair_id for easy lookup
+    return {status["repair_id"]: status for status in statuses}
+
 @app.get("/api/repair-status/{repair_id}")
 async def get_repair_status(repair_id: str):
     """Get status of a specific repair"""
@@ -1269,13 +1276,6 @@ async def get_repair_status(repair_id: str):
     if not status:
         return {"repair_id": repair_id, "acknowledged": False, "completed": False, "progress_notes": []}
     return status
-
-@app.get("/api/repair-status/bulk")
-async def get_bulk_repair_status():
-    """Get status for all repairs"""
-    statuses = await db.repair_status.find({}, {"_id": 0}).to_list(length=None)
-    # Return as a dictionary keyed by repair_id for easy lookup
-    return {status["repair_id"]: status for status in statuses}
 
 @app.post("/api/repair-status/acknowledge")
 async def acknowledge_repair(repair_id: str):
