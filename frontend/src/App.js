@@ -1900,7 +1900,7 @@ function Records() {
   const [page, setPage] = useState(0);
   const navigate = useNavigate();
   
-  const ITEMS_PER_PAGE = 50;
+  const ITEMS_PER_PAGE = 100;
 
   useEffect(() => {
     fetchChecklists();
@@ -2493,7 +2493,7 @@ function AllChecksCompleted() {
   const [hasMore, setHasMore] = useState(true);
   const navigate = useNavigate();
   
-  const ITEMS_PER_PAGE = 50;
+  const ITEMS_PER_PAGE = 100;
   
   // Check if we're filtering for today's checks
   const urlParams = new URLSearchParams(window.location.search);
@@ -2882,7 +2882,7 @@ function RepairsCompletedPage() {
   const [hasMore, setHasMore] = useState(true);
   const navigate = useNavigate();
   
-  const ITEMS_PER_PAGE = 50;
+  const ITEMS_PER_PAGE = 100;
 
   useEffect(() => {
     fetchRepairs();
@@ -3183,7 +3183,7 @@ function MachineAdditionsPage() {
   const [hasMore, setHasMore] = useState(true);
   const navigate = useNavigate();
   
-  const ITEMS_PER_PAGE = 50;
+  const ITEMS_PER_PAGE = 100;
 
   useEffect(() => {
     // Clear old localStorage data (migration to database-only storage)
@@ -3896,7 +3896,7 @@ function RepairsNeeded() {
   const navigate = useNavigate();
   const { employee } = useAuth();
   
-  const ITEMS_PER_PAGE = 50;
+  const ITEMS_PER_PAGE = 100;
   
   // Get view type from URL parameter (default to 'new')
   const searchParams = new URLSearchParams(window.location.search);
