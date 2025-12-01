@@ -461,14 +461,24 @@ async def get_dashboard_stats():
     }
 
 @app.get("/api/checklists", response_model=List[ChecklistResponse])
-async def get_checklists(limit: int = None, skip: int = 0):
+async def get_checklists(limit: int = None, skip: int = 0, check_type: str = None):
+    # Build query filter
+    query = {}
+    if check_type:
+        # Support multiple check types separated by comma
+        if ',' in check_type:
+            check_types = [ct.strip() for ct in check_type.split(',')]
+            query["check_type"] = {"$in": check_types}
+        else:
+            query["check_type"] = check_type
+    
     # If limit is None or 0, fetch all records
     if limit is None or limit == 0:
-        checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).to_list(length=None)
+        checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).to_list(length=None)
     else:
-        checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=None)
+        checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=None)
     
-    print(f"[DEBUG] get_checklists: Found {len(checklists)} checklists from DB")
+    print(f"[DEBUG] get_checklists: Found {len(checklists)} checklists from DB (filter: {query})")
     
     # Parse datetime strings back to datetime objects
     for checklist in checklists:
