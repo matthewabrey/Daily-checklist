@@ -317,7 +317,11 @@ async def get_names_by_make(make: str):
 async def get_checktype_by_make_and_name(make: str, name: str):
     asset = await db.assets.find_one({"make": make, "name": name}, {"_id": 0})
     if asset:
-        return {"check_type": asset["check_type"]}
+        check_type = asset["check_type"]
+        # Handle nested check_type objects (from old data format)
+        if isinstance(check_type, dict) and "check_type" in check_type:
+            check_type = check_type["check_type"]
+        return {"check_type": check_type}
     else:
         raise HTTPException(status_code=404, detail="Asset not found")
 
