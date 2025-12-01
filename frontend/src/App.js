@@ -3200,13 +3200,15 @@ function MachineAdditionsPage() {
       const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}&check_type=MACHINE ADD,NEW MACHINE`);
       const machineAddRequests = await response.json();
       
-      // Get acknowledged machines from localStorage
-      const acknowledgedMachines = JSON.parse(localStorage.getItem('acknowledgedMachines') || '[]');
+      // Get acknowledged machines from DATABASE (no more localStorage!)
+      const machineIds = machineAddRequests.map(m => m.id);
+      const statusResponse = await fetch(`${API_BASE_URL}/api/repair-status/bulk`);
+      const repairStatuses = await statusResponse.json();
       
-      // Mark machines as acknowledged
+      // Mark machines as acknowledged based on database
       const requestsWithAckStatus = machineAddRequests.map(req => ({
         ...req,
-        acknowledged: acknowledgedMachines.includes(req.id)
+        acknowledged: repairStatuses[req.id]?.acknowledged || false
       }));
       
       if (append) {
