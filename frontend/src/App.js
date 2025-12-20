@@ -1000,12 +1000,22 @@ function NewChecklist() {
   };
 
   const canProceedToStep2 = selectedCheckType !== '';
+  
+  // Check if all items have been addressed (status selected + notes if unsatisfactory + photos required)
   const allItemsAddressed = selectedCheckType === 'workshop_service' 
     ? workshopNotes.trim() !== '' 
-    : checklistItems.every(item => 
-        (item.status === 'satisfactory' || item.status === 'n/a' || 
-         (item.status === 'unsatisfactory' && item.notes && item.notes.trim() !== ''))
-      );
+    : checklistItems.every(item => {
+        // Must have a status (not unchecked)
+        const hasStatus = item.status === 'satisfactory' || item.status === 'n/a' || item.status === 'unsatisfactory';
+        
+        // If unsatisfactory, must have notes
+        const hasNotesIfNeeded = item.status !== 'unsatisfactory' || (item.notes && item.notes.trim() !== '');
+        
+        // MUST have at least one photo for every item
+        const hasPhoto = item.photos && item.photos.length > 0;
+        
+        return hasStatus && hasNotesIfNeeded && hasPhoto;
+      });
 
   return (
     <div className="space-y-6">
