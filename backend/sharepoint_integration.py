@@ -25,11 +25,11 @@ class SharePointExcelIntegration:
         self.client_id = os.environ.get('AZURE_CLIENT_ID')
         self.client_secret = os.environ.get('AZURE_CLIENT_SECRET') 
         self.tenant_id = os.environ.get('AZURE_TENANT_ID')
-        self.redirect_uri = os.environ.get('AZURE_REDIRECT_URI', 'https://equipcheck-5.preview.emergentagent.com/auth/callback')
+        self.redirect_uri = os.environ.get('AZURE_REDIRECT_URI')
         
-        # SharePoint file URLs (your actual files)
-        self.staff_file_url = "https://rgafarms-my.sharepoint.com/:x:/g/personal/matt_abrey-farms_co_uk/EVJlVIDkvf9Po1vj5SmNGGcBeiFhLR4uYeJXH-Jrr9XCeQ?e=XjybDY"
-        self.asset_file_url = "https://rgafarms-my.sharepoint.com/:x:/g/personal/matt_abrey-farms_co_uk/EcE60OrrIiZEgesXpn83UPsBDq28FtRkh5eT2BSt4tTqnA?e=OPadb1"
+        # SharePoint file URLs - now configurable via environment variables
+        self.staff_file_url = os.environ.get('SHAREPOINT_STAFF_FILE_URL', '')
+        self.asset_file_url = os.environ.get('SHAREPOINT_ASSET_FILE_URL', '')
         
         # Checklist template URLs (you'll need to upload these to SharePoint and provide URLs)
         self.daily_checklist_url = None  # URL to Daily_Check_Checklist.xlsx
