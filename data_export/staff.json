@@ -1,0 +1,18 @@
+[
+  {
+    "id": "57699ffb-f01a-4a65-8034-4dcf4de95528",
+    "employee_number": "4444",
+    "name": "Admin User",
+    "active": true,
+    "workshop_control": null,
+    "admin_control": null
+  },
+  {
+    "id": "6e386a1f-2ef5-4271-ade1-9e35111ee125",
+    "employee_number": "Freestanding flat belt conveyor 33ft long 1000mm wide",
+    "name": "Freestanding flat belt conveyor 33ft long 1000mm wide",
+    "active": true,
+    "workshop_control": null,
+    "admin_control": null
+  }
+]

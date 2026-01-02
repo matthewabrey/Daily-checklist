@@ -1,0 +1,464 @@
+[
+  {
+    "id": "82a66cea-27d4-4a09-af9d-971c24300d86",
+    "check_type": "Tractor",
+    "items": [
+      {
+        "item": "Check all Lights are Working",
+        "critical": false
+      },
+      {
+        "item": "Check all Fluid Levels",
+        "critical": false
+      },
+      {
+        "item": "Visually Check Wheels and Tyres and Nuts",
+        "critical": false
+      },
+      {
+        "item": "Check Tyre Pressure",
+        "critical": false
+      },
+      {
+        "item": "Check All glass is Clean and not broken",
+        "critical": false
+      },
+      {
+        "item": "Check First Aid Kit is present",
+        "critical": false
+      }
+    ]
+  },
+  {
+    "id": "dfb6b347-1880-4e05-a553-000c469961c6",
+    "check_type": "Trailed Implement",
+    "items": [
+      {
+        "item": "Check all Lights are Working",
+        "critical": false
+      },
+      {
+        "item": "Visually Check Wheels and Tyres and Nuts",
+        "critical": false
+      },
+      {
+        "item": "Check Tyre Pressure",
+        "critical": false
+      },
+      {
+        "item": "Check Implement eye",
+        "critical": false
+      },
+      {
+        "item": "Confirm safe for road use",
+        "critical": false
+      }
+    ]
+  },
+  {
+    "id": "71a845d7-93b7-4c5d-ad59-7975d52222fe",
+    "check_type": "Mounted Implement",
+    "items": [
+      {
+        "item": "Check all Lights are Working",
+        "critical": false
+      },
+      {
+        "item": "Link Connectors",
+        "critical": false
+      },
+      {
+        "item": "Confirm safe for road use",
+        "critical": false
+      }
+    ]
+  },
+  {
+    "id": "63084163-9c06-4ced-ab4a-cf5bfd06fd57",
+    "check_type": "Grader Checklist",
+    "items": [
+      {
+        "item": "Guards in place",
+        "critical": false
+      },
+      {
+        "item": "Any obvious damage to metalwork (Impact Damage)",
+        "critical": false
+      },
+      {
+        "item": "At height restraints in place not damaged (rails/chains etc)",
+        "critical": false
+      },
+      {
+        "item": "Debris on floor likely to cause slip / trip / hazard",
+        "critical": false
+      },
+      {
+        "item": "Electrical boxes (mobile graders)positioned away from water / mounted out of area of impact.",
+        "critical": false
+      },
+      {
+        "item": "Power leads off floor routed so as not to cause trip hazard.",
+        "critical": false
+      },
+      {
+        "item": "Control panels able to be closed/boxes/doors not damaged.",
+        "critical": false
+      },
+      {
+        "item": "Trip wires tested - note how many tested",
+        "critical": false
+      },
+      {
+        "item": "Emergency stops tested note how many tested",
+        "critical": false
+      },
+      {
+        "item": "Light guards working",
+        "critical": false
+      },
+      {
+        "item": "Entire area clean and Tidy",
+        "critical": false
+      }
+    ]
+  },
+  {
+    "id": "3b47007b-de2b-4d47-b69f-2e458e662ef2",
+    "check_type": "AD Plant Weekly",
+    "items": [
+      {
+        "item": "Solids Feed Hopper: Solid Lubrication (all moving parts) - Keep discharges clean - Connection to shear bottom \u2192 clean cylinder",
+        "critical": false
+      },
+      {
+        "item": "Separation: Visual check of sieve screens (if necessary, clean) - Inspect plug retention for free movement",
+        "critical": false
+      },
+      {
+        "item": "Preliminary storage tank: Agitator: inspect mixer blades for attrition, remove impurities- Inspect gate valve lubrication \u2192 if necessary, relubricate",
+        "critical": false
+      },
+      {
+        "item": "Pump container: Inspect gate valve lubrication \u2192 if necessary, relubricate- Automatic drainage \u2192 carry out functionality test- Air dryer: keep cooling fins clean- Visually inspect switch cabinet components for damage due to rodent activity (nests or droppings etc.)- Inspect compressor and aircon air filters- Assess and verify evaluated data (AWITE)",
+        "critical": false
+      },
+      {
+        "item": "Fermenter: Inspect integrity of lubricant dispenser and lubrication tubes (leakage) - Inspect shaft bushings for leakage (gearbox and membranes)- Clear inspection port lighting of possible ignition sources (like spider\u2019s webs or bird\u2019s nests) - Check and clean out over under vent hole",
+        "critical": false
+      },
+      {
+        "item": "- Visually inspect all motors, if necessary, clean",
+        "critical": false
+      },
+      {
+        "item": "Test run the emergency generator",
+        "critical": false
+      },
+      {
+        "item": "Generator Hours",
+        "critical": false
+      },
+      {
+        "item": "Generator fuel Level",
+        "critical": false
+      },
+      {
+        "item": "Test run the Flare",
+        "critical": false
+      },
+      {
+        "item": "Flare Run Hours",
+        "critical": false
+      },
+      {
+        "item": "-Check the lagoons (for any impurities)",
+        "critical": false
+      },
+      {
+        "item": "-Check the fire extinguishers (pressure gage, safety pin hasn\u2019t been removed)",
+        "critical": false
+      },
+      {
+        "item": "-Calibrate fos/tac machine",
+        "critical": false
+      }
+    ]
+  },
+  {
+    "id": "e83734e4-7701-40e3-93fe-e2ca85ac9ef2",
+    "check_type": "Monthly Inspections",
+    "items": [
+      {
+        "item": "- Visually inspect manual gate valves \u2192 if necessary, lubricate",
+        "critical": false
+      },
+      {
+        "item": "- Inspect all gearboxes for possible leakage, check oil levels and oil colour",
+        "critical": false
+      },
+      {
+        "item": "- Check free movement of gas gate valves",
+        "critical": false
+      },
+      {
+        "item": "- Visually inspect gas cover for damage",
+        "critical": false
+      },
+      {
+        "item": "- Clean the area around the hydraulic cylinder of the solids feeder module",
+        "critical": false
+      },
+      {
+        "item": "- Inspect lubrication tubes of the agitator lubricant dispensers with manual pump",
+        "critical": false
+      },
+      {
+        "item": "Visually inspect the paddle drive shafts and torque support bracket",
+        "critical": false
+      },
+      {
+        "item": "Check mechanical components (screw seating)",
+        "critical": false
+      },
+      {
+        "item": "Visually inspect the external fan of the agitator drive (if necessary, clean)",
+        "critical": false
+      },
+      {
+        "item": "- Visually inspect the pressure doors",
+        "critical": false
+      },
+      {
+        "item": "- Visually inspect the auxiliary air blower (if necessary, clean)",
+        "critical": false
+      },
+      {
+        "item": "- Test the functionality of the gas flare",
+        "critical": false
+      },
+      {
+        "item": "- Empty the solids feeder module; inspect the shear bottom for wear",
+        "critical": false
+      },
+      {
+        "item": "- Wipe the PC casing of the master computer",
+        "critical": false
+      },
+      {
+        "item": "-Check the emergency eye wash station for functionality (at the Mississippi dryer)",
+        "critical": false
+      },
+      {
+        "item": "-Calibrate Ph probe at the dryer",
+        "critical": false
+      },
+      {
+        "item": "- Check the maintenance schedule and, if necessary, carry out any impending tasks!",
+        "critical": false
+      }
+    ]
+  },
+  {
+    "id": "bdcfc813-015d-4fac-98ef-5d67a123f429",
+    "check_type": "AD Plant Enviromental Record",
+    "items": [
+      {
+        "item": "Feed Hopper Set Point",
+        "critical": false
+      },
+      {
+        "item": "Dryer Temps Before,After, Differnce",
+        "critical": false
+      },
+      {
+        "item": "Level of Gas",
+        "critical": false
+      },
+      {
+        "item": "CM Temp.",
+        "critical": false
+      },
+      {
+        "item": "Gas Level %",
+        "critical": false
+      },
+      {
+        "item": "State of surface 1- 5 (0=Good/5=Bad)",
+        "critical": false
+      },
+      {
+        "item": "Load of Paddle Mixer % - RM30.01",
+        "critical": false
+      },
+      {
+        "item": "Load of Paddle Mixer % - RM30.02",
+        "critical": false
+      },
+      {
+        "item": "Load of Paddle Mixer % - RM30.03",
+        "critical": false
+      },
+      {
+        "item": "Paddle Mixer Greasing Control - RM30.01",
+        "critical": false
+      },
+      {
+        "item": "Paddle Mixer Greasing Control - RM30.02",
+        "critical": false
+      },
+      {
+        "item": "Paddle Mixer Greasing Control - RM30.03",
+        "critical": false
+      },
+      {
+        "item": "Gas Hood Pressure",
+        "critical": false
+      },
+      {
+        "item": "Average % for Paddle Mixer",
+        "critical": false
+      },
+      {
+        "item": "Leval of over and under pressure valve",
+        "critical": false
+      },
+      {
+        "item": "Grease Level - RM30.01",
+        "critical": false
+      },
+      {
+        "item": "Grease Level - RM30.02",
+        "critical": false
+      },
+      {
+        "item": "Grease Level - RM30.03",
+        "critical": false
+      },
+      {
+        "item": "Visual level of Gas Corresponding to ice",
+        "critical": false
+      },
+      {
+        "item": "Hood Fan - IS or OS",
+        "critical": false
+      },
+      {
+        "item": "Boiler Serviced?",
+        "critical": false
+      },
+      {
+        "item": "Hopper input from the last 24 hrs Rye and Maize",
+        "critical": false
+      },
+      {
+        "item": "Slurry Input Onions and Potatoes",
+        "critical": false
+      },
+      {
+        "item": "Total Input",
+        "critical": false
+      },
+      {
+        "item": "Desolphurisation (min 0.1 to 0.75 m3)",
+        "critical": false
+      },
+      {
+        "item": "Check the Gas Monitor",
+        "critical": false
+      },
+      {
+        "item": "Gas Analasis - (CH4 - O2 - H2S)",
+        "critical": false
+      },
+      {
+        "item": "Check the Dryer",
+        "critical": false
+      },
+      {
+        "item": "Empty Boiler Water",
+        "critical": false
+      },
+      {
+        "item": "Oil on Motors P40.01",
+        "critical": false
+      },
+      {
+        "item": "Oil on Motors P50.01",
+        "critical": false
+      },
+      {
+        "item": "Oil on Motors P50.02",
+        "critical": false
+      },
+      {
+        "item": "Digestate Tank (check for cracks)",
+        "critical": false
+      },
+      {
+        "item": "Seperation Tank (check for cracks)",
+        "critical": false
+      },
+      {
+        "item": "Process Tank (check for cracks)",
+        "critical": false
+      },
+      {
+        "item": "Slurry Store (check for cracks)",
+        "critical": false
+      },
+      {
+        "item": "Check the bund (check for cracks)",
+        "critical": false
+      },
+      {
+        "item": "Check Lagoons (for any impurities)",
+        "critical": false
+      },
+      {
+        "item": "Check all Pipes (for any leaks)",
+        "critical": false
+      },
+      {
+        "item": "Dryer Reading",
+        "critical": false
+      },
+      {
+        "item": "Spare Pump",
+        "critical": false
+      },
+      {
+        "item": "Digester Reading",
+        "critical": false
+      },
+      {
+        "item": "Main Pump",
+        "critical": false
+      },
+      {
+        "item": "Torch on: from and until and reason.",
+        "critical": false
+      },
+      {
+        "item": "Input of Ferric Hydroxide",
+        "critical": false
+      },
+      {
+        "item": "Trace Element",
+        "critical": false
+      },
+      {
+        "item": "Odour Check",
+        "critical": false
+      },
+      {
+        "item": "FOS/Tac",
+        "critical": false
+      },
+      {
+        "item": "Notes",
+        "critical": false
+      }
+    ]
+  }
+]

@@ -1,0 +1,775 @@
+[
+  {
+    "repair_id": "204447f6-3162-497b-b73c-3ee7238e051a-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.117906+00:00",
+    "completed": true,
+    "completed_at": "2025-12-01T09:21:50.119178+00:00"
+  },
+  {
+    "repair_id": "1f40f448-6f02-4eec-90c2-75fbab051355-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.129637+00:00"
+  },
+  {
+    "repair_id": "478986aa-58f5-46d0-a96a-b99ace746045-9",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.126297+00:00",
+    "completed": true,
+    "completed_at": "2025-12-01T09:21:58.726410+00:00"
+  },
+  {
+    "repair_id": "53c7738d-cbd1-4841-8cdc-b854803c133a-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.145509+00:00"
+  },
+  {
+    "repair_id": "a288f36f-e482-4023-b6f0-b4629189bc9b-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.146016+00:00"
+  },
+  {
+    "repair_id": "dadccfde-21c8-4e64-a1d9-6a7f25eea7e2-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.135560+00:00"
+  },
+  {
+    "repair_id": "f05e2608-786a-4ea4-966a-f150e19ea944-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.134282+00:00"
+  },
+  {
+    "repair_id": "3a1f086b-561e-41a2-9ff1-d6908ad5ed91-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.146947+00:00"
+  },
+  {
+    "repair_id": "0289deb7-e208-4141-9b07-4103b0fec811-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.125634+00:00",
+    "completed": true,
+    "completed_at": "2025-12-01T09:21:53.802786+00:00"
+  },
+  {
+    "repair_id": "7d5560e2-b844-4725-9a9e-88cf8bc165bf-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.147676+00:00"
+  },
+  {
+    "repair_id": "e3e729ba-db0e-4ac2-90c7-d71aff98097b-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.163139+00:00"
+  },
+  {
+    "repair_id": "fb78d5e1-d1d3-437e-9a1c-0e43bd577b0e-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.149148+00:00"
+  },
+  {
+    "repair_id": "46e1ecc4-2ac3-4bbc-821c-6e7e42352399-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.148728+00:00"
+  },
+  {
+    "repair_id": "d6a5d446-4c63-49d1-8580-0b331e439dd3-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.150460+00:00"
+  },
+  {
+    "repair_id": "4e4f8964-8ce9-41f9-8117-5775fca0e511-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.182344+00:00"
+  },
+  {
+    "repair_id": "e66cc584-cc05-4b23-8f78-91135999104d-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.153870+00:00"
+  },
+  {
+    "repair_id": "47b438f1-bb11-4946-97ab-21b3060713c4-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.178607+00:00"
+  },
+  {
+    "repair_id": "53e899e4-3a85-4776-8440-77981e1d427b-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.164909+00:00"
+  },
+  {
+    "repair_id": "4983261c-028f-4ebf-babe-e4b737a13cb0-general",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.167804+00:00"
+  },
+  {
+    "repair_id": "d50f7bcd-7ece-4cec-b5b0-f917445387f7-4",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.169951+00:00"
+  },
+  {
+    "repair_id": "b76a35ee-2b2f-4086-a587-3f5bda73b512-general",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.170089+00:00"
+  },
+  {
+    "repair_id": "4be5f9de-3809-4b23-928d-07f9339eafd1-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.179370+00:00"
+  },
+  {
+    "repair_id": "87417190-1c6b-4a19-912f-b5ae8b815d28-3",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.178901+00:00"
+  },
+  {
+    "repair_id": "cb78c6d9-3ae3-4f41-8d7f-cae72b3fd2ae-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.182034+00:00"
+  },
+  {
+    "repair_id": "b202ab5e-de4d-4da6-aa8a-1321906bc984-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.164793+00:00"
+  },
+  {
+    "repair_id": "4f6af8e9-38d6-4b83-af62-2a62ec685c18-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.164645+00:00"
+  },
+  {
+    "repair_id": "2e18a342-63b6-4cf3-8a9b-454f23b08c0b-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.179269+00:00"
+  },
+  {
+    "repair_id": "fb78d5e1-d1d3-437e-9a1c-0e43bd577b0e-2",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.153651+00:00"
+  },
+  {
+    "repair_id": "5fe9d48c-9ed1-46e7-9626-fb261bf84370-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.166357+00:00"
+  },
+  {
+    "repair_id": "d25eb8b2-2dd7-4333-9545-64fc7d13a255-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.170504+00:00"
+  },
+  {
+    "repair_id": "0ffa7833-04df-40c3-a1f5-537c46d82b5e-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.170405+00:00"
+  },
+  {
+    "repair_id": "1206c3cc-aa1a-4bf4-b5e9-0b4fa19d7213-9",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.180380+00:00"
+  },
+  {
+    "repair_id": "168f9967-93d0-426b-a4a2-5fe912311c36-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.182250+00:00"
+  },
+  {
+    "repair_id": "1f56342b-4a82-47d5-bfea-b3764fd6bcf2-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.178995+00:00"
+  },
+  {
+    "repair_id": "39e42349-7efa-414e-98d7-cb957eef48a3-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.170599+00:00"
+  },
+  {
+    "repair_id": "fb78d5e1-d1d3-437e-9a1c-0e43bd577b0e-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.148940+00:00"
+  },
+  {
+    "repair_id": "4c3817c6-43a2-4cb1-9cc2-2fb401df1464-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.170203+00:00"
+  },
+  {
+    "repair_id": "87417190-1c6b-4a19-912f-b5ae8b815d28-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.168778+00:00"
+  },
+  {
+    "repair_id": "40cd707f-ca2a-4830-ac2e-a121b384b12c-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.181907+00:00"
+  },
+  {
+    "repair_id": "6c22b2f9-532b-4890-890b-8968dcb21d2f-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.167500+00:00"
+  },
+  {
+    "repair_id": "19025d7a-cc4f-4c6c-a7a8-65c06288d6f2-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.178380+00:00"
+  },
+  {
+    "repair_id": "fb78d5e1-d1d3-437e-9a1c-0e43bd577b0e-4",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.149050+00:00"
+  },
+  {
+    "repair_id": "f2afbfb3-9bd3-41c7-b061-89347a3c14f7-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.172766+00:00"
+  },
+  {
+    "repair_id": "f240a8d6-489b-428d-80ad-25f4323b278c-1",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.182143+00:00"
+  },
+  {
+    "repair_id": "9eab3af6-980f-48d7-83b3-2fd2bae7d69c-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.178502+00:00"
+  },
+  {
+    "repair_id": "39efa411-2653-4377-8eba-d58a841d50da-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.183719+00:00"
+  },
+  {
+    "repair_id": "fc00430b-c41f-4f8d-bf83-453159857b1c-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.178805+00:00"
+  },
+  {
+    "repair_id": "e0de0e28-23ce-41fa-a102-11999ad3570d-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.175208+00:00"
+  },
+  {
+    "repair_id": "65d2c2bc-bb25-4b7b-ae90-46e9e36fbdf5-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.187606+00:00"
+  },
+  {
+    "repair_id": "44f4d929-0c09-421b-8775-c501c85ac50c-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.187773+00:00"
+  },
+  {
+    "repair_id": "7d15015e-25ef-4413-94af-d5890c49d578-general",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.162650+00:00"
+  },
+  {
+    "repair_id": "c2080c9c-a977-4b04-8cfa-f0ccc403672b-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.175456+00:00"
+  },
+  {
+    "repair_id": "9aac039c-b90b-43b6-985c-1dc742d23492-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.175344+00:00"
+  },
+  {
+    "repair_id": "87417190-1c6b-4a19-912f-b5ae8b815d28-1",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.178232+00:00"
+  },
+  {
+    "repair_id": "87417190-1c6b-4a19-912f-b5ae8b815d28-4",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.167699+00:00"
+  },
+  {
+    "repair_id": "2e18a342-63b6-4cf3-8a9b-454f23b08c0b-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.178707+00:00"
+  },
+  {
+    "repair_id": "43e29869-c11a-42b3-a57a-00b5c357ce4d-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:33:11.179164+00:00"
+  },
+  {
+    "repair_id": "e63a0ee1-3177-4685-8b1c-20891a7fb2c6",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:25.547661+00:00"
+  },
+  {
+    "repair_id": "1f8d5562-c80c-4d3f-8af7-a1c4deedbb4c",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:26.117003+00:00"
+  },
+  {
+    "repair_id": "38ccb030-bccb-4853-a696-f011c1010b51",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:26.502427+00:00"
+  },
+  {
+    "repair_id": "e658069b-b896-4900-9938-dad196b3be13",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:26.815338+00:00"
+  },
+  {
+    "repair_id": "0a4bd363-1bb3-4c01-944c-bb72fbf48fd1",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:27.134534+00:00"
+  },
+  {
+    "repair_id": "09585bf3-f3a5-45f0-8918-46f131a35337",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:27.791466+00:00"
+  },
+  {
+    "repair_id": "545438e5-3d57-477d-b580-b264a289d978",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:28.107185+00:00"
+  },
+  {
+    "repair_id": "1b74eae3-217b-4e38-83e0-efafd14a4528",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:28.480299+00:00"
+  },
+  {
+    "repair_id": "91fa9330-1f4b-4fb7-b156-9505783545af",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:28.897232+00:00"
+  },
+  {
+    "repair_id": "10e885ea-49aa-4b08-8ebf-b3e562a16eba",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:29.316903+00:00"
+  },
+  {
+    "repair_id": "29f703f2-8498-4242-9c51-f6801b84c647",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:29.734954+00:00"
+  },
+  {
+    "repair_id": "1a25fe09-7959-486e-b889-dc3c2a319613",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:30.153245+00:00"
+  },
+  {
+    "repair_id": "58869e43-09e6-4a98-a1b7-81312e5b340c",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:30.530999+00:00"
+  },
+  {
+    "repair_id": "5ac888b3-1444-43d7-a0d3-be8f00d811d1",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:30.935596+00:00"
+  },
+  {
+    "repair_id": "b71bdb7a-5fdc-4fc5-95ba-e6cb99611364",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:31.333772+00:00"
+  },
+  {
+    "repair_id": "981d633f-30b1-40d3-8c52-fa30a32ad8be",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:31.709827+00:00"
+  },
+  {
+    "repair_id": "439278bd-2e7f-43b7-807e-26abea0a0363",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:32.078213+00:00"
+  },
+  {
+    "repair_id": "09b9ead2-01ee-474e-95ee-b4f3d5662ecf",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:32.434714+00:00"
+  },
+  {
+    "repair_id": "299e2ebf-f064-4cb3-9ac6-338530a8caa4",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:32.802697+00:00"
+  },
+  {
+    "repair_id": "54a1e9d4-8d1d-42b6-8da1-c2c27b724478",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:33.169305+00:00"
+  },
+  {
+    "repair_id": "5a0e6dc7-76fe-4360-9d07-753006ba86f6",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:33.508052+00:00"
+  },
+  {
+    "repair_id": "b257b0c5-772f-4090-a22a-ed00988f3ccd",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:33.858921+00:00"
+  },
+  {
+    "repair_id": "c5cf9bab-afac-4582-950d-5c9fcd2ee844",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:34.198448+00:00"
+  },
+  {
+    "repair_id": "20a0673b-d0be-473f-8705-7570334356e4",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:34.534685+00:00"
+  },
+  {
+    "repair_id": "d71f1a29-ada9-4263-8109-2306571e1335",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:34.861743+00:00"
+  },
+  {
+    "repair_id": "3ffdd146-0f50-412d-9826-c93f266c978e",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:35.189979+00:00"
+  },
+  {
+    "repair_id": "22b1a99d-d91f-47a3-97bd-31aeaa103f06",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:35.514438+00:00"
+  },
+  {
+    "repair_id": "1b0f8df9-af29-4ad4-9841-24a911037a68",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:35.841585+00:00"
+  },
+  {
+    "repair_id": "a3b7843e-a598-4ff3-b442-0c4ae56cf2bc",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:36.175496+00:00"
+  },
+  {
+    "repair_id": "fef9168e-d4d2-49b1-ba68-8dda5829c736",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:36.490214+00:00"
+  },
+  {
+    "repair_id": "7e09793e-a4af-409b-857e-519f1bde01f2",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:21.107101+00:00"
+  },
+  {
+    "repair_id": "ab8a3288-c863-4b4d-8bfb-07bfeae843a4",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:36.809994+00:00"
+  },
+  {
+    "repair_id": "2f64e319-5518-4554-86a1-9a940ccfa790",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:37.142463+00:00"
+  },
+  {
+    "repair_id": "b2b9d8ce-d7cb-44d2-aa79-8b3333f985c1",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:36:37.493415+00:00"
+  },
+  {
+    "repair_id": "79f0de31-07e8-43b2-8d74-d3e4c765ab8b",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T08:43:00.587033+00:00"
+  },
+  {
+    "repair_id": "52ff6950-77be-4a73-b216-06616e9686ee-9",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.193404+00:00"
+  },
+  {
+    "repair_id": "44911853-9e8b-4167-9ee3-6729c3f1da28-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.200402+00:00"
+  },
+  {
+    "repair_id": "514c461a-3290-4327-a841-5a623b611ead-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.201321+00:00"
+  },
+  {
+    "repair_id": "db97d1ba-7a5b-4df2-a4bb-a0fbdc42f3fc-9",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.202007+00:00"
+  },
+  {
+    "repair_id": "f360ac35-902f-4112-9893-4674de5322ef-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.202133+00:00"
+  },
+  {
+    "repair_id": "f360ac35-902f-4112-9893-4674de5322ef-2",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.204409+00:00"
+  },
+  {
+    "repair_id": "f360ac35-902f-4112-9893-4674de5322ef-4",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.204550+00:00"
+  },
+  {
+    "repair_id": "2c2a7a52-6558-42a1-955e-a0618afc6c46-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.205703+00:00"
+  },
+  {
+    "repair_id": "138d61d7-f6d0-482d-81a2-8326ae3f2618-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.204719+00:00"
+  },
+  {
+    "repair_id": "da48cbd7-3251-4fc3-af75-ed124c5fe946-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.204819+00:00"
+  },
+  {
+    "repair_id": "f360ac35-902f-4112-9893-4674de5322ef-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.208260+00:00"
+  },
+  {
+    "repair_id": "887d1705-eb32-402e-8003-e9cb348d2952-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.226490+00:00"
+  },
+  {
+    "repair_id": "4ac0b301-b33c-4a80-ba42-f1445115be68-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.226886+00:00"
+  },
+  {
+    "repair_id": "138d61d7-f6d0-482d-81a2-8326ae3f2618-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.227088+00:00"
+  },
+  {
+    "repair_id": "2c158dc0-6572-41ca-a7e3-991d0114185c-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.228467+00:00"
+  },
+  {
+    "repair_id": "604ef922-6681-423c-8599-e55548cb916f-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.229110+00:00"
+  },
+  {
+    "repair_id": "099ed679-c5ec-4afe-8341-dd9932b2adba-2",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.229837+00:00"
+  },
+  {
+    "repair_id": "3c720d0e-6aa4-4f8e-9e59-2d03ce123937-6",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.231585+00:00"
+  },
+  {
+    "repair_id": "ad008798-e4d5-40fd-8341-d12845f57bff-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.231924+00:00"
+  },
+  {
+    "repair_id": "e8b87b7a-d381-4f73-a97c-a158c5686712-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.232035+00:00"
+  },
+  {
+    "repair_id": "9fac0b81-b77b-4517-b24f-107b34a67882-11",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.234229+00:00"
+  },
+  {
+    "repair_id": "bf3e7fad-f2fb-4105-9878-5ad92b70af89-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.234371+00:00"
+  },
+  {
+    "repair_id": "036e3964-dcd1-46fe-91e7-a56eb01456f9-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.234474+00:00"
+  },
+  {
+    "repair_id": "9d33197d-f9fa-44da-a28d-e4ec5885f530-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.234733+00:00"
+  },
+  {
+    "repair_id": "6ac0eb6e-6783-463d-8ec1-76e97b630d01-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.234866+00:00"
+  },
+  {
+    "repair_id": "b5fcf32c-1610-4038-a7ee-ef79f2bf8091-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.238067+00:00"
+  },
+  {
+    "repair_id": "26b2c5f4-338a-42d7-a3b3-b56b1fe0af70-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.238204+00:00"
+  },
+  {
+    "repair_id": "b2767180-b1d8-46a9-99d4-77afb47fd71a-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.238303+00:00"
+  },
+  {
+    "repair_id": "39ae116e-fe9f-4f64-9865-98480a517e74-9",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.240978+00:00"
+  },
+  {
+    "repair_id": "2272ae43-8f58-46c9-9df5-6b1b68786730-3",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.241103+00:00"
+  },
+  {
+    "repair_id": "099ed679-c5ec-4afe-8341-dd9932b2adba-1",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.241220+00:00"
+  },
+  {
+    "repair_id": "099ed679-c5ec-4afe-8341-dd9932b2adba-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.241317+00:00"
+  },
+  {
+    "repair_id": "60b867e5-c8be-4fa8-8063-931ba01ec08e-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.241421+00:00"
+  },
+  {
+    "repair_id": "d3c1b20c-970d-4d2c-b2c4-883dc3fecf99-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.241518+00:00"
+  },
+  {
+    "repair_id": "1d20ca65-62b0-45fe-a88f-06637ca8b0fd-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.243316+00:00"
+  },
+  {
+    "repair_id": "039cd6d5-50a8-4f58-8cb5-97fd247d2ca6-7",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.243432+00:00"
+  },
+  {
+    "repair_id": "62752a02-cc5f-4ffe-a304-f66aec7e92de-10",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.243531+00:00"
+  },
+  {
+    "repair_id": "62f0878a-64da-4be2-b492-b42776fd85a0-1",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.243622+00:00"
+  },
+  {
+    "repair_id": "2c158dc0-6572-41ca-a7e3-991d0114185c-9",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.242669+00:00"
+  },
+  {
+    "repair_id": "31f0d33e-6128-4189-9db9-ff017b2b3397-8",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.244948+00:00"
+  },
+  {
+    "repair_id": "25590b97-05c8-4514-8899-02b9b27d5183-1",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.245061+00:00"
+  },
+  {
+    "repair_id": "2c158dc0-6572-41ca-a7e3-991d0114185c-2",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.245152+00:00"
+  },
+  {
+    "repair_id": "25590b97-05c8-4514-8899-02b9b27d5183-13",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.245251+00:00"
+  },
+  {
+    "repair_id": "871beed4-bbf2-4369-abe5-7024c624369f-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.245357+00:00"
+  },
+  {
+    "repair_id": "090ab631-ded4-426a-9704-ad256168f463-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.245450+00:00"
+  },
+  {
+    "repair_id": "60b867e5-c8be-4fa8-8063-931ba01ec08e-4",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.246761+00:00"
+  },
+  {
+    "repair_id": "19952602-21c9-4a1b-8d81-efcbca817f2c-3",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.247836+00:00"
+  },
+  {
+    "repair_id": "844bcaf5-00a8-4ad1-ac3c-266ca1d0c163-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.250664+00:00"
+  },
+  {
+    "repair_id": "2272ae43-8f58-46c9-9df5-6b1b68786730-2",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.250831+00:00"
+  },
+  {
+    "repair_id": "de3805af-6321-49cc-b613-a6e5e1521ca6-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.250936+00:00"
+  },
+  {
+    "repair_id": "4442770a-cfd8-408d-a9cb-82a01dd0d326-5",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.251033+00:00"
+  },
+  {
+    "repair_id": "25590b97-05c8-4514-8899-02b9b27d5183-8",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.251127+00:00"
+  },
+  {
+    "repair_id": "e841891f-1d6a-4c97-8803-59e6942227fd-2",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.251229+00:00"
+  },
+  {
+    "repair_id": "249e2425-d436-4cec-903e-023ece709536-2",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.251324+00:00"
+  },
+  {
+    "repair_id": "25590b97-05c8-4514-8899-02b9b27d5183-7",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.251438+00:00"
+  },
+  {
+    "repair_id": "39e874f9-c299-4776-a489-0eb41f54778f-0",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:19:28.304703+00:00"
+  },
+  {
+    "repair_id": "b4202f4a-fe8e-4404-81c1-c629166f7ef2-general",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:21:03.604626+00:00"
+  },
+  {
+    "repair_id": "0bf786d0-6d57-40ba-bf00-ee92584ffc00-general",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:21:35.381933+00:00"
+  },
+  {
+    "repair_id": "ac9beff1-a92e-4d8e-888b-3dd05c89e30c-general",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:23:33.777804+00:00"
+  },
+  {
+    "repair_id": "a8d76a03-e615-45af-887c-efbfcba3429c-3",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:34:18.223702+00:00",
+    "completed": true,
+    "completed_at": "2025-12-01T09:34:31.668492+00:00"
+  },
+  {
+    "repair_id": "ab3c2f4e-0d4b-4b7e-8584-2eee68b85237",
+    "acknowledged": true,
+    "acknowledged_at": "2025-12-01T09:34:59.216095+00:00"
+  }
+]
