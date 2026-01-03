@@ -546,7 +546,7 @@ async def get_checklists_with_repairs(limit: int = 50, skip: int = 0):
         ]
     }
     
-    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=None)
+    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
     
     # Parse datetime strings
     for checklist in checklists:
