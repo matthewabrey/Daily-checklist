@@ -304,13 +304,13 @@ function Dashboard() {
         {/* 4. Today's Checks - Fourth */}
         <Card 
           data-testid="today-checklists-card"
-          className="hover:shadow-lg transition-shadow flex flex-col"
+          className="dashboard-card hover:shadow-lg transition-shadow"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Today's Checks</CardTitle>
             <Calendar className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-between">
+          <CardContent className="dashboard-card-content">
             <div>
               <div className="text-2xl font-bold text-green-600">{stats.todayTotal}</div>
               {Object.keys(stats.todayByType).length > 0 && (
