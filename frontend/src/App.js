@@ -95,7 +95,7 @@ function Dashboard() {
     // Auto-refresh every 10 seconds
     const refreshInterval = setInterval(() => {
       fetchRecentChecklists();
-    }, 120000);
+    }, 10000);
     
     return () => clearInterval(refreshInterval);
   }, [location.pathname]); // Re-run when path changes (navigation)
