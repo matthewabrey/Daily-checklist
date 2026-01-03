@@ -294,8 +294,12 @@ async def grant_admin_access(employee_number: str):
 async def get_employee_activity():
     """Get employee usage statistics"""
     try:
-        # Get all checklists with employee info
-        checklists = await db.checklists.find({}, {"_id": 0}).to_list(length=None)
+        # Get recent checklists with employee info (last 90 days for performance)
+        ninety_days_ago = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
+        checklists = await db.checklists.find(
+            {"completed_at": {"$gte": ninety_days_ago}}, 
+            {"_id": 0, "employee_number": 1, "staff_name": 1, "completed_at": 1}
+        ).to_list(length=10000)
         
         # Count activity by employee
         activity = {}
