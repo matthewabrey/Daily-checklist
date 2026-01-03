@@ -43,6 +43,203 @@ class MachineChecklistAPITester:
             self.log_test("Health Check", False, f"Exception: {str(e)}")
             return False
 
+    def test_admin_authentication(self) -> tuple[bool, Dict]:
+        """Test admin authentication with employee number 4444"""
+        try:
+            login_data = {"employee_number": "4444"}
+            response = requests.post(
+                f"{self.base_url}/api/auth/employee-login",
+                json=login_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            employee_data = {}
+            
+            if success:
+                result = response.json()
+                employee_data = result.get('employee', {})
+                details = f"Status: {response.status_code}, Success: {result.get('success', False)}"
+                
+                # Verify admin permissions
+                admin_control = employee_data.get('admin_control')
+                workshop_control = employee_data.get('workshop_control')
+                
+                if not result.get('success'):
+                    success = False
+                    details += " (Success flag is False)"
+                elif admin_control != "yes":
+                    success = False
+                    details += f" (Expected admin_control: 'yes', got: '{admin_control}')"
+                elif workshop_control != "yes":
+                    success = False
+                    details += f" (Expected workshop_control: 'yes', got: '{workshop_control}')"
+                else:
+                    details += f", Admin: {admin_control}, Workshop: {workshop_control}, Name: {employee_data.get('name', 'Unknown')}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Admin Authentication (Employee 4444)", success, details)
+            return success, employee_data
+        except Exception as e:
+            self.log_test("Admin Authentication (Employee 4444)", False, f"Exception: {str(e)}")
+            return False, {}
+
+    def test_dashboard_stats(self) -> bool:
+        """Test dashboard stats endpoint"""
+        try:
+            response = requests.get(f"{self.base_url}/api/dashboard/stats", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                total_completed = data.get('total_completed', 0)
+                repairs_due = data.get('repairs_due', 0)
+                repairs_completed = data.get('repairs_completed', 0)
+                
+                details = f"Status: {response.status_code}, Total Completed: {total_completed}, Repairs Due: {repairs_due}, Repairs Completed: {repairs_completed}"
+                
+                # Verify total_completed is around 980 as mentioned in review request
+                if total_completed < 900:
+                    success = False
+                    details += f" (Expected total_completed around 980, got {total_completed})"
+                else:
+                    details += " (Total completed count looks good)"
+                    
+                # Verify required fields exist
+                required_fields = ['total_completed', 'today_by_type', 'today_total', 'new_repairs', 'repairs_due', 'repairs_completed']
+                missing_fields = [field for field in required_fields if field not in data]
+                if missing_fields:
+                    success = False
+                    details += f", Missing fields: {missing_fields}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Dashboard Stats", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Dashboard Stats", False, f"Exception: {str(e)}")
+            return False
+
+    def test_checklists_with_limit(self) -> bool:
+        """Test checklists endpoint with limit parameter"""
+        try:
+            response = requests.get(f"{self.base_url}/api/checklists?limit=10", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                count = len(data)
+                details = f"Status: {response.status_code}, Records returned: {count}"
+                
+                # Verify we get records (should have historical data from November/December 2025)
+                if count == 0:
+                    success = False
+                    details += " (No checklist records found)"
+                elif count > 10:
+                    success = False
+                    details += f" (Expected max 10 records with limit=10, got {count})"
+                else:
+                    # Check if we have historical data
+                    if data:
+                        first_record = data[0]
+                        completed_at = first_record.get('completed_at', '')
+                        details += f", Sample date: {completed_at[:10] if completed_at else 'N/A'}"
+                        
+                        # Verify structure
+                        required_fields = ['id', 'staff_name', 'machine_make', 'machine_model', 'completed_at']
+                        missing_fields = [field for field in required_fields if field not in first_record]
+                        if missing_fields:
+                            success = False
+                            details += f", Missing fields: {missing_fields}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Checklists with Limit", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Checklists with Limit", False, f"Exception: {str(e)}")
+            return False
+
+    def test_assets_count(self) -> bool:
+        """Test assets endpoint returns 219 assets"""
+        try:
+            response = requests.get(f"{self.base_url}/api/assets", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                count = len(data)
+                details = f"Status: {response.status_code}, Assets count: {count}"
+                
+                # Verify we have 219 assets as mentioned in review request
+                if count != 219:
+                    success = False
+                    details += f" (Expected 219 assets, got {count})"
+                else:
+                    # Verify structure of first asset
+                    if data:
+                        first_asset = data[0]
+                        required_fields = ['id', 'check_type', 'name', 'make']
+                        missing_fields = [field for field in required_fields if field not in first_asset]
+                        if missing_fields:
+                            success = False
+                            details += f", Missing fields: {missing_fields}"
+                        else:
+                            details += f", Sample: {first_asset.get('make', 'N/A')} - {first_asset.get('name', 'N/A')}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Assets Count (219 Expected)", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Assets Count (219 Expected)", False, f"Exception: {str(e)}")
+            return False
+
+    def test_staff_admin_permissions(self) -> bool:
+        """Test staff endpoint and verify user 4444 has admin permissions"""
+        try:
+            response = requests.get(f"{self.base_url}/api/staff", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                count = len(data)
+                details = f"Status: {response.status_code}, Staff count: {count}"
+                
+                # Find user 4444
+                admin_user = None
+                for staff in data:
+                    if staff.get('employee_number') == '4444':
+                        admin_user = staff
+                        break
+                
+                if not admin_user:
+                    success = False
+                    details += " (User 4444 not found in staff list)"
+                else:
+                    admin_control = admin_user.get('admin_control')
+                    workshop_control = admin_user.get('workshop_control')
+                    name = admin_user.get('name', 'Unknown')
+                    
+                    if admin_control != "yes":
+                        success = False
+                        details += f" (User 4444 admin_control expected 'yes', got '{admin_control}')"
+                    elif workshop_control != "yes":
+                        success = False
+                        details += f" (User 4444 workshop_control expected 'yes', got '{workshop_control}')"
+                    else:
+                        details += f", User 4444 found: {name}, Admin: {admin_control}, Workshop: {workshop_control}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Staff Admin Permissions (User 4444)", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Staff Admin Permissions (User 4444)", False, f"Exception: {str(e)}")
+            return False
+
     def test_get_staff(self) -> tuple[bool, List[Dict]]:
         """Test staff endpoint"""
         try:
