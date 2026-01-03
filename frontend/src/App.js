@@ -2559,7 +2559,7 @@ function AllChecksCompleted() {
 
   useEffect(() => {
     filterChecklists();
-  }, [selectedMake, selectedModel, checklists]);
+  }, [selectedMake, selectedModel, checklists, filterToday]);
 
   const fetchChecklists = async (append = false) => {
     try {
