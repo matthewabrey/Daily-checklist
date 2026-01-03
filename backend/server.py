@@ -953,14 +953,13 @@ async def sync_checklists_from_sharepoint():
                 # Clear existing checklist template for this type
                 await db.checklist_templates.delete_many({"check_type": checklist_type})
                 
-                # Create new checklist template
-                items = [item['item'] for item in checklist_data]
-                template = ChecklistTemplate(
-                    check_type=checklist_type,
-                    items=items
-                )
+                # Store checklist items with all metadata
+                template = {
+                    "check_type": checklist_type,
+                    "items": checklist_data  # Full item data with photo_required, critical, etc.
+                }
                 
-                await db.checklist_templates.insert_one(template.dict())
+                await db.checklist_templates.insert_one(template)
                 
                 results[checklist_type] = {
                     "success": True,
