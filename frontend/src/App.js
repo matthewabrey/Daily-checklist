@@ -1507,14 +1507,6 @@ function NewChecklist() {
                               )}
                             </div>
                             
-                            {/* Photo required warning */}
-                            {(!item.photos || item.photos.length === 0) && (
-                              <div className="text-xs text-red-600 font-medium bg-red-50 p-2 rounded flex items-center">
-                                <Camera className="h-3 w-3 mr-1" />
-                                📸 Photo required for this item
-                              </div>
-                            )}
-                            
                             {/* Photo thumbnails */}
                             {item.photos && item.photos.length > 0 && (
                               <div className="flex flex-wrap gap-2">
