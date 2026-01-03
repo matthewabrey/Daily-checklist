@@ -35,15 +35,19 @@ async def compute_simple_stats(db):
     """Compute stats using only fast count queries - NO loading documents"""
     
     now = datetime.now(timezone.utc)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    
+    # Create multiple date formats for today to handle inconsistent data
+    today_date = now.date().isoformat()  # "2026-01-03"
     
     # All counts run in parallel for speed
     total_completed = await db.checklists.count_documents({
         "check_type": {"$in": ["daily_check", "grader_startup", "workshop_service"]}
     })
     
+    # For today's count, use regex to match the date part regardless of time format
+    # This handles both "2026-01-03T..." and "2026-01-03T...Z" and "2026-01-03T...+00:00"
     today_total = await db.checklists.count_documents({
-        "completed_at": {"$gte": today_start}
+        "completed_at": {"$regex": f"^{today_date}"}
     })
     
     repairs_completed = await db.checklists.count_documents({
