@@ -81,45 +81,37 @@ function Dashboard() {
   const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0 });
   const [showRepairWarning, setShowRepairWarning] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Initial fetch
+    // Initial fetch - call immediately
+    console.log('Dashboard mounted, fetching data from:', API_BASE_URL);
     fetchRecentChecklists();
     
-    // Auto-refresh every 2 minutes (reduced from 30 seconds for better performance)
+    // Auto-refresh every 2 minutes
     const refreshInterval = setInterval(() => {
       fetchRecentChecklists();
-    }, 120000); // 2 minutes
+    }, 120000);
     
-    // Cleanup interval on component unmount
     return () => clearInterval(refreshInterval);
   }, []);
 
   const fetchRecentChecklists = async () => {
+    console.log('fetchRecentChecklists called');
+    setIsLoading(true);
     try {
-      // Create abort controller for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      // Fetch dashboard stats first (faster with caching)
+      const statsResponse = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
+      console.log('Stats response status:', statsResponse.status);
       
-      // Fetch recent checklists for display
-      const recentResponse = await fetch(`${API_BASE_URL}/api/checklists?limit=5`, {
-        signal: controller.signal
-      });
-      const recentChecklistsData = await recentResponse.json();
-      // Filter out GENERAL REPAIR records from recent display
-      const filteredRecentChecklists = recentChecklistsData.filter(c => c.check_type !== 'GENERAL REPAIR');
-      setRecentChecklists(filteredRecentChecklists);
-      
-      // Fetch optimized dashboard stats from backend - now includes accurate counts!
-      const statsResponse = await fetch(`${API_BASE_URL}/api/dashboard/stats`, {
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
+      if (!statsResponse.ok) {
+        throw new Error(`Stats API error: ${statsResponse.status}`);
+      }
       
       const statsData = await statsResponse.json();
+      console.log('Stats data received:', statsData);
       
-      // Backend now calculates accurate counts from database (no more localStorage confusion!)
       setStats({ 
         total: statsData.total_completed || 0,
         todayByType: statsData.today_by_type || {},
@@ -128,6 +120,21 @@ function Dashboard() {
         nonAcknowledgedRepairs: statsData.new_repairs || 0,
         repairsCompletedLast7Days: statsData.repairs_completed || 0,
         pendingMachineAdditions: statsData.machine_additions_count || 0
+      });
+      
+      // Fetch recent checklists
+      const recentResponse = await fetch(`${API_BASE_URL}/api/checklists?limit=5`);
+      const recentChecklistsData = await recentResponse.json();
+      const filteredRecentChecklists = recentChecklistsData.filter(c => c.check_type !== 'GENERAL REPAIR');
+      setRecentChecklists(filteredRecentChecklists);
+      
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
       });
       
       // Update last refreshed timestamp
