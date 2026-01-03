@@ -205,9 +205,9 @@ function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6 items-stretch">
         {/* 1. New Repairs - First */}
-        <Card className="flex flex-col h-full hover:shadow-lg transition-shadow">
+        <Card className="flex flex-col hover:shadow-lg transition-shadow" style={{minHeight: '180px'}}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">New Repairs</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-600" />
