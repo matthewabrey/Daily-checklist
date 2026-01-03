@@ -185,8 +185,11 @@ async def employee_login(request: EmployeeLoginRequest):
             "active": True
         }, {"_id": 0})
         
+        print(f"[DEBUG] employee_login: Looking up {request.employee_number}")
+        print(f"[DEBUG] employee_login: Found employee: {employee}")
+        
         if employee:
-            return {
+            result = {
                 "success": True,
                 "employee": {
                     "employee_number": employee["employee_number"],
@@ -195,6 +198,8 @@ async def employee_login(request: EmployeeLoginRequest):
                     "admin_control": employee.get("admin_control", None)
                 }
             }
+            print(f"[DEBUG] employee_login: Returning: {result}")
+            return result
         else:
             raise HTTPException(status_code=401, detail="Invalid employee number or account inactive")
     except Exception as e:
