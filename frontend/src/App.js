@@ -84,9 +84,12 @@ function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Use location to trigger refresh on navigation
+  const location = useLocation();
+
   useEffect(() => {
-    // Initial fetch - call immediately
-    console.log('Dashboard mounted, fetching data from:', API_BASE_URL);
+    // Fetch data whenever dashboard is visited
+    console.log('Dashboard visited, fetching data from:', API_BASE_URL);
     fetchRecentChecklists();
     
     // Auto-refresh every 2 minutes
@@ -95,7 +98,7 @@ function Dashboard() {
     }, 120000);
     
     return () => clearInterval(refreshInterval);
-  }, []);
+  }, [location.pathname]); // Re-run when path changes (navigation)
 
   const fetchRecentChecklists = async () => {
     console.log('fetchRecentChecklists called');
