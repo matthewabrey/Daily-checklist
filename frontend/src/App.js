@@ -135,18 +135,6 @@ function Dashboard() {
       setIsLoading(false);
     }
   };
-      });
-      
-      // Update last refreshed timestamp
-      setLastUpdated(new Date());
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        console.error('Request timed out - server may be slow');
-      } else {
-        console.error('Error fetching checklists:', error);
-      }
-    }
-  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
