@@ -98,15 +98,25 @@ function Dashboard() {
 
   const fetchRecentChecklists = async () => {
     try {
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
       // Fetch recent checklists for display
-      const recentResponse = await fetch(`${API_BASE_URL}/api/checklists?limit=5`);
+      const recentResponse = await fetch(`${API_BASE_URL}/api/checklists?limit=5`, {
+        signal: controller.signal
+      });
       const recentChecklistsData = await recentResponse.json();
       // Filter out GENERAL REPAIR records from recent display
       const filteredRecentChecklists = recentChecklistsData.filter(c => c.check_type !== 'GENERAL REPAIR');
       setRecentChecklists(filteredRecentChecklists);
       
       // Fetch optimized dashboard stats from backend - now includes accurate counts!
-      const statsResponse = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
+      const statsResponse = await fetch(`${API_BASE_URL}/api/dashboard/stats`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
       const statsData = await statsResponse.json();
       
       // Backend now calculates accurate counts from database (no more localStorage confusion!)
@@ -123,7 +133,11 @@ function Dashboard() {
       // Update last refreshed timestamp
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Error fetching checklists:', error);
+      if (error.name === 'AbortError') {
+        console.error('Request timed out - server may be slow');
+      } else {
+        console.error('Error fetching checklists:', error);
+      }
     }
   };
 
