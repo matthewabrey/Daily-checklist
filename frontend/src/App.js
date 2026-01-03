@@ -294,7 +294,7 @@ function Dashboard() {
               onClick={() => navigate('/repairs-needed?view=acknowledged')}
               variant="outline"
               size="sm"
-              className="w-full"
+              className="dashboard-card-button w-full"
             >
               View Repairs Due
             </Button>
