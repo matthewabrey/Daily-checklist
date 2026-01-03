@@ -25,10 +25,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# MongoDB setup
+# MongoDB setup with connection pooling and timeouts
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "test_database")
-client = AsyncIOMotorClient(MONGO_URL)
+
+# Configure MongoDB client with performance settings
+client = AsyncIOMotorClient(
+    MONGO_URL,
+    maxPoolSize=10,  # Connection pool size
+    minPoolSize=1,
+    maxIdleTimeMS=30000,  # Close idle connections after 30s
+    serverSelectionTimeoutMS=5000,  # Fail fast if can't connect
+    connectTimeoutMS=10000,  # Connection timeout
+    socketTimeoutMS=30000,  # Socket timeout for queries
+)
 db = client[DB_NAME]
 
 # Collections
