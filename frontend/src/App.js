@@ -205,124 +205,153 @@ function Dashboard() {
       </div>
 
       {/* Stats Cards */}
+      <style>{`
+        .dashboard-stat-card {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+        }
+        .dashboard-stat-card .card-content-wrapper {
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          padding: 0 1.5rem 1.5rem 1.5rem;
+        }
+        .dashboard-stat-card .card-info {
+          flex: 1;
+        }
+        .dashboard-stat-card .card-button {
+          margin-top: auto;
+        }
+      `}</style>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
         {/* 1. New Repairs - First */}
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card className="dashboard-stat-card hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">New Repairs</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.nonAcknowledgedRepairs}</div>
-            <p className="text-xs text-gray-600 mb-4">Need acknowledgment</p>
+          <div className="card-content-wrapper">
+            <div className="card-info">
+              <div className="text-2xl font-bold text-orange-600">{stats.nonAcknowledgedRepairs}</div>
+              <p className="text-xs text-gray-600">Need acknowledgment</p>
+            </div>
             <Button 
               onClick={() => navigate('/repairs-needed?view=new')}
               variant="outline"
               size="sm"
-              className="w-full"
+              className="card-button w-full"
             >
               View New Repairs
             </Button>
-          </CardContent>
+          </div>
         </Card>
 
         {/* 2. New Machines Added - Second */}
-        <Card className="hover:shadow-lg transition-shadow border-blue-200 bg-blue-50">
+        <Card className="dashboard-stat-card hover:shadow-lg transition-shadow border-blue-200 bg-blue-50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-900">New Machines Added</CardTitle>
             <Truck className="h-4 w-4 text-blue-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.pendingMachineAdditions}</div>
-            <p className="text-xs text-blue-700 mb-4">Pending review</p>
+          <div className="card-content-wrapper">
+            <div className="card-info">
+              <div className="text-2xl font-bold text-blue-600">{stats.pendingMachineAdditions}</div>
+              <p className="text-xs text-blue-700">Pending review</p>
+            </div>
             <Button 
               onClick={() => navigate('/machine-additions')}
               variant="outline"
               size="sm"
-              className="w-full border-blue-300 text-blue-700 hover:bg-blue-100"
+              className="card-button w-full border-blue-300 text-blue-700 hover:bg-blue-100"
             >
               View Machine Requests
             </Button>
-          </CardContent>
+          </div>
         </Card>
 
         {/* 3. Repairs Due - Third */}
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card className="dashboard-stat-card hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Due</CardTitle>
             <AlertCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.repairsDue}</div>
-            <p className="text-xs text-gray-600 mb-4">Acknowledged repairs</p>
+          <div className="card-content-wrapper">
+            <div className="card-info">
+              <div className="text-2xl font-bold text-red-600">{stats.repairsDue}</div>
+              <p className="text-xs text-gray-600">Acknowledged repairs</p>
+            </div>
             <Button 
               onClick={() => navigate('/repairs-needed?view=acknowledged')}
               variant="outline"
               size="sm"
-              className="w-full"
+              className="card-button w-full"
             >
               View Repairs Due
             </Button>
-          </CardContent>
+          </div>
         </Card>
 
         {/* 4. Today's Checks - Fourth */}
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card className="dashboard-stat-card hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Today's Checks</CardTitle>
             <Calendar className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.todayTotal}</div>
-            {Object.keys(stats.todayByType).length > 0 ? (
-              <div className="mt-1 space-y-0.5 mb-4">
-                {(() => {
-                  const order = ['Vehicles', 'Mounted machines', 'Other equipment', 'Machine add', 'Repairs completed', 'Workshop service'];
-                  const sortedEntries = Object.entries(stats.todayByType).sort(([typeA], [typeB]) => {
-                    const indexA = order.indexOf(typeA);
-                    const indexB = order.indexOf(typeB);
-                    if (indexA === -1 && indexB === -1) return 0;
-                    if (indexA === -1) return 1;
-                    if (indexB === -1) return -1;
-                    return indexA - indexB;
-                  });
-                  return sortedEntries.map(([type, count]) => (
-                    <p key={type} className="text-xs text-gray-600">{type}: {count}</p>
-                  ));
-                })()}
-              </div>
-            ) : (
-              <p className="text-xs text-gray-600 mb-4">No checks completed today</p>
-            )}
+          <div className="card-content-wrapper">
+            <div className="card-info">
+              <div className="text-2xl font-bold text-green-600">{stats.todayTotal}</div>
+              {Object.keys(stats.todayByType).length > 0 ? (
+                <div className="mt-1 space-y-0.5">
+                  {(() => {
+                    const order = ['Vehicles', 'Mounted machines', 'Other equipment', 'Machine add', 'Repairs completed', 'Workshop service'];
+                    const sortedEntries = Object.entries(stats.todayByType).sort(([typeA], [typeB]) => {
+                      const indexA = order.indexOf(typeA);
+                      const indexB = order.indexOf(typeB);
+                      if (indexA === -1 && indexB === -1) return 0;
+                      if (indexA === -1) return 1;
+                      if (indexB === -1) return -1;
+                      return indexA - indexB;
+                    });
+                    return sortedEntries.map(([type, count]) => (
+                      <p key={type} className="text-xs text-gray-600">{type}: {count}</p>
+                    ));
+                  })()}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-600">No checks completed today</p>
+              )}
+            </div>
             <Button 
               onClick={() => navigate('/all-checks?filter=today')}
               variant="outline"
               size="sm"
-              className="w-full"
+              className="card-button w-full"
             >
               View Today's Checks
             </Button>
-          </CardContent>
+          </div>
         </Card>
         
         {/* 5. Repairs Completed - Fifth */}
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card className="dashboard-stat-card hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Completed</CardTitle>
             <Wrench className="h-4 w-4 text-emerald-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{stats.repairsCompletedLast7Days}</div>
-            <p className="text-xs text-gray-600 mb-4">All time</p>
+          <div className="card-content-wrapper">
+            <div className="card-info">
+              <div className="text-2xl font-bold text-emerald-600">{stats.repairsCompletedLast7Days}</div>
+              <p className="text-xs text-gray-600">All time</p>
+            </div>
             <Button 
               onClick={() => navigate('/repairs-completed')}
               variant="outline"
               size="sm"
-              className="w-full"
+              className="card-button w-full"
             >
               View Completed Repairs
             </Button>
-          </CardContent>
+          </div>
         </Card>
       </div>
     </div>
