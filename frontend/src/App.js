@@ -373,7 +373,7 @@ function Dashboard() {
               onClick={() => navigate('/repairs-completed')}
               variant="outline"
               size="sm"
-              className="w-full"
+              className="dashboard-card-button w-full"
             >
               View Completed Repairs
             </Button>
