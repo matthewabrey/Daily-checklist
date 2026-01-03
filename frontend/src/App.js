@@ -2570,12 +2570,33 @@ function AllChecksCompleted() {
       
       // Use dedicated today endpoint if filtering for today
       if (filterToday && !append) {
-        const response = await fetch(`${API_BASE_URL}/api/checklists/today`);
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/checklists/today`);
+          if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data)) {
+              const regularChecks = data.filter(c => c.check_type !== 'GENERAL REPAIR');
+              setChecklists(regularChecks);
+              setFilteredChecklists(regularChecks);
+              setHasMore(false);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) {
+          console.log('Today endpoint not available, falling back to filter');
+        }
+        
+        // Fallback: fetch all and filter client-side
+        const response = await fetch(`${API_BASE_URL}/api/checklists?limit=100`);
         const data = await response.json();
-        const regularChecks = data.filter(c => c.check_type !== 'GENERAL REPAIR');
-        setChecklists(regularChecks);
-        setFilteredChecklists(regularChecks);
-        setHasMore(false); // Today's checks don't need pagination
+        if (Array.isArray(data)) {
+          const today = new Date().toISOString().split('T')[0];
+          const todayChecks = data.filter(c => c.completed_at && c.completed_at.startsWith(today) && c.check_type !== 'GENERAL REPAIR');
+          setChecklists(todayChecks);
+          setFilteredChecklists(todayChecks);
+        }
+        setHasMore(false);
         setLoading(false);
         return;
       }
@@ -2589,7 +2610,7 @@ function AllChecksCompleted() {
       const data = await response.json();
       
       // Exclude GENERAL REPAIR records
-      const regularChecks = data.filter(c => c.check_type !== 'GENERAL REPAIR');
+      const regularChecks = Array.isArray(data) ? data.filter(c => c.check_type !== 'GENERAL REPAIR') : [];
       
       if (append) {
         setChecklists(prev => [...prev, ...regularChecks]);
