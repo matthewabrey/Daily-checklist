@@ -279,13 +279,13 @@ function Dashboard() {
         {/* 3. Repairs Due - Third */}
         <Card 
           data-testid="repairs-due-card"
-          className="hover:shadow-lg transition-shadow flex flex-col"
+          className="dashboard-card hover:shadow-lg transition-shadow"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Due</CardTitle>
             <AlertCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-between">
+          <CardContent className="dashboard-card-content">
             <div>
               <div className="text-2xl font-bold text-red-600">{stats.repairsDue}</div>
               <p className="text-xs text-gray-600 mb-3">Acknowledged repairs</p>
