@@ -1822,27 +1822,45 @@ class MachineChecklistAPITester:
             return False
 
     def run_all_tests(self):
-        """Run comprehensive API tests"""
-        print("🚀 Starting Machine Checklist API Tests")
+        """Run comprehensive API tests - Focus on Review Request Requirements"""
+        print("🚀 Starting Daily Check and Repairs Management System Tests")
         print(f"📍 Testing endpoint: {self.base_url}")
         print("=" * 60)
+        
+        # CRITICAL TESTS FROM REVIEW REQUEST
+        print("\n🎯 CRITICAL TESTS FROM REVIEW REQUEST")
+        print("-" * 50)
         
         # Test 1: Health check
         if not self.test_health_check():
             print("❌ Health check failed - stopping tests")
             return self.generate_report()
         
-        # SPECIAL REQUEST: Check checklist items for translation keys
-        print("\n🌐 TRANSLATION KEY VERIFICATION REQUEST")
-        print("-" * 50)
-        self.test_checklist_items_for_translation_keys()
+        # Test 2: Admin Authentication (Employee 4444)
+        admin_auth_success, admin_data = self.test_admin_authentication()
         
-        # Test 2: Get staff
+        # Test 3: Dashboard Stats (should return total_completed around 980)
+        dashboard_success = self.test_dashboard_stats()
+        
+        # Test 4: Checklists Data (with limit=10, should return historical records)
+        checklists_success = self.test_checklists_with_limit()
+        
+        # Test 5: Assets Count (should return 219 assets)
+        assets_success = self.test_assets_count()
+        
+        # Test 6: Staff Admin Permissions (verify user 4444 has admin access)
+        staff_admin_success = self.test_staff_admin_permissions()
+        
+        # ADDITIONAL COMPREHENSIVE TESTS
+        print("\n📋 ADDITIONAL COMPREHENSIVE TESTS")
+        print("-" * 40)
+        
+        # Test 7: Get staff (full test)
         staff_success, staff_data = self.test_get_staff()
         if not staff_success:
             print("❌ Staff endpoint failed")
         
-        # Test 3: Get makes
+        # Test 8: Get makes
         makes_success, makes_data = self.test_get_makes()
         if not makes_success:
             print("❌ Makes endpoint failed")
