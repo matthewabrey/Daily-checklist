@@ -324,30 +324,7 @@ function Dashboard() {
           </CardContent>
         </Card>
         
-        {/* 5. Total Checks - Fifth */}
-        <Card 
-          data-testid="total-checklists-card"
-          className="hover:shadow-lg transition-shadow"
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Checks Completed</CardTitle>
-            <ClipboardList className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.total}</div>
-            <p className="text-xs text-gray-600 mb-2">All time</p>
-            <Button 
-              onClick={() => navigate('/all-checks')}
-              variant="outline"
-              size="sm"
-              className="w-full"
-            >
-              View All Checks
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* 6. Repairs Completed - Last */}
+        {/* 5. Repairs Completed - Fifth */}
         <Card 
           data-testid="repairs-completed-card"
           className="hover:shadow-lg transition-shadow"
