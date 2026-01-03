@@ -225,8 +225,31 @@ function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
-        {/* 1. New Repairs - First */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+        {/* 0. Total Checks Completed - First */}
+        <Card className="hover:shadow-lg transition-shadow border-purple-200 bg-purple-50" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-purple-900">Total Checks</CardTitle>
+            <ClipboardList className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
+            <div style={{flex: 1}}>
+              <div className="text-2xl font-bold text-purple-600">{stats.total}</div>
+              <p className="text-xs text-purple-700">All time completed</p>
+            </div>
+            <Button 
+              onClick={() => navigate('/all-checks')}
+              variant="outline"
+              size="sm"
+              className="w-full border-purple-300 text-purple-700 hover:bg-purple-100"
+              style={{marginTop: 'auto'}}
+            >
+              View All Checks
+            </Button>
+          </div>
+        </Card>
+
+        {/* 1. New Repairs - Second */}
         <Card className="hover:shadow-lg transition-shadow" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">New Repairs</CardTitle>
