@@ -273,6 +273,23 @@ async def activate_employee(employee_number: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to activate employee: {str(e)}")
 
+@app.post("/api/admin/grant-admin/{employee_number}")
+async def grant_admin_access(employee_number: str):
+    """Grant admin and workshop control to an employee"""
+    try:
+        # Update ALL documents with this employee number
+        result = await db.staff.update_many(
+            {"employee_number": employee_number},
+            {"$set": {"admin_control": "yes", "workshop_control": "yes"}}
+        )
+        
+        if result.modified_count > 0:
+            return {"message": f"Admin access granted to {employee_number}", "modified": result.modified_count}
+        else:
+            raise HTTPException(status_code=404, detail="Employee not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to grant admin access: {str(e)}")
+
 @app.get("/api/admin/employee-activity")
 async def get_employee_activity():
     """Get employee usage statistics"""
