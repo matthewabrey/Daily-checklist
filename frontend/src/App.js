@@ -205,24 +205,21 @@ function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-6 items-stretch">
-        {/* Dashboard Cards - All Equal Height */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+        {/* Dashboard Cards - Force Equal Heights */}
         <style>{`
-          .dashboard-card {
+          [data-testid$="-card"] {
             display: flex !important;
             flex-direction: column !important;
-            height: 100% !important;
+            min-height: 220px !important;
           }
-          .dashboard-card-content {
+          [data-testid$="-card"] > div:nth-child(2) {
             display: flex !important;
             flex-direction: column !important;
-            justify-content: space-between !important;
             flex-grow: 1 !important;
+            padding-bottom: 1rem !important;
           }
-          .dashboard-card-body {
-            flex-grow: 1 !important;
-          }
-          .dashboard-card-button {
+          [data-testid$="-card"] button[data-button="dashboard-action"] {
             margin-top: auto !important;
           }
         `}</style>
