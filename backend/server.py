@@ -353,7 +353,7 @@ async def get_checktype_by_make_and_name(make: str, name: str):
 
 @app.get("/api/assets", response_model=List[Asset])
 async def get_all_assets():
-    assets = await db.assets.find({}, {"_id": 0}).to_list(length=None)
+    assets = await db.assets.find({}, {"_id": 0}).to_list(length=1000)  # Max 1000 assets
     return assets
 
 @app.post("/api/checklists", response_model=ChecklistResponse)
