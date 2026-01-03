@@ -248,7 +248,22 @@ async def cleanup_duplicate_staff():
 # API Routes
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy"}
+    """Health check with database connectivity test"""
+    try:
+        # Quick database ping
+        await db.command("ping")
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "disconnected",
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
 
 class EmployeeLoginRequest(BaseModel):
     employee_number: str
