@@ -326,7 +326,7 @@ async def get_employee_activity():
 
 @app.get("/api/staff", response_model=List[Staff])
 async def get_staff():
-    staff_list = await db.staff.find({}, {"_id": 0}).to_list(length=None)
+    staff_list = await db.staff.find({}, {"_id": 0}).to_list(length=1000)  # Max 1000 staff
     return staff_list
 
 @app.get("/api/assets/makes", response_model=List[str])
