@@ -244,7 +244,7 @@ function Dashboard() {
               onClick={() => navigate('/repairs-needed?view=new')}
               variant="outline"
               size="sm"
-              className="w-full"
+              className="dashboard-card-button w-full"
             >
               View New Repairs
             </Button>
