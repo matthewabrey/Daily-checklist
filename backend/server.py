@@ -1168,7 +1168,8 @@ async def export_checklists_csv():
     import io
     import csv
     
-    checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).to_list(length=None)
+    # Limit export to last 10000 records for performance
+    checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).limit(10000).to_list(length=10000)
     
     output = io.StringIO()
     writer = csv.writer(output)
