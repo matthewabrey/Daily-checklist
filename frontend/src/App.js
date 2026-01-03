@@ -1626,17 +1626,6 @@ function NewChecklist() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Mandatory photo notice */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center space-x-2">
-                      <Camera className="h-5 w-5 text-blue-600" />
-                      <h4 className="font-semibold text-blue-900">Photo Required for Each Item</h4>
-                    </div>
-                    <p className="text-sm text-blue-700 mt-2">
-                      📸 You must take at least one photo for every checklist item before you can submit. This provides visual documentation of the equipment condition.
-                    </p>
-                  </div>
-                  
                   <h3 className="text-lg font-semibold">Grader Start Up Safety Checklist</h3>
                   <p className="text-sm text-gray-600">Complete all safety checks before operating grader. Mark each item as satisfactory (✓) or unsatisfactory (✗).</p>
                   {checklistItems.map((item, index) => (
