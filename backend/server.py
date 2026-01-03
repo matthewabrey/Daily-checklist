@@ -493,6 +493,27 @@ async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None
         print(f"Error in get_checklists: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/checklists/today")
+async def get_todays_checklists():
+    """Get today's checklists - fast dedicated endpoint"""
+    today = datetime.now(timezone.utc).date().isoformat()
+    
+    # Use regex to match today's date regardless of time format
+    checklists = await db.checklists.find(
+        {"completed_at": {"$regex": f"^{today}"}},
+        {"_id": 0}
+    ).sort("completed_at", -1).to_list(length=100)
+    
+    # Parse datetime strings
+    for checklist in checklists:
+        if checklist.get('completed_at') and isinstance(checklist['completed_at'], str):
+            try:
+                checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'].replace('Z', '+00:00'))
+            except:
+                pass
+    
+    return checklists
+
 @app.get("/api/checklists/{checklist_id}", response_model=ChecklistResponse)
 async def get_checklist(checklist_id: str):
     checklist = await db.checklists.find_one({"id": checklist_id}, {"_id": 0})
