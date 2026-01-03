@@ -183,7 +183,7 @@ async def migrate_existing_checklists():
     """Add check_type field to existing checklists that don't have it"""
     try:
         # Find checklists without check_type field
-        checklists_to_update = await db.checklists.find({"check_type": {"$exists": False}}).to_list(length=None)
+        checklists_to_update = await db.checklists.find({"check_type": {"$exists": False}}).to_list(length=5000)
         
         if checklists_to_update:
             print(f"Migrating {len(checklists_to_update)} existing checklists...")
@@ -208,6 +208,42 @@ async def migrate_existing_checklists():
             print(f"Successfully migrated {len(checklists_to_update)} checklists")
     except Exception as e:
         print(f"Migration error: {e}")
+
+async def cleanup_duplicate_staff():
+    """Remove duplicate staff entries, keeping the one with most permissions"""
+    try:
+        # Find all employee numbers with duplicates
+        pipeline = [
+            {"$group": {"_id": "$employee_number", "count": {"$sum": 1}, "ids": {"$push": "$id"}}},
+            {"$match": {"count": {"$gt": 1}}}
+        ]
+        duplicates = await db.staff.aggregate(pipeline).to_list(length=100)
+        
+        for dup in duplicates:
+            emp_num = dup["_id"]
+            if not emp_num:
+                continue
+                
+            # Get all records for this employee
+            records = await db.staff.find({"employee_number": emp_num}).to_list(length=100)
+            
+            # Keep the one with admin_control='yes' or workshop_control='yes', or the first one
+            best_record = None
+            for r in records:
+                if r.get("admin_control") == "yes" or r.get("workshop_control") == "yes":
+                    best_record = r
+                    break
+            if not best_record:
+                best_record = records[0]
+            
+            # Delete all except the best one
+            for r in records:
+                if r["_id"] != best_record["_id"]:
+                    await db.staff.delete_one({"_id": r["_id"]})
+            
+            print(f"Cleaned up duplicates for employee {emp_num}")
+    except Exception as e:
+        print(f"Duplicate cleanup error: {e}")
 
 # API Routes
 @app.get("/api/health")
