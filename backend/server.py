@@ -1222,7 +1222,8 @@ async def export_checklists_excel():
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
     
-    checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).to_list(length=None)
+    # Limit export to last 10000 records for performance
+    checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).limit(10000).to_list(length=10000)
     
     # Create workbook and worksheet
     wb = Workbook()
