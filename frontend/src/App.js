@@ -229,7 +229,7 @@ function Dashboard() {
         </Card>
 
         {/* 2. New Machines Added - Second */}
-        <Card className="flex flex-col h-full hover:shadow-lg transition-shadow border-blue-200 bg-blue-50">
+        <Card className="flex flex-col hover:shadow-lg transition-shadow border-blue-200 bg-blue-50" style={{minHeight: '180px'}}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-900">New Machines Added</CardTitle>
             <Truck className="h-4 w-4 text-blue-600" />
@@ -251,7 +251,7 @@ function Dashboard() {
         </Card>
 
         {/* 3. Repairs Due - Third */}
-        <Card className="flex flex-col h-full hover:shadow-lg transition-shadow">
+        <Card className="flex flex-col hover:shadow-lg transition-shadow" style={{minHeight: '180px'}}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Due</CardTitle>
             <AlertCircle className="h-4 w-4 text-red-600" />
@@ -273,7 +273,7 @@ function Dashboard() {
         </Card>
 
         {/* 4. Today's Checks - Fourth */}
-        <Card className="flex flex-col h-full hover:shadow-lg transition-shadow">
+        <Card className="flex flex-col hover:shadow-lg transition-shadow" style={{minHeight: '180px'}}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Today's Checks</CardTitle>
             <Calendar className="h-4 w-4 text-green-600" />
@@ -324,7 +324,7 @@ function Dashboard() {
         </Card>
         
         {/* 5. Repairs Completed - Fifth */}
-        <Card className="flex flex-col h-full hover:shadow-lg transition-shadow">
+        <Card className="flex flex-col hover:shadow-lg transition-shadow" style={{minHeight: '180px'}}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Completed</CardTitle>
             <Wrench className="h-4 w-4 text-emerald-600" />
