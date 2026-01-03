@@ -463,35 +463,35 @@ async def get_dashboard_stats():
     return await get_cached_stats(db)
 
 @app.get("/api/checklists", response_model=List[ChecklistResponse])
-async def get_checklists(limit: int = None, skip: int = 0, check_type: str = None):
+async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None):
+    """Get checklists with pagination - optimized for speed"""
     # Build query filter
     query = {}
     if check_type:
-        # Support multiple check types separated by comma
         if ',' in check_type:
             check_types = [ct.strip() for ct in check_type.split(',')]
             query["check_type"] = {"$in": check_types}
         else:
             query["check_type"] = check_type
     
-    # Always enforce a maximum limit for safety (prevent memory exhaustion)
-    max_limit = 10000
-    if limit is None or limit == 0:
-        limit = max_limit
-    else:
-        limit = min(limit, max_limit)
+    # Enforce reasonable limits
+    limit = min(limit, 500)  # Max 500 at a time
     
-    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
-    
-    print(f"[DEBUG] get_checklists: Found {len(checklists)} checklists from DB (filter: {query})")
-    
-    # Parse datetime strings back to datetime objects
-    for checklist in checklists:
-        if isinstance(checklist['completed_at'], str):
-            checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'])
-    
-    print(f"[DEBUG] get_checklists: Returning {len(checklists)} checklists after datetime parsing")
-    return checklists
+    try:
+        checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
+        
+        # Parse datetime strings - simplified
+        for checklist in checklists:
+            if checklist.get('completed_at') and isinstance(checklist['completed_at'], str):
+                try:
+                    checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'].replace('Z', '+00:00'))
+                except:
+                    pass  # Keep as string if parsing fails
+        
+        return checklists
+    except Exception as e:
+        print(f"Error in get_checklists: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/checklists/{checklist_id}", response_model=ChecklistResponse)
 async def get_checklist(checklist_id: str):
