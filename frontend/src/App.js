@@ -1490,13 +1490,18 @@ function NewChecklist() {
                                   ✓ {item.photos.length} photo{item.photos.length > 1 ? 's' : ''}
                                 </span>
                               )}
+                              {item.photo_required && (
+                                <span className="text-xs text-orange-600 font-medium">
+                                  📸 Required
+                                </span>
+                              )}
                             </div>
                             
                             {/* Photo required warning */}
-                            {(!item.photos || item.photos.length === 0) && (
-                              <div className="text-xs text-red-600 font-medium bg-red-50 p-2 rounded flex items-center">
+                            {item.photo_required && (!item.photos || item.photos.length === 0) && (
+                              <div className="text-xs text-orange-600 font-medium bg-orange-50 p-2 rounded flex items-center">
                                 <Camera className="h-3 w-3 mr-1" />
-                                📸 Photo required for this item
+                                Photo required for this item
                               </div>
                             )}
                             
