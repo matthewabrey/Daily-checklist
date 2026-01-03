@@ -176,7 +176,7 @@ function Dashboard() {
             <span className="text-gray-300">•</span>
             <p className="text-xs text-gray-400">
               <RefreshCw className="h-3 w-3 inline mr-1" />
-              Auto-updates every 30s
+              Auto-updates every 2min
             </p>
             <span className="text-gray-300">•</span>
             <p className="text-xs text-gray-400">
