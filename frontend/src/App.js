@@ -358,13 +358,13 @@ function Dashboard() {
         {/* 5. Repairs Completed - Fifth */}
         <Card 
           data-testid="repairs-completed-card"
-          className="hover:shadow-lg transition-shadow flex flex-col"
+          className="dashboard-card hover:shadow-lg transition-shadow"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Completed</CardTitle>
             <Wrench className="h-4 w-4 text-emerald-600" />
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-between">
+          <CardContent className="dashboard-card-content">
             <div>
               <div className="text-2xl font-bold text-emerald-600">{stats.repairsCompletedLast7Days}</div>
               <p className="text-xs text-gray-600 mb-3">All time</p>
