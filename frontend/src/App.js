@@ -2609,7 +2609,10 @@ function AllChecksCompleted() {
     // Filter for today's checks if specified
     if (filterToday) {
       const today = new Date().toISOString().split('T')[0];
-      filtered = filtered.filter(c => c.completed_at.startsWith(today));
+      console.log('Filtering for today:', today);
+      console.log('Checklists before filter:', checklists.length);
+      filtered = filtered.filter(c => c.completed_at && c.completed_at.startsWith(today));
+      console.log('Checklists after filter:', filtered.length);
     }
     
     if (selectedMake) {
