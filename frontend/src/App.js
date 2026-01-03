@@ -403,25 +403,6 @@ function EmployeeLogin() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          {/* Language Selector */}
-          <div className="flex justify-center mb-4">
-            <Select value={language} onValueChange={changeLanguage}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder={t('selectLanguage')} />
-              </SelectTrigger>
-              <SelectContent>
-                {languages.map((lang) => (
-                  <SelectItem key={lang.code} value={lang.code}>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xl">{lang.flag}</span>
-                      <span>{lang.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
           <div className="flex items-center justify-center mb-4">
             <div className="p-3 bg-green-100 rounded-full">
               <ClipboardList className="h-8 w-8 text-green-600" />
