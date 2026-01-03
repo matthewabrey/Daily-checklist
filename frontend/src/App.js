@@ -254,13 +254,13 @@ function Dashboard() {
         {/* 2. New Machines Added - Second */}
         <Card 
           data-testid="machine-additions-card"
-          className="hover:shadow-lg transition-shadow border-blue-200 bg-blue-50 flex flex-col"
+          className="dashboard-card hover:shadow-lg transition-shadow border-blue-200 bg-blue-50"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-900">New Machines Added</CardTitle>
             <Truck className="h-4 w-4 text-blue-600" />
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-between">
+          <CardContent className="dashboard-card-content">
             <div>
               <div className="text-2xl font-bold text-blue-600">{stats.pendingMachineAdditions}</div>
               <p className="text-xs text-blue-700 mb-3">Pending review</p>
