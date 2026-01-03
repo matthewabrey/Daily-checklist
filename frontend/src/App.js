@@ -209,15 +209,17 @@ function Dashboard() {
         {/* 1. New Repairs - First */}
         <Card 
           data-testid="non-acknowledged-repairs-card"
-          className="hover:shadow-lg transition-shadow"
+          className="hover:shadow-lg transition-shadow flex flex-col"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">New Repairs</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.nonAcknowledgedRepairs}</div>
-            <p className="text-xs text-gray-600 mb-2">Need acknowledgment</p>
+          <CardContent className="flex-1 flex flex-col justify-between">
+            <div>
+              <div className="text-2xl font-bold text-orange-600">{stats.nonAcknowledgedRepairs}</div>
+              <p className="text-xs text-gray-600 mb-3">Need acknowledgment</p>
+            </div>
             <Button 
               onClick={() => navigate('/repairs-needed?view=new')}
               variant="outline"
@@ -232,15 +234,17 @@ function Dashboard() {
         {/* 2. New Machines Added - Second */}
         <Card 
           data-testid="machine-additions-card"
-          className="hover:shadow-lg transition-shadow border-blue-200 bg-blue-50"
+          className="hover:shadow-lg transition-shadow border-blue-200 bg-blue-50 flex flex-col"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-900">New Machines Added</CardTitle>
             <Truck className="h-4 w-4 text-blue-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.pendingMachineAdditions}</div>
-            <p className="text-xs text-blue-700 mb-2">Pending review</p>
+          <CardContent className="flex-1 flex flex-col justify-between">
+            <div>
+              <div className="text-2xl font-bold text-blue-600">{stats.pendingMachineAdditions}</div>
+              <p className="text-xs text-blue-700 mb-3">Pending review</p>
+            </div>
             <Button 
               onClick={() => navigate('/machine-additions')}
               variant="outline"
@@ -255,15 +259,17 @@ function Dashboard() {
         {/* 3. Repairs Due - Third */}
         <Card 
           data-testid="repairs-due-card"
-          className="hover:shadow-lg transition-shadow"
+          className="hover:shadow-lg transition-shadow flex flex-col"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Due</CardTitle>
             <AlertCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.repairsDue}</div>
-            <p className="text-xs text-gray-600 mb-2">Acknowledged repairs</p>
+          <CardContent className="flex-1 flex flex-col justify-between">
+            <div>
+              <div className="text-2xl font-bold text-red-600">{stats.repairsDue}</div>
+              <p className="text-xs text-gray-600 mb-3">Acknowledged repairs</p>
+            </div>
             <Button 
               onClick={() => navigate('/repairs-needed?view=acknowledged')}
               variant="outline"
@@ -276,48 +282,53 @@ function Dashboard() {
         </Card>
 
         {/* 4. Today's Checks - Fourth */}
-        <Card data-testid="today-checklists-card">
+        <Card 
+          data-testid="today-checklists-card"
+          className="hover:shadow-lg transition-shadow flex flex-col"
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Today's Checks</CardTitle>
             <Calendar className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.todayTotal}</div>
-            {Object.keys(stats.todayByType).length > 0 && (
-              <div className="mt-2 space-y-1">
-                {(() => {
-                  // Define the desired order
-                  const order = ['Vehicles', 'Mounted machines', 'Other equipment', 'Machine add', 'Repairs completed', 'Workshop service'];
-                  
-                  // Sort entries based on the defined order
-                  const sortedEntries = Object.entries(stats.todayByType).sort(([typeA], [typeB]) => {
-                    const indexA = order.indexOf(typeA);
-                    const indexB = order.indexOf(typeB);
+          <CardContent className="flex-1 flex flex-col justify-between">
+            <div>
+              <div className="text-2xl font-bold text-green-600">{stats.todayTotal}</div>
+              {Object.keys(stats.todayByType).length > 0 && (
+                <div className="mt-2 space-y-1 mb-3">
+                  {(() => {
+                    // Define the desired order
+                    const order = ['Vehicles', 'Mounted machines', 'Other equipment', 'Machine add', 'Repairs completed', 'Workshop service'];
                     
-                    // If type not in order array, put at end
-                    if (indexA === -1 && indexB === -1) return 0;
-                    if (indexA === -1) return 1;
-                    if (indexB === -1) return -1;
+                    // Sort entries based on the defined order
+                    const sortedEntries = Object.entries(stats.todayByType).sort(([typeA], [typeB]) => {
+                      const indexA = order.indexOf(typeA);
+                      const indexB = order.indexOf(typeB);
+                      
+                      // If type not in order array, put at end
+                      if (indexA === -1 && indexB === -1) return 0;
+                      if (indexA === -1) return 1;
+                      if (indexB === -1) return -1;
+                      
+                      return indexA - indexB;
+                    });
                     
-                    return indexA - indexB;
-                  });
-                  
-                  return sortedEntries.map(([type, count]) => (
-                    <p key={type} className="text-xs text-gray-600">
-                      {type}: {count}
-                    </p>
-                  ));
-                })()}
-              </div>
-            )}
-            {Object.keys(stats.todayByType).length === 0 && (
-              <p className="text-xs text-gray-600 mb-2">No checks completed today</p>
-            )}
+                    return sortedEntries.map(([type, count]) => (
+                      <p key={type} className="text-xs text-gray-600">
+                        {type}: {count}
+                      </p>
+                    ));
+                  })()}
+                </div>
+              )}
+              {Object.keys(stats.todayByType).length === 0 && (
+                <p className="text-xs text-gray-600 mb-3">No checks completed today</p>
+              )}
+            </div>
             <Button 
               onClick={() => navigate('/all-checks?filter=today')}
               variant="outline"
               size="sm"
-              className="w-full mt-2"
+              className="w-full"
             >
               View Today's Checks
             </Button>
@@ -327,15 +338,17 @@ function Dashboard() {
         {/* 5. Repairs Completed - Fifth */}
         <Card 
           data-testid="repairs-completed-card"
-          className="hover:shadow-lg transition-shadow"
+          className="hover:shadow-lg transition-shadow flex flex-col"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Repairs Completed</CardTitle>
             <Wrench className="h-4 w-4 text-emerald-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{stats.repairsCompletedLast7Days}</div>
-            <p className="text-xs text-gray-600 mb-2">All time</p>
+          <CardContent className="flex-1 flex flex-col justify-between">
+            <div>
+              <div className="text-2xl font-bold text-emerald-600">{stats.repairsCompletedLast7Days}</div>
+              <p className="text-xs text-gray-600 mb-3">All time</p>
+            </div>
             <Button 
               onClick={() => navigate('/repairs-completed')}
               variant="outline"
