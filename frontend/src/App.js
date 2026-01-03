@@ -2568,10 +2568,17 @@ function AllChecksCompleted() {
     try {
       setLoading(true);
       
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       // Use dedicated today endpoint if filtering for today
       if (filterToday && !append) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/checklists/today`);
+          const response = await fetch(`${API_BASE_URL}/api/checklists/today`, {
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
           if (response.ok) {
             const data = await response.json();
             if (Array.isArray(data)) {
@@ -2584,17 +2591,29 @@ function AllChecksCompleted() {
             }
           }
         } catch (e) {
-          console.log('Today endpoint not available, falling back to filter');
+          clearTimeout(timeoutId);
+          console.log('Today endpoint failed, trying fallback:', e.message);
         }
         
-        // Fallback: fetch all and filter client-side
-        const response = await fetch(`${API_BASE_URL}/api/checklists?limit=100`);
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          const today = new Date().toISOString().split('T')[0];
-          const todayChecks = data.filter(c => c.completed_at && c.completed_at.startsWith(today) && c.check_type !== 'GENERAL REPAIR');
-          setChecklists(todayChecks);
-          setFilteredChecklists(todayChecks);
+        // Fallback: fetch recent 50 and filter client-side (smaller = faster)
+        try {
+          const controller2 = new AbortController();
+          const timeoutId2 = setTimeout(() => controller2.abort(), 10000);
+          const response = await fetch(`${API_BASE_URL}/api/checklists?limit=50`, {
+            signal: controller2.signal
+          });
+          clearTimeout(timeoutId2);
+          const data = await response.json();
+          if (Array.isArray(data)) {
+            const today = new Date().toISOString().split('T')[0];
+            const todayChecks = data.filter(c => c.completed_at && c.completed_at.startsWith(today) && c.check_type !== 'GENERAL REPAIR');
+            setChecklists(todayChecks);
+            setFilteredChecklists(todayChecks);
+          }
+        } catch (e) {
+          console.error('Checklists API timeout:', e.message);
+          setChecklists([]);
+          setFilteredChecklists([]);
         }
         setHasMore(false);
         setLoading(false);
@@ -2606,7 +2625,10 @@ function AllChecksCompleted() {
       }
       
       const skip = append ? checklists.length : 0;
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}`);
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
       const data = await response.json();
       
       // Exclude GENERAL REPAIR records
