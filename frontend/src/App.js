@@ -1797,10 +1797,62 @@ function SharePointAdminComponent() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
-            <p className="text-gray-600 mt-2">Upload Excel files to update staff, machines, and checklists</p>
+            <p className="text-gray-600 mt-2">Upload Excel files and view historical data</p>
           </div>
         </div>
       </div>
+
+      {/* Historical Data Section */}
+      <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <FileText className="h-5 w-5 text-green-600" />
+            <span>Historical Data & Reports</span>
+          </CardTitle>
+          <CardDescription>
+            Access complete historical records for review and reporting
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="border-green-200 hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">All Checks Completed</h3>
+                    <p className="text-sm text-gray-600">Complete historical record</p>
+                  </div>
+                  <ClipboardList className="h-8 w-8 text-green-600" />
+                </div>
+                <Button 
+                  onClick={() => navigate('/all-checks')}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
+                  View All Checks
+                </Button>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-blue-200 hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">Full Records History</h3>
+                    <p className="text-sm text-gray-600">Detailed records with filters</p>
+                  </div>
+                  <FileText className="h-8 w-8 text-blue-600" />
+                </div>
+                <Button 
+                  onClick={() => navigate('/records')}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  View All Records
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Staff Upload */}
       <Card data-testid="staff-upload-card">
