@@ -348,7 +348,7 @@ function Dashboard() {
               onClick={() => navigate('/all-checks?filter=today')}
               variant="outline"
               size="sm"
-              className="w-full"
+              className="dashboard-card-button w-full"
             >
               View Today's Checks
             </Button>
