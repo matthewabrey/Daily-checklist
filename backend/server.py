@@ -383,10 +383,11 @@ async def get_dashboard_stats():
         "check_type": {"$in": ["daily_check", "grader_startup", "workshop_service"]}
     })
     
-    # Today's checks by type - limited to today only (small result set)
-    today_str = today.date().isoformat()
+    # Today's checks by type - use date range for better performance (indexes work better)
+    today_start = today.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    today_end = today.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
     today_checklists = await db.checklists.find({
-        "completed_at": {"$regex": f"^{today_str}"},
+        "completed_at": {"$gte": today_start, "$lte": today_end},
         "check_type": {"$nin": ["GENERAL REPAIR"]}
     }, {"_id": 0, "check_type": 1, "machine_make": 1}).to_list(length=100)  # Max 100 per day
     
