@@ -9,6 +9,7 @@ import uuid
 from bson import ObjectId
 from dotenv import load_dotenv
 from sharepoint_integration import sharepoint_integration
+from cached_stats import get_cached_stats, invalidate_cache
 
 # Load environment variables
 load_dotenv()
