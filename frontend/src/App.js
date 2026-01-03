@@ -138,6 +138,14 @@ function Dashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="flex items-center justify-center p-4 bg-blue-50 rounded-lg">
+          <RefreshCw className="h-5 w-5 animate-spin text-blue-600 mr-2" />
+          <span className="text-blue-700">Loading dashboard data...</span>
+        </div>
+      )}
+      
       {/* General Repair Warning Modal */}
       {showRepairWarning && (
         <div 
