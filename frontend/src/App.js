@@ -92,7 +92,7 @@ function Dashboard() {
     console.log('Dashboard visited, fetching data from:', API_BASE_URL);
     fetchRecentChecklists();
     
-    // Auto-refresh every 2 minutes
+    // Auto-refresh every 10 seconds
     const refreshInterval = setInterval(() => {
       fetchRecentChecklists();
     }, 120000);
