@@ -206,6 +206,22 @@ function Dashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-6">
+        {/* Dashboard Cards with Fixed Height Layout */}
+        <style>{`
+          [data-testid$="-card"] {
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          [data-testid$="-card"] > div:last-child {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            flex-grow: 1 !important;
+          }
+          [data-testid$="-card"] button {
+            margin-top: 12px !important;
+          }
+        `}</style>
         {/* 1. New Repairs - First */}
         <Card 
           data-testid="non-acknowledged-repairs-card"
