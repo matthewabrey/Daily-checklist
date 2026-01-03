@@ -2555,14 +2555,28 @@ function AllChecksCompleted() {
 
   useEffect(() => {
     fetchChecklists();
-  }, []);
+  }, [filterToday]); // Re-fetch when filter changes
 
   useEffect(() => {
     filterChecklists();
-  }, [selectedMake, selectedModel, checklists, filterToday]);
+  }, [selectedMake, selectedModel, checklists]);
 
   const fetchChecklists = async (append = false) => {
     try {
+      setLoading(true);
+      
+      // Use dedicated today endpoint if filtering for today
+      if (filterToday && !append) {
+        const response = await fetch(`${API_BASE_URL}/api/checklists/today`);
+        const data = await response.json();
+        const regularChecks = data.filter(c => c.check_type !== 'GENERAL REPAIR');
+        setChecklists(regularChecks);
+        setFilteredChecklists(regularChecks);
+        setHasMore(false); // Today's checks don't need pagination
+        setLoading(false);
+        return;
+      }
+      
       if (append) {
         setLoadingMore(true);
       }
