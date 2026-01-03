@@ -504,11 +504,14 @@ async def get_checklists(limit: int = None, skip: int = 0, check_type: str = Non
         else:
             query["check_type"] = check_type
     
-    # If limit is None or 0, fetch all records
+    # Always enforce a maximum limit for safety (prevent memory exhaustion)
+    max_limit = 10000
     if limit is None or limit == 0:
-        checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).to_list(length=None)
+        limit = max_limit
     else:
-        checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=None)
+        limit = min(limit, max_limit)
+    
+    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
     
     print(f"[DEBUG] get_checklists: Found {len(checklists)} checklists from DB (filter: {query})")
     
