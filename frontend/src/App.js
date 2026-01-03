@@ -269,7 +269,7 @@ function Dashboard() {
               onClick={() => navigate('/machine-additions')}
               variant="outline"
               size="sm"
-              className="w-full border-blue-300 text-blue-700 hover:bg-blue-100"
+              className="dashboard-card-button w-full border-blue-300 text-blue-700 hover:bg-blue-100"
             >
               View Machine Requests
             </Button>
