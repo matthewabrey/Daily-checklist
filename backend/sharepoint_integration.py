@@ -424,6 +424,7 @@ class SharePointExcelIntegration:
             item_col = None
             category_col = None
             critical_col = None
+            photo_required_col = None
             
             for i, header in enumerate(headers):
                 if 'item' in header or 'task' in header:
@@ -432,6 +433,8 @@ class SharePointExcelIntegration:
                     category_col = i
                 elif 'critical' in header or 'common' in header:
                     critical_col = i
+                elif 'photo' in header and ('required' in header or 'compulsory' in header or 'mandatory' in header):
+                    photo_required_col = i
             
             if item_col is None:
                 raise Exception("Could not find Item/Task column in checklist file")
@@ -443,12 +446,14 @@ class SharePointExcelIntegration:
                     item_text = str(row[item_col]).strip()
                     category = str(row[category_col]).strip() if category_col is not None and len(row) > category_col and row[category_col] else 'General'
                     is_critical = str(row[critical_col]).strip().lower() in ['yes', 'true', '1'] if critical_col is not None and len(row) > critical_col and row[critical_col] else False
+                    photo_required = str(row[photo_required_col]).strip().lower() in ['yes', 'true', '1', 'y'] if photo_required_col is not None and len(row) > photo_required_col and row[photo_required_col] else False
                     
                     if item_text:
                         items.append({
                             'item': item_text,
                             'category': category,
-                            'critical': is_critical
+                            'critical': is_critical,
+                            'photo_required': photo_required
                         })
             
             logger.info(f"Retrieved {len(items)} checklist items for {checklist_type} from SharePoint")
