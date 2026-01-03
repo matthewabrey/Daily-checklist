@@ -205,21 +205,25 @@ function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-6">
-        {/* Dashboard Cards with Fixed Height Layout */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-6 items-stretch">
+        {/* Dashboard Cards - All Equal Height */}
         <style>{`
-          [data-testid$="-card"] {
+          .dashboard-card {
             display: flex !important;
             flex-direction: column !important;
+            height: 100% !important;
           }
-          [data-testid$="-card"] > div:last-child {
+          .dashboard-card-content {
             display: flex !important;
             flex-direction: column !important;
             justify-content: space-between !important;
             flex-grow: 1 !important;
           }
-          [data-testid$="-card"] button {
-            margin-top: 12px !important;
+          .dashboard-card-body {
+            flex-grow: 1 !important;
+          }
+          .dashboard-card-button {
+            margin-top: auto !important;
           }
         `}</style>
         {/* 1. New Repairs - First */}
