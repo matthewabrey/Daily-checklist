@@ -370,18 +370,21 @@ async def get_dashboard_stats():
     seven_days_ago = today - timedelta(days=7)
     seven_days_ago_str = seven_days_ago.isoformat()
     
+    # Use 90 days for repair tracking to limit data loaded
+    ninety_days_ago = today - timedelta(days=90)
+    ninety_days_ago_str = ninety_days_ago.isoformat()
+    
     # Total checks completed - ALL TIME (only actual equipment checks, not repairs or machine additions)
-    # Note: If performance becomes an issue, can filter by last 7 days: "completed_at": {"$gte": seven_days_ago_str}
     total_completed = await db.checklists.count_documents({
         "check_type": {"$in": ["daily_check", "grader_startup", "workshop_service"]}
     })
     
-    # Today's checks by type
-    today_str = today.date().isoformat()  # Use just the date part (YYYY-MM-DD)
+    # Today's checks by type - limited to today only (small result set)
+    today_str = today.date().isoformat()
     today_checklists = await db.checklists.find({
-        "completed_at": {"$regex": f"^{today_str}"},  # Match date prefix
+        "completed_at": {"$regex": f"^{today_str}"},
         "check_type": {"$nin": ["GENERAL REPAIR"]}
-    }, {"_id": 0, "check_type": 1, "machine_make": 1}).to_list(length=None)
+    }, {"_id": 0, "check_type": 1, "machine_make": 1}).to_list(length=100)  # Max 100 per day
     
     # Group today's checks by type
     today_by_type = {}
@@ -407,23 +410,25 @@ async def get_dashboard_stats():
         
         today_by_type[type_name] = today_by_type.get(type_name, 0) + 1
     
-    # Get repair IDs and their status from database
+    # Get repair IDs and their status from database - LAST 90 DAYS only for performance
     repair_ids = []
     
-    # Count unsatisfactory items - ALL TIME
+    # Count unsatisfactory items - LAST 90 DAYS for performance
     checklists_with_items = await db.checklists.find({
-        "checklist_items": {"$exists": True, "$ne": []}
-    }, {"_id": 0, "id": 1, "checklist_items": 1}).to_list(length=None)
+        "checklist_items": {"$exists": True, "$ne": []},
+        "completed_at": {"$gte": ninety_days_ago_str}
+    }, {"_id": 0, "id": 1, "checklist_items": 1}).to_list(length=5000)  # Limit to 5000
     
     for checklist in checklists_with_items:
         for index, item in enumerate(checklist.get('checklist_items', [])):
             if item.get('status') == 'unsatisfactory':
                 repair_ids.append(f"{checklist['id']}-{index}")
     
-    # Count GENERAL REPAIR records - ALL TIME
+    # Count GENERAL REPAIR records - LAST 90 DAYS
     general_repairs = await db.checklists.find({
-        "check_type": "GENERAL REPAIR"
-    }, {"_id": 0, "id": 1}).to_list(length=None)
+        "check_type": "GENERAL REPAIR",
+        "completed_at": {"$gte": ninety_days_ago_str}
+    }, {"_id": 0, "id": 1}).to_list(length=2000)  # Limit to 2000
     
     for checklist in general_repairs:
         repair_ids.append(f"{checklist['id']}-general")
@@ -431,7 +436,7 @@ async def get_dashboard_stats():
     # Get status of all repairs from database
     repair_statuses = await db.repair_status.find({
         "repair_id": {"$in": repair_ids}
-    }, {"_id": 0, "repair_id": 1, "acknowledged": 1, "completed": 1}).to_list(length=None)
+    }, {"_id": 0, "repair_id": 1, "acknowledged": 1, "completed": 1}).to_list(length=10000)
     
     # Create status lookup
     status_lookup = {s["repair_id"]: s for s in repair_statuses}
@@ -452,7 +457,7 @@ async def get_dashboard_stats():
         else:
             new_repairs_count += 1
     
-    # Repairs completed - ALL TIME
+    # Repairs completed - ALL TIME (just a count, very fast)
     repairs_completed_all_time = await db.checklists.count_documents({
         "check_type": "REPAIR COMPLETED"
     })
@@ -463,15 +468,16 @@ async def get_dashboard_stats():
         "completed_at": {"$gte": seven_days_ago_str}
     })
     
-    # Machine additions - check which are acknowledged - ALL TIME
+    # Machine additions - check which are acknowledged - LAST 90 DAYS
     machine_additions_list = await db.checklists.find({
-        "check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]}
-    }, {"_id": 0, "id": 1}).to_list(length=None)
+        "check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]},
+        "completed_at": {"$gte": ninety_days_ago_str}
+    }, {"_id": 0, "id": 1}).to_list(length=500)  # Limit to 500
     
     machine_ids = [m["id"] for m in machine_additions_list]
     machine_statuses = await db.repair_status.find({
         "repair_id": {"$in": machine_ids}
-    }, {"_id": 0, "repair_id": 1, "acknowledged": 1}).to_list(length=None)
+    }, {"_id": 0, "repair_id": 1, "acknowledged": 1}).to_list(length=500)
     
     machine_status_lookup = {s["repair_id"]: s for s in machine_statuses}
     pending_machine_additions = sum(1 for mid in machine_ids if not machine_status_lookup.get(mid, {}).get("acknowledged", False))
