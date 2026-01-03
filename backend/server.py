@@ -146,6 +146,38 @@ async def initialize_data():
 async def startup_event():
     await initialize_data()
     await migrate_existing_checklists()
+    await ensure_indexes()
+
+async def ensure_indexes():
+    """Ensure all required indexes exist for performance"""
+    try:
+        print("Ensuring database indexes...")
+        
+        # Checklists indexes
+        await db.checklists.create_index([("completed_at", -1)])
+        await db.checklists.create_index([("check_type", 1)])
+        await db.checklists.create_index([("check_type", 1), ("completed_at", -1)])
+        await db.checklists.create_index([("machine_make", 1)])
+        await db.checklists.create_index([("employee_number", 1)])
+        await db.checklists.create_index([("id", 1)])
+        await db.checklists.create_index([("checklist_items.status", 1)])
+        
+        # Assets indexes
+        await db.assets.create_index([("make", 1)])
+        await db.assets.create_index([("make", 1), ("name", 1)])
+        
+        # Staff indexes
+        await db.staff.create_index([("employee_number", 1)])
+        await db.staff.create_index([("active", 1)])
+        
+        # Repair status indexes
+        await db.repair_status.create_index([("repair_id", 1)])
+        await db.repair_status.create_index([("acknowledged", 1)])
+        await db.repair_status.create_index([("completed", 1)])
+        
+        print("Database indexes ensured successfully")
+    except Exception as e:
+        print(f"Warning: Could not create some indexes: {e}")
 
 async def migrate_existing_checklists():
     """Add check_type field to existing checklists that don't have it"""
