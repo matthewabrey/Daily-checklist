@@ -87,10 +87,10 @@ function Dashboard() {
     // Initial fetch
     fetchRecentChecklists();
     
-    // Auto-refresh every 30 seconds
+    // Auto-refresh every 2 minutes (reduced from 30 seconds for better performance)
     const refreshInterval = setInterval(() => {
       fetchRecentChecklists();
-    }, 30000); // 30 seconds
+    }, 120000); // 2 minutes
     
     // Cleanup interval on component unmount
     return () => clearInterval(refreshInterval);
