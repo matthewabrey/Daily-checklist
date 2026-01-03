@@ -1305,7 +1305,7 @@ class RepairStatusUpdate(BaseModel):
 @app.get("/api/repair-status/bulk")
 async def get_bulk_repair_status():
     """Get status for all repairs"""
-    statuses = await db.repair_status.find({}, {"_id": 0}).to_list(length=None)
+    statuses = await db.repair_status.find({}, {"_id": 0}).to_list(length=10000)  # Max 10000 statuses
     # Return as a dictionary keyed by repair_id for easy lookup
     return {status["repair_id"]: status for status in statuses}
 
