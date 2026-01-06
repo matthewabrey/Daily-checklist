@@ -453,6 +453,51 @@ async def get_all_assets():
     assets = await db.assets.find({}, {"_id": 0}).to_list(length=1000)  # Max 1000 assets
     return assets
 
+@app.get("/api/assets/{asset_id}")
+async def get_asset_by_id(asset_id: str):
+    """Get a single asset by ID"""
+    asset = await db.assets.find_one({"id": asset_id}, {"_id": 0})
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return asset
+
+@app.get("/api/assets/qr/{make}/{name}")
+async def get_asset_qr_code(make: str, name: str):
+    """Generate QR code for a machine"""
+    # Create QR code data
+    qr_data = f"MACHINE:{make}:{name}"
+    
+    # Generate QR code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(qr_data)
+    qr.make(fit=True)
+    
+    # Create image
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Save to bytes
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='PNG')
+    img_bytes.seek(0)
+    
+    return StreamingResponse(img_bytes, media_type="image/png")
+
+@app.get("/api/assets/qr-labels")
+async def get_all_qr_labels():
+    """Get list of all assets with QR code URLs for printing"""
+    assets = await db.assets.find({}, {"_id": 0, "make": 1, "name": 1, "id": 1}).to_list(length=1000)
+    
+    # Add QR code URL to each asset
+    for asset in assets:
+        asset["qr_url"] = f"/api/assets/qr/{asset.get('make', '')}/{asset.get('name', '')}"
+    
+    return assets
+
 @app.post("/api/checklists", response_model=ChecklistResponse)
 async def create_checklist(checklist: Checklist):
     checklist_dict = checklist.dict()
