@@ -28,6 +28,75 @@ export const useAuth = () => {
   return context;
 };
 
+// QR Code Scanner Component
+function QRScanner({ onScan, onClose }) {
+  const scannerRef = useRef(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const scanner = new Html5QrcodeScanner(
+      "qr-reader",
+      { 
+        fps: 10, 
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0
+      },
+      false
+    );
+
+    scanner.render(
+      (decodedText) => {
+        // Success - QR code scanned
+        scanner.clear();
+        onScan(decodedText);
+      },
+      (errorMessage) => {
+        // Error or no QR code found - this is normal during scanning
+        // Only show error if it's a critical error
+        if (errorMessage.includes('NotAllowedError')) {
+          setError('Camera access denied. Please allow camera access.');
+        }
+      }
+    );
+
+    scannerRef.current = scanner;
+
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(() => {});
+      }
+    };
+  }, [onScan]);
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <ScanLine className="h-5 w-5" />
+            Scan Machine QR Code
+          </h3>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+        
+        {error && (
+          <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 text-sm">
+            {error}
+          </div>
+        )}
+        
+        <div id="qr-reader" className="w-full"></div>
+        
+        <p className="text-sm text-gray-500 mt-4 text-center">
+          Point your camera at the QR code on the machine
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function AuthProvider({ children }) {
   const [employee, setEmployee] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
