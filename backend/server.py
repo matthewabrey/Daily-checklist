@@ -1,15 +1,18 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 import os
+import io
 from motor.motor_asyncio import AsyncIOMotorClient
 import uuid
 from bson import ObjectId
 from dotenv import load_dotenv
 from sharepoint_integration import sharepoint_integration
 from cached_stats import get_cached_stats, invalidate_cache
+import qrcode
 
 # Load environment variables
 load_dotenv()
