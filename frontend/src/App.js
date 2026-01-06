@@ -624,6 +624,48 @@ function NewChecklist() {
     { item: "Backup alarm - Reverse warning signal functional", status: "unchecked", notes: "" }
   ];
 
+  // Handle QR code scan
+  const handleQRScan = async (scannedData) => {
+    setShowQRScanner(false);
+    try {
+      // Parse the QR code data - format: "MACHINE:{make}:{name}" or just asset ID
+      let make, name;
+      
+      if (scannedData.startsWith('MACHINE:')) {
+        const parts = scannedData.split(':');
+        make = parts[1];
+        name = parts[2];
+      } else if (scannedData.startsWith('http')) {
+        // URL format: .../check?make=XXX&name=YYY
+        const url = new URL(scannedData);
+        make = url.searchParams.get('make');
+        name = url.searchParams.get('name');
+      } else {
+        // Try to look up by asset ID
+        const response = await fetch(`${API_BASE_URL}/api/assets/${scannedData}`);
+        if (response.ok) {
+          const asset = await response.json();
+          make = asset.make;
+          name = asset.name;
+        }
+      }
+      
+      if (make && name) {
+        setSelectedMake(make);
+        // Wait for names to load, then set the name
+        setTimeout(() => {
+          setSelectedName(name);
+          toast.success(`Machine selected: ${make} - ${name}`);
+        }, 500);
+      } else {
+        toast.error('Could not find machine from QR code');
+      }
+    } catch (error) {
+      console.error('Error processing QR code:', error);
+      toast.error('Invalid QR code format');
+    }
+  };
+
   useEffect(() => {
     fetchMakes();
   }, []);
