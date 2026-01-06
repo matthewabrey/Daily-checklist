@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext, lazy, Suspense, memo } from 'react';
+import React, { useState, useEffect, createContext, useContext, lazy, Suspense, memo, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -10,7 +10,9 @@ import { Separator } from './components/ui/separator';
 import { toast } from 'sonner';
 import { useTranslation } from './LanguageContext';
 import { languages } from './translations';
-import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import './App.css';
 
 // Use SharePointAdminComponent directly for now
