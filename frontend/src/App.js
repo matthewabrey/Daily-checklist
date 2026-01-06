@@ -1972,10 +1972,71 @@ function SharePointAdminComponent() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
-            <p className="text-gray-600 mt-2">Upload Excel files and view historical data</p>
+            <p className="text-gray-600 mt-2">Upload Excel files, print QR labels, and view historical data</p>
           </div>
         </div>
       </div>
+
+      {/* QR Code Labels Section */}
+      <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <QrCode className="h-5 w-5 text-purple-600" />
+            <span>Machine QR Code Labels</span>
+          </CardTitle>
+          <CardDescription>
+            Generate and print QR code labels to stick on machines for quick scanning
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="border-purple-200 hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">Print QR Labels</h3>
+                    <p className="text-sm text-gray-600">Generate labels for all machines</p>
+                  </div>
+                  <Printer className="h-8 w-8 text-purple-600" />
+                </div>
+                <Button 
+                  onClick={() => navigate('/qr-labels')}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                >
+                  <QrCode className="h-4 w-4 mr-2" />
+                  View & Print Labels
+                </Button>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-pink-200 hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">How It Works</h3>
+                    <p className="text-sm text-gray-600">Using QR codes for checks</p>
+                  </div>
+                  <ScanLine className="h-8 w-8 text-pink-600" />
+                </div>
+                <ul className="text-sm text-gray-600 space-y-2">
+                  <li className="flex items-start gap-2">
+                    <span className="bg-pink-100 text-pink-700 rounded-full w-5 h-5 flex items-center justify-center text-xs flex-shrink-0">1</span>
+                    <span>Print QR labels and stick them on machines</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="bg-pink-100 text-pink-700 rounded-full w-5 h-5 flex items-center justify-center text-xs flex-shrink-0">2</span>
+                    <span>Staff scan the code when starting a check</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="bg-pink-100 text-pink-700 rounded-full w-5 h-5 flex items-center justify-center text-xs flex-shrink-0">3</span>
+                    <span>Machine is automatically selected - no searching!</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Historical Data Section */}
       <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
