@@ -2676,7 +2676,13 @@ function AllChecksCompleted() {
       
     } catch (error) {
       console.error('Error fetching checklists:', error);
-      toast.error('Failed to load checklists');
+      if (error.name === 'AbortError') {
+        setLoadError('Request timed out - server is busy. Please try again.');
+        toast.error('Request timed out. The server is busy.');
+      } else {
+        setLoadError('Failed to load checklists. Please try again.');
+        toast.error('Failed to load checklists');
+      }
     } finally {
       setLoading(false);
       setLoadingMore(false);
