@@ -2945,7 +2945,20 @@ function AllChecksCompleted() {
       {/* Checks List */}
       <Card>
         <CardContent className="p-6">
-          {filteredChecklists.length === 0 ? (
+          {loadError ? (
+            <div className="text-center py-8">
+              <AlertCircle className="mx-auto h-12 w-12 text-red-400 mb-4" />
+              <p className="text-red-600 font-medium">{loadError}</p>
+              <Button 
+                onClick={() => fetchChecklists()} 
+                variant="outline" 
+                className="mt-4"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            </div>
+          ) : filteredChecklists.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <FileText className="mx-auto h-12 w-12 text-gray-300 mb-4" />
               <p>No checks found</p>
