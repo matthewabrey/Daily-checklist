@@ -569,6 +569,7 @@ function NewChecklist() {
   const [names, setNames] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(-1); // -1 for workshop photos
   const [showFaultModal, setShowFaultModal] = useState(false);
   const [currentFaultIndex, setCurrentFaultIndex] = useState(-1);
