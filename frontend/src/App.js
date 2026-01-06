@@ -303,21 +303,10 @@ function Dashboard() {
             <CardTitle className="text-sm font-medium text-purple-900">Total Checks</CardTitle>
             <ClipboardList className="h-4 w-4 text-purple-600" />
           </CardHeader>
-          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
-            <div style={{flex: 1}}>
-              <div className="text-2xl font-bold text-purple-600">{stats.total}</div>
-              <p className="text-xs text-purple-700">All time completed</p>
-            </div>
-            <Button 
-              onClick={() => navigate('/all-checks')}
-              variant="outline"
-              size="sm"
-              className="w-full border-purple-300 text-purple-700 hover:bg-purple-100"
-              style={{marginTop: 'auto'}}
-            >
-              View All Checks
-            </Button>
-          </div>
+          <CardContent className="pt-0">
+            <div className="text-2xl font-bold text-purple-600">{stats.total}</div>
+            <p className="text-xs text-purple-700">All time completed</p>
+          </CardContent>
         </Card>
 
         {/* 1. New Repairs - Second */}
@@ -2050,43 +2039,23 @@ function SharePointAdminComponent() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="border-green-200 hover:shadow-lg transition-shadow">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold text-lg">All Checks Completed</h3>
-                    <p className="text-sm text-gray-600">Complete historical record</p>
-                  </div>
-                  <ClipboardList className="h-8 w-8 text-green-600" />
+          <Card className="border-blue-200 hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-semibold text-lg">Full Records History</h3>
+                  <p className="text-sm text-gray-600">Detailed records with filters</p>
                 </div>
-                <Button 
-                  onClick={() => navigate('/all-checks')}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  View All Checks
-                </Button>
-              </CardContent>
-            </Card>
-            
-            <Card className="border-blue-200 hover:shadow-lg transition-shadow">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold text-lg">Full Records History</h3>
-                    <p className="text-sm text-gray-600">Detailed records with filters</p>
-                  </div>
-                  <FileText className="h-8 w-8 text-blue-600" />
-                </div>
-                <Button 
-                  onClick={() => navigate('/records')}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  View All Records
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+                <FileText className="h-8 w-8 text-blue-600" />
+              </div>
+              <Button 
+                onClick={() => navigate('/records')}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
+                View All Records
+              </Button>
+            </CardContent>
+          </Card>
         </CardContent>
       </Card>
 
