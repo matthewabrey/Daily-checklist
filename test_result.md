@@ -6,6 +6,17 @@
 - MongoDB: RUNNING (local)
 - Data imported: 1068 checklists, 219 assets, 153 repair statuses, 2 staff
 
+## Recent Changes (Fork 2)
+1. Removed "View All Checks" button from Dashboard "Total Checks" card - now displays only the count
+2. Simplified Admin "Historical Data & Reports" section - removed "All Checks Completed" card, kept only "Full Records History" 
+3. "View Today's Checks" button kept (loads small dataset quickly)
+
+## Test Scope for This Fork
+- Verify Dashboard "Total Checks" card displays count only (no button)
+- Verify Admin page Historical Data section shows only "Full Records History"
+- Verify "View Today's Checks" still works from dashboard
+- Verify "View All Records" button in Admin works
+
 ## Backend Testing Results - COMPLETED ✅
 
 ### 1. Authentication Tests - ✅ PASSED
