@@ -1372,10 +1372,49 @@ function NewChecklist() {
         </div>
       </div>
 
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <QRScanner 
+          onScan={handleQRScan} 
+          onClose={() => setShowQRScanner(false)} 
+        />
+      )}
+
       <Card data-testid="checklist-form-card">
         <CardContent className="pt-6">
           {step === 1 && (
             <div className="space-y-6">
+              {/* Quick Scan Option */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-100 p-2 rounded-full">
+                      <QrCode className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-blue-900">Quick Select with QR Code</h3>
+                      <p className="text-sm text-blue-700">Scan the QR code on the machine</p>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => setShowQRScanner(true)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <ScanLine className="h-4 w-4 mr-2" />
+                    Scan Code
+                  </Button>
+                </div>
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-gray-500">Or select manually</span>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Select Machine Make</h3>
