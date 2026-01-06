@@ -2564,6 +2564,7 @@ function AllChecksCompleted() {
   const [filteredChecklists, setFilteredChecklists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   const [makes, setMakes] = useState([]);
