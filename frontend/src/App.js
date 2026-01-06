@@ -2591,10 +2591,11 @@ function AllChecksCompleted() {
   const fetchChecklists = async (append = false) => {
     try {
       setLoading(true);
+      setLoadError(null);
       
-      // Create abort controller for timeout
+      // Create abort controller for timeout - 30 seconds for production
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
       // Use dedicated today endpoint if filtering for today
       if (filterToday && !append) {
@@ -2622,7 +2623,7 @@ function AllChecksCompleted() {
         // Fallback: fetch recent 50 and filter client-side (smaller = faster)
         try {
           const controller2 = new AbortController();
-          const timeoutId2 = setTimeout(() => controller2.abort(), 10000);
+          const timeoutId2 = setTimeout(() => controller2.abort(), 30000);
           const response = await fetch(`${API_BASE_URL}/api/checklists?limit=50`, {
             signal: controller2.signal
           });
@@ -2636,6 +2637,7 @@ function AllChecksCompleted() {
           }
         } catch (e) {
           console.error('Checklists API timeout:', e.message);
+          setLoadError('Server is slow - please try again in a moment');
           setChecklists([]);
           setFilteredChecklists([]);
         }
