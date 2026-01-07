@@ -281,14 +281,17 @@ function Dashboard() {
     }, 10000);
     
     return () => clearInterval(refreshInterval);
-  }, [location.pathname]); // Re-run when path changes (navigation)
+  }, [location.pathname, token]); // Re-run when path changes or token changes
 
   const fetchRecentChecklists = async () => {
     console.log('fetchRecentChecklists called');
     setIsLoading(true);
     try {
+      // Build headers with auth token
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
       // Fetch dashboard stats first (faster with caching)
-      const statsResponse = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
+      const statsResponse = await fetch(`${API_BASE_URL}/api/dashboard/stats`, { headers });
       console.log('Stats response status:', statsResponse.status);
       
       if (!statsResponse.ok) {
@@ -309,7 +312,7 @@ function Dashboard() {
       });
       
       // Fetch recent checklists
-      const recentResponse = await fetch(`${API_BASE_URL}/api/checklists?limit=5`);
+      const recentResponse = await fetch(`${API_BASE_URL}/api/checklists?limit=5`, { headers });
       const recentChecklistsData = await recentResponse.json();
       const filteredRecentChecklists = recentChecklistsData.filter(c => c.check_type !== 'GENERAL REPAIR');
       setRecentChecklists(filteredRecentChecklists);
