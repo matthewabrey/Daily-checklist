@@ -860,9 +860,30 @@ async def upload_assets_file(file: UploadFile = File(...)):
         if not assets:
             raise HTTPException(status_code=400, detail="No asset data found in the uploaded file")
         
-        # Update assets database
+        # Get existing assets to preserve QR print status
+        existing_assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
+        existing_qr_status = {}
+        for ea in existing_assets:
+            # Key by make+name to match assets
+            key = f"{ea.get('make', '')}:{ea.get('name', '')}"
+            if ea.get('qr_printed'):
+                existing_qr_status[key] = {
+                    'qr_printed': ea.get('qr_printed', False),
+                    'qr_printed_at': ea.get('qr_printed_at')
+                }
+        
+        # Update assets database - preserve QR status for existing machines
         await db.assets.delete_many({})
-        new_assets = [Asset(**asset).dict() for asset in assets]
+        new_assets = []
+        for asset in assets:
+            asset_obj = Asset(**asset)
+            asset_dict = asset_obj.dict()
+            # Check if this asset had QR printed before
+            key = f"{asset_dict['make']}:{asset_dict['name']}"
+            if key in existing_qr_status:
+                asset_dict['qr_printed'] = existing_qr_status[key]['qr_printed']
+                asset_dict['qr_printed_at'] = existing_qr_status[key]['qr_printed_at']
+            new_assets.append(asset_dict)
         await db.assets.insert_many(new_assets)
         
         # Process checklist sheets
