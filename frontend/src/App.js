@@ -698,6 +698,22 @@ function NewChecklist() {
     }
   }, [isAuthenticated, navigate]);
 
+  // Handle pre-selected machine from QR scan on dashboard
+  useEffect(() => {
+    if (location.state?.scannedMake && location.state?.scannedName) {
+      setSelectedMake(location.state.scannedMake);
+      setSelectedName(location.state.scannedName);
+      if (location.state.scannedCheckType) {
+        setMachineCheckType(location.state.scannedCheckType);
+      }
+      if (location.state.startAtStep) {
+        setStep(location.state.startAtStep);
+      }
+      // Clear the state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   const defaultChecklistItems = [
     { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
     { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
