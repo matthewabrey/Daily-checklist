@@ -455,13 +455,21 @@ async def get_all_assets():
     assets = await db.assets.find({}, {"_id": 0}).to_list(length=1000)  # Max 1000 assets
     return assets
 
-@app.get("/api/assets/{asset_id}")
-async def get_asset_by_id(asset_id: str):
-    """Get a single asset by ID"""
-    asset = await db.assets.find_one({"id": asset_id}, {"_id": 0})
-    if not asset:
-        raise HTTPException(status_code=404, detail="Asset not found")
-    return asset
+@app.get("/api/assets/qr-labels")
+async def get_all_qr_labels():
+    """Get list of all assets with QR code URLs and print status for printing page"""
+    assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
+    
+    # Add QR code URL to each asset and ensure qr_printed field exists
+    for asset in assets:
+        asset["qr_url"] = f"/api/assets/qr/{asset.get('make', '')}/{asset.get('name', '')}"
+        # Ensure qr_printed field exists (for backward compatibility)
+        if 'qr_printed' not in asset:
+            asset['qr_printed'] = False
+        if 'qr_printed_at' not in asset:
+            asset['qr_printed_at'] = None
+    
+    return assets
 
 @app.get("/api/assets/qr/{make}/{name}")
 async def get_asset_qr_code(make: str, name: str):
@@ -489,21 +497,13 @@ async def get_asset_qr_code(make: str, name: str):
     
     return StreamingResponse(img_bytes, media_type="image/png")
 
-@app.get("/api/assets/qr-labels")
-async def get_all_qr_labels():
-    """Get list of all assets with QR code URLs and print status for printing page"""
-    assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
-    
-    # Add QR code URL to each asset and ensure qr_printed field exists
-    for asset in assets:
-        asset["qr_url"] = f"/api/assets/qr/{asset.get('make', '')}/{asset.get('name', '')}"
-        # Ensure qr_printed field exists (for backward compatibility)
-        if 'qr_printed' not in asset:
-            asset['qr_printed'] = False
-        if 'qr_printed_at' not in asset:
-            asset['qr_printed_at'] = None
-    
-    return assets
+@app.get("/api/assets/{asset_id}")
+async def get_asset_by_id(asset_id: str):
+    """Get a single asset by ID"""
+    asset = await db.assets.find_one({"id": asset_id}, {"_id": 0})
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return asset
 
 @app.post("/api/assets/mark-qr-printed")
 async def mark_assets_qr_printed(asset_ids: List[str]):
