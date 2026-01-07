@@ -900,14 +900,32 @@ async def get_checktype_by_make_and_name(make: str, name: str):
         raise HTTPException(status_code=404, detail="Asset not found")
 
 @app.get("/api/assets", response_model=List[Asset])
-async def get_all_assets():
-    assets = await db.assets.find({}, {"_id": 0}).to_list(length=1000)  # Max 1000 assets
+async def get_all_assets(authorization: Optional[str] = Header(None)):
+    """Get all assets - filtered by company if authenticated"""
+    query = {}
+    if authorization:
+        try:
+            token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+            payload = decode_jwt_token(token)
+            query["company_id"] = payload.get("company_id")
+        except:
+            pass
+    assets = await db.assets.find(query, {"_id": 0}).to_list(length=1000)
     return assets
 
 @app.get("/api/assets/qr-labels")
-async def get_all_qr_labels():
+async def get_all_qr_labels(authorization: Optional[str] = Header(None)):
     """Get list of all assets with QR code URLs and print status for printing page"""
-    assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
+    query = {}
+    if authorization:
+        try:
+            token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+            payload = decode_jwt_token(token)
+            query["company_id"] = payload.get("company_id")
+        except:
+            pass
+    
+    assets = await db.assets.find(query, {"_id": 0}).to_list(length=10000)
     
     # Add QR code URL to each asset and ensure qr_printed field exists
     for asset in assets:
