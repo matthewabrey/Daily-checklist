@@ -191,9 +191,65 @@ function Dashboard() {
   const [recentChecklists, setRecentChecklists] = useState([]);
   const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0 });
   const [showRepairWarning, setShowRepairWarning] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+
+  // Use location to trigger refresh on navigation
+  const location = useLocation();
+
+  // Handle QR scan from dashboard - navigate directly to check type selection
+  const handleDashboardQRScan = async (scannedData) => {
+    setShowQRScanner(false);
+    try {
+      let make, name, checkType;
+      
+      if (scannedData.startsWith('MACHINE:')) {
+        const parts = scannedData.split(':');
+        make = parts[1];
+        name = parts[2];
+      } else if (scannedData.startsWith('http')) {
+        const url = new URL(scannedData);
+        make = url.searchParams.get('make');
+        name = url.searchParams.get('name');
+      } else {
+        const response = await fetch(`${API_BASE_URL}/api/assets/${scannedData}`);
+        if (response.ok) {
+          const asset = await response.json();
+          make = asset.make;
+          name = asset.name;
+          checkType = asset.check_type;
+        }
+      }
+      
+      if (make && name) {
+        // Fetch check type if not available
+        if (!checkType) {
+          const checkTypeResponse = await fetch(`${API_BASE_URL}/api/assets/checktype/${encodeURIComponent(make)}/${encodeURIComponent(name)}`);
+          const checkTypeData = await checkTypeResponse.json();
+          checkType = checkTypeData.check_type;
+        }
+        
+        toast.success(`Machine: ${make} - ${name}`);
+        
+        // Navigate to new-checklist with machine pre-selected, starting at step 2
+        navigate('/new-checklist', { 
+          state: { 
+            scannedMake: make, 
+            scannedName: name, 
+            scannedCheckType: checkType,
+            startAtStep: 2 
+          } 
+        });
+      } else {
+        toast.error('Could not find machine from QR code');
+      }
+    } catch (error) {
+      console.error('Error processing QR code:', error);
+      toast.error('Invalid QR code format');
+    }
+  };
 
   // Use location to trigger refresh on navigation
   const location = useLocation();
