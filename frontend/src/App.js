@@ -582,93 +582,125 @@ function Dashboard() {
 
 // Employee Login Component
 function EmployeeLogin() {
-  const { login } = useAuth();
-  const { language, changeLanguage, t } = useTranslation();
-  const [employeeNumber, setEmployeeNumber] = useState('');
+  const { login, company } = useAuth();
+  const { t } = useTranslation();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!employeeNumber.trim()) {
-      toast.error('Please enter an employee number');
+    if (!email.trim() || !password.trim()) {
+      toast.error('Please enter email and password');
       return;
     }
 
     setIsLoading(true);
     try {
-      // Call backend API to validate employee
-      const response = await fetch(`${API_BASE_URL}/api/auth/employee-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employee_number: employeeNumber })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Login with full employee object from backend
-        login(data.employee);
-        toast.success(`Welcome, ${data.employee.name}!`);
-      } else {
-        toast.error('Invalid employee number');
-      }
+      const result = await login(email, password);
+      toast.success(`Welcome, ${result.user.name}!`);
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Login failed. Please try again.');
+      toast.error(error.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Get company colors (default to green if no company)
+  const primaryColor = company?.color_primary || '#16a34a';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <div className="p-3 bg-green-100 rounded-full">
-              <ClipboardList className="h-8 w-8 text-green-600" />
-            </div>
+            {company?.logo_url ? (
+              <img src={company.logo_url} alt={company.name} className="h-16 w-auto" />
+            ) : (
+              <div className="p-3 bg-green-100 rounded-full">
+                <ClipboardList className="h-8 w-8 text-green-600" />
+              </div>
+            )}
           </div>
-          <CardTitle className="text-2xl text-center">{t('loginTitle')}</CardTitle>
+          <CardTitle className="text-2xl text-center">
+            {company?.name || 'Machine Checklist'}
+          </CardTitle>
           <CardDescription className="text-center">
-            {t('loginSubtitle')}
+            Sign in to your account
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="employee-number" className="text-sm font-medium text-gray-700">
-                {t('employeeNumber')}
+              <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                Email Address
               </label>
               <input
-                id="employee-number"
-                type="text"
-                placeholder={t('employeeNumberPlaceholder')}
-                value={employeeNumber}
-                onChange={(e) => setEmployeeNumber(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="you@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 disabled={isLoading}
                 autoFocus
-                data-testid="employee-number-input"
+                autoComplete="email"
+                data-testid="email-input"
               />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="password" className="text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 pr-10"
+                  disabled={isLoading}
+                  autoComplete="current-password"
+                  data-testid="password-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? (
+                    <X className="h-4 w-4" />
+                  ) : (
+                    <Settings className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
             <Button 
               type="submit" 
               className="w-full bg-green-600 hover:bg-green-700"
+              style={{ backgroundColor: primaryColor }}
               disabled={isLoading}
               data-testid="login-btn"
             >
               {isLoading ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {t('loading')}
+                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  Signing in...
                 </>
               ) : (
-                t('login')
+                'Sign In'
               )}
             </Button>
           </form>
+          
+          <div className="mt-4 text-center text-sm text-gray-500">
+            <p>Contact your administrator if you need access</p>
+          </div>
         </CardContent>
       </Card>
     </div>
