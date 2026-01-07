@@ -2102,13 +2102,113 @@ function SharePointAdminComponent() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', password: '', name: '', role: 'user' });
+  
+  // Company management state
+  const [companies, setCompanies] = useState([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+  const [showAddCompany, setShowAddCompany] = useState(false);
+  const [newCompany, setNewCompany] = useState({ 
+    name: '', 
+    admin_email: '', 
+    admin_password: '', 
+    admin_name: '',
+    color_primary: '#16a34a',
+    color_secondary: '#059669',
+    color_accent: '#10b981'
+  });
+  
   const { token, user: currentUser } = useAuth();
   const navigate = useNavigate();
 
-  // Fetch users on component mount
+  // Fetch users and companies on component mount
   useEffect(() => {
     fetchUsers();
-  }, []);
+    if (currentUser?.role === 'super_admin') {
+      fetchCompanies();
+    }
+  }, [currentUser]);
+
+  const fetchCompanies = async () => {
+    try {
+      setLoadingCompanies(true);
+      const response = await fetch(`${API_BASE_URL}/api/admin/companies`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCompanies(data);
+      }
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
+
+  const handleAddCompany = async () => {
+    if (!newCompany.name || !newCompany.admin_email || !newCompany.admin_password || !newCompany.admin_name) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/companies`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newCompany)
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast.success(`Company "${newCompany.name}" created successfully!`);
+        setShowAddCompany(false);
+        setNewCompany({ 
+          name: '', 
+          admin_email: '', 
+          admin_password: '', 
+          admin_name: '',
+          color_primary: '#16a34a',
+          color_secondary: '#059669',
+          color_accent: '#10b981'
+        });
+        fetchCompanies();
+      } else {
+        toast.error(data.detail || 'Failed to create company');
+      }
+    } catch (error) {
+      toast.error('Error creating company');
+    }
+  };
+
+  const handleDeleteCompany = async (companyId, companyName) => {
+    if (!window.confirm(`Are you sure you want to deactivate "${companyName}"? This will affect all users in this company.`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/companies/${companyId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ active: false })
+      });
+      
+      if (response.ok) {
+        toast.success('Company deactivated');
+        fetchCompanies();
+      } else {
+        toast.error('Failed to deactivate company');
+      }
+    } catch (error) {
+      toast.error('Error deactivating company');
+    }
+  };
 
   const fetchUsers = async () => {
     try {
