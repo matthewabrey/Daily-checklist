@@ -57,6 +57,8 @@ class Asset(BaseModel):
     check_type: str
     name: str  # Name of Implement
     make: str
+    qr_printed: bool = False  # Whether QR code has been printed for this asset
+    qr_printed_at: Optional[str] = None  # ISO timestamp when QR was printed
     
 class Staff(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
