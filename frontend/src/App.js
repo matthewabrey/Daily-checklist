@@ -28,109 +28,82 @@ export const useAuth = () => {
   return context;
 };
 
-// QR Code Scanner Component - Simple camera-only version
+// QR Code Scanner Component - Ultra-simple version using @yudiel/react-qr-scanner
 function QRScanner({ onScan, onClose }) {
   const [error, setError] = useState(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const html5QrCodeRef = useRef(null);
 
-  useEffect(() => {
-    const html5QrCode = new Html5Qrcode("qr-reader");
-    html5QrCodeRef.current = html5QrCode;
+  const handleScan = (result) => {
+    if (result && result[0]?.rawValue) {
+      onScan(result[0].rawValue);
+    }
+  };
 
-    // Start scanning with back camera
-    html5QrCode.start(
-      { facingMode: "environment" }, // Use back camera
-      {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-      },
-      (decodedText) => {
-        // Success - stop scanning and call onScan
-        html5QrCode.stop().then(() => {
-          onScan(decodedText);
-        }).catch(console.error);
-      },
-      () => {
-        // QR code not found - this is normal, keep scanning
-      }
-    ).then(() => {
-      setIsScanning(true);
-    }).catch((err) => {
-      console.error('Camera error:', err);
-      if (err.toString().includes('NotAllowedError')) {
-        setError('Camera access denied. Please allow camera access in your browser settings.');
-      } else if (err.toString().includes('NotFoundError')) {
-        setError('No camera found on this device.');
-      } else {
-        setError('Could not start camera. Please try again.');
-      }
-    });
-
-    return () => {
-      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-        html5QrCodeRef.current.stop().catch(() => {});
-      }
-    };
-  }, [onScan]);
-
-  const handleClose = () => {
-    if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-      html5QrCodeRef.current.stop().then(() => {
-        onClose();
-      }).catch(() => {
-        onClose();
-      });
-    } else {
-      onClose();
+  const handleError = (err) => {
+    console.error('Scanner error:', err);
+    if (err?.message?.includes('Permission denied') || err?.name === 'NotAllowedError') {
+      setError('Camera access denied. Please allow camera access.');
+    } else if (err?.message?.includes('no camera') || err?.name === 'NotFoundError') {
+      setError('No camera found on this device.');
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
       {/* Header */}
-      <div className="bg-black/90 p-4 flex items-center justify-between">
+      <div className="bg-black p-4 flex items-center justify-between safe-area-top">
         <h3 className="text-white text-lg font-semibold flex items-center gap-2">
-          <ScanLine className="h-5 w-5" />
-          Scan Machine QR Code
+          <QrCode className="h-5 w-5" />
+          Scan QR Code
         </h3>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={handleClose}
-          className="text-white hover:bg-white/20"
+        <button 
+          onClick={onClose}
+          className="text-white p-2 hover:bg-white/20 rounded-full"
         >
           <X className="h-6 w-6" />
-        </Button>
+        </button>
       </div>
       
       {/* Camera View */}
-      <div className="flex-1 flex items-center justify-center bg-black">
+      <div className="flex-1 relative bg-black">
         {error ? (
-          <div className="text-center p-6">
-            <div className="bg-red-500/20 text-red-200 p-4 rounded-lg mb-4">
-              {error}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center p-6">
+              <div className="bg-red-500/20 text-red-200 p-4 rounded-lg mb-4">
+                {error}
+              </div>
+              <button 
+                onClick={onClose} 
+                className="px-6 py-2 border border-white text-white rounded-lg hover:bg-white/10"
+              >
+                Close
+              </button>
             </div>
-            <Button onClick={handleClose} variant="outline" className="text-white border-white">
-              Close
-            </Button>
           </div>
         ) : (
-          <div className="relative w-full max-w-md">
-            <div id="qr-reader" className="w-full rounded-lg overflow-hidden"></div>
-            {!isScanning && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-white" />
-              </div>
-            )}
-          </div>
+          <Scanner
+            onScan={handleScan}
+            onError={handleError}
+            constraints={{
+              facingMode: 'environment'  // Always use back camera
+            }}
+            styles={{
+              container: { width: '100%', height: '100%' },
+              video: { width: '100%', height: '100%', objectFit: 'cover' }
+            }}
+            components={{
+              audio: false,
+              torch: false,  // No flash toggle
+              zoom: false,   // No zoom controls
+              finder: true   // Show scan area box
+            }}
+          />
         )}
       </div>
       
       {/* Footer */}
-      <div className="bg-black/90 p-4 text-center">
+      <div className="bg-black p-4 text-center safe-area-bottom">
         <p className="text-white/70 text-sm">
-          Point camera at the QR code on the machine
+          Point camera at the QR code
         </p>
       </div>
     </div>
