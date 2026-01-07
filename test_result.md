@@ -28,6 +28,12 @@
 - Test search functionality
 - Test "Reset Print Status" functionality
 
+## QR Scanning Feature Tests
+- Verify "Scan Code" button appears in NewChecklist form (step 1)
+- Test that QR scanning with format "MACHINE:{make}:{name}" auto-selects machine
+- Verify auto-advance to step 2 (Check Type) after successful scan
+- Test QR scanner modal opens/closes correctly
+
 ## Backend Testing Results - COMPLETED ✅
 
 ### 1. Authentication Tests - ✅ PASSED
