@@ -2269,10 +2269,10 @@ function SharePointAdminComponent() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Download className="h-5 w-5 text-orange-600" />
-            <span>Export Data to Excel</span>
+            <span>Export Data to CSV</span>
           </CardTitle>
           <CardDescription>
-            Download your data as Excel files for backup or analysis
+            Download your data as CSV files for backup or analysis
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -2293,7 +2293,7 @@ function SharePointAdminComponent() {
                   className="w-full border-green-300 text-green-700 hover:bg-green-50"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Download Staff
+                  Download CSV
                 </Button>
               </CardContent>
             </Card>
@@ -2314,7 +2314,7 @@ function SharePointAdminComponent() {
                   className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Download Assets
+                  Download CSV
                 </Button>
               </CardContent>
             </Card>
@@ -2330,12 +2330,12 @@ function SharePointAdminComponent() {
                   <ClipboardList className="h-6 w-6 text-purple-600" />
                 </div>
                 <Button 
-                  onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel`, '_blank')}
+                  onClick={() => window.open(`${API_BASE_URL}/api/export/checklists`, '_blank')}
                   variant="outline"
                   className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Download Checks
+                  Download CSV
                 </Button>
               </CardContent>
             </Card>
@@ -2356,7 +2356,7 @@ function SharePointAdminComponent() {
                   className="w-full border-orange-300 text-orange-700 hover:bg-orange-50"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Download Repairs
+                  Download CSV
                 </Button>
               </CardContent>
             </Card>
