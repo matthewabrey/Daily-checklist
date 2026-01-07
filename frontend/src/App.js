@@ -2351,6 +2351,239 @@ function SharePointAdminComponent() {
         </div>
       </div>
 
+      {/* Super Admin: Company Management Section */}
+      {currentUser?.role === 'super_admin' && (
+        <Card className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Database className="h-5 w-5 text-red-600" />
+                <span>🔴 Super Admin: Manage Companies</span>
+              </div>
+              <Button 
+                onClick={() => setShowAddCompany(!showAddCompany)}
+                className="bg-red-600 hover:bg-red-700"
+                size="sm"
+              >
+                {showAddCompany ? 'Cancel' : '+ New Company'}
+              </Button>
+            </CardTitle>
+            <CardDescription>
+              Create and manage companies. Each company has their own data, users, and branding.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {/* Add Company Form */}
+            {showAddCompany && (
+              <Card className="mb-4 border-red-200 bg-white">
+                <CardContent className="pt-4">
+                  <h4 className="font-semibold mb-3 text-lg">Create New Company</h4>
+                  
+                  <div className="space-y-4">
+                    {/* Company Details */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h5 className="font-medium mb-3 text-gray-700">Company Details</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Company Name *</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Smith Farms"
+                            value={newCompany.name}
+                            onChange={(e) => setNewCompany({...newCompany, name: e.target.value})}
+                            className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-red-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Admin Account */}
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h5 className="font-medium mb-3 text-blue-700">Company Admin Account</h5>
+                      <p className="text-sm text-blue-600 mb-3">This person will manage users for this company</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Admin Name *</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. John Smith"
+                            value={newCompany.admin_name}
+                            onChange={(e) => setNewCompany({...newCompany, admin_name: e.target.value})}
+                            className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Admin Email *</label>
+                          <input
+                            type="email"
+                            placeholder="e.g. john@smithfarms.com"
+                            value={newCompany.admin_email}
+                            onChange={(e) => setNewCompany({...newCompany, admin_email: e.target.value})}
+                            className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Admin Password *</label>
+                          <input
+                            type="password"
+                            placeholder="••••••••"
+                            value={newCompany.admin_password}
+                            onChange={(e) => setNewCompany({...newCompany, admin_password: e.target.value})}
+                            className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Branding */}
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <h5 className="font-medium mb-3 text-green-700">Company Branding (Optional)</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Primary Color</label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <input
+                              type="color"
+                              value={newCompany.color_primary}
+                              onChange={(e) => setNewCompany({...newCompany, color_primary: e.target.value})}
+                              className="w-12 h-10 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={newCompany.color_primary}
+                              onChange={(e) => setNewCompany({...newCompany, color_primary: e.target.value})}
+                              className="flex-1 px-3 py-2 border rounded-md text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Secondary Color</label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <input
+                              type="color"
+                              value={newCompany.color_secondary}
+                              onChange={(e) => setNewCompany({...newCompany, color_secondary: e.target.value})}
+                              className="w-12 h-10 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={newCompany.color_secondary}
+                              onChange={(e) => setNewCompany({...newCompany, color_secondary: e.target.value})}
+                              className="flex-1 px-3 py-2 border rounded-md text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Accent Color</label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <input
+                              type="color"
+                              value={newCompany.color_accent}
+                              onChange={(e) => setNewCompany({...newCompany, color_accent: e.target.value})}
+                              className="w-12 h-10 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={newCompany.color_accent}
+                              onChange={(e) => setNewCompany({...newCompany, color_accent: e.target.value})}
+                              className="flex-1 px-3 py-2 border rounded-md text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      {/* Color Preview */}
+                      <div className="mt-3 p-3 rounded-lg border" style={{ backgroundColor: newCompany.color_primary + '20' }}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded" style={{ backgroundColor: newCompany.color_primary }}></div>
+                          <div className="w-8 h-8 rounded" style={{ backgroundColor: newCompany.color_secondary }}></div>
+                          <div className="w-8 h-8 rounded" style={{ backgroundColor: newCompany.color_accent }}></div>
+                          <span className="text-sm text-gray-600 ml-2">Color Preview</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    onClick={handleAddCompany}
+                    className="mt-4 bg-red-600 hover:bg-red-700"
+                  >
+                    Create Company
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Companies Table */}
+            {loadingCompanies ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto text-red-600" />
+                <p className="mt-2 text-gray-600">Loading companies...</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-red-100">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-red-900">Company</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-red-900">Admin Email</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-red-900">Users</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-red-900">Colors</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-red-900">Status</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-red-900">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {companies.map((company) => (
+                      <tr key={company.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{company.name}</div>
+                          <div className="text-xs text-gray-500">{company.slug}</div>
+                        </td>
+                        <td className="px-4 py-3 text-sm">{company.admin_email}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                            {company.user_count || 0} users
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-1">
+                            <div className="w-6 h-6 rounded" style={{ backgroundColor: company.color_primary }} title="Primary"></div>
+                            <div className="w-6 h-6 rounded" style={{ backgroundColor: company.color_secondary }} title="Secondary"></div>
+                            <div className="w-6 h-6 rounded" style={{ backgroundColor: company.color_accent }} title="Accent"></div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            company.active !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {company.active !== false ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {company.active !== false && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteCompany(company.id, company.name)}
+                              className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {companies.length === 0 && (
+                  <p className="text-center py-8 text-gray-500">No companies found</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* QR Code Labels Section */}
       <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 mb-6">
         <CardHeader>
