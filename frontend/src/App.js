@@ -662,6 +662,9 @@ function NewChecklist() {
           setMachineCheckType(checkType);
           
           toast.success(`Machine selected: ${make} - ${name}`);
+          
+          // Auto-advance to step 2 (Check Type selection) after successful scan
+          setStep(2);
         } catch (fetchError) {
           console.error('Error fetching machine data:', fetchError);
           toast.error('Failed to load machine details');
