@@ -2398,6 +2398,43 @@ function SharePointAdminComponent() {
                             className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-red-500"
                           />
                         </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Company Logo</label>
+                          <div className="mt-1 flex items-center gap-4">
+                            {logoPreview ? (
+                              <div className="relative">
+                                <img src={logoPreview} alt="Logo preview" className="h-16 w-16 object-contain border rounded" />
+                                <button
+                                  type="button"
+                                  onClick={() => { setLogoPreview(null); setNewCompany({...newCompany, logo_url: ''}); }}
+                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="h-16 w-16 border-2 border-dashed rounded flex items-center justify-center text-gray-400">
+                                <Upload className="h-6 w-6" />
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    setLogoPreview(reader.result);
+                                    setNewCompany({...newCompany, logo_url: reader.result});
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
                     
