@@ -2344,6 +2344,152 @@ function SharePointAdminComponent() {
         </CardContent>
       </Card>
 
+      {/* User Management Section */}
+      <Card className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <User className="h-5 w-5 text-indigo-600" />
+              <span>User Management</span>
+            </div>
+            <Button 
+              onClick={() => setShowAddUser(!showAddUser)}
+              className="bg-indigo-600 hover:bg-indigo-700"
+              size="sm"
+            >
+              {showAddUser ? 'Cancel' : '+ Add User'}
+            </Button>
+          </CardTitle>
+          <CardDescription>
+            Manage user accounts and permissions
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Add User Form */}
+          {showAddUser && (
+            <Card className="mb-4 border-indigo-200 bg-white">
+              <CardContent className="pt-4">
+                <h4 className="font-semibold mb-3">Add New User</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Email</label>
+                    <input
+                      type="email"
+                      placeholder="user@company.com"
+                      value={newUser.email}
+                      onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                      className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Name</label>
+                    <input
+                      type="text"
+                      placeholder="Full Name"
+                      value={newUser.name}
+                      onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                      className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Password</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••"
+                      value={newUser.password}
+                      onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                      className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Role</label>
+                    <select
+                      value={newUser.role}
+                      onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                      className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="user">User</option>
+                      <option value="company_admin">Company Admin</option>
+                      {currentUser?.role === 'super_admin' && (
+                        <option value="super_admin">Super Admin</option>
+                      )}
+                    </select>
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleAddUser}
+                  className="mt-4 bg-indigo-600 hover:bg-indigo-700"
+                >
+                  Add User
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Users Table */}
+          {loadingUsers ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-indigo-600" />
+              <p className="mt-2 text-gray-600">Loading users...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-indigo-100">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-indigo-900">Email</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-indigo-900">Name</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-indigo-900">Role</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-indigo-900">Status</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-indigo-900">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {users.map((u) => (
+                    <tr key={u.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm">{u.email}</td>
+                      <td className="px-4 py-3 text-sm font-medium">{u.name}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          u.role === 'super_admin' ? 'bg-purple-100 text-purple-800' :
+                          u.role === 'company_admin' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {u.role === 'super_admin' ? 'Super Admin' : 
+                           u.role === 'company_admin' ? 'Company Admin' : 'User'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          u.active !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {u.active !== false ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {u.id !== currentUser?.id && u.role !== 'super_admin' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteUser(u.id, u.name)}
+                            className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {users.length === 0 && (
+                <p className="text-center py-8 text-gray-500">No users found</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Export Data Section */}
       <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200">
         <CardHeader>
