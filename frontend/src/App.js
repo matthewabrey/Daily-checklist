@@ -4222,6 +4222,384 @@ function GeneralRepairRecord() {
   );
 }
 
+
+// QR Labels Page Component
+function QRLabelsPage() {
+  const [assets, setAssets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [printing, setPrinting] = useState(false);
+  const [selectedAssets, setSelectedAssets] = useState([]);
+  const [activeTab, setActiveTab] = useState('new'); // 'new' or 'printed'
+  const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchAssets();
+  }, []);
+
+  const fetchAssets = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/assets/qr-labels`);
+      if (response.ok) {
+        const data = await response.json();
+        setAssets(data);
+      }
+    } catch (error) {
+      console.error('Error fetching assets:', error);
+      toast.error('Failed to load assets');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter assets based on QR printed status and search
+  const newAssets = assets.filter(a => !a.qr_printed && 
+    (searchTerm === '' || 
+     a.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     a.make?.toLowerCase().includes(searchTerm.toLowerCase())));
+  
+  const printedAssets = assets.filter(a => a.qr_printed &&
+    (searchTerm === '' || 
+     a.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     a.make?.toLowerCase().includes(searchTerm.toLowerCase())));
+
+  const currentAssets = activeTab === 'new' ? newAssets : printedAssets;
+
+  const handleSelectAll = () => {
+    if (selectedAssets.length === currentAssets.length) {
+      setSelectedAssets([]);
+    } else {
+      setSelectedAssets(currentAssets.map(a => a.id));
+    }
+  };
+
+  const handleSelectAsset = (assetId) => {
+    setSelectedAssets(prev => 
+      prev.includes(assetId) 
+        ? prev.filter(id => id !== assetId)
+        : [...prev, assetId]
+    );
+  };
+
+  const handlePrintLabels = async () => {
+    const assetsToPrint = selectedAssets.length > 0 
+      ? assets.filter(a => selectedAssets.includes(a.id))
+      : currentAssets;
+
+    if (assetsToPrint.length === 0) {
+      toast.error('No assets selected to print');
+      return;
+    }
+
+    setPrinting(true);
+
+    // Create a print window with QR codes
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>QR Code Labels - Machine Checklist</title>
+          <style>
+            @page { size: A4; margin: 10mm; }
+            body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+            .label-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 10px;
+              padding: 10px;
+            }
+            .label {
+              border: 1px dashed #ccc;
+              padding: 10px;
+              text-align: center;
+              page-break-inside: avoid;
+            }
+            .label img {
+              width: 100px;
+              height: 100px;
+            }
+            .label-text {
+              font-size: 10px;
+              margin-top: 5px;
+              word-break: break-word;
+            }
+            .label-make {
+              font-weight: bold;
+              font-size: 11px;
+            }
+            @media print {
+              .label { border: 1px dashed #999; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="label-grid">
+            ${assetsToPrint.map(asset => `
+              <div class="label">
+                <img src="${API_BASE_URL}${asset.qr_url}" alt="QR Code" />
+                <div class="label-make">${asset.make || ''}</div>
+                <div class="label-text">${asset.name || ''}</div>
+              </div>
+            `).join('')}
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 1000);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+
+    // Mark assets as printed
+    const assetIds = assetsToPrint.map(a => a.id);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/assets/mark-qr-printed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(assetIds)
+      });
+      
+      if (response.ok) {
+        toast.success(`Marked ${assetIds.length} assets as printed`);
+        // Refresh the list
+        await fetchAssets();
+        setSelectedAssets([]);
+      }
+    } catch (error) {
+      console.error('Error marking assets as printed:', error);
+    }
+
+    setPrinting(false);
+  };
+
+  const handleResetPrintStatus = async () => {
+    if (selectedAssets.length === 0) {
+      toast.error('Select assets to reset print status');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/assets/reset-qr-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(selectedAssets)
+      });
+      
+      if (response.ok) {
+        toast.success(`Reset print status for ${selectedAssets.length} assets`);
+        await fetchAssets();
+        setSelectedAssets([]);
+      }
+    } catch (error) {
+      console.error('Error resetting print status:', error);
+      toast.error('Failed to reset print status');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        <span className="ml-2">Loading assets...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" onClick={() => navigate('/admin')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Admin
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Print QR Code Labels</h1>
+            <p className="text-gray-600">Generate and print QR labels for machines</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-orange-700">New (No QR)</p>
+                <p className="text-3xl font-bold text-orange-600">{assets.filter(a => !a.qr_printed).length}</p>
+              </div>
+              <AlertCircle className="h-10 w-10 text-orange-400" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-700">Already Printed</p>
+                <p className="text-3xl font-bold text-green-600">{assets.filter(a => a.qr_printed).length}</p>
+              </div>
+              <CheckCircle className="h-10 w-10 text-green-400" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-purple-200 bg-purple-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-purple-700">Total Machines</p>
+                <p className="text-3xl font-bold text-purple-600">{assets.length}</p>
+              </div>
+              <QrCode className="h-10 w-10 text-purple-400" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs and Actions */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex space-x-2">
+              <Button 
+                variant={activeTab === 'new' ? 'default' : 'outline'}
+                onClick={() => { setActiveTab('new'); setSelectedAssets([]); }}
+                className={activeTab === 'new' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+              >
+                <AlertCircle className="h-4 w-4 mr-2" />
+                New Machines ({assets.filter(a => !a.qr_printed).length})
+              </Button>
+              <Button 
+                variant={activeTab === 'printed' ? 'default' : 'outline'}
+                onClick={() => { setActiveTab('printed'); setSelectedAssets([]); }}
+                className={activeTab === 'printed' ? 'bg-green-600 hover:bg-green-700' : ''}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Already Printed ({assets.filter(a => a.qr_printed).length})
+              </Button>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                placeholder="Search machines..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="px-3 py-2 border rounded-md w-48"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        
+        <CardContent>
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Button variant="outline" onClick={handleSelectAll}>
+              {selectedAssets.length === currentAssets.length ? 'Deselect All' : 'Select All'}
+            </Button>
+            
+            <Button 
+              onClick={handlePrintLabels}
+              disabled={printing}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {printing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4 mr-2" />
+              )}
+              Print {selectedAssets.length > 0 ? `Selected (${selectedAssets.length})` : `All ${activeTab === 'new' ? 'New' : 'Printed'} (${currentAssets.length})`}
+            </Button>
+            
+            {activeTab === 'printed' && selectedAssets.length > 0 && (
+              <Button 
+                variant="outline"
+                onClick={handleResetPrintStatus}
+                className="border-orange-300 text-orange-700 hover:bg-orange-50"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset Print Status ({selectedAssets.length})
+              </Button>
+            )}
+          </div>
+
+          {/* Assets List */}
+          {currentAssets.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              {activeTab === 'new' ? (
+                <>
+                  <CheckCircle className="h-12 w-12 mx-auto text-green-400 mb-4" />
+                  <p className="text-lg font-medium">All machines have QR codes printed!</p>
+                  <p className="text-sm">Upload a new asset list to add more machines.</p>
+                </>
+              ) : (
+                <>
+                  <QrCode className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                  <p className="text-lg font-medium">No printed QR codes yet</p>
+                  <p className="text-sm">Print labels from the "New Machines" tab.</p>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {currentAssets.map(asset => (
+                <Card 
+                  key={asset.id}
+                  className={`cursor-pointer transition-all ${
+                    selectedAssets.includes(asset.id) 
+                      ? 'ring-2 ring-purple-500 bg-purple-50' 
+                      : 'hover:shadow-md'
+                  }`}
+                  onClick={() => handleSelectAsset(asset.id)}
+                >
+                  <CardContent className="pt-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={selectedAssets.includes(asset.id)}
+                          onChange={() => {}}
+                          className="h-4 w-4 rounded"
+                        />
+                      </div>
+                      <div className="flex-shrink-0">
+                        <img 
+                          src={`${API_BASE_URL}${asset.qr_url}`}
+                          alt="QR Code"
+                          className="w-16 h-16"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{asset.make}</p>
+                        <p className="text-xs text-gray-600 truncate">{asset.name}</p>
+                        <p className="text-xs text-gray-400 mt-1">{asset.check_type}</p>
+                        {asset.qr_printed_at && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Printed: {new Date(asset.qr_printed_at).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
 // Repairs Needed Component
 function RepairsNeeded() {
   const [repairs, setRepairs] = useState([]);
