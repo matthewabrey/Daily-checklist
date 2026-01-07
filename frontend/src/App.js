@@ -2098,7 +2098,87 @@ function NewChecklist() {
 function SharePointAdminComponent() {
   const [uploadResults, setUploadResults] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newUser, setNewUser] = useState({ email: '', password: '', name: '', role: 'user' });
+  const { token, user: currentUser } = useAuth();
   const navigate = useNavigate();
+
+  // Fetch users on component mount
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoadingUsers(true);
+      const response = await fetch(`${API_BASE_URL}/api/company/users`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleAddUser = async () => {
+    if (!newUser.email || !newUser.password || !newUser.name) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/company/users`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newUser)
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast.success('User added successfully!');
+        setShowAddUser(false);
+        setNewUser({ email: '', password: '', name: '', role: 'user' });
+        fetchUsers();
+      } else {
+        toast.error(data.detail || 'Failed to add user');
+      }
+    } catch (error) {
+      toast.error('Error adding user');
+    }
+  };
+
+  const handleDeleteUser = async (userId, userName) => {
+    if (!window.confirm(`Are you sure you want to deactivate ${userName}?`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/company/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        toast.success('User deactivated');
+        fetchUsers();
+      } else {
+        toast.error('Failed to deactivate user');
+      }
+    } catch (error) {
+      toast.error('Error deactivating user');
+    }
+  };
 
   const handleFileUpload = async (event, type) => {
     const file = event.target.files[0];
