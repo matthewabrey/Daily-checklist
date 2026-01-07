@@ -491,14 +491,48 @@ async def get_asset_qr_code(make: str, name: str):
 
 @app.get("/api/assets/qr-labels")
 async def get_all_qr_labels():
-    """Get list of all assets with QR code URLs for printing"""
-    assets = await db.assets.find({}, {"_id": 0, "make": 1, "name": 1, "id": 1}).to_list(length=1000)
+    """Get list of all assets with QR code URLs and print status for printing page"""
+    assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
     
-    # Add QR code URL to each asset
+    # Add QR code URL to each asset and ensure qr_printed field exists
     for asset in assets:
         asset["qr_url"] = f"/api/assets/qr/{asset.get('make', '')}/{asset.get('name', '')}"
+        # Ensure qr_printed field exists (for backward compatibility)
+        if 'qr_printed' not in asset:
+            asset['qr_printed'] = False
+        if 'qr_printed_at' not in asset:
+            asset['qr_printed_at'] = None
     
     return assets
+
+@app.post("/api/assets/mark-qr-printed")
+async def mark_assets_qr_printed(asset_ids: List[str]):
+    """Mark multiple assets as having their QR codes printed"""
+    timestamp = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.assets.update_many(
+        {"id": {"$in": asset_ids}},
+        {"$set": {"qr_printed": True, "qr_printed_at": timestamp}}
+    )
+    
+    return {
+        "success": True,
+        "modified_count": result.modified_count,
+        "timestamp": timestamp
+    }
+
+@app.post("/api/assets/reset-qr-status")
+async def reset_asset_qr_status(asset_ids: List[str]):
+    """Reset QR printed status for specified assets (useful if labels need reprinting)"""
+    result = await db.assets.update_many(
+        {"id": {"$in": asset_ids}},
+        {"$set": {"qr_printed": False, "qr_printed_at": None}}
+    )
+    
+    return {
+        "success": True,
+        "modified_count": result.modified_count
+    }
 
 @app.post("/api/checklists", response_model=ChecklistResponse)
 async def create_checklist(checklist: Checklist):
