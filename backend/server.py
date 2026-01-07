@@ -394,6 +394,332 @@ async def health_check():
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
+# ============== NEW AUTH ENDPOINTS ==============
+
+@app.post("/api/auth/login")
+async def login(credentials: UserLogin):
+    """Login with email and password"""
+    user = await db.users.find_one({"email": credentials.email.lower()}, {"_id": 0})
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    if not user.get("active", True):
+        raise HTTPException(status_code=401, detail="Account disabled")
+    
+    if not verify_password(credentials.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    # Get company info
+    company = await db.companies.find_one({"id": user["company_id"]}, {"_id": 0})
+    
+    token = create_jwt_token(user["id"], user["email"], user["company_id"], user["role"])
+    
+    return {
+        "success": True,
+        "token": token,
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "name": user["name"],
+            "role": user["role"],
+            "company_id": user["company_id"],
+            "employee_number": user.get("employee_number")
+        },
+        "company": company
+    }
+
+@app.get("/api/auth/me")
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    """Get current logged in user info"""
+    company = await db.companies.find_one({"id": current_user["company_id"]}, {"_id": 0})
+    return {
+        "user": {
+            "id": current_user["id"],
+            "email": current_user["email"],
+            "name": current_user["name"],
+            "role": current_user["role"],
+            "company_id": current_user["company_id"],
+            "employee_number": current_user.get("employee_number")
+        },
+        "company": company
+    }
+
+@app.post("/api/auth/change-password")
+async def change_password(passwords: PasswordChange, current_user: dict = Depends(get_current_user)):
+    """Change user password"""
+    if not verify_password(passwords.current_password, current_user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    new_hash = hash_password(passwords.new_password)
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$set": {"password_hash": new_hash}}
+    )
+    
+    return {"success": True, "message": "Password changed successfully"}
+
+# ============== COMPANY MANAGEMENT (Super Admin) ==============
+
+@app.post("/api/admin/companies")
+async def create_company(company_data: CompanyCreate, current_user: dict = Depends(require_super_admin)):
+    """Create a new company with admin user (Super Admin only)"""
+    # Check if company name or admin email already exists
+    existing = await db.companies.find_one({"$or": [
+        {"name": company_data.name},
+        {"admin_email": company_data.admin_email.lower()}
+    ]})
+    if existing:
+        raise HTTPException(status_code=400, detail="Company name or admin email already exists")
+    
+    # Create slug from company name
+    slug = company_data.name.lower().replace(" ", "-").replace("'", "")
+    
+    # Create company
+    company = Company(
+        name=company_data.name,
+        slug=slug,
+        admin_email=company_data.admin_email.lower(),
+        logo_url=company_data.logo_url,
+        color_primary=company_data.color_primary or "#16a34a",
+        color_secondary=company_data.color_secondary or "#059669",
+        color_accent=company_data.color_accent or "#10b981"
+    )
+    
+    await db.companies.insert_one(company.dict())
+    
+    # Create admin user for this company
+    admin_user = User(
+        email=company_data.admin_email.lower(),
+        password_hash=hash_password(company_data.admin_password),
+        name=company_data.admin_name,
+        company_id=company.id,
+        role="company_admin"
+    )
+    
+    await db.users.insert_one(admin_user.dict())
+    
+    return {
+        "success": True,
+        "company": company.dict(),
+        "admin_user": {
+            "id": admin_user.id,
+            "email": admin_user.email,
+            "name": admin_user.name
+        }
+    }
+
+@app.get("/api/admin/companies")
+async def list_companies(current_user: dict = Depends(require_super_admin)):
+    """List all companies (Super Admin only)"""
+    companies = await db.companies.find({}, {"_id": 0}).to_list(length=1000)
+    
+    # Add user count for each company
+    for company in companies:
+        user_count = await db.users.count_documents({"company_id": company["id"]})
+        company["user_count"] = user_count
+    
+    return companies
+
+@app.get("/api/admin/companies/{company_id}")
+async def get_company(company_id: str, current_user: dict = Depends(require_super_admin)):
+    """Get company details (Super Admin only)"""
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return company
+
+@app.put("/api/admin/companies/{company_id}")
+async def update_company(company_id: str, updates: dict, current_user: dict = Depends(require_super_admin)):
+    """Update company details (Super Admin only)"""
+    # Remove fields that shouldn't be updated directly
+    updates.pop("id", None)
+    updates.pop("_id", None)
+    updates.pop("created_at", None)
+    
+    result = await db.companies.update_one(
+        {"id": company_id},
+        {"$set": updates}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    return {"success": True}
+
+# ============== USER MANAGEMENT (Company Admin) ==============
+
+@app.post("/api/company/users")
+async def create_user(user_data: UserCreate, current_user: dict = Depends(require_company_admin)):
+    """Create a new user in the company (Company Admin)"""
+    # Company admins can only add users to their own company
+    company_id = user_data.company_id or current_user["company_id"]
+    
+    if current_user["role"] != "super_admin" and company_id != current_user["company_id"]:
+        raise HTTPException(status_code=403, detail="Cannot create users for other companies")
+    
+    # Check if email already exists
+    existing = await db.users.find_one({"email": user_data.email.lower()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create user
+    new_user = User(
+        email=user_data.email.lower(),
+        password_hash=hash_password(user_data.password),
+        name=user_data.name,
+        company_id=company_id,
+        role=user_data.role if current_user["role"] == "super_admin" else "user",
+        employee_number=user_data.employee_number
+    )
+    
+    await db.users.insert_one(new_user.dict())
+    
+    return {
+        "success": True,
+        "user": {
+            "id": new_user.id,
+            "email": new_user.email,
+            "name": new_user.name,
+            "role": new_user.role,
+            "employee_number": new_user.employee_number
+        }
+    }
+
+@app.get("/api/company/users")
+async def list_company_users(current_user: dict = Depends(require_company_admin)):
+    """List users in the company (Company Admin)"""
+    query = {"company_id": current_user["company_id"]}
+    
+    # Super admins can see all users
+    if current_user["role"] == "super_admin":
+        query = {}
+    
+    users = await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(length=1000)
+    return users
+
+@app.put("/api/company/users/{user_id}")
+async def update_user(user_id: str, updates: dict, current_user: dict = Depends(require_company_admin)):
+    """Update a user (Company Admin)"""
+    # Get the user to update
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Company admins can only update users in their company
+    if current_user["role"] != "super_admin" and user["company_id"] != current_user["company_id"]:
+        raise HTTPException(status_code=403, detail="Cannot update users from other companies")
+    
+    # Remove protected fields
+    updates.pop("id", None)
+    updates.pop("_id", None)
+    updates.pop("password_hash", None)
+    updates.pop("company_id", None)
+    
+    # Handle password change
+    if "password" in updates:
+        updates["password_hash"] = hash_password(updates.pop("password"))
+    
+    await db.users.update_one({"id": user_id}, {"$set": updates})
+    
+    return {"success": True}
+
+@app.delete("/api/company/users/{user_id}")
+async def delete_user(user_id: str, current_user: dict = Depends(require_company_admin)):
+    """Deactivate a user (Company Admin)"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if current_user["role"] != "super_admin" and user["company_id"] != current_user["company_id"]:
+        raise HTTPException(status_code=403, detail="Cannot delete users from other companies")
+    
+    # Don't actually delete, just deactivate
+    await db.users.update_one({"id": user_id}, {"$set": {"active": False}})
+    
+    return {"success": True}
+
+# ============== COMPANY SETTINGS ==============
+
+@app.get("/api/company/settings")
+async def get_company_settings(current_user: dict = Depends(get_current_user)):
+    """Get current user's company settings"""
+    company = await db.companies.find_one({"id": current_user["company_id"]}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return company
+
+@app.put("/api/company/settings")
+async def update_company_settings(updates: dict, current_user: dict = Depends(require_company_admin)):
+    """Update company settings (logo, colors) - Company Admin only"""
+    # Only allow certain fields to be updated
+    allowed_fields = ["logo_url", "color_primary", "color_secondary", "color_accent"]
+    filtered_updates = {k: v for k, v in updates.items() if k in allowed_fields}
+    
+    if not filtered_updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    
+    await db.companies.update_one(
+        {"id": current_user["company_id"]},
+        {"$set": filtered_updates}
+    )
+    
+    return {"success": True}
+
+# ============== SETUP SUPER ADMIN ==============
+
+@app.post("/api/setup/init")
+async def initialize_system():
+    """Initialize system with super admin and default company (run once)"""
+    # Check if already initialized
+    existing_super = await db.users.find_one({"role": "super_admin"})
+    if existing_super:
+        raise HTTPException(status_code=400, detail="System already initialized")
+    
+    # Create default company (Abreys)
+    default_company = Company(
+        name="Abreys",
+        slug="abreys",
+        admin_email="admin@abreys.com",
+        color_primary="#16a34a",
+        color_secondary="#059669",
+        color_accent="#10b981"
+    )
+    await db.companies.insert_one(default_company.dict())
+    
+    # Create super admin user (using 4444 as reference)
+    super_admin = User(
+        email="admin@abreys.com",
+        password_hash=hash_password("admin123"),  # Change this!
+        name="Super Admin",
+        company_id=default_company.id,
+        role="super_admin",
+        employee_number="4444"
+    )
+    await db.users.insert_one(super_admin.dict())
+    
+    # Migrate existing assets to have company_id
+    await db.assets.update_many(
+        {"company_id": {"$exists": False}},
+        {"$set": {"company_id": default_company.id}}
+    )
+    
+    # Migrate existing checklists to have company_id
+    await db.checklists.update_many(
+        {"company_id": {"$exists": False}},
+        {"$set": {"company_id": default_company.id}}
+    )
+    
+    return {
+        "success": True,
+        "message": "System initialized",
+        "super_admin_email": "admin@abreys.com",
+        "super_admin_password": "admin123",  # Display once, user should change
+        "company_id": default_company.id
+    }
+
+# ============== LEGACY AUTH (keeping for backward compatibility) ==============
+
 class EmployeeLoginRequest(BaseModel):
     employee_number: str
 
