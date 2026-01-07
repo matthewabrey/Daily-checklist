@@ -2215,6 +2215,48 @@ function SharePointAdminComponent() {
     }
   };
 
+  const handleEditCompany = (company) => {
+    setEditingCompany({...company});
+    setLogoPreview(company.logo_url || null);
+    setShowAddCompany(false);
+  };
+
+  const handleUpdateCompany = async () => {
+    if (!editingCompany.name) {
+      toast.error('Company name is required');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/companies/${editingCompany.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: editingCompany.name,
+          logo_url: editingCompany.logo_url,
+          color_primary: editingCompany.color_primary,
+          color_secondary: editingCompany.color_secondary,
+          color_accent: editingCompany.color_accent
+        })
+      });
+      
+      if (response.ok) {
+        toast.success(`Company "${editingCompany.name}" updated!`);
+        setEditingCompany(null);
+        setLogoPreview(null);
+        fetchCompanies();
+      } else {
+        const data = await response.json();
+        toast.error(data.detail || 'Failed to update company');
+      }
+    } catch (error) {
+      toast.error('Error updating company');
+    }
+  };
+
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
