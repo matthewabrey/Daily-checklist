@@ -1843,6 +1843,192 @@ class RepairStatusUpdate(BaseModel):
     completed: Optional[bool] = None
     progress_notes: Optional[List[dict]] = None
 
+# ============== EXPORT ENDPOINTS ==============
+
+@app.get("/api/export/staff")
+async def export_staff_excel():
+    """Export staff list to Excel"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    
+    staff = await db.staff.find({}, {"_id": 0}).to_list(length=10000)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Staff"
+    
+    headers = ["Employee Number", "Name", "Active", "Workshop Control", "Admin Control"]
+    ws.append(headers)
+    
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+    
+    for s in staff:
+        ws.append([
+            s.get('employee_number', ''),
+            s.get('name', ''),
+            'Yes' if s.get('active', True) else 'No',
+            s.get('workshop_control', ''),
+            s.get('admin_control', '')
+        ])
+    
+    # Auto-width columns
+    for col in ws.columns:
+        max_length = max(len(str(cell.value or '')) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 50)
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=staff_export.xlsx"}
+    )
+
+@app.get("/api/export/assets")
+async def export_assets_excel():
+    """Export assets/machines to Excel"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    
+    assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Assets"
+    
+    headers = ["Make", "Name", "Check Type", "QR Printed", "QR Printed At"]
+    ws.append(headers)
+    
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+    
+    for a in assets:
+        ws.append([
+            a.get('make', ''),
+            a.get('name', ''),
+            a.get('check_type', ''),
+            'Yes' if a.get('qr_printed', False) else 'No',
+            a.get('qr_printed_at', '')
+        ])
+    
+    for col in ws.columns:
+        max_length = max(len(str(cell.value or '')) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 50)
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=assets_export.xlsx"}
+    )
+
+@app.get("/api/export/users")
+async def export_users_excel(current_user: dict = Depends(require_company_admin)):
+    """Export users to Excel (Admin only)"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    
+    query = {"company_id": current_user["company_id"]}
+    if current_user["role"] == "super_admin":
+        query = {}
+    
+    users = await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(length=10000)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Users"
+    
+    headers = ["Email", "Name", "Role", "Employee Number", "Active", "Created At"]
+    ws.append(headers)
+    
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+    
+    for u in users:
+        ws.append([
+            u.get('email', ''),
+            u.get('name', ''),
+            u.get('role', ''),
+            u.get('employee_number', ''),
+            'Yes' if u.get('active', True) else 'No',
+            str(u.get('created_at', ''))
+        ])
+    
+    for col in ws.columns:
+        max_length = max(len(str(cell.value or '')) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 50)
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=users_export.xlsx"}
+    )
+
+@app.get("/api/export/repairs")
+async def export_repairs_excel():
+    """Export repair status to Excel"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    
+    repairs = await db.repair_status.find({}, {"_id": 0}).to_list(length=10000)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Repairs"
+    
+    headers = ["Repair ID", "Acknowledged", "Acknowledged At", "Acknowledged By", "Completed", "Completed At", "Completed By"]
+    ws.append(headers)
+    
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+    
+    for r in repairs:
+        ws.append([
+            r.get('repair_id', ''),
+            'Yes' if r.get('acknowledged', False) else 'No',
+            r.get('acknowledged_at', ''),
+            r.get('acknowledged_by', ''),
+            'Yes' if r.get('completed', False) else 'No',
+            r.get('completed_at', ''),
+            r.get('completed_by', '')
+        ])
+    
+    for col in ws.columns:
+        max_length = max(len(str(cell.value or '')) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 50)
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=repairs_export.xlsx"}
+    )
+
 @app.get("/api/repair-status/bulk")
 async def get_bulk_repair_status():
     """Get status for all repairs"""
