@@ -2168,11 +2168,13 @@ function SharePointAdminComponent() {
       if (response.ok) {
         toast.success(`Company "${newCompany.name}" created successfully!`);
         setShowAddCompany(false);
+        setLogoPreview(null);
         setNewCompany({ 
           name: '', 
           admin_email: '', 
           admin_password: '', 
           admin_name: '',
+          logo_url: '',
           color_primary: '#16a34a',
           color_secondary: '#059669',
           color_accent: '#10b981'
