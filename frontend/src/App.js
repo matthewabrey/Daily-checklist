@@ -663,6 +663,7 @@ function EmployeeLogin() {
 function NewChecklist() {
   const { employee, isAuthenticated } = useAuth();
   const { t, tItem } = useTranslation();
+  const location = useLocation();
   const [step, setStep] = useState(1);
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedName, setSelectedName] = useState('');
