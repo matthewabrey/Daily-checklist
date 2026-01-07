@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi import FastAPI, HTTPException, File, UploadFile, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 import os
@@ -13,11 +13,18 @@ from dotenv import load_dotenv
 from sharepoint_integration import sharepoint_integration
 from cached_stats import get_cached_stats, invalidate_cache
 import qrcode
+import bcrypt
+import jwt
 
 # Load environment variables
 load_dotenv()
 
 app = FastAPI(title="Machine Checklist API")
+
+# JWT Secret - in production, use a secure secret from env
+JWT_SECRET = os.environ.get("JWT_SECRET", "your-super-secret-key-change-in-production")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
 
 # CORS setup
 CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
@@ -46,12 +53,128 @@ client = AsyncIOMotorClient(
 db = client[DB_NAME]
 
 # Collections
+# db.companies - company/business data
+# db.users - user accounts with email/password
 # db.checklists - checklist records
 # db.assets - machine/asset data
-# db.staff - staff data
-# db.repair_status - tracks acknowledged/completed status of repairs (NEW)
+# db.staff - staff data (legacy, will be merged with users)
+# db.repair_status - tracks acknowledged/completed status of repairs
 
-# Pydantic models
+# ============== AUTH MODELS ==============
+
+class Company(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    slug: str  # URL-friendly identifier
+    admin_email: str
+    logo_url: Optional[str] = None
+    color_primary: str = "#16a34a"  # Green default
+    color_secondary: str = "#059669"
+    color_accent: str = "#10b981"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    active: bool = True
+
+class User(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    email: str
+    password_hash: str
+    name: str
+    company_id: str
+    role: str = "user"  # "super_admin", "company_admin", "user"
+    employee_number: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    active: bool = True
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    name: str
+    company_id: Optional[str] = None
+    role: str = "user"
+    employee_number: Optional[str] = None
+
+class CompanyCreate(BaseModel):
+    name: str
+    admin_email: str
+    admin_password: str
+    admin_name: str
+    logo_url: Optional[str] = None
+    color_primary: Optional[str] = "#16a34a"
+    color_secondary: Optional[str] = "#059669"
+    color_accent: Optional[str] = "#10b981"
+
+class PasswordReset(BaseModel):
+    email: str
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+# ============== AUTH HELPERS ==============
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(password: str, password_hash: str) -> bool:
+    return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+
+def create_jwt_token(user_id: str, email: str, company_id: str, role: str) -> str:
+    payload = {
+        "user_id": user_id,
+        "email": email,
+        "company_id": company_id,
+        "role": role,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def decode_jwt_token(token: str) -> dict:
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+async def get_current_user(authorization: Optional[str] = Header(None)):
+    """Dependency to get current authenticated user from JWT token"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization header required")
+    
+    try:
+        # Handle "Bearer <token>" format
+        token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+        payload = decode_jwt_token(token)
+        
+        user = await db.users.find_one({"id": payload["user_id"]}, {"_id": 0})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        if not user.get("active", True):
+            raise HTTPException(status_code=401, detail="User account disabled")
+        
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid authorization")
+
+async def require_super_admin(current_user: dict = Depends(get_current_user)):
+    """Dependency to require super admin role"""
+    if current_user.get("role") != "super_admin":
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    return current_user
+
+async def require_company_admin(current_user: dict = Depends(get_current_user)):
+    """Dependency to require company admin or super admin role"""
+    if current_user.get("role") not in ["super_admin", "company_admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+# ============== LEGACY MODELS ==============
 class Asset(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     check_type: str
