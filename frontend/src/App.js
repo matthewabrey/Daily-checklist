@@ -379,7 +379,20 @@ function Dashboard() {
             </p>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-6 w-full">
+
+        {/* Quick Scan Button - Prominent */}
+        <div className="mt-4 sm:mt-6">
+          <Button 
+            onClick={() => setShowQRScanner(true)}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg font-semibold shadow-lg"
+            data-testid="quick-scan-btn"
+          >
+            <QrCode className="mr-3 h-6 w-6" />
+            Scan Machine QR Code
+          </Button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 mt-3 w-full">
           <Button 
             onClick={() => navigate('/new-checklist')} 
             className="bg-green-600 hover:bg-green-700 flex-1 text-sm sm:text-base py-4 sm:py-6"
