@@ -2107,11 +2107,13 @@ function SharePointAdminComponent() {
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [showAddCompany, setShowAddCompany] = useState(false);
+  const [logoPreview, setLogoPreview] = useState(null);
   const [newCompany, setNewCompany] = useState({ 
     name: '', 
     admin_email: '', 
     admin_password: '', 
     admin_name: '',
+    logo_url: '',
     color_primary: '#16a34a',
     color_secondary: '#059669',
     color_accent: '#10b981'
