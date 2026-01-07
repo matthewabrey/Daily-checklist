@@ -110,42 +110,89 @@ function QRScanner({ onScan, onClose }) {
   );
 }
 
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
+
 function AuthProvider({ children }) {
-  const [employee, setEmployee] = useState(null);
+  const [user, setUser] = useState(null);
+  const [company, setCompany] = useState(null);
+  const [token, setToken] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // For backward compatibility
+  const employee = user ? {
+    name: user.name,
+    employee_number: user.employee_number || user.email,
+    is_admin: user.role === 'super_admin' || user.role === 'company_admin',
+    workshop: true,
+    active: true
+  } : null;
+
   useEffect(() => {
-    // Check if user was previously authenticated (session storage for now)
-    const storedEmployee = sessionStorage.getItem('authenticated_employee');
-    if (storedEmployee) {
+    // Check if user was previously authenticated
+    const storedToken = localStorage.getItem('auth_token');
+    const storedUser = localStorage.getItem('auth_user');
+    const storedCompany = localStorage.getItem('auth_company');
+    
+    if (storedToken && storedUser) {
       try {
-        const empData = JSON.parse(storedEmployee);
-        setEmployee(empData);
+        const userData = JSON.parse(storedUser);
+        const companyData = storedCompany ? JSON.parse(storedCompany) : null;
+        setToken(storedToken);
+        setUser(userData);
+        setCompany(companyData);
         setIsAuthenticated(true);
       } catch (error) {
-        console.error('Error parsing stored employee data:', error);
-        sessionStorage.removeItem('authenticated_employee');
+        console.error('Error parsing stored auth data:', error);
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('auth_company');
       }
     }
     setLoading(false);
   }, []);
 
-  const login = (employeeData) => {
-    setEmployee(employeeData);
+  const login = async (email, password) => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.detail || 'Login failed');
+    }
+    
+    setToken(data.token);
+    setUser(data.user);
+    setCompany(data.company);
     setIsAuthenticated(true);
-    sessionStorage.setItem('authenticated_employee', JSON.stringify(employeeData));
+    
+    localStorage.setItem('auth_token', data.token);
+    localStorage.setItem('auth_user', JSON.stringify(data.user));
+    localStorage.setItem('auth_company', JSON.stringify(data.company));
+    
+    return data;
   };
 
   const logout = () => {
-    setEmployee(null);
+    setToken(null);
+    setUser(null);
+    setCompany(null);
     setIsAuthenticated(false);
-    sessionStorage.removeItem('authenticated_employee');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_company');
   };
 
   return (
     <AuthContext.Provider value={{ 
-      employee, 
+      user,
+      employee, // For backward compatibility
+      company,
+      token,
       isAuthenticated, 
       login, 
       logout, 
@@ -156,7 +203,6 @@ function AuthProvider({ children }) {
   );
 }
 
-const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
 
 // Dashboard Component
 function Dashboard() {
