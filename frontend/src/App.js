@@ -2287,14 +2287,14 @@ function SharePointAdminComponent() {
                   </div>
                   <User className="h-6 w-6 text-green-600" />
                 </div>
-                <Button 
-                  onClick={() => window.open(`${API_BASE_URL}/api/export/staff`, '_blank')}
-                  variant="outline"
-                  className="w-full border-green-300 text-green-700 hover:bg-green-50"
+                <a 
+                  href={`${API_BASE_URL}/api/export/staff`}
+                  download="staff_export.csv"
+                  className="inline-flex items-center justify-center w-full px-4 py-2 border border-green-300 text-green-700 rounded-md hover:bg-green-50 transition-colors"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Download CSV
-                </Button>
+                </a>
               </CardContent>
             </Card>
 
@@ -2308,14 +2308,14 @@ function SharePointAdminComponent() {
                   </div>
                   <Truck className="h-6 w-6 text-blue-600" />
                 </div>
-                <Button 
-                  onClick={() => window.open(`${API_BASE_URL}/api/export/assets`, '_blank')}
-                  variant="outline"
-                  className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                <a 
+                  href={`${API_BASE_URL}/api/export/assets`}
+                  download="assets_export.csv"
+                  className="inline-flex items-center justify-center w-full px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 transition-colors"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Download CSV
-                </Button>
+                </a>
               </CardContent>
             </Card>
 
@@ -2329,14 +2329,14 @@ function SharePointAdminComponent() {
                   </div>
                   <ClipboardList className="h-6 w-6 text-purple-600" />
                 </div>
-                <Button 
-                  onClick={() => window.open(`${API_BASE_URL}/api/export/checklists`, '_blank')}
-                  variant="outline"
-                  className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
+                <a 
+                  href={`${API_BASE_URL}/api/export/checklists`}
+                  download="checklists_export.csv"
+                  className="inline-flex items-center justify-center w-full px-4 py-2 border border-purple-300 text-purple-700 rounded-md hover:bg-purple-50 transition-colors"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Download CSV
-                </Button>
+                </a>
               </CardContent>
             </Card>
 
@@ -2350,14 +2350,14 @@ function SharePointAdminComponent() {
                   </div>
                   <Wrench className="h-6 w-6 text-orange-600" />
                 </div>
-                <Button 
-                  onClick={() => window.open(`${API_BASE_URL}/api/export/repairs`, '_blank')}
-                  variant="outline"
-                  className="w-full border-orange-300 text-orange-700 hover:bg-orange-50"
+                <a 
+                  href={`${API_BASE_URL}/api/export/repairs`}
+                  download="repairs_export.csv"
+                  className="inline-flex items-center justify-center w-full px-4 py-2 border border-orange-300 text-orange-700 rounded-md hover:bg-orange-50 transition-colors"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Download CSV
-                </Button>
+                </a>
               </CardContent>
             </Card>
           </div>
