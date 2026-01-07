@@ -6039,15 +6039,18 @@ function ProtectedRoute({ children }) {
 
 // Admin Protected Route Component
 function AdminProtectedRoute({ children }) {
-  const { isAuthenticated, employee, loading } = useAuth();
+  const { isAuthenticated, employee, user, loading } = useAuth();
   const navigate = useNavigate();
   
-  // Check if employee has admin control access
-  const hasAdminAccess = employee?.admin_control?.toLowerCase() === 'yes';
+  // Check if user has admin access (new auth system or legacy)
+  const hasAdminAccess = user?.role === 'super_admin' || 
+                         user?.role === 'company_admin' || 
+                         employee?.is_admin === true ||
+                         employee?.admin_control?.toLowerCase() === 'yes';
   
   React.useEffect(() => {
     if (!loading && isAuthenticated && !hasAdminAccess) {
-      toast.error('Access denied. You do not have Admin Control permission.');
+      toast.error('Access denied. You do not have Admin permission.');
       navigate('/');
     }
   }, [hasAdminAccess, isAuthenticated, loading, navigate]);
