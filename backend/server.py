@@ -1846,28 +1846,21 @@ class RepairStatusUpdate(BaseModel):
 # ============== EXPORT ENDPOINTS ==============
 
 @app.get("/api/export/staff")
-async def export_staff_excel():
-    """Export staff list to Excel"""
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
+async def export_staff_csv():
+    """Export staff list to CSV"""
+    import csv
     
     staff = await db.staff.find({}, {"_id": 0}).to_list(length=10000)
     
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Staff"
+    output = io.StringIO()
+    writer = csv.writer(output)
     
-    headers = ["Employee Number", "Name", "Active", "Workshop Control", "Admin Control"]
-    ws.append(headers)
+    # Header
+    writer.writerow(["Employee Number", "Name", "Active", "Workshop Control", "Admin Control"])
     
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-    header_font = Font(color="FFFFFF", bold=True)
-    for cell in ws[1]:
-        cell.fill = header_fill
-        cell.font = header_font
-    
+    # Data
     for s in staff:
-        ws.append([
+        writer.writerow([
             s.get('employee_number', ''),
             s.get('name', ''),
             'Yes' if s.get('active', True) else 'No',
@@ -1875,44 +1868,30 @@ async def export_staff_excel():
             s.get('admin_control', '')
         ])
     
-    # Auto-width columns
-    for col in ws.columns:
-        max_length = max(len(str(cell.value or '')) for cell in col)
-        ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 50)
-    
-    output = io.BytesIO()
-    wb.save(output)
     output.seek(0)
     
     return StreamingResponse(
-        output,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=staff_export.xlsx"}
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=staff_export.csv"}
     )
 
 @app.get("/api/export/assets")
-async def export_assets_excel():
-    """Export assets/machines to Excel"""
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
+async def export_assets_csv():
+    """Export assets/machines to CSV"""
+    import csv
     
     assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
     
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Assets"
+    output = io.StringIO()
+    writer = csv.writer(output)
     
-    headers = ["Make", "Name", "Check Type", "QR Printed", "QR Printed At"]
-    ws.append(headers)
+    # Header
+    writer.writerow(["Make", "Name", "Check Type", "QR Printed", "QR Printed At"])
     
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-    header_font = Font(color="FFFFFF", bold=True)
-    for cell in ws[1]:
-        cell.fill = header_fill
-        cell.font = header_font
-    
+    # Data
     for a in assets:
-        ws.append([
+        writer.writerow([
             a.get('make', ''),
             a.get('name', ''),
             a.get('check_type', ''),
@@ -1920,25 +1899,18 @@ async def export_assets_excel():
             a.get('qr_printed_at', '')
         ])
     
-    for col in ws.columns:
-        max_length = max(len(str(cell.value or '')) for cell in col)
-        ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 50)
-    
-    output = io.BytesIO()
-    wb.save(output)
     output.seek(0)
     
     return StreamingResponse(
-        output,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=assets_export.xlsx"}
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=assets_export.csv"}
     )
 
 @app.get("/api/export/users")
-async def export_users_excel(current_user: dict = Depends(require_company_admin)):
-    """Export users to Excel (Admin only)"""
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
+async def export_users_csv(current_user: dict = Depends(require_company_admin)):
+    """Export users to CSV (Admin only)"""
+    import csv
     
     query = {"company_id": current_user["company_id"]}
     if current_user["role"] == "super_admin":
@@ -1946,21 +1918,15 @@ async def export_users_excel(current_user: dict = Depends(require_company_admin)
     
     users = await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(length=10000)
     
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Users"
+    output = io.StringIO()
+    writer = csv.writer(output)
     
-    headers = ["Email", "Name", "Role", "Employee Number", "Active", "Created At"]
-    ws.append(headers)
+    # Header
+    writer.writerow(["Email", "Name", "Role", "Employee Number", "Active", "Created At"])
     
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-    header_font = Font(color="FFFFFF", bold=True)
-    for cell in ws[1]:
-        cell.fill = header_fill
-        cell.font = header_font
-    
+    # Data
     for u in users:
-        ws.append([
+        writer.writerow([
             u.get('email', ''),
             u.get('name', ''),
             u.get('role', ''),
@@ -1969,43 +1935,30 @@ async def export_users_excel(current_user: dict = Depends(require_company_admin)
             str(u.get('created_at', ''))
         ])
     
-    for col in ws.columns:
-        max_length = max(len(str(cell.value or '')) for cell in col)
-        ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 50)
-    
-    output = io.BytesIO()
-    wb.save(output)
     output.seek(0)
     
     return StreamingResponse(
-        output,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=users_export.xlsx"}
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=users_export.csv"}
     )
 
 @app.get("/api/export/repairs")
-async def export_repairs_excel():
-    """Export repair status to Excel"""
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
+async def export_repairs_csv():
+    """Export repair status to CSV"""
+    import csv
     
     repairs = await db.repair_status.find({}, {"_id": 0}).to_list(length=10000)
     
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Repairs"
+    output = io.StringIO()
+    writer = csv.writer(output)
     
-    headers = ["Repair ID", "Acknowledged", "Acknowledged At", "Acknowledged By", "Completed", "Completed At", "Completed By"]
-    ws.append(headers)
+    # Header
+    writer.writerow(["Repair ID", "Acknowledged", "Acknowledged At", "Acknowledged By", "Completed", "Completed At", "Completed By"])
     
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-    header_font = Font(color="FFFFFF", bold=True)
-    for cell in ws[1]:
-        cell.fill = header_fill
-        cell.font = header_font
-    
+    # Data
     for r in repairs:
-        ws.append([
+        writer.writerow([
             r.get('repair_id', ''),
             'Yes' if r.get('acknowledged', False) else 'No',
             r.get('acknowledged_at', ''),
@@ -2015,18 +1968,61 @@ async def export_repairs_excel():
             r.get('completed_by', '')
         ])
     
-    for col in ws.columns:
-        max_length = max(len(str(cell.value or '')) for cell in col)
-        ws.column_dimensions[col[0].column_letter].width = min(max_length + 2, 50)
-    
-    output = io.BytesIO()
-    wb.save(output)
     output.seek(0)
     
     return StreamingResponse(
-        output,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=repairs_export.xlsx"}
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=repairs_export.csv"}
+    )
+
+@app.get("/api/export/checklists")
+async def export_checklists_csv():
+    """Export all checklists to CSV"""
+    import csv
+    
+    checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).limit(10000).to_list(length=10000)
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow(["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Items Satisfactory", "Items Unsatisfactory", "Items Total", "Notes"])
+    
+    # Data
+    for checklist in checklists:
+        if checklist.get('check_type') in ['daily_check', 'grader_startup']:
+            items = checklist.get('checklist_items', [])
+            items_satisfactory = sum(1 for item in items if item.get('status') == 'satisfactory')
+            items_unsatisfactory = sum(1 for item in items if item.get('status') == 'unsatisfactory')
+            items_total = len(items)
+            notes = "; ".join([item.get('notes', '') for item in items if item.get('notes')])
+        else:
+            items_satisfactory = 0
+            items_unsatisfactory = 0
+            items_total = 0
+            notes = checklist.get('workshop_notes', '')
+        
+        writer.writerow([
+            checklist.get('id', ''),
+            checklist.get('staff_name', ''),
+            checklist.get('machine_make', ''),
+            checklist.get('machine_model', ''),
+            checklist.get('check_type', ''),
+            str(checklist.get('completed_at', '')),
+            checklist.get('status', ''),
+            items_satisfactory,
+            items_unsatisfactory,
+            items_total,
+            notes
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=checklists_export.csv"}
     )
 
 @app.get("/api/repair-status/bulk")
