@@ -2264,6 +2264,106 @@ function SharePointAdminComponent() {
         </CardContent>
       </Card>
 
+      {/* Export Data Section */}
+      <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Download className="h-5 w-5 text-orange-600" />
+            <span>Export Data to Excel</span>
+          </CardTitle>
+          <CardDescription>
+            Download your data as Excel files for backup or analysis
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Staff Export */}
+            <Card className="border-green-200 hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold">Staff List</h3>
+                    <p className="text-sm text-gray-600">Employee records</p>
+                  </div>
+                  <User className="h-6 w-6 text-green-600" />
+                </div>
+                <Button 
+                  onClick={() => window.open(`${API_BASE_URL}/api/export/staff`, '_blank')}
+                  variant="outline"
+                  className="w-full border-green-300 text-green-700 hover:bg-green-50"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Staff
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Assets Export */}
+            <Card className="border-blue-200 hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold">Assets / Machines</h3>
+                    <p className="text-sm text-gray-600">Equipment list</p>
+                  </div>
+                  <Truck className="h-6 w-6 text-blue-600" />
+                </div>
+                <Button 
+                  onClick={() => window.open(`${API_BASE_URL}/api/export/assets`, '_blank')}
+                  variant="outline"
+                  className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Assets
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Checklists Export */}
+            <Card className="border-purple-200 hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold">All Checks</h3>
+                    <p className="text-sm text-gray-600">Completed checklists</p>
+                  </div>
+                  <ClipboardList className="h-6 w-6 text-purple-600" />
+                </div>
+                <Button 
+                  onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel`, '_blank')}
+                  variant="outline"
+                  className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Checks
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Repairs Export */}
+            <Card className="border-orange-200 hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold">Repair Status</h3>
+                    <p className="text-sm text-gray-600">Repair tracking</p>
+                  </div>
+                  <Wrench className="h-6 w-6 text-orange-600" />
+                </div>
+                <Button 
+                  onClick={() => window.open(`${API_BASE_URL}/api/export/repairs`, '_blank')}
+                  variant="outline"
+                  className="w-full border-orange-300 text-orange-700 hover:bg-orange-50"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Repairs
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Staff Upload */}
       <Card data-testid="staff-upload-card">
         <CardHeader>
