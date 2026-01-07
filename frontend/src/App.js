@@ -2577,8 +2577,19 @@ function SharePointAdminComponent() {
                     {companies.map((company) => (
                       <tr key={company.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3">
-                          <div className="font-medium">{company.name}</div>
-                          <div className="text-xs text-gray-500">{company.slug}</div>
+                          <div className="flex items-center gap-3">
+                            {company.logo_url ? (
+                              <img src={company.logo_url} alt={company.name} className="h-10 w-10 object-contain rounded" />
+                            ) : (
+                              <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs font-bold">
+                                {company.name?.charAt(0)}
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-medium">{company.name}</div>
+                              <div className="text-xs text-gray-500">{company.slug}</div>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-sm">{company.admin_email}</td>
                         <td className="px-4 py-3 text-sm">
