@@ -28,69 +28,109 @@ export const useAuth = () => {
   return context;
 };
 
-// QR Code Scanner Component
+// QR Code Scanner Component - Simple camera-only version
 function QRScanner({ onScan, onClose }) {
-  const scannerRef = useRef(null);
   const [error, setError] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const html5QrCodeRef = useRef(null);
 
   useEffect(() => {
-    const scanner = new Html5QrcodeScanner(
-      "qr-reader",
-      { 
-        fps: 10, 
+    const html5QrCode = new Html5Qrcode("qr-reader");
+    html5QrCodeRef.current = html5QrCode;
+
+    // Start scanning with back camera
+    html5QrCode.start(
+      { facingMode: "environment" }, // Use back camera
+      {
+        fps: 10,
         qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
       },
-      false
-    );
-
-    scanner.render(
       (decodedText) => {
-        // Success - QR code scanned
-        scanner.clear();
-        onScan(decodedText);
+        // Success - stop scanning and call onScan
+        html5QrCode.stop().then(() => {
+          onScan(decodedText);
+        }).catch(console.error);
       },
-      (errorMessage) => {
-        // Error or no QR code found - this is normal during scanning
-        // Only show error if it's a critical error
-        if (errorMessage.includes('NotAllowedError')) {
-          setError('Camera access denied. Please allow camera access.');
-        }
+      () => {
+        // QR code not found - this is normal, keep scanning
       }
-    );
-
-    scannerRef.current = scanner;
+    ).then(() => {
+      setIsScanning(true);
+    }).catch((err) => {
+      console.error('Camera error:', err);
+      if (err.toString().includes('NotAllowedError')) {
+        setError('Camera access denied. Please allow camera access in your browser settings.');
+      } else if (err.toString().includes('NotFoundError')) {
+        setError('No camera found on this device.');
+      } else {
+        setError('Could not start camera. Please try again.');
+      }
+    });
 
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch(() => {});
+      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+        html5QrCodeRef.current.stop().catch(() => {});
       }
     };
   }, [onScan]);
 
+  const handleClose = () => {
+    if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+      html5QrCodeRef.current.stop().then(() => {
+        onClose();
+      }).catch(() => {
+        onClose();
+      });
+    } else {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg max-w-md w-full p-4 relative">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <ScanLine className="h-5 w-5" />
-            Scan Machine QR Code
-          </h3>
-          <Button variant="ghost" size="sm" onClick={onClose} className="z-10 relative">
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-        
-        {error && (
-          <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 text-sm">
-            {error}
+    <div className="fixed inset-0 bg-black z-50 flex flex-col">
+      {/* Header */}
+      <div className="bg-black/90 p-4 flex items-center justify-between">
+        <h3 className="text-white text-lg font-semibold flex items-center gap-2">
+          <ScanLine className="h-5 w-5" />
+          Scan Machine QR Code
+        </h3>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={handleClose}
+          className="text-white hover:bg-white/20"
+        >
+          <X className="h-6 w-6" />
+        </Button>
+      </div>
+      
+      {/* Camera View */}
+      <div className="flex-1 flex items-center justify-center bg-black">
+        {error ? (
+          <div className="text-center p-6">
+            <div className="bg-red-500/20 text-red-200 p-4 rounded-lg mb-4">
+              {error}
+            </div>
+            <Button onClick={handleClose} variant="outline" className="text-white border-white">
+              Close
+            </Button>
+          </div>
+        ) : (
+          <div className="relative w-full max-w-md">
+            <div id="qr-reader" className="w-full rounded-lg overflow-hidden"></div>
+            {!isScanning && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-white" />
+              </div>
+            )}
           </div>
         )}
-        
-        <div id="qr-reader" className="w-full"></div>
-        
-        <p className="text-sm text-gray-500 mt-4 text-center">
-          Point your camera at the QR code on the machine
+      </div>
+      
+      {/* Footer */}
+      <div className="bg-black/90 p-4 text-center">
+        <p className="text-white/70 text-sm">
+          Point camera at the QR code on the machine
         </p>
       </div>
     </div>
