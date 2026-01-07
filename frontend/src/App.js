@@ -251,9 +251,6 @@ function Dashboard() {
     }
   };
 
-  // Use location to trigger refresh on navigation
-  const location = useLocation();
-
   useEffect(() => {
     // Fetch data whenever dashboard is visited
     console.log('Dashboard visited, fetching data from:', API_BASE_URL);
