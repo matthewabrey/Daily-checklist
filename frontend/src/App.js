@@ -2107,6 +2107,7 @@ function SharePointAdminComponent() {
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [showAddCompany, setShowAddCompany] = useState(false);
+  const [editingCompany, setEditingCompany] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
   const [newCompany, setNewCompany] = useState({ 
     name: '', 
