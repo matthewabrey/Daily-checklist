@@ -4,18 +4,29 @@
 - Backend: RUNNING (port 8001)
 - Frontend: RUNNING (port 3000) 
 - MongoDB: RUNNING (local)
-- Data imported: 1068 checklists, 219 assets, 153 repair statuses, 2 staff
+- Data imported: 1068 checklists, 226 assets, 153 repair statuses, 2 staff
 
 ## Recent Changes (Fork 2)
 1. Removed "View All Checks" button from Dashboard "Total Checks" card - now displays only the count
 2. Simplified Admin "Historical Data & Reports" section - removed "All Checks Completed" card, kept only "Full Records History" 
 3. "View Today's Checks" button kept (loads small dataset quickly)
+4. **NEW: QR Code Labels feature fully implemented**
+   - Backend: Added `qr_printed` and `qr_printed_at` fields to assets
+   - Backend: New endpoints `/api/assets/qr-labels`, `/api/assets/mark-qr-printed`, `/api/assets/reset-qr-status`
+   - Backend: Asset upload now preserves QR print status for existing machines
+   - Frontend: New QRLabelsPage component at `/qr-labels` route
+   - Features: "New Machines" vs "Already Printed" tabs, select all/individual, print labels, reset status
 
 ## Test Scope for This Fork
-- Verify Dashboard "Total Checks" card displays count only (no button)
-- Verify Admin page Historical Data section shows only "Full Records History"
-- Verify "View Today's Checks" still works from dashboard
-- Verify "View All Records" button in Admin works
+- Verify QR Labels page loads correctly
+- Verify "New Machines" tab shows all 226 assets (none printed yet)
+- Verify "Already Printed" tab is empty
+- Verify clicking machines selects them (checkbox + highlight)
+- Verify "Print Selected (N)" button shows correct count
+- Test print functionality marks assets as printed
+- Verify "Already Printed" tab updates after printing
+- Test search functionality
+- Test "Reset Print Status" functionality
 
 ## Backend Testing Results - COMPLETED ✅
 
