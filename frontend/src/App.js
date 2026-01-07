@@ -308,6 +308,14 @@ function Dashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <QRScanner 
+          onScan={handleDashboardQRScan} 
+          onClose={() => setShowQRScanner(false)} 
+        />
+      )}
+
       {/* Loading indicator */}
       {isLoading && (
         <div className="flex items-center justify-center p-4 bg-blue-50 rounded-lg">
