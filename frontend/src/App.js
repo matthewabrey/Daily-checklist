@@ -2810,16 +2810,26 @@ function SharePointAdminComponent() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm">
-                          {company.active !== false && (
+                          <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteCompany(company.id, company.name)}
-                              className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                              onClick={() => handleEditCompany(company)}
+                              className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                             >
-                              <X className="h-4 w-4" />
+                              <Settings className="h-4 w-4" />
                             </Button>
-                          )}
+                            {company.active !== false && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteCompany(company.id, company.name)}
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
