@@ -2597,6 +2597,161 @@ function SharePointAdminComponent() {
               </Card>
             )}
 
+            {/* Edit Company Form */}
+            {editingCompany && (
+              <Card className="mb-4 border-blue-200 bg-white">
+                <CardContent className="pt-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-semibold text-lg">Edit Company: {editingCompany.name}</h4>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => { setEditingCompany(null); setLogoPreview(null); }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {/* Company Details */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h5 className="font-medium mb-3 text-gray-700">Company Details</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Company Name *</label>
+                          <input
+                            type="text"
+                            value={editingCompany.name}
+                            onChange={(e) => setEditingCompany({...editingCompany, name: e.target.value})}
+                            className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Company Logo</label>
+                          <div className="mt-1 flex items-center gap-4">
+                            {(logoPreview || editingCompany.logo_url) ? (
+                              <div className="relative">
+                                <img src={logoPreview || editingCompany.logo_url} alt="Logo preview" className="h-16 w-16 object-contain border rounded" />
+                                <button
+                                  type="button"
+                                  onClick={() => { setLogoPreview(null); setEditingCompany({...editingCompany, logo_url: ''}); }}
+                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="h-16 w-16 border-2 border-dashed rounded flex items-center justify-center text-gray-400">
+                                <Upload className="h-6 w-6" />
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    setLogoPreview(reader.result);
+                                    setEditingCompany({...editingCompany, logo_url: reader.result});
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Branding */}
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <h5 className="font-medium mb-3 text-green-700">Company Branding</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Primary Color</label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <input
+                              type="color"
+                              value={editingCompany.color_primary || '#16a34a'}
+                              onChange={(e) => setEditingCompany({...editingCompany, color_primary: e.target.value})}
+                              className="w-12 h-10 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={editingCompany.color_primary || '#16a34a'}
+                              onChange={(e) => setEditingCompany({...editingCompany, color_primary: e.target.value})}
+                              className="flex-1 px-3 py-2 border rounded-md text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Secondary Color</label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <input
+                              type="color"
+                              value={editingCompany.color_secondary || '#059669'}
+                              onChange={(e) => setEditingCompany({...editingCompany, color_secondary: e.target.value})}
+                              className="w-12 h-10 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={editingCompany.color_secondary || '#059669'}
+                              onChange={(e) => setEditingCompany({...editingCompany, color_secondary: e.target.value})}
+                              className="flex-1 px-3 py-2 border rounded-md text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">Accent Color</label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <input
+                              type="color"
+                              value={editingCompany.color_accent || '#10b981'}
+                              onChange={(e) => setEditingCompany({...editingCompany, color_accent: e.target.value})}
+                              className="w-12 h-10 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={editingCompany.color_accent || '#10b981'}
+                              onChange={(e) => setEditingCompany({...editingCompany, color_accent: e.target.value})}
+                              className="flex-1 px-3 py-2 border rounded-md text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      {/* Color Preview */}
+                      <div className="mt-3 p-3 rounded-lg border" style={{ backgroundColor: (editingCompany.color_primary || '#16a34a') + '20' }}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded" style={{ backgroundColor: editingCompany.color_primary || '#16a34a' }}></div>
+                          <div className="w-8 h-8 rounded" style={{ backgroundColor: editingCompany.color_secondary || '#059669' }}></div>
+                          <div className="w-8 h-8 rounded" style={{ backgroundColor: editingCompany.color_accent || '#10b981' }}></div>
+                          <span className="text-sm text-gray-600 ml-2">Color Preview</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 mt-4">
+                    <Button 
+                      onClick={handleUpdateCompany}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      Save Changes
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => { setEditingCompany(null); setLogoPreview(null); }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Companies Table */}
             {loadingCompanies ? (
               <div className="text-center py-8">
