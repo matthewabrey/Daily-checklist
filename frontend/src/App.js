@@ -70,13 +70,13 @@ function QRScanner({ onScan, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg max-w-md w-full p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-4 relative">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <ScanLine className="h-5 w-5" />
             Scan Machine QR Code
           </h3>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose} className="z-10 relative">
             <X className="h-5 w-5" />
           </Button>
         </div>
