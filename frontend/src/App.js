@@ -207,6 +207,7 @@ function AuthProvider({ children }) {
 // Dashboard Component
 function Dashboard() {
   const { t } = useTranslation();
+  const { token } = useAuth();
   const [recentChecklists, setRecentChecklists] = useState([]);
   const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0 });
   const [showRepairWarning, setShowRepairWarning] = useState(false);
