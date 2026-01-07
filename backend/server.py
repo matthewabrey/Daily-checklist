@@ -1009,15 +1009,33 @@ async def create_checklist(checklist: Checklist):
     return ChecklistResponse(**checklist.dict())
 
 @app.get("/api/dashboard/stats")
-async def get_dashboard_stats():
-    """ULTRA-FAST cached dashboard stats - returns in <50ms"""
-    return await get_cached_stats(db)
+async def get_dashboard_stats(authorization: Optional[str] = Header(None)):
+    """Dashboard stats - filtered by company"""
+    company_id = None
+    if authorization:
+        try:
+            token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+            payload = decode_jwt_token(token)
+            company_id = payload.get("company_id")
+        except:
+            pass
+    return await get_cached_stats(db, company_id)
 
 @app.get("/api/checklists", response_model=List[ChecklistResponse])
-async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None):
-    """Get checklists with pagination - optimized for speed"""
+async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None, authorization: Optional[str] = Header(None)):
+    """Get checklists with pagination - filtered by company"""
     # Build query filter
     query = {}
+    
+    # Filter by company
+    if authorization:
+        try:
+            token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+            payload = decode_jwt_token(token)
+            query["company_id"] = payload.get("company_id")
+        except:
+            pass
+    
     if check_type:
         if ',' in check_type:
             check_types = [ct.strip() for ct in check_type.split(',')]
@@ -1045,15 +1063,22 @@ async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/checklists/today")
-async def get_todays_checklists():
-    """Get today's checklists - fast dedicated endpoint"""
+async def get_todays_checklists(authorization: Optional[str] = Header(None)):
+    """Get today's checklists - filtered by company"""
     today = datetime.now(timezone.utc).date().isoformat()
     
-    # Use regex to match today's date regardless of time format
-    checklists = await db.checklists.find(
-        {"completed_at": {"$regex": f"^{today}"}},
-        {"_id": 0}
-    ).sort("completed_at", -1).to_list(length=100)
+    query = {"completed_at": {"$regex": f"^{today}"}}
+    
+    # Filter by company
+    if authorization:
+        try:
+            token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+            payload = decode_jwt_token(token)
+            query["company_id"] = payload.get("company_id")
+        except:
+            pass
+    
+    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).to_list(length=100)
     
     # Parse datetime strings
     for checklist in checklists:
