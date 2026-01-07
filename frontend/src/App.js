@@ -5977,6 +5977,11 @@ function AppContent() {
                 <GeneralRepairRecord />
               </ProtectedRoute>
             } />
+            <Route path="/qr-labels" element={
+              <AdminProtectedRoute>
+                <QRLabelsPage />
+              </AdminProtectedRoute>
+            } />
             <Route 
               path="/admin" 
               element={
