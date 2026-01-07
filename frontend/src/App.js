@@ -618,7 +618,7 @@ function NewChecklist() {
     setShowQRScanner(false);
     try {
       // Parse the QR code data - format: "MACHINE:{make}:{name}" or just asset ID
-      let make, name;
+      let make, name, checkType;
       
       if (scannedData.startsWith('MACHINE:')) {
         const parts = scannedData.split(':');
@@ -636,16 +636,36 @@ function NewChecklist() {
           const asset = await response.json();
           make = asset.make;
           name = asset.name;
+          checkType = asset.check_type;
         }
       }
       
       if (make && name) {
+        // First set the make
         setSelectedMake(make);
-        // Wait for names to load, then set the name
-        setTimeout(() => {
+        
+        // Fetch the names for this make, then set the name
+        try {
+          const namesResponse = await fetch(`${API_BASE_URL}/api/assets/names/${encodeURIComponent(make)}`);
+          const namesData = await namesResponse.json();
+          setNames(namesData);
+          
+          // Now set the name (names list is now loaded)
           setSelectedName(name);
+          
+          // Fetch check type if not already available
+          if (!checkType) {
+            const checkTypeResponse = await fetch(`${API_BASE_URL}/api/assets/checktype/${encodeURIComponent(make)}/${encodeURIComponent(name)}`);
+            const checkTypeData = await checkTypeResponse.json();
+            checkType = checkTypeData.check_type;
+          }
+          setMachineCheckType(checkType);
+          
           toast.success(`Machine selected: ${make} - ${name}`);
-        }, 500);
+        } catch (fetchError) {
+          console.error('Error fetching machine data:', fetchError);
+          toast.error('Failed to load machine details');
+        }
       } else {
         toast.error('Could not find machine from QR code');
       }
