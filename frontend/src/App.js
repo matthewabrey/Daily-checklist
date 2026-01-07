@@ -7063,10 +7063,13 @@ function AdminProtectedRoute({ children }) {
 
 // Main App Content Component
 function AppContent() {
-  const { isAuthenticated, employee, logout } = useAuth();
+  const { isAuthenticated, employee, user, company, logout } = useAuth();
   
   // Check if employee has admin control access
-  const hasAdminAccess = employee?.admin_control?.toLowerCase() === 'yes';
+  const hasAdminAccess = user?.role === 'super_admin' || 
+                         user?.role === 'company_admin' || 
+                         employee?.is_admin === true ||
+                         employee?.admin_control?.toLowerCase() === 'yes';
 
   return (
     <Router>
@@ -7077,13 +7080,24 @@ function AppContent() {
             <div className="flex items-center justify-between h-14 sm:h-16">
               <Link to="/" className="flex items-center space-x-2" data-testid="logo-link">
                 <div className="flex items-center">
-                  <img 
-                    src="/abreys-logo.png" 
-                    alt="Abreys Logo" 
-                    className="h-8 sm:h-10 w-auto"
-                    loading="eager"
-                  />
-                  <span className="text-xs sm:text-sm text-gray-600 ml-2 sm:ml-3 font-medium hidden sm:block">Machine Checklist</span>
+                  {company?.logo_url ? (
+                    <img 
+                      src={company.logo_url} 
+                      alt={company.name || 'Company Logo'} 
+                      className="h-8 sm:h-10 w-auto max-w-[120px] object-contain"
+                      loading="eager"
+                    />
+                  ) : (
+                    <img 
+                      src="/abreys-logo.png" 
+                      alt="Logo" 
+                      className="h-8 sm:h-10 w-auto"
+                      loading="eager"
+                    />
+                  )}
+                  <span className="text-xs sm:text-sm text-gray-600 ml-2 sm:ml-3 font-medium hidden sm:block">
+                    {company?.name || 'Machine Checklist'}
+                  </span>
                 </div>
               </Link>
               <nav className="flex items-center space-x-1 sm:space-x-4">
@@ -7091,24 +7105,31 @@ function AppContent() {
                   to="/" 
                   className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
                   data-testid="nav-dashboard"
+                  style={{ '--hover-color': company?.color_primary }}
                 >
                   Home
                 </Link>
                 {/* Admin link - always visible, access controlled by AdminProtectedRoute */}
-                <Link 
-                  to="/admin" 
-                  className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
-                  data-testid="nav-admin"
-                >
-                  Admin
-                </Link>
+                {hasAdminAccess && (
+                  <Link 
+                    to="/admin" 
+                    className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                    data-testid="nav-admin"
+                  >
+                    Admin
+                  </Link>
+                )}
                 
                 {/* User info and logout */}
-                {isAuthenticated && employee && (
+                {isAuthenticated && (employee || user) && (
                   <div className="flex items-center space-x-2 border-l pl-2 sm:pl-4 ml-2 sm:ml-4">
                     <div className="text-right hidden sm:block">
-                      <p className="text-xs font-medium text-gray-900">{employee.name}</p>
-                      <p className="text-xs text-gray-600">#{employee.employee_number}</p>
+                      <p className="text-xs font-medium text-gray-900">{user?.name || employee?.name}</p>
+                      <p className="text-xs text-gray-600">
+                        {user?.role === 'super_admin' ? '🔴 Super Admin' : 
+                         user?.role === 'company_admin' ? '🟠 Admin' : 
+                         `#${employee?.employee_number || user?.email}`}
+                      </p>
                     </div>
                     <Button 
                       variant="ghost"
