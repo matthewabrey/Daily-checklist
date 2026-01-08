@@ -2324,6 +2324,16 @@ class MachineChecklistAPITester:
         # Test 6: Staff Admin Permissions (verify user 4444 has admin access)
         staff_admin_success = self.test_staff_admin_permissions()
         
+        # NEW TESTS FROM REVIEW REQUEST
+        print("\n🆕 NEW FEATURE TESTS FROM REVIEW REQUEST")
+        print("-" * 50)
+        
+        # Test 7: QR Code Generation (Pillow fix verification)
+        qr_success = self.test_qr_code_endpoint()
+        
+        # Test 8: Work Progress Tracking Complete Flow
+        work_progress_success = self.test_work_progress_tracking_complete_flow()
+        
         # ADDITIONAL COMPREHENSIVE TESTS
         print("\n📋 ADDITIONAL COMPREHENSIVE TESTS")
         print("-" * 40)
