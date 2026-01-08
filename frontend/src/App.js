@@ -2631,9 +2631,6 @@ function SharePointAdminComponent() {
         </CardContent>
       </Card>
 
-      {/* Work Progress Tracking Section */}
-      <WorkProgressAdmin />
-
       {/* Historical Data Section */}
       <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
         <CardHeader>
