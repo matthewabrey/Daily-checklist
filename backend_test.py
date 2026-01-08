@@ -3194,22 +3194,70 @@ class MachineChecklistAPITester:
             print(f"⚠️  {self.tests_run - self.tests_passed} TESTS FAILED")
             return False
 
+    def run_manager_feature_tests(self):
+        """Run Manager feature tests as requested in review"""
+        print("👔 Starting Manager Feature Backend Tests")
+        print(f"📍 Testing endpoint: {self.base_url}")
+        print("=" * 60)
+        
+        # Test 1: Health check first
+        if not self.test_health_check():
+            print("❌ Health check failed - stopping tests")
+            return False
+        
+        # Test 2: Employee login returns manager_control field
+        print("\n🔐 Test 1: Employee Login Returns manager_control Field")
+        print("-" * 50)
+        manager_login_success, manager_employee_data = self.test_manager_feature_employee_login()
+        
+        # Test 3: Admin user 4444 has all three access fields set to "yes"
+        print("\n👑 Test 2: Admin User 4444 Has All Three Access Fields")
+        print("-" * 50)
+        manager_permissions_success = self.test_manager_feature_admin_permissions()
+        
+        # Test 4: GET /api/jobs endpoint works for Manager page
+        print("\n📊 Test 3: GET /api/jobs Endpoint Works for Manager Page")
+        print("-" * 50)
+        manager_jobs_success = self.test_manager_feature_jobs_endpoint()
+        
+        # Generate summary
+        print("\n" + "=" * 60)
+        print("📊 MANAGER FEATURE TEST SUMMARY")
+        print("=" * 60)
+        
+        all_tests_passed = all([
+            manager_login_success,
+            manager_permissions_success, 
+            manager_jobs_success
+        ])
+        
+        if all_tests_passed:
+            print("✅ ALL MANAGER FEATURE TESTS PASSED")
+            print("✅ Employee login returns manager_control field")
+            print("✅ Admin user 4444 has admin_control, workshop_control, manager_control = 'yes'")
+            print("✅ GET /api/jobs endpoint works and returns array")
+        else:
+            print("❌ SOME MANAGER FEATURE TESTS FAILED")
+            if not manager_login_success:
+                print("❌ Employee login manager_control field test failed")
+            if not manager_permissions_success:
+                print("❌ Admin user 4444 permissions test failed")
+            if not manager_jobs_success:
+                print("❌ GET /api/jobs endpoint test failed")
+        
+        return all_tests_passed
+
 def main():
     """Main test execution"""
     tester = MachineChecklistAPITester()
     
-    # Run dashboard-focused tests as requested in review
-    print("🎯 RUNNING DASHBOARD FUNCTIONALITY TESTS AS REQUESTED")
+    # Run Manager feature tests as requested in review
+    print("👔 RUNNING MANAGER FEATURE TESTS AS REQUESTED")
     print("=" * 70)
-    dashboard_success = tester.run_dashboard_focused_tests()
+    manager_success = tester.run_manager_feature_tests()
     
-    # Also run the specific debug test for "14 New Repairs" count mismatch
-    print("\n🔍 RUNNING SPECIFIC DEBUG TEST FOR '14 NEW REPAIRS' COUNT MISMATCH")
-    print("=" * 70)
-    tester.test_dashboard_stats_new_repairs_debug()
-    
-    # Return appropriate exit code based on dashboard tests
-    return 0 if dashboard_success else 1
+    # Return appropriate exit code based on Manager feature tests
+    return 0 if manager_success else 1
 
 if __name__ == "__main__":
     sys.exit(main())
