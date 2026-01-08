@@ -2383,12 +2383,17 @@ function WorkProgressAdmin() {
                               </p>
                             </div>
                             <Button 
-                              variant="ghost" 
+                              variant="outline" 
                               size="sm"
-                              onClick={() => handleDeleteJob(job.id, job.name)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleDeleteJob(job.id, job.name);
+                              }}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
                             </Button>
                           </div>
                           
