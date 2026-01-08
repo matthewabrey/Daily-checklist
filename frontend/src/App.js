@@ -6476,6 +6476,121 @@ function AdminProtectedRoute({ children }) {
   return children;
 }
 
+// Manager Protected Route Component
+function ManagerProtectedRoute({ children }) {
+  const { isAuthenticated, employee, loading } = useAuth();
+  const navigate = useNavigate();
+  
+  // Check if employee has manager OR admin control access (admins can access manager page)
+  const hasManagerAccess = employee?.manager_control?.toLowerCase() === 'yes' || 
+                           employee?.admin_control?.toLowerCase() === 'yes';
+  
+  React.useEffect(() => {
+    if (!loading && isAuthenticated && !hasManagerAccess) {
+      toast.error('Access denied. You do not have Manager permission.');
+      navigate('/');
+    }
+  }, [hasManagerAccess, isAuthenticated, loading, navigate]);
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return <EmployeeLogin />;
+  }
+  
+  if (!hasManagerAccess) {
+    return null; // Will redirect in useEffect
+  }
+  
+  return children;
+}
+
+// Manager Page Component
+function ManagerPage() {
+  const { employee } = useAuth();
+  const navigate = useNavigate();
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" onClick={() => navigate('/')} data-testid="back-to-dashboard-btn">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Manager Dashboard</h1>
+            <p className="text-gray-600 mt-2">Track work progress and view historical data</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Work Progress Tracking Section */}
+      <WorkProgressAdmin />
+
+      {/* Historical Data Section */}
+      <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <FileText className="h-5 w-5 text-green-600" />
+            <span>Historical Data & Reports</span>
+          </CardTitle>
+          <CardDescription>
+            Access complete historical records for review and reporting
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="border-blue-200 hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">Full Records History</h3>
+                    <p className="text-sm text-gray-600">Detailed records with filters</p>
+                  </div>
+                  <FileText className="h-8 w-8 text-blue-600" />
+                </div>
+                <Button 
+                  onClick={() => navigate('/records')}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  View All Records
+                </Button>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-green-200 hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">Completed Repairs</h3>
+                    <p className="text-sm text-gray-600">View all completed repairs</p>
+                  </div>
+                  <Wrench className="h-8 w-8 text-green-600" />
+                </div>
+                <Button 
+                  onClick={() => navigate('/repairs-completed')}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
+                  View Completed Repairs
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // Main App Content Component
 function AppContent() {
   const { isAuthenticated, employee, logout } = useAuth();
