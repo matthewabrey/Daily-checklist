@@ -320,7 +320,8 @@ async def employee_login(request: EmployeeLoginRequest):
                     "employee_number": employee["employee_number"],
                     "name": employee["name"],
                     "workshop_control": employee.get("workshop_control", None),
-                    "admin_control": employee.get("admin_control", None)
+                    "admin_control": employee.get("admin_control", None),
+                    "manager_control": employee.get("manager_control", None)
                 }
             }
             print(f"[DEBUG] employee_login: Returning: {result}")
@@ -344,7 +345,8 @@ async def validate_employee(employee_number: str):
                 "valid": True, 
                 "name": employee["name"],
                 "workshop_control": employee.get("workshop_control", None),
-                "admin_control": employee.get("admin_control", None)
+                "admin_control": employee.get("admin_control", None),
+                "manager_control": employee.get("manager_control", None)
             }
         else:
             return {"valid": False}
