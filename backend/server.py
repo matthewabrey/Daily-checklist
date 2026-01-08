@@ -804,12 +804,13 @@ async def upload_staff_file(file: UploadFile = File(...)):
         workbook = openpyxl.load_workbook(BytesIO(file_content))
         sheet = workbook[workbook.sheetnames[0]]  # Use first sheet, not active
         
-        # Get headers and find name/employee number/workshop control/admin control columns
+        # Get headers and find name/employee number/workshop control/admin control/manager control columns
         headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
         name_col = None
         number_col = None
         workshop_col = None
         admin_col = None
+        manager_col = None
         
         for i, header in enumerate(headers):
             if 'name' in header and 'employee' not in header:
@@ -820,6 +821,8 @@ async def upload_staff_file(file: UploadFile = File(...)):
                 workshop_col = i
             elif 'admin' in header and 'control' in header:
                 admin_col = i
+            elif 'manager' in header and 'control' in header:
+                manager_col = i
         
         # Fallback: assume first column is names, second is numbers
         if name_col is None:
@@ -838,6 +841,7 @@ async def upload_staff_file(file: UploadFile = File(...)):
                 emp_number = str(row[number_col]).strip() if row[number_col] else ''
                 workshop_control = None
                 admin_control = None
+                manager_control = None
                 
                 if workshop_col is not None and len(row) > workshop_col and row[workshop_col]:
                     workshop_control = str(row[workshop_col]).strip().lower()
@@ -845,13 +849,17 @@ async def upload_staff_file(file: UploadFile = File(...)):
                 if admin_col is not None and len(row) > admin_col and row[admin_col]:
                     admin_control = str(row[admin_col]).strip().lower()
                 
+                if manager_col is not None and len(row) > manager_col and row[manager_col]:
+                    manager_control = str(row[manager_col]).strip().lower()
+                
                 if name and emp_number and name.lower() not in ['name', 'staff', 'employee']:
                     staff_data.append({
                         "name": name,
                         "employee_number": emp_number,
                         "active": True,
                         "workshop_control": workshop_control,
-                        "admin_control": admin_control
+                        "admin_control": admin_control,
+                        "manager_control": manager_control
                     })
         
         if not staff_data:
