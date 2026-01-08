@@ -6646,21 +6646,7 @@ function AppContent() {
                   >
                     Admin
                   </Link>
-                )} 
-                  to="/" 
-                  className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
-                  data-testid="nav-dashboard"
-                >
-                  Home
-                </Link>
-                {/* Admin link - always visible, access controlled by AdminProtectedRoute */}
-                <Link 
-                  to="/admin" 
-                  className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
-                  data-testid="nav-admin"
-                >
-                  Admin
-                </Link>
+                )}
                 
                 {/* User info and logout */}
                 {isAuthenticated && employee && (
