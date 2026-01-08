@@ -823,7 +823,7 @@ async def upload_staff_file(file: UploadFile = File(...)):
                 workshop_col = i
             elif 'admin' in header and 'control' in header:
                 admin_col = i
-            elif 'manager' in header and 'control' in header:
+            elif 'manager' in header:  # Accept "Manager" or "Manager Control"
                 manager_col = i
         
         # Fallback: assume first column is names, second is numbers
