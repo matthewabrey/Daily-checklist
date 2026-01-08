@@ -1480,6 +1480,205 @@ async def add_progress_note(repair_id: str, note_text: str, author: str):
     )
     return {"success": True, "message": "Progress note added", "note": note}
 
+# ============================================
+# Work Progress Tracking Endpoints
+# ============================================
+
+@app.get("/api/jobs")
+async def get_all_jobs():
+    """Get all jobs with calculated stats for dashboard"""
+    jobs = await db.jobs.find({}, {"_id": 0}).to_list(length=1000)
+    
+    result = []
+    for job in jobs:
+        # Get all work entries for this job
+        entries = await db.work_entries.find(
+            {"job_id": job["id"]}, 
+            {"_id": 0}
+        ).sort("date_completed", 1).to_list(length=10000)
+        
+        # Calculate total completed
+        total_completed = sum(e.get("hectares_completed", 0) for e in entries)
+        area_left = max(0, job.get("total_area", 0) - total_completed)
+        
+        # Calculate Ha/day (average of daily entries)
+        ha_per_day = 0
+        if entries:
+            # Group entries by date and calculate daily totals
+            daily_totals = {}
+            for entry in entries:
+                date = entry.get("date_completed", "")[:10]  # Get just the date part
+                if date:
+                    daily_totals[date] = daily_totals.get(date, 0) + entry.get("hectares_completed", 0)
+            
+            if daily_totals:
+                ha_per_day = sum(daily_totals.values()) / len(daily_totals)
+        
+        # Auto-update status to complete if area_left is 0
+        if area_left <= 0 and job.get("status") == "active":
+            await db.jobs.update_one(
+                {"id": job["id"]},
+                {"$set": {"status": "complete"}}
+            )
+            job["status"] = "complete"
+        
+        result.append({
+            **job,
+            "total_completed": round(total_completed, 2),
+            "area_left": round(area_left, 2),
+            "ha_per_day": round(ha_per_day, 2),
+            "entries_count": len(entries),
+            "last_entry": entries[-1] if entries else None
+        })
+    
+    # Sort: active jobs first, then by name
+    result.sort(key=lambda x: (0 if x["status"] == "active" else 1, x["name"]))
+    
+    return result
+
+@app.post("/api/admin/jobs")
+async def create_job(job_data: JobCreate):
+    """Create a new job"""
+    job = Job(
+        name=job_data.name,
+        total_area=job_data.total_area
+    )
+    
+    await db.jobs.insert_one(job.dict())
+    
+    return {
+        "success": True,
+        "message": f"Job '{job.name}' created successfully",
+        "job": job.dict()
+    }
+
+@app.get("/api/admin/jobs/{job_id}")
+async def get_job_details(job_id: str):
+    """Get detailed job info including all work entries"""
+    job = await db.jobs.find_one({"id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    entries = await db.work_entries.find(
+        {"job_id": job_id}, 
+        {"_id": 0}
+    ).sort("date_completed", -1).to_list(length=10000)
+    
+    total_completed = sum(e.get("hectares_completed", 0) for e in entries)
+    
+    return {
+        **job,
+        "total_completed": round(total_completed, 2),
+        "area_left": round(max(0, job.get("total_area", 0) - total_completed), 2),
+        "entries": entries
+    }
+
+@app.post("/api/admin/jobs/{job_id}/work-entry")
+async def add_work_entry(job_id: str, entry_data: WorkEntryCreate):
+    """Add a work entry to a job"""
+    # Verify job exists
+    job = await db.jobs.find_one({"id": job_id})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Use provided date or today
+    date_completed = entry_data.date_completed or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    entry = WorkEntry(
+        job_id=job_id,
+        hectares_completed=entry_data.hectares_completed,
+        date_completed=date_completed,
+        entered_by=entry_data.entered_by
+    )
+    
+    await db.work_entries.insert_one(entry.dict())
+    
+    # Check if job should be marked complete
+    entries = await db.work_entries.find({"job_id": job_id}, {"_id": 0}).to_list(length=10000)
+    total_completed = sum(e.get("hectares_completed", 0) for e in entries)
+    area_left = max(0, job.get("total_area", 0) - total_completed)
+    
+    if area_left <= 0:
+        await db.jobs.update_one({"id": job_id}, {"$set": {"status": "complete"}})
+    
+    return {
+        "success": True,
+        "message": f"Added {entry_data.hectares_completed} Ha to '{job['name']}'",
+        "entry": entry.dict(),
+        "total_completed": round(total_completed, 2),
+        "area_left": round(area_left, 2)
+    }
+
+@app.delete("/api/admin/jobs/{job_id}")
+async def delete_job(job_id: str):
+    """Delete a job and all its work entries"""
+    job = await db.jobs.find_one({"id": job_id})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Delete job and all related entries
+    await db.jobs.delete_one({"id": job_id})
+    deleted_entries = await db.work_entries.delete_many({"job_id": job_id})
+    
+    return {
+        "success": True,
+        "message": f"Job '{job['name']}' deleted",
+        "entries_deleted": deleted_entries.deleted_count
+    }
+
+@app.put("/api/admin/jobs/{job_id}")
+async def update_job(job_id: str, job_data: JobCreate):
+    """Update a job's name or total area"""
+    job = await db.jobs.find_one({"id": job_id})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    await db.jobs.update_one(
+        {"id": job_id},
+        {"$set": {"name": job_data.name, "total_area": job_data.total_area}}
+    )
+    
+    return {
+        "success": True,
+        "message": f"Job updated successfully"
+    }
+
+@app.put("/api/admin/jobs/{job_id}/reopen")
+async def reopen_job(job_id: str):
+    """Reopen a completed job (set status back to active)"""
+    job = await db.jobs.find_one({"id": job_id})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    await db.jobs.update_one({"id": job_id}, {"$set": {"status": "active"}})
+    
+    return {
+        "success": True,
+        "message": f"Job '{job['name']}' reopened"
+    }
+
+@app.delete("/api/admin/work-entries/{entry_id}")
+async def delete_work_entry(entry_id: str):
+    """Delete a specific work entry"""
+    entry = await db.work_entries.find_one({"id": entry_id})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Work entry not found")
+    
+    await db.work_entries.delete_one({"id": entry_id})
+    
+    # Check if parent job should be reopened
+    job = await db.jobs.find_one({"id": entry["job_id"]})
+    if job and job.get("status") == "complete":
+        entries = await db.work_entries.find({"job_id": job["id"]}, {"_id": 0}).to_list(length=10000)
+        total_completed = sum(e.get("hectares_completed", 0) for e in entries)
+        if total_completed < job.get("total_area", 0):
+            await db.jobs.update_one({"id": job["id"]}, {"$set": {"status": "active"}})
+    
+    return {
+        "success": True,
+        "message": "Work entry deleted"
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
