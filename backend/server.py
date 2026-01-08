@@ -1338,8 +1338,22 @@ async def upload_staff_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to process staff file: {str(e)}")
 
 @app.post("/api/admin/upload-assets-file") 
-async def upload_assets_file(file: UploadFile = File(...)):
-    """Upload and process assets from Excel file"""
+async def upload_assets_file(file: UploadFile = File(...), authorization: Optional[str] = Header(None)):
+    """Upload and process assets from Excel file - only affects the user's company"""
+    
+    # Get company_id from token
+    company_id = None
+    if authorization:
+        try:
+            token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+            payload = decode_jwt_token(token)
+            company_id = payload.get("company_id")
+        except:
+            raise HTTPException(status_code=401, detail="Authentication required")
+    
+    if not company_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
     try:
         import openpyxl
         from io import BytesIO
@@ -1386,8 +1400,8 @@ async def upload_assets_file(file: UploadFile = File(...)):
         if not assets:
             raise HTTPException(status_code=400, detail="No asset data found in the uploaded file")
         
-        # Get existing assets to preserve QR print status
-        existing_assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
+        # Get existing assets FOR THIS COMPANY ONLY to preserve QR print status
+        existing_assets = await db.assets.find({"company_id": company_id}, {"_id": 0}).to_list(length=10000)
         existing_qr_status = {}
         for ea in existing_assets:
             # Key by make+name to match assets
@@ -1398,12 +1412,13 @@ async def upload_assets_file(file: UploadFile = File(...)):
                     'qr_printed_at': ea.get('qr_printed_at')
                 }
         
-        # Update assets database - preserve QR status for existing machines
-        await db.assets.delete_many({})
+        # Delete ONLY THIS COMPANY's assets, then insert new ones
+        await db.assets.delete_many({"company_id": company_id})
         new_assets = []
         for asset in assets:
             asset_obj = Asset(**asset)
             asset_dict = asset_obj.dict()
+            asset_dict['company_id'] = company_id  # Tag with company
             # Check if this asset had QR printed before
             key = f"{asset_dict['make']}:{asset_dict['name']}"
             if key in existing_qr_status:
