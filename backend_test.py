@@ -2166,8 +2166,8 @@ class MachineChecklistAPITester:
                 self.log_test("Job Stats After Second Entry", False, f"Expected entries_count=2, got {carrot_job.get('entries_count')}")
                 return False
             
-            # Ha/day should be average: (50 + 100) / 2 = 75
-            expected_ha_per_day = 75
+            # Ha/day should be total hectares for today: (50 + 100) = 150 Ha/day
+            expected_ha_per_day = 150  # Both entries are on the same day
             if abs(carrot_job.get('ha_per_day', 0) - expected_ha_per_day) > 0.1:
                 self.log_test("Job Stats After Second Entry", False, f"Expected ha_per_day≈{expected_ha_per_day}, got {carrot_job.get('ha_per_day')}")
                 return False
