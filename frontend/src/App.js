@@ -542,6 +542,82 @@ function Dashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Work Progress Stats Section */}
+      {jobs.length > 0 && (
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Target className="h-5 w-5 text-orange-600" />
+              Work Progress
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {jobs.filter(j => j.status === 'active').map(job => (
+              <Card key={job.id} className="border-orange-200 hover:shadow-lg transition-shadow">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-gray-900">{job.name}</h3>
+                    <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">
+                      Active
+                    </Badge>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="mb-3">
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        className="bg-gradient-to-r from-orange-500 to-green-500 h-2.5 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, (job.total_completed / job.total_area) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {Math.round((job.total_completed / job.total_area) * 100)}% complete
+                    </p>
+                  </div>
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="bg-orange-50 rounded-lg p-2 text-center">
+                      <p className="text-orange-600 font-bold text-lg">{job.area_left}</p>
+                      <p className="text-orange-700 text-xs">Ha Left</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-2 text-center">
+                      <p className="text-blue-600 font-bold text-lg">{job.ha_per_day}</p>
+                      <p className="text-blue-700 text-xs">Ha/Day Avg</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            
+            {/* Completed Jobs Summary */}
+            {jobs.filter(j => j.status === 'complete').length > 0 && (
+              <Card className="border-green-200 bg-green-50/50">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <h3 className="font-semibold text-green-900">Completed Jobs</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {jobs.filter(j => j.status === 'complete').slice(0, 3).map(job => (
+                      <div key={job.id} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{job.name}</span>
+                        <span className="text-green-600 font-medium">{job.total_completed} Ha</span>
+                      </div>
+                    ))}
+                    {jobs.filter(j => j.status === 'complete').length > 3 && (
+                      <p className="text-xs text-gray-500">
+                        +{jobs.filter(j => j.status === 'complete').length - 3} more
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
