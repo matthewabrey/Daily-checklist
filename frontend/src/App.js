@@ -10,7 +10,7 @@ import { Separator } from './components/ui/separator';
 import { toast } from 'sonner';
 import { useTranslation } from './LanguageContext';
 import { languages } from './translations';
-import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import './App.css';
