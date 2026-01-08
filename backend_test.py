@@ -2206,14 +2206,20 @@ class MachineChecklistAPITester:
             
             self.log_test("Job Completion Status", True, "status='complete', area_left=0")
             
-            # Step 9: Reopen Job API - PUT /api/admin/jobs/{job_id}/reopen
-            print("Step 9: Reopening completed job...")
+            # Step 9: Delete Work Entry API first to make area_left > 0
+            print("Step 9: Deleting one work entry to make area_left > 0...")
+            delete_entry_success = self.test_delete_work_entry(entry2_id)
+            if not delete_entry_success:
+                return False
+            
+            # Step 10: Reopen Job API - PUT /api/admin/jobs/{job_id}/reopen
+            print("Step 10: Reopening completed job...")
             reopen_success = self.test_reopen_job(job_id)
             if not reopen_success:
                 return False
             
-            # Step 10: Verify status changes back to "active"
-            print("Step 10: Verifying job status changes back to 'active'...")
+            # Step 11: Verify status changes back to "active"
+            print("Step 11: Verifying job status changes back to 'active'...")
             jobs_success, jobs_data = self.test_get_jobs()
             if not jobs_success:
                 return False
@@ -2234,33 +2240,19 @@ class MachineChecklistAPITester:
             
             self.log_test("Job Reopen Status", True, "status='active'")
             
-            # Step 11: Delete Work Entry API - DELETE /api/admin/work-entries/{entry_id}
-            print("Step 11: Deleting one work entry...")
-            delete_entry_success = self.test_delete_work_entry(entry2_id)
-            if not delete_entry_success:
-                return False
-            
             # Step 12: Verify entries_count decreases
-            print("Step 12: Verifying entries_count decreases...")
-            jobs_success, jobs_data = self.test_get_jobs()
-            if not jobs_success:
-                return False
-            
-            carrot_job = None
-            for job in jobs_data:
-                if job.get('id') == job_id:
-                    carrot_job = job
-                    break
-            
-            if not carrot_job:
-                self.log_test("Job After Entry Deletion", False, "Job not found after entry deletion")
-                return False
-            
+            print("Step 12: Verifying entries_count decreased...")
             if carrot_job.get('entries_count') != 2:  # Should be 2 now (was 3, deleted 1)
                 self.log_test("Job After Entry Deletion", False, f"Expected entries_count=2, got {carrot_job.get('entries_count')}")
                 return False
             
             self.log_test("Job After Entry Deletion", True, f"entries_count={carrot_job.get('entries_count')}")
+            
+            # Step 13: Delete another work entry for additional testing
+            print("Step 13: Deleting another work entry...")
+            delete_entry2_success = self.test_delete_work_entry(entry1_id)
+            if not delete_entry2_success:
+                return False
             
             # Step 13: Delete Job API - DELETE /api/admin/jobs/{job_id}
             print("Step 13: Deleting test job...")
