@@ -6597,6 +6597,9 @@ function AppContent() {
   
   // Check if employee has admin control access
   const hasAdminAccess = employee?.admin_control?.toLowerCase() === 'yes';
+  // Check if employee has manager OR admin access
+  const hasManagerAccess = employee?.manager_control?.toLowerCase() === 'yes' || 
+                           employee?.admin_control?.toLowerCase() === 'yes';
 
   return (
     <Router>
@@ -6618,6 +6621,32 @@ function AppContent() {
               </Link>
               <nav className="flex items-center space-x-1 sm:space-x-4">
                 <Link 
+                  to="/" 
+                  className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                  data-testid="nav-dashboard"
+                >
+                  Home
+                </Link>
+                {/* Manager link - visible for users with manager or admin access */}
+                {hasManagerAccess && (
+                  <Link 
+                    to="/manager" 
+                    className="text-gray-600 hover:text-orange-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                    data-testid="nav-manager"
+                  >
+                    Manager
+                  </Link>
+                )}
+                {/* Admin link - only visible for admin users */}
+                {hasAdminAccess && (
+                  <Link 
+                    to="/admin" 
+                    className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                    data-testid="nav-admin"
+                  >
+                    Admin
+                  </Link>
+                )} 
                   to="/" 
                   className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
                   data-testid="nav-dashboard"
