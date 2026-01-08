@@ -2366,6 +2366,9 @@ function SharePointAdminComponent() {
 
       const response = await fetch(`${API_BASE_URL}/api/admin/${endpoint}`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`  // Include auth token for company filtering
+        },
         body: formData
       });
 
