@@ -1257,8 +1257,22 @@ async def sync_assets_from_sharepoint():
         raise HTTPException(status_code=500, detail=f"Failed to sync asset data: {str(e)}")
 
 @app.post("/api/admin/upload-staff-file")
-async def upload_staff_file(file: UploadFile = File(...)):
-    """Upload and process staff with employee numbers from Excel file"""
+async def upload_staff_file(file: UploadFile = File(...), authorization: Optional[str] = Header(None)):
+    """Upload and process staff with employee numbers from Excel file - only affects the user's company"""
+    
+    # Get company_id from token
+    company_id = None
+    if authorization:
+        try:
+            token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+            payload = decode_jwt_token(token)
+            company_id = payload.get("company_id")
+        except:
+            raise HTTPException(status_code=401, detail="Authentication required")
+    
+    if not company_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
     try:
         import openpyxl
         from io import BytesIO
@@ -1317,15 +1331,19 @@ async def upload_staff_file(file: UploadFile = File(...)):
                         "employee_number": emp_number,
                         "active": True,
                         "workshop_control": workshop_control,
-                        "admin_control": admin_control
+                        "admin_control": admin_control,
+                        "company_id": company_id  # Tag with company
                     })
         
         if not staff_data:
             raise HTTPException(status_code=400, detail="No valid staff data found. Please ensure your Excel has Name and Employee Number columns with data.")
         
-        # Update database - preserve admin account (4444)
-        await db.staff.delete_many({"employee_number": {"$ne": "4444"}})  # Delete all except admin
-        new_staff = [Staff(**data).dict() for data in staff_data]
+        # Delete ONLY THIS COMPANY's staff, then insert new ones
+        await db.staff.delete_many({"company_id": company_id})
+        new_staff = [Staff(**{k: v for k, v in data.items() if k != 'company_id'}).dict() for data in staff_data]
+        # Add company_id back to each staff record
+        for i, staff in enumerate(new_staff):
+            staff['company_id'] = company_id
         await db.staff.insert_many(new_staff)
         
         return {
