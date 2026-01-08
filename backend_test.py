@@ -2495,6 +2495,19 @@ class MachineChecklistAPITester:
         # Test 5c: Admin control permission check for employee 4444 - PRIORITY TEST
         admin_control_success = self.test_admin_control_permission_4444()
         
+        # MANAGER FEATURE TESTS - NEW FROM REVIEW REQUEST
+        print("\n👔 MANAGER FEATURE TESTS")
+        print("-" * 40)
+        
+        # Test Manager Feature 1: Employee login returns manager_control field
+        manager_login_success, manager_employee_data = self.test_manager_feature_employee_login()
+        
+        # Test Manager Feature 2: Admin user 4444 has all three access fields set to "yes"
+        manager_permissions_success = self.test_manager_feature_admin_permissions()
+        
+        # Test Manager Feature 3: GET /api/jobs endpoint works for Manager page
+        manager_jobs_success = self.test_manager_feature_jobs_endpoint()
+        
         # Find staff name for employee 4444
         valid_staff_name = "Admin User"  # Default from backend initialization
         if staff_success and staff_data:
