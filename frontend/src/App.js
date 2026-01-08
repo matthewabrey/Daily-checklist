@@ -269,6 +269,17 @@ function Dashboard() {
       const filteredRecentChecklists = recentChecklistsData.filter(c => c.check_type !== 'GENERAL REPAIR');
       setRecentChecklists(filteredRecentChecklists);
       
+      // Fetch work progress jobs
+      try {
+        const jobsResponse = await fetch(`${API_BASE_URL}/api/jobs`);
+        if (jobsResponse.ok) {
+          const jobsData = await jobsResponse.json();
+          setJobs(jobsData);
+        }
+      } catch (jobsError) {
+        console.error('Error fetching jobs:', jobsError);
+      }
+      
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
