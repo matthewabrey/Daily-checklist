@@ -167,6 +167,7 @@ function Dashboard() {
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
+  const [jobs, setJobs] = useState([]);
   const navigate = useNavigate();
 
   // Use location to trigger refresh on navigation
