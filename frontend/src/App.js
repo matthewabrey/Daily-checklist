@@ -2016,6 +2016,395 @@ function NewChecklist() {
   );
 }
 
+// Work Progress Admin Component
+function WorkProgressAdmin() {
+  const { employee } = useAuth();
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddJobModal, setShowAddJobModal] = useState(false);
+  const [showAddEntryModal, setShowAddEntryModal] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [newJob, setNewJob] = useState({ name: '', total_area: '' });
+  const [newEntry, setNewEntry] = useState({ hectares_completed: '', date_completed: '' });
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const fetchJobs = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/jobs`);
+      if (response.ok) {
+        const data = await response.json();
+        setJobs(data);
+      }
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+      toast.error('Failed to load jobs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateJob = async () => {
+    if (!newJob.name.trim() || !newJob.total_area) {
+      toast.error('Please enter job name and total area');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newJob.name.trim(),
+          total_area: parseFloat(newJob.total_area)
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Job created successfully');
+        setShowAddJobModal(false);
+        setNewJob({ name: '', total_area: '' });
+        fetchJobs();
+      } else {
+        toast.error('Failed to create job');
+      }
+    } catch (error) {
+      console.error('Error creating job:', error);
+      toast.error('Failed to create job');
+    }
+  };
+
+  const handleAddEntry = async () => {
+    if (!newEntry.hectares_completed || !selectedJob) {
+      toast.error('Please enter hectares completed');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${selectedJob.id}/work-entry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hectares_completed: parseFloat(newEntry.hectares_completed),
+          date_completed: newEntry.date_completed || new Date().toISOString().split('T')[0],
+          entered_by: employee?.name || 'Admin'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(data.message);
+        setShowAddEntryModal(false);
+        setNewEntry({ hectares_completed: '', date_completed: '' });
+        setSelectedJob(null);
+        fetchJobs();
+      } else {
+        toast.error('Failed to add work entry');
+      }
+    } catch (error) {
+      console.error('Error adding work entry:', error);
+      toast.error('Failed to add work entry');
+    }
+  };
+
+  const handleDeleteJob = async (jobId, jobName) => {
+    if (!window.confirm(`Are you sure you want to delete "${jobName}"? This will also delete all work entries.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${jobId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        toast.success('Job deleted');
+        fetchJobs();
+      } else {
+        toast.error('Failed to delete job');
+      }
+    } catch (error) {
+      console.error('Error deleting job:', error);
+      toast.error('Failed to delete job');
+    }
+  };
+
+  const handleReopenJob = async (jobId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${jobId}/reopen`, {
+        method: 'PUT'
+      });
+
+      if (response.ok) {
+        toast.success('Job reopened');
+        fetchJobs();
+      } else {
+        toast.error('Failed to reopen job');
+      }
+    } catch (error) {
+      console.error('Error reopening job:', error);
+      toast.error('Failed to reopen job');
+    }
+  };
+
+  const activeJobs = jobs.filter(j => j.status === 'active');
+  const completedJobs = jobs.filter(j => j.status === 'complete');
+
+  return (
+    <>
+      {/* Add Job Modal */}
+      {showAddJobModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Add New Job</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowAddJobModal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Job Name</label>
+                <input
+                  type="text"
+                  value={newJob.name}
+                  onChange={(e) => setNewJob(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Carrot Drilling"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Total Area (Ha)</label>
+                <input
+                  type="number"
+                  value={newJob.total_area}
+                  onChange={(e) => setNewJob(prev => ({ ...prev, total_area: e.target.value }))}
+                  placeholder="e.g., 345"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <Button variant="outline" onClick={() => setShowAddJobModal(false)}>Cancel</Button>
+                <Button onClick={handleCreateJob} className="bg-orange-600 hover:bg-orange-700">
+                  Create Job
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Work Entry Modal */}
+      {showAddEntryModal && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Add Completed Work</h3>
+              <Button variant="ghost" size="sm" onClick={() => { setShowAddEntryModal(false); setSelectedJob(null); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="mb-4 p-3 bg-orange-50 rounded-lg">
+              <p className="font-medium text-orange-900">{selectedJob.name}</p>
+              <p className="text-sm text-orange-700">
+                {selectedJob.area_left} Ha remaining of {selectedJob.total_area} Ha
+              </p>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Hectares Completed</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={newEntry.hectares_completed}
+                  onChange={(e) => setNewEntry(prev => ({ ...prev, hectares_completed: e.target.value }))}
+                  placeholder="e.g., 50"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Date (optional, defaults to today)</label>
+                <input
+                  type="date"
+                  value={newEntry.date_completed}
+                  onChange={(e) => setNewEntry(prev => ({ ...prev, date_completed: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <Button variant="outline" onClick={() => { setShowAddEntryModal(false); setSelectedJob(null); }}>Cancel</Button>
+                <Button onClick={handleAddEntry} className="bg-green-600 hover:bg-green-700">
+                  Add Entry
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center space-x-2">
+                <Target className="h-5 w-5 text-orange-600" />
+                <span>Work Progress Tracking</span>
+              </CardTitle>
+              <CardDescription>
+                Track field work progress - jobs, areas, and completion rates
+              </CardDescription>
+            </div>
+            <Button onClick={() => setShowAddJobModal(true)} className="bg-orange-600 hover:bg-orange-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Job
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center p-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-orange-600" />
+            </div>
+          ) : jobs.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Target className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p>No jobs created yet</p>
+              <p className="text-sm">Click "Add Job" to create your first work tracking job</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Active Jobs */}
+              {activeJobs.length > 0 && (
+                <div>
+                  <h4 className="font-semibold text-orange-900 mb-3 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Active Jobs ({activeJobs.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {activeJobs.map(job => (
+                      <Card key={job.id} className="border-orange-200">
+                        <CardContent className="pt-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h5 className="font-semibold text-lg">{job.name}</h5>
+                              <p className="text-sm text-gray-600">
+                                Total: {job.total_area} Ha
+                              </p>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleDeleteJob(job.id, job.name)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          {/* Progress Bar */}
+                          <div className="mb-3">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-green-600 font-medium">{job.total_completed} Ha done</span>
+                              <span className="text-orange-600 font-medium">{job.area_left} Ha left</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-3">
+                              <div 
+                                className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-500"
+                                style={{ width: `${Math.min(100, (job.total_completed / job.total_area) * 100)}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {Math.round((job.total_completed / job.total_area) * 100)}% complete
+                            </p>
+                          </div>
+
+                          {/* Stats */}
+                          <div className="flex items-center justify-between text-sm bg-gray-50 rounded-lg p-2 mb-3">
+                            <div>
+                              <span className="text-gray-600">Avg: </span>
+                              <span className="font-semibold text-blue-600">{job.ha_per_day} Ha/day</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Entries: </span>
+                              <span className="font-semibold">{job.entries_count}</span>
+                            </div>
+                          </div>
+
+                          <Button 
+                            onClick={() => { setSelectedJob(job); setShowAddEntryModal(true); }}
+                            className="w-full bg-green-600 hover:bg-green-700"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Completed Ha
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Completed Jobs */}
+              {completedJobs.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    Completed Jobs ({completedJobs.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {completedJobs.map(job => (
+                      <Card key={job.id} className="border-green-200 bg-green-50/50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h5 className="font-semibold text-lg flex items-center gap-2">
+                                {job.name}
+                                <Badge className="bg-green-600">Complete</Badge>
+                              </h5>
+                              <p className="text-sm text-gray-600">
+                                {job.total_completed} Ha completed
+                              </p>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleReopenJob(job.id)}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                title="Reopen job"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleDeleteJob(job.id, job.name)}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-500">
+                            Avg rate: {job.ha_per_day} Ha/day over {job.entries_count} entries
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
 // SharePoint Admin Component
 function SharePointAdminComponent() {
   const [uploadResults, setUploadResults] = useState(null);
