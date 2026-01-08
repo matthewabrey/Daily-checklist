@@ -6720,6 +6720,14 @@ function AppContent() {
               </AdminProtectedRoute>
             } />
             <Route 
+              path="/manager" 
+              element={
+                <ManagerProtectedRoute>
+                  <ManagerPage />
+                </ManagerProtectedRoute>
+              } 
+            />
+            <Route 
               path="/admin" 
               element={
                 <AdminProtectedRoute>
