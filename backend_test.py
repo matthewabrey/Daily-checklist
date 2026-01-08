@@ -86,6 +86,127 @@ class MachineChecklistAPITester:
             self.log_test("Admin Authentication (Employee 4444)", False, f"Exception: {str(e)}")
             return False, {}
 
+    def test_manager_feature_employee_login(self) -> tuple[bool, Dict]:
+        """Test employee login returns manager_control field for Manager feature"""
+        try:
+            login_data = {"employee_number": "4444"}
+            response = requests.post(
+                f"{self.base_url}/api/auth/employee-login",
+                json=login_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            employee_data = {}
+            
+            if success:
+                result = response.json()
+                employee_data = result.get('employee', {})
+                details = f"Status: {response.status_code}, Success: {result.get('success', False)}"
+                
+                # Verify manager_control field is present
+                manager_control = employee_data.get('manager_control')
+                
+                if not result.get('success'):
+                    success = False
+                    details += " (Success flag is False)"
+                elif 'manager_control' not in employee_data:
+                    success = False
+                    details += " (manager_control field missing from response)"
+                else:
+                    details += f", Manager Control: {manager_control}, Name: {employee_data.get('name', 'Unknown')}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Manager Feature - Employee Login Returns manager_control Field", success, details)
+            return success, employee_data
+        except Exception as e:
+            self.log_test("Manager Feature - Employee Login Returns manager_control Field", False, f"Exception: {str(e)}")
+            return False, {}
+
+    def test_manager_feature_admin_permissions(self) -> bool:
+        """Test that admin user 4444 has all three access fields set to 'yes'"""
+        try:
+            login_data = {"employee_number": "4444"}
+            response = requests.post(
+                f"{self.base_url}/api/auth/employee-login",
+                json=login_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            
+            if success:
+                result = response.json()
+                employee_data = result.get('employee', {})
+                details = f"Status: {response.status_code}, Success: {result.get('success', False)}"
+                
+                # Verify all three access fields
+                admin_control = employee_data.get('admin_control')
+                workshop_control = employee_data.get('workshop_control')
+                manager_control = employee_data.get('manager_control')
+                
+                if not result.get('success'):
+                    success = False
+                    details += " (Success flag is False)"
+                elif admin_control != "yes":
+                    success = False
+                    details += f" (Expected admin_control: 'yes', got: '{admin_control}')"
+                elif workshop_control != "yes":
+                    success = False
+                    details += f" (Expected workshop_control: 'yes', got: '{workshop_control}')"
+                elif manager_control != "yes":
+                    success = False
+                    details += f" (Expected manager_control: 'yes', got: '{manager_control}')"
+                else:
+                    details += f", Admin: {admin_control}, Workshop: {workshop_control}, Manager: {manager_control}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Manager Feature - Admin User 4444 Has All Three Access Fields", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Manager Feature - Admin User 4444 Has All Three Access Fields", False, f"Exception: {str(e)}")
+            return False
+
+    def test_manager_feature_jobs_endpoint(self) -> bool:
+        """Test GET /api/jobs endpoint works for Manager page work progress display"""
+        try:
+            response = requests.get(f"{self.base_url}/api/jobs", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                details = f"Status: {response.status_code}, Jobs returned: {len(data)}"
+                
+                # Verify response is an array (may be empty)
+                if not isinstance(data, list):
+                    success = False
+                    details += " (Response is not an array)"
+                else:
+                    # If there are jobs, verify structure
+                    if data:
+                        first_job = data[0]
+                        required_fields = ['id', 'name', 'total_area', 'status']
+                        missing_fields = [field for field in required_fields if field not in first_job]
+                        if missing_fields:
+                            success = False
+                            details += f", Missing fields in job: {missing_fields}"
+                        else:
+                            details += f", Sample job: {first_job.get('name', 'Unknown')}"
+                    else:
+                        details += " (Empty array - no jobs currently)"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Manager Feature - GET /api/jobs Endpoint Works", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Manager Feature - GET /api/jobs Endpoint Works", False, f"Exception: {str(e)}")
+            return False
+
     def test_dashboard_stats(self) -> bool:
         """Test dashboard stats endpoint"""
         try:
