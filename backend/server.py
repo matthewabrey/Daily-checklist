@@ -407,7 +407,7 @@ async def grant_admin_access(employee_number: str):
         # Update ALL documents with this employee number
         result = await db.staff.update_many(
             {"employee_number": employee_number},
-            {"$set": {"admin_control": "yes", "workshop_control": "yes"}}
+            {"$set": {"admin_control": "yes", "workshop_control": "yes", "manager_control": "yes"}}
         )
         
         if result.modified_count > 0:
