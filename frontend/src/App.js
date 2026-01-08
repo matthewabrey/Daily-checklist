@@ -2682,7 +2682,7 @@ function SharePointAdminComponent() {
               <li>• Column B: Name (e.g., John Smith, Jane Doe)</li>
               <li>• Column C: Workshop Control (yes/no) - optional</li>
               <li>• Column D: Admin Control (yes/no) - optional</li>
-              <li>• Column E: Manager Control (yes/no) - optional</li>
+              <li>• Column E: Manager (yes/no) - optional</li>
             </ul>
           </div>
           <div className="flex items-center space-x-4">
