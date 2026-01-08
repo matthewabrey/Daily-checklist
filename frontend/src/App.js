@@ -2463,19 +2463,27 @@ function WorkProgressAdmin() {
                             </div>
                             <div className="flex gap-1">
                               <Button 
-                                variant="ghost" 
+                                variant="outline" 
                                 size="sm"
-                                onClick={() => handleReopenJob(job.id)}
-                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleReopenJob(job.id);
+                                }}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
                                 title="Reopen job"
                               >
                                 <RotateCcw className="h-4 w-4" />
                               </Button>
                               <Button 
-                                variant="ghost" 
+                                variant="outline" 
                                 size="sm"
-                                onClick={() => handleDeleteJob(job.id, job.name)}
-                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDeleteJob(job.id, job.name);
+                                }}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
