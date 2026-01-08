@@ -2254,14 +2254,14 @@ class MachineChecklistAPITester:
             if not delete_entry2_success:
                 return False
             
-            # Step 13: Delete Job API - DELETE /api/admin/jobs/{job_id}
-            print("Step 13: Deleting test job...")
+            # Step 14: Delete Job API - DELETE /api/admin/jobs/{job_id}
+            print("Step 14: Deleting test job...")
             delete_job_success = self.test_delete_job(job_id)
             if not delete_job_success:
                 return False
             
-            # Step 14: Verify job is removed from GET /api/jobs
-            print("Step 14: Verifying job is removed from jobs list...")
+            # Step 15: Verify job is removed from GET /api/jobs
+            print("Step 15: Verifying job is removed from jobs list...")
             jobs_success, jobs_data = self.test_get_jobs()
             if not jobs_success:
                 return False
