@@ -1821,6 +1821,479 @@ class MachineChecklistAPITester:
             self.log_test("Checklist Items for Translation Keys", False, f"Exception: {str(e)}")
             return False
 
+    def test_qr_code_endpoint(self) -> bool:
+        """Test QR code generation endpoint to verify Pillow fix"""
+        try:
+            response = requests.get(f"{self.base_url}/api/assets/qr/TEST/TEST", timeout=10)
+            success = response.status_code == 200
+            
+            if success:
+                content_type = response.headers.get('content-type', '')
+                content_length = len(response.content)
+                details = f"Status: {response.status_code}, Content-Type: {content_type}, Size: {content_length} bytes"
+                
+                # Verify it's a PNG image
+                if 'image/png' not in content_type:
+                    success = False
+                    details += " (Not PNG content type)"
+                elif content_length == 0:
+                    success = False
+                    details += " (Empty image)"
+                else:
+                    details += " (QR code generated successfully)"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("QR Code Generation (Pillow Fix)", success, details)
+            return success
+        except Exception as e:
+            self.log_test("QR Code Generation (Pillow Fix)", False, f"Exception: {str(e)}")
+            return False
+
+    def test_create_job(self) -> tuple[bool, str]:
+        """Test creating a new job"""
+        try:
+            job_data = {
+                "name": "Carrot Drilling",
+                "total_area": 345
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/admin/jobs",
+                json=job_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            job_id = ""
+            
+            if success:
+                result = response.json()
+                job_id = result.get('job', {}).get('id', '')
+                details = f"Status: {response.status_code}, Job ID: {job_id[:8]}..."
+                
+                # Verify response structure
+                job_info = result.get('job', {})
+                if job_info.get('name') != "Carrot Drilling":
+                    success = False
+                    details += f" (Name mismatch: expected 'Carrot Drilling', got '{job_info.get('name')}')"
+                elif job_info.get('total_area') != 345:
+                    success = False
+                    details += f" (Total area mismatch: expected 345, got {job_info.get('total_area')})"
+                elif job_info.get('status') != "active":
+                    success = False
+                    details += f" (Status mismatch: expected 'active', got '{job_info.get('status')}')"
+                else:
+                    details += f", Name: {job_info.get('name')}, Area: {job_info.get('total_area')}, Status: {job_info.get('status')}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Create Job API", success, details)
+            return success, job_id
+        except Exception as e:
+            self.log_test("Create Job API", False, f"Exception: {str(e)}")
+            return False, ""
+
+    def test_get_jobs(self) -> tuple[bool, List[Dict]]:
+        """Test getting all jobs with calculated stats"""
+        try:
+            response = requests.get(f"{self.base_url}/api/jobs", timeout=10)
+            success = response.status_code == 200
+            jobs_data = []
+            
+            if success:
+                jobs_data = response.json()
+                count = len(jobs_data)
+                details = f"Status: {response.status_code}, Jobs count: {count}"
+                
+                if jobs_data:
+                    # Find our test job
+                    carrot_job = None
+                    for job in jobs_data:
+                        if job.get('name') == 'Carrot Drilling':
+                            carrot_job = job
+                            break
+                    
+                    if carrot_job:
+                        # Verify calculated fields
+                        required_fields = ['total_completed', 'area_left', 'ha_per_day', 'entries_count']
+                        missing_fields = [field for field in required_fields if field not in carrot_job]
+                        if missing_fields:
+                            success = False
+                            details += f", Missing fields: {missing_fields}"
+                        else:
+                            details += f", Carrot Drilling found - Completed: {carrot_job.get('total_completed')}, Left: {carrot_job.get('area_left')}, Ha/day: {carrot_job.get('ha_per_day')}"
+                    else:
+                        details += ", Carrot Drilling job not found in list"
+                else:
+                    details += ", No jobs found"
+            else:
+                details = f"Status: {response.status_code}"
+                
+            self.log_test("Get Jobs API", success, details)
+            return success, jobs_data
+        except Exception as e:
+            self.log_test("Get Jobs API", False, f"Exception: {str(e)}")
+            return False, []
+
+    def test_add_work_entry(self, job_id: str, hectares: float, entered_by: str) -> tuple[bool, str]:
+        """Test adding a work entry to a job"""
+        try:
+            entry_data = {
+                "hectares_completed": hectares,
+                "entered_by": entered_by
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/api/admin/jobs/{job_id}/work-entry",
+                json=entry_data,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            entry_id = ""
+            
+            if success:
+                result = response.json()
+                entry_id = result.get('entry', {}).get('id', '')
+                details = f"Status: {response.status_code}, Entry ID: {entry_id[:8]}..."
+                
+                # Verify response structure
+                entry_info = result.get('entry', {})
+                if entry_info.get('hectares_completed') != hectares:
+                    success = False
+                    details += f" (Hectares mismatch: expected {hectares}, got {entry_info.get('hectares_completed')})"
+                elif entry_info.get('entered_by') != entered_by:
+                    success = False
+                    details += f" (Entered by mismatch: expected '{entered_by}', got '{entry_info.get('entered_by')}')"
+                else:
+                    details += f", Hectares: {entry_info.get('hectares_completed')}, By: {entry_info.get('entered_by')}"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test(f"Add Work Entry ({hectares} Ha)", success, details)
+            return success, entry_id
+        except Exception as e:
+            self.log_test(f"Add Work Entry ({hectares} Ha)", False, f"Exception: {str(e)}")
+            return False, ""
+
+    def test_reopen_job(self, job_id: str) -> bool:
+        """Test reopening a completed job"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/api/admin/jobs/{job_id}/reopen",
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            
+            if success:
+                result = response.json()
+                details = f"Status: {response.status_code}, Message: {result.get('message', '')}"
+                
+                # Verify success flag
+                if not result.get('success'):
+                    success = False
+                    details += " (Success flag is False)"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Reopen Job API", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Reopen Job API", False, f"Exception: {str(e)}")
+            return False
+
+    def test_delete_work_entry(self, entry_id: str) -> bool:
+        """Test deleting a work entry"""
+        try:
+            response = requests.delete(
+                f"{self.base_url}/api/admin/work-entries/{entry_id}",
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            
+            if success:
+                result = response.json()
+                details = f"Status: {response.status_code}, Message: {result.get('message', '')}"
+                
+                # Verify success flag
+                if not result.get('success'):
+                    success = False
+                    details += " (Success flag is False)"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Delete Work Entry API", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Delete Work Entry API", False, f"Exception: {str(e)}")
+            return False
+
+    def test_delete_job(self, job_id: str) -> bool:
+        """Test deleting a job"""
+        try:
+            response = requests.delete(
+                f"{self.base_url}/api/admin/jobs/{job_id}",
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            
+            if success:
+                result = response.json()
+                details = f"Status: {response.status_code}, Message: {result.get('message', '')}"
+                
+                # Verify success flag
+                if not result.get('success'):
+                    success = False
+                    details += " (Success flag is False)"
+            else:
+                details = f"Status: {response.status_code}, Response: {response.text[:100]}"
+                
+            self.log_test("Delete Job API", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Delete Job API", False, f"Exception: {str(e)}")
+            return False
+
+    def test_work_progress_tracking_complete_flow(self) -> bool:
+        """Test complete Work Progress Tracking flow as specified in review request"""
+        try:
+            print("\n🚜 WORK PROGRESS TRACKING - COMPLETE FLOW TEST")
+            print("-" * 70)
+            
+            # Step 1: Create Job API - POST /api/admin/jobs
+            print("Step 1: Creating job 'Carrot Drilling' with 345 Ha...")
+            job_success, job_id = self.test_create_job()
+            if not job_success or not job_id:
+                return False
+            
+            # Step 2: Get Jobs API - GET /api/jobs (verify newly created job)
+            print("Step 2: Verifying job appears in jobs list...")
+            jobs_success, jobs_data = self.test_get_jobs()
+            if not jobs_success:
+                return False
+            
+            # Find our job and verify initial stats
+            carrot_job = None
+            for job in jobs_data:
+                if job.get('id') == job_id:
+                    carrot_job = job
+                    break
+            
+            if not carrot_job:
+                self.log_test("Job Initial Stats Verification", False, "Created job not found in jobs list")
+                return False
+            
+            if carrot_job.get('total_completed') != 0:
+                self.log_test("Job Initial Stats Verification", False, f"Expected total_completed=0, got {carrot_job.get('total_completed')}")
+                return False
+            
+            if carrot_job.get('area_left') != 345:
+                self.log_test("Job Initial Stats Verification", False, f"Expected area_left=345, got {carrot_job.get('area_left')}")
+                return False
+            
+            self.log_test("Job Initial Stats Verification", True, "total_completed=0, area_left=345, ha_per_day=0")
+            
+            # Step 3: Add Work Entry API - POST /api/admin/jobs/{job_id}/work-entry (50 Ha)
+            print("Step 3: Adding first work entry (50 Ha)...")
+            entry1_success, entry1_id = self.test_add_work_entry(job_id, 50, "Test User")
+            if not entry1_success or not entry1_id:
+                return False
+            
+            # Step 4: Verify stats after first entry
+            print("Step 4: Verifying stats after first entry...")
+            jobs_success, jobs_data = self.test_get_jobs()
+            if not jobs_success:
+                return False
+            
+            carrot_job = None
+            for job in jobs_data:
+                if job.get('id') == job_id:
+                    carrot_job = job
+                    break
+            
+            if not carrot_job:
+                self.log_test("Job Stats After First Entry", False, "Job not found after first entry")
+                return False
+            
+            if carrot_job.get('total_completed') != 50:
+                self.log_test("Job Stats After First Entry", False, f"Expected total_completed=50, got {carrot_job.get('total_completed')}")
+                return False
+            
+            if carrot_job.get('area_left') != 295:
+                self.log_test("Job Stats After First Entry", False, f"Expected area_left=295, got {carrot_job.get('area_left')}")
+                return False
+            
+            self.log_test("Job Stats After First Entry", True, "total_completed=50, area_left=295")
+            
+            # Step 5: Add second work entry (100 Ha)
+            print("Step 5: Adding second work entry (100 Ha)...")
+            entry2_success, entry2_id = self.test_add_work_entry(job_id, 100, "Test User")
+            if not entry2_success or not entry2_id:
+                return False
+            
+            # Step 6: Verify stats with ha_per_day calculation
+            print("Step 6: Verifying stats with ha_per_day calculation...")
+            jobs_success, jobs_data = self.test_get_jobs()
+            if not jobs_success:
+                return False
+            
+            carrot_job = None
+            for job in jobs_data:
+                if job.get('id') == job_id:
+                    carrot_job = job
+                    break
+            
+            if not carrot_job:
+                self.log_test("Job Stats After Second Entry", False, "Job not found after second entry")
+                return False
+            
+            if carrot_job.get('total_completed') != 150:
+                self.log_test("Job Stats After Second Entry", False, f"Expected total_completed=150, got {carrot_job.get('total_completed')}")
+                return False
+            
+            if carrot_job.get('area_left') != 195:
+                self.log_test("Job Stats After Second Entry", False, f"Expected area_left=195, got {carrot_job.get('area_left')}")
+                return False
+            
+            if carrot_job.get('entries_count') != 2:
+                self.log_test("Job Stats After Second Entry", False, f"Expected entries_count=2, got {carrot_job.get('entries_count')}")
+                return False
+            
+            # Ha/day should be average: (50 + 100) / 2 = 75
+            expected_ha_per_day = 75
+            if abs(carrot_job.get('ha_per_day', 0) - expected_ha_per_day) > 0.1:
+                self.log_test("Job Stats After Second Entry", False, f"Expected ha_per_day≈{expected_ha_per_day}, got {carrot_job.get('ha_per_day')}")
+                return False
+            
+            self.log_test("Job Stats After Second Entry", True, f"total_completed=150, area_left=195, entries_count=2, ha_per_day={carrot_job.get('ha_per_day')}")
+            
+            # Step 7: Complete job test (add remaining 195 Ha)
+            print("Step 7: Adding final work entry to complete job (195 Ha)...")
+            entry3_success, entry3_id = self.test_add_work_entry(job_id, 195, "Test User")
+            if not entry3_success or not entry3_id:
+                return False
+            
+            # Step 8: Verify job status changes to "complete"
+            print("Step 8: Verifying job status changes to 'complete'...")
+            jobs_success, jobs_data = self.test_get_jobs()
+            if not jobs_success:
+                return False
+            
+            carrot_job = None
+            for job in jobs_data:
+                if job.get('id') == job_id:
+                    carrot_job = job
+                    break
+            
+            if not carrot_job:
+                self.log_test("Job Completion Status", False, "Job not found after completion")
+                return False
+            
+            if carrot_job.get('status') != 'complete':
+                self.log_test("Job Completion Status", False, f"Expected status='complete', got '{carrot_job.get('status')}'")
+                return False
+            
+            if carrot_job.get('area_left') != 0:
+                self.log_test("Job Completion Status", False, f"Expected area_left=0, got {carrot_job.get('area_left')}")
+                return False
+            
+            self.log_test("Job Completion Status", True, "status='complete', area_left=0")
+            
+            # Step 9: Reopen Job API - PUT /api/admin/jobs/{job_id}/reopen
+            print("Step 9: Reopening completed job...")
+            reopen_success = self.test_reopen_job(job_id)
+            if not reopen_success:
+                return False
+            
+            # Step 10: Verify status changes back to "active"
+            print("Step 10: Verifying job status changes back to 'active'...")
+            jobs_success, jobs_data = self.test_get_jobs()
+            if not jobs_success:
+                return False
+            
+            carrot_job = None
+            for job in jobs_data:
+                if job.get('id') == job_id:
+                    carrot_job = job
+                    break
+            
+            if not carrot_job:
+                self.log_test("Job Reopen Status", False, "Job not found after reopen")
+                return False
+            
+            if carrot_job.get('status') != 'active':
+                self.log_test("Job Reopen Status", False, f"Expected status='active', got '{carrot_job.get('status')}'")
+                return False
+            
+            self.log_test("Job Reopen Status", True, "status='active'")
+            
+            # Step 11: Delete Work Entry API - DELETE /api/admin/work-entries/{entry_id}
+            print("Step 11: Deleting one work entry...")
+            delete_entry_success = self.test_delete_work_entry(entry2_id)
+            if not delete_entry_success:
+                return False
+            
+            # Step 12: Verify entries_count decreases
+            print("Step 12: Verifying entries_count decreases...")
+            jobs_success, jobs_data = self.test_get_jobs()
+            if not jobs_success:
+                return False
+            
+            carrot_job = None
+            for job in jobs_data:
+                if job.get('id') == job_id:
+                    carrot_job = job
+                    break
+            
+            if not carrot_job:
+                self.log_test("Job After Entry Deletion", False, "Job not found after entry deletion")
+                return False
+            
+            if carrot_job.get('entries_count') != 2:  # Should be 2 now (was 3, deleted 1)
+                self.log_test("Job After Entry Deletion", False, f"Expected entries_count=2, got {carrot_job.get('entries_count')}")
+                return False
+            
+            self.log_test("Job After Entry Deletion", True, f"entries_count={carrot_job.get('entries_count')}")
+            
+            # Step 13: Delete Job API - DELETE /api/admin/jobs/{job_id}
+            print("Step 13: Deleting test job...")
+            delete_job_success = self.test_delete_job(job_id)
+            if not delete_job_success:
+                return False
+            
+            # Step 14: Verify job is removed from GET /api/jobs
+            print("Step 14: Verifying job is removed from jobs list...")
+            jobs_success, jobs_data = self.test_get_jobs()
+            if not jobs_success:
+                return False
+            
+            # Job should not be found
+            carrot_job = None
+            for job in jobs_data:
+                if job.get('id') == job_id:
+                    carrot_job = job
+                    break
+            
+            if carrot_job:
+                self.log_test("Job Deletion Verification", False, "Job still found in list after deletion")
+                return False
+            
+            self.log_test("Job Deletion Verification", True, "Job successfully removed from list")
+            
+            print("✅ Work Progress Tracking complete flow test PASSED!")
+            return True
+            
+        except Exception as e:
+            self.log_test("Work Progress Tracking Complete Flow", False, f"Exception: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """Run comprehensive API tests - Focus on Review Request Requirements"""
         print("🚀 Starting Daily Check and Repairs Management System Tests")
