@@ -105,6 +105,31 @@ class ChecklistResponse(BaseModel):
     completed_at: datetime
     status: str
 
+# Work Progress Tracking Models
+class WorkEntry(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    job_id: str
+    hectares_completed: float
+    date_completed: str  # ISO date string
+    entered_by: str  # Employee name
+    entered_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class Job(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str  # e.g., "Carrot Drilling"
+    total_area: float  # Total hectares
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    status: str = "active"  # "active" or "complete"
+
+class JobCreate(BaseModel):
+    name: str
+    total_area: float
+
+class WorkEntryCreate(BaseModel):
+    hectares_completed: float
+    date_completed: Optional[str] = None  # If not provided, use today
+    entered_by: str
+
 # Initialize data
 async def initialize_data():
     # Check if data already exists
