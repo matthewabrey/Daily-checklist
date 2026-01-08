@@ -2682,7 +2682,10 @@ function SharePointAdminComponent() {
             <h4 className="font-semibold text-green-900 mb-2">Excel Format Required:</h4>
             <ul className="text-sm text-green-800 space-y-1">
               <li>• Column A: Employee Number (e.g., 101, 102, 103)</li>
-              <li>• Column B: Name (e.g., "John Smith", "Jane Doe")</li>
+              <li>• Column B: Name (e.g., John Smith, Jane Doe)</li>
+              <li>• Column C: Workshop Control (yes/no) - optional</li>
+              <li>• Column D: Admin Control (yes/no) - optional</li>
+              <li>• Column E: Manager Control (yes/no) - optional</li>
             </ul>
           </div>
           <div className="flex items-center space-x-4">
