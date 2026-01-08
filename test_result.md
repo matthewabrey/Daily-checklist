@@ -6,35 +6,33 @@
 - MongoDB: RUNNING (local)
 - Data imported: 1068 checklists, 226 assets, 153 repair statuses, 2 staff
 
-## Recent Changes (Fork 2)
-1. Removed "View All Checks" button from Dashboard "Total Checks" card - now displays only the count
-2. Simplified Admin "Historical Data & Reports" section - removed "All Checks Completed" card, kept only "Full Records History" 
-3. "View Today's Checks" button kept (loads small dataset quickly)
-4. **NEW: QR Code Labels feature fully implemented**
-   - Backend: Added `qr_printed` and `qr_printed_at` fields to assets
-   - Backend: New endpoints `/api/assets/qr-labels`, `/api/assets/mark-qr-printed`, `/api/assets/reset-qr-status`
-   - Backend: Asset upload now preserves QR print status for existing machines
-   - Frontend: New QRLabelsPage component at `/qr-labels` route
-   - Features: "New Machines" vs "Already Printed" tabs, select all/individual, print labels, reset status
+## Recent Changes (Fork 3 - Work Progress Tracking)
+1. **FIXED: QR Codes not displaying** - Installed missing `Pillow` library for QR code image generation
+2. **NEW: Work Progress Tracking feature**
+   - Backend: New `jobs` and `work_entries` MongoDB collections
+   - Backend: New endpoints:
+     - `GET /api/jobs` - Get all jobs with calculated stats
+     - `POST /api/admin/jobs` - Create a new job
+     - `GET /api/admin/jobs/{job_id}` - Get job details
+     - `POST /api/admin/jobs/{job_id}/work-entry` - Add completed work
+     - `DELETE /api/admin/jobs/{job_id}` - Delete a job
+     - `PUT /api/admin/jobs/{job_id}` - Update job
+     - `PUT /api/admin/jobs/{job_id}/reopen` - Reopen completed job
+     - `DELETE /api/admin/work-entries/{entry_id}` - Delete work entry
+   - Frontend: WorkProgressAdmin component in Admin Panel
+   - Frontend: Work Progress Stats section at bottom of Dashboard
+   - Features: Create jobs with total area, log completed hectares, track Ha/day average, auto-complete when done
 
-## Test Scope for This Fork
-- Verify QR Labels page loads correctly
-- Verify "New Machines" tab shows all 226 assets (none printed yet)
-- Verify "Already Printed" tab is empty
-- Verify clicking machines selects them (checkbox + highlight)
-- Verify "Print Selected (N)" button shows correct count
-- Test print functionality marks assets as printed
-- Verify "Already Printed" tab updates after printing
-- Test search functionality
-- Test "Reset Print Status" functionality
+## Test Scope for This Session
+- Test Work Progress Tracking feature:
+  - Create a new job from Admin panel
+  - Add work entries (completed hectares)
+  - Verify Ha/day calculation (average of daily entries)
+  - Verify job shows as "Complete" when area_left reaches 0
+  - Verify Dashboard displays work progress stats
+  - Test delete and reopen functionality
 
-## QR Scanning Feature Tests
-- Verify "Scan Code" button appears in NewChecklist form (step 1)
-- Test that QR scanning with format "MACHINE:{make}:{name}" auto-selects machine
-- Verify auto-advance to step 2 (Check Type) after successful scan
-- Test QR scanner modal opens/closes correctly
-
-## Backend Testing Results - COMPLETED ✅
+## Previous Changes (Fork 2)
 
 ### 1. Authentication Tests - ✅ PASSED
 - [x] Login with employee 4444 (admin) - SUCCESS
