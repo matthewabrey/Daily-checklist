@@ -460,6 +460,168 @@ function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Total Checks Filter & Export Modal */}
+      {showTotalChecksModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col relative z-[10000]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <ClipboardList className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">All Checks Overview</h3>
+                  <p className="text-sm text-gray-600">Filter by machine and export to Excel</p>
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowTotalChecksModal(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* Filter Controls */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Machine Make</label>
+                <select 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  value={selectedFilterMake}
+                  onChange={(e) => handleFilterMakeChange(e.target.value)}
+                >
+                  <option value="">Select a make...</option>
+                  {totalChecksMakes.map(make => (
+                    <option key={make} value={make}>{make}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Machine Name (Optional)</label>
+                <select 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  value={selectedFilterName}
+                  onChange={(e) => handleFilterNameChange(e.target.value)}
+                  disabled={!selectedFilterMake}
+                >
+                  <option value="">All machines of this make</option>
+                  {totalChecksNames.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mb-4">
+              <Button 
+                onClick={loadFilteredChecklists}
+                disabled={!selectedFilterMake || isLoadingChecklists}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {isLoadingChecklists ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4 mr-2" />
+                    View Checks
+                  </>
+                )}
+              </Button>
+              <Button 
+                onClick={exportFilteredChecklists}
+                disabled={!selectedFilterMake || isExporting}
+                variant="outline"
+                className="border-green-500 text-green-700 hover:bg-green-50"
+              >
+                {isExporting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export to Excel
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Info Box */}
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>Export Info:</strong> The Excel file will have a separate sheet for each check type (e.g., Tractor, HGV, Grader). 
+                Each sheet includes all checklist questions with ✓ (pass), ✗ (fail), or N/A for each inspection.
+              </p>
+            </div>
+
+            {/* Results Table */}
+            <div className="flex-1 overflow-auto border rounded-lg">
+              {filteredChecklists.length > 0 ? (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Staff</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Machine</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Check Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredChecklists.map((checklist, idx) => (
+                      <tr key={checklist.id || idx} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {new Date(checklist.completed_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{checklist.staff_name}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {checklist.machine_make} - {checklist.machine_model}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">
+                            {checklist.check_type}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            checklist.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {checklist.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                  <ClipboardList className="h-12 w-12 mb-3 text-gray-300" />
+                  <p className="text-sm">Select a machine make and click "View Checks" to see results</p>
+                </div>
+              )}
+            </div>
+
+            {/* Results Count */}
+            {filteredChecklists.length > 0 && (
+              <div className="mt-3 text-sm text-gray-600">
+                Showing {filteredChecklists.length} check(s) for {selectedFilterMake}
+                {selectedFilterName && ` - ${selectedFilterName}`}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       
       <div className="text-center sm:text-left">
         <div>
