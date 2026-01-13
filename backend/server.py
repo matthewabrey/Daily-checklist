@@ -1496,27 +1496,6 @@ async def export_checklists_excel():
         headers={"Content-Disposition": "attachment; filename=all_checks.xlsx"}
     )
 
-@app.get("/api/checklists/by-machine")
-async def get_checklists_by_machine(make: str = None, name: str = None, limit: int = 1000):
-    """Get all checklists for a specific machine with optional filters"""
-    query = {}
-    if make:
-        query["machine_make"] = make
-    if name:
-        query["machine_model"] = name
-    
-    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).limit(limit).to_list(length=limit)
-    
-    # Parse datetime strings
-    for checklist in checklists:
-        if checklist.get('completed_at') and isinstance(checklist['completed_at'], str):
-            try:
-                checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'].replace('Z', '+00:00'))
-            except:
-                pass
-    
-    return checklists
-
 @app.get("/api/checklists/export/excel-by-machine")
 async def export_checklists_excel_by_machine(make: str = None, name: str = None):
     """Export checklists to Excel with separate sheets per check type, including all checklist questions"""
