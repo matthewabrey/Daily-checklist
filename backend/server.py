@@ -1765,6 +1765,8 @@ async def acknowledge_repair(repair_id: str):
         }},
         upsert=True
     )
+    # Invalidate dashboard cache so counts update immediately
+    await invalidate_cache()
     return {"success": True, "message": "Repair acknowledged"}
 
 @app.post("/api/repair-status/complete")
@@ -1778,6 +1780,8 @@ async def complete_repair(repair_id: str):
         }},
         upsert=True
     )
+    # Invalidate dashboard cache so counts update immediately
+    await invalidate_cache()
     return {"success": True, "message": "Repair marked as complete"}
 
 @app.post("/api/repair-status/add-note")
