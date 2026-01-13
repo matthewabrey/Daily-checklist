@@ -170,6 +170,16 @@ function Dashboard() {
   const [jobs, setJobs] = useState([]);
   const navigate = useNavigate();
 
+  // Total Checks Modal state
+  const [showTotalChecksModal, setShowTotalChecksModal] = useState(false);
+  const [totalChecksMakes, setTotalChecksMakes] = useState([]);
+  const [totalChecksNames, setTotalChecksNames] = useState([]);
+  const [selectedFilterMake, setSelectedFilterMake] = useState('');
+  const [selectedFilterName, setSelectedFilterName] = useState('');
+  const [filteredChecklists, setFilteredChecklists] = useState([]);
+  const [isLoadingChecklists, setIsLoadingChecklists] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
   // Use location to trigger refresh on navigation
   const location = useLocation();
 
