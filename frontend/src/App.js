@@ -689,7 +689,6 @@ function Dashboard() {
           <CardContent className="pt-0">
             <div className="text-2xl font-bold text-purple-600">{stats.total}</div>
             <p className="text-xs text-purple-700">All time completed</p>
-            <p className="text-xs text-purple-500 mt-1">Click to filter & export</p>
           </CardContent>
         </Card>
 
