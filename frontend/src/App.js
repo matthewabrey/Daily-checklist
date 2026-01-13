@@ -1814,9 +1814,9 @@ function NewChecklist() {
               {selectedCheckType === 'daily_check' ? (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Pre-Startup Safety Checklist</h3>
-                  <p className="text-sm text-gray-600">Mark each item as satisfactory (✓) or unsatisfactory (✗). You can submit even with unsatisfactory items.</p>
+                  <p className="text-sm text-gray-600">Mark each item as satisfactory (✓) or unsatisfactory (✗). Items marked with <span className="text-red-600 font-bold">*</span> are compulsory and cannot be failed.</p>
                   {checklistItems.map((item, index) => (
-                    <Card key={index} className="p-4" data-testid={`checklist-item-${index}`}>
+                    <Card key={index} className={`p-4 ${item.compulsory ? 'border-l-4 border-l-red-500 bg-red-50/30' : ''}`} data-testid={`checklist-item-${index}`}>
                       <div className="flex items-start space-x-3">
                         <div className="flex flex-col space-y-2 mt-1">
                           <Button
@@ -1852,9 +1852,14 @@ function NewChecklist() {
                             item.status === 'unsatisfactory' ? 'text-red-700' : 
                             item.status === 'n/a' ? 'text-gray-500' : ''
                           }`}>
+                            {item.compulsory && <span className="text-red-600 font-bold mr-1">*</span>}
                             {tItem(item.item)}
+                            {item.compulsory && <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">COMPULSORY</span>}
                           </label>
-                          {item.status === 'unsatisfactory' && (
+                          {item.compulsory && item.status === 'unsatisfactory' && (
+                            <div className="mt-1 text-xs text-red-700 font-bold bg-red-100 p-2 rounded">⛔ COMPULSORY CHECK FAILED - Cannot sign off until resolved</div>
+                          )}
+                          {!item.compulsory && item.status === 'unsatisfactory' && (
                             <div className="mt-1 text-xs text-red-600 font-medium">⚠ Unsatisfactory - Requires attention</div>
                           )}
                           {item.status === 'n/a' && (
