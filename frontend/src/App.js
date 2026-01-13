@@ -2141,8 +2141,8 @@ function NewChecklist() {
               )}
               
               <div className="flex justify-between pt-6">
-                <Button variant="outline" onClick={() => setStep(2)} data-testid="back-to-check-type-btn">
-                  Back: Check Type
+                <Button variant="outline" onClick={() => setStep(1)} data-testid="back-to-machine-btn">
+                  Back: Select Machine
                 </Button>
                 <Button 
                   onClick={handleSubmit} 
