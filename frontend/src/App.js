@@ -3057,7 +3057,7 @@ function SharePointAdminComponent() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
-            <p className="text-gray-600 mt-2">Upload Excel files, print QR labels, and view historical data</p>
+            <p className="text-gray-600 mt-2">Upload Excel files and print QR labels</p>
           </div>
         </div>
       </div>
