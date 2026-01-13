@@ -855,8 +855,8 @@ function NewChecklist() {
           
           toast.success(`Machine selected: ${make} - ${name}`);
           
-          // Auto-advance to step 2 (Check Type selection) after successful scan
-          setStep(2);
+          // Stay on step 1 to show check type buttons (Daily Check / Workshop Service)
+          // User will click one of those buttons to proceed to step 3
         } catch (fetchError) {
           console.error('Error fetching machine data:', fetchError);
           toast.error('Failed to load machine details');
