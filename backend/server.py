@@ -1498,24 +1498,25 @@ async def export_checklists_excel():
 
 @app.get("/api/checklists/export/excel-by-machine")
 async def export_checklists_excel_by_machine(make: str = None, name: str = None):
-    """Export checklists to Excel with separate sheets per check type, including all checklist questions"""
+    """Export checklists to Excel with separate sheets per check type, including all checklist questions.
+    If no filters provided, exports ALL checklists for ALL machines."""
     from fastapi.responses import StreamingResponse
     import io
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     
-    # Build query
+    # Build query - empty query means get everything
     query = {}
     if make:
         query["machine_make"] = make
     if name:
         query["machine_model"] = name
     
-    # Get all checklists for the machine (no limit for export)
+    # Get all checklists (no limit for export)
     checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).to_list(length=50000)
     
     if not checklists:
-        raise HTTPException(status_code=404, detail="No checklists found for the specified machine")
+        raise HTTPException(status_code=404, detail="No checklists found")
     
     # Group checklists by check_type
     checklists_by_type = {}
