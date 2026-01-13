@@ -2122,11 +2122,11 @@ function NewChecklist() {
                 </Button>
                 <Button 
                   onClick={handleSubmit} 
-                  disabled={!allItemsAddressed || isSubmitting}
-                  className={machineCheckType === 'grader_startup' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'}
+                  disabled={!canSubmitChecklist || isSubmitting}
+                  className={`${machineCheckType === 'grader_startup' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'} ${hasFailedCompulsoryItems ? 'opacity-50 cursor-not-allowed' : ''}`}
                   data-testid="submit-checklist-btn"
                 >
-                  {isSubmitting ? 'Saving...' : `Complete ${
+                  {isSubmitting ? 'Saving...' : hasFailedCompulsoryItems ? 'Cannot Submit - Compulsory Check Failed' : `Complete ${
                     selectedCheckType === 'daily_check' ? 'Checklist' : 
                     'Service Record'
                   }`}
