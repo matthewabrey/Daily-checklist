@@ -1194,40 +1194,48 @@ async def get_checklist_template(check_type: str):
     try:
         template = await db.checklist_templates.find_one({"check_type": check_type}, {"_id": 0})
         if template:
+            # Ensure items have compulsory flag (for backward compatibility)
+            if template.get('items'):
+                for i, item in enumerate(template['items']):
+                    if isinstance(item, str):
+                        # Convert old string format to new object format
+                        template['items'][i] = {"item": item, "compulsory": False}
+                    elif isinstance(item, dict) and 'compulsory' not in item:
+                        item['compulsory'] = False
             return template
         else:
             # Return default templates if not found in database
             default_templates = {
                 'daily_check': [
-                    "Oil level check - Engine oil at correct level",
-                    "Fuel level check - Adequate fuel for operation", 
-                    "Hydraulic fluid level - Within acceptable range",
-                    "Battery condition - Terminals clean, voltage adequate",
-                    "Tire/track condition - No visible damage or excessive wear",
-                    "Safety guards in place - All protective covers secured",
-                    "Emergency stop function - Test emergency stop button",
-                    "Warning lights operational - All safety lights working",
-                    "Operator seat condition - Seat belt and controls functional",
-                    "Air filter condition - Clean and properly sealed",
-                    "Cooling system - Radiator clear, coolant level adequate",
-                    "Brake system function - Service and parking brakes operational",
-                    "Steering operation - Smooth operation, no excessive play",
-                    "Lights and signals - All operational lights working",
-                    "Fire extinguisher - Present and within service date"
+                    {"item": "Oil level check - Engine oil at correct level", "compulsory": False},
+                    {"item": "Fuel level check - Adequate fuel for operation", "compulsory": False},
+                    {"item": "Hydraulic fluid level - Within acceptable range", "compulsory": False},
+                    {"item": "Battery condition - Terminals clean, voltage adequate", "compulsory": False},
+                    {"item": "Tire/track condition - No visible damage or excessive wear", "compulsory": False},
+                    {"item": "Safety guards in place - All protective covers secured", "compulsory": True},
+                    {"item": "Emergency stop function - Test emergency stop button", "compulsory": True},
+                    {"item": "Warning lights operational - All safety lights working", "compulsory": False},
+                    {"item": "Operator seat condition - Seat belt and controls functional", "compulsory": False},
+                    {"item": "Air filter condition - Clean and properly sealed", "compulsory": False},
+                    {"item": "Cooling system - Radiator clear, coolant level adequate", "compulsory": False},
+                    {"item": "Brake system function - Service and parking brakes operational", "compulsory": True},
+                    {"item": "Steering operation - Smooth operation, no excessive play", "compulsory": False},
+                    {"item": "Lights and signals - All operational lights working", "compulsory": False},
+                    {"item": "Fire extinguisher - Present and within service date", "compulsory": True}
                 ],
                 'grader_startup': [
-                    "Emergency stops working and present - Test all emergency stop buttons",
-                    "Walkways clear of debris and gates closed - All access areas safe",
-                    "Guards are all in place - All safety guards properly secured",
-                    "All personnel accounted for and out of reach of dangers - Safety zone clear",
-                    "Oil level check - Engine oil at correct level",
-                    "Fuel level check - Adequate fuel for operation",
-                    "Hydraulic fluid level - Within acceptable range",
-                    "Battery condition - Terminals clean, voltage adequate",
-                    "Track/blade condition - No visible damage or excessive wear",
-                    "Blade operation - Hydraulic lift and angle functions working",
-                    "Warning beacon - Rotating warning light operational",
-                    "Backup alarm - Reverse warning signal functional"
+                    {"item": "Emergency stops working and present - Test all emergency stop buttons", "compulsory": True},
+                    {"item": "Walkways clear of debris and gates closed - All access areas safe", "compulsory": True},
+                    {"item": "Guards are all in place - All safety guards properly secured", "compulsory": True},
+                    {"item": "All personnel accounted for and out of reach of dangers - Safety zone clear", "compulsory": True},
+                    {"item": "Oil level check - Engine oil at correct level", "compulsory": False},
+                    {"item": "Fuel level check - Adequate fuel for operation", "compulsory": False},
+                    {"item": "Hydraulic fluid level - Within acceptable range", "compulsory": False},
+                    {"item": "Battery condition - Terminals clean, voltage adequate", "compulsory": False},
+                    {"item": "Track/blade condition - No visible damage or excessive wear", "compulsory": False},
+                    {"item": "Blade operation - Hydraulic lift and angle functions working", "compulsory": False},
+                    {"item": "Warning beacon - Rotating warning light operational", "compulsory": False},
+                    {"item": "Backup alarm - Reverse warning signal functional", "compulsory": False}
                 ],
                 'workshop_service': []
             }
