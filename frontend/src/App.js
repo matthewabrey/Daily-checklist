@@ -2103,25 +2103,6 @@ function NewChecklist() {
                 </div>
               </div>
               
-              {/* Add Machine Section */}
-              <div className="border-t pt-6">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold mb-2 text-gray-800">Machine Not Listed?</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    If your machine is not available in the list above, you can request it to be added to the system.
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowAddMachineModal(true)}
-                    className="border-green-300 text-green-700 hover:bg-green-50"
-                    data-testid="add-machine-btn"
-                  >
-                    <Database className="h-4 w-4 mr-2" />
-                    Add New Machine
-                  </Button>
-                </div>
-              </div>
-              
               {/* Check Type Buttons - Show when machine is selected */}
               {selectedMake && selectedName && (
                 <div className="mt-6 space-y-4">
@@ -2165,6 +2146,25 @@ function NewChecklist() {
                   </div>
                 </div>
               )}
+
+              {/* Add Machine Section - Moved below check type buttons */}
+              <div className="border-t pt-6 mt-6">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-2 text-gray-800">Machine Not Listed?</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    If your machine is not available in the list above, you can request it to be added to the system.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowAddMachineModal(true)}
+                    className="border-green-300 text-green-700 hover:bg-green-50"
+                    data-testid="add-machine-btn"
+                  >
+                    <Database className="h-4 w-4 mr-2" />
+                    Add New Machine
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
 
