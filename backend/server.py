@@ -1475,6 +1475,225 @@ async def export_checklists_excel():
         headers={"Content-Disposition": "attachment; filename=all_checks.xlsx"}
     )
 
+@app.get("/api/checklists/by-machine")
+async def get_checklists_by_machine(make: str = None, name: str = None, limit: int = 1000):
+    """Get all checklists for a specific machine with optional filters"""
+    query = {}
+    if make:
+        query["machine_make"] = make
+    if name:
+        query["machine_model"] = name
+    
+    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).limit(limit).to_list(length=limit)
+    
+    # Parse datetime strings
+    for checklist in checklists:
+        if checklist.get('completed_at') and isinstance(checklist['completed_at'], str):
+            try:
+                checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'].replace('Z', '+00:00'))
+            except:
+                pass
+    
+    return checklists
+
+@app.get("/api/checklists/export/excel-by-machine")
+async def export_checklists_excel_by_machine(make: str = None, name: str = None):
+    """Export checklists to Excel with separate sheets per check type, including all checklist questions"""
+    from fastapi.responses import StreamingResponse
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    
+    # Build query
+    query = {}
+    if make:
+        query["machine_make"] = make
+    if name:
+        query["machine_model"] = name
+    
+    # Get all checklists for the machine (no limit for export)
+    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).to_list(length=50000)
+    
+    if not checklists:
+        raise HTTPException(status_code=404, detail="No checklists found for the specified machine")
+    
+    # Group checklists by check_type
+    checklists_by_type = {}
+    for checklist in checklists:
+        check_type = checklist.get('check_type', 'unknown')
+        if check_type not in checklists_by_type:
+            checklists_by_type[check_type] = []
+        checklists_by_type[check_type].append(checklist)
+    
+    # Create workbook
+    wb = Workbook()
+    
+    # Styles
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    question_fill = PatternFill(start_color="D9E2F3", end_color="D9E2F3", fill_type="solid")
+    satisfactory_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+    unsatisfactory_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    first_sheet = True
+    
+    for check_type, type_checklists in checklists_by_type.items():
+        # Create or get worksheet
+        if first_sheet:
+            ws = wb.active
+            ws.title = check_type[:31]  # Excel sheet names max 31 chars
+            first_sheet = False
+        else:
+            ws = wb.create_sheet(title=check_type[:31])
+        
+        # Get all unique checklist items for this check type
+        all_items = set()
+        for checklist in type_checklists:
+            for item in checklist.get('checklist_items', []):
+                all_items.add(item.get('item', ''))
+        all_items = sorted(list(all_items))
+        
+        # Build headers: fixed columns + one column per checklist item
+        fixed_headers = ["Date", "Time", "Staff Name", "Machine Make", "Machine Model", "Status"]
+        
+        if check_type == 'workshop_service':
+            # Workshop service has different structure
+            headers = fixed_headers + ["Workshop Notes"]
+        else:
+            headers = fixed_headers + all_items + ["Notes"]
+        
+        # Write headers
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(wrap_text=True, vertical='center')
+            cell.border = thin_border
+        
+        # Write data rows
+        for row_idx, checklist in enumerate(type_checklists, 2):
+            completed_at = checklist.get('completed_at', '')
+            if isinstance(completed_at, str):
+                try:
+                    completed_at = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
+                except:
+                    pass
+            
+            date_str = completed_at.strftime('%Y-%m-%d') if hasattr(completed_at, 'strftime') else str(completed_at)[:10]
+            time_str = completed_at.strftime('%H:%M') if hasattr(completed_at, 'strftime') else str(completed_at)[11:16]
+            
+            # Fixed columns
+            row_data = [
+                date_str,
+                time_str,
+                checklist.get('staff_name', ''),
+                checklist.get('machine_make', ''),
+                checklist.get('machine_model', ''),
+                checklist.get('status', '')
+            ]
+            
+            if check_type == 'workshop_service':
+                row_data.append(checklist.get('workshop_notes', ''))
+            else:
+                # Build item status map
+                item_status_map = {}
+                item_notes = []
+                for item in checklist.get('checklist_items', []):
+                    item_name = item.get('item', '')
+                    status = item.get('status', 'unchecked')
+                    item_status_map[item_name] = status
+                    if item.get('notes'):
+                        item_notes.append(f"{item_name[:30]}: {item['notes']}")
+                
+                # Add status for each item column
+                for item_name in all_items:
+                    status = item_status_map.get(item_name, '')
+                    if status == 'satisfactory':
+                        row_data.append('✓')
+                    elif status == 'unsatisfactory':
+                        row_data.append('✗')
+                    elif status == 'n/a':
+                        row_data.append('N/A')
+                    else:
+                        row_data.append('')
+                
+                # Add notes column
+                row_data.append('; '.join(item_notes))
+            
+            # Write row
+            for col, value in enumerate(row_data, 1):
+                cell = ws.cell(row=row_idx, column=col, value=value)
+                cell.border = thin_border
+                cell.alignment = Alignment(vertical='center')
+                
+                # Color code the status cells
+                if col > 6 and check_type != 'workshop_service' and col <= 6 + len(all_items):
+                    if value == '✓':
+                        cell.fill = satisfactory_fill
+                    elif value == '✗':
+                        cell.fill = unsatisfactory_fill
+        
+        # Auto-adjust column widths
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max(max_length + 2, 10), 40)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        # Freeze header row
+        ws.freeze_panes = 'A2'
+    
+    # Add summary sheet
+    summary_ws = wb.create_sheet(title="Summary", index=0)
+    summary_ws.append(["Check Type", "Total Checks", "Machine Make", "Machine Model"])
+    summary_ws.cell(row=1, column=1).fill = header_fill
+    summary_ws.cell(row=1, column=1).font = header_font
+    summary_ws.cell(row=1, column=2).fill = header_fill
+    summary_ws.cell(row=1, column=2).font = header_font
+    summary_ws.cell(row=1, column=3).fill = header_fill
+    summary_ws.cell(row=1, column=3).font = header_font
+    summary_ws.cell(row=1, column=4).fill = header_fill
+    summary_ws.cell(row=1, column=4).font = header_font
+    
+    for check_type, type_checklists in checklists_by_type.items():
+        summary_ws.append([
+            check_type,
+            len(type_checklists),
+            make or "All",
+            name or "All"
+        ])
+    
+    # Save to BytesIO
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    # Create filename
+    filename_parts = ["checklists"]
+    if make:
+        filename_parts.append(make.replace(' ', '_'))
+    if name:
+        filename_parts.append(name.replace(' ', '_'))
+    filename = "_".join(filename_parts) + ".xlsx"
+    
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
 # Repair Status Management Endpoints
 class RepairStatusUpdate(BaseModel):
     repair_id: str
