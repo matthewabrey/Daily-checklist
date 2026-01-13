@@ -3123,38 +3123,6 @@ function SharePointAdminComponent() {
         </CardContent>
       </Card>
 
-      {/* Historical Data Section */}
-      <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <FileText className="h-5 w-5 text-green-600" />
-            <span>Historical Data & Reports</span>
-          </CardTitle>
-          <CardDescription>
-            Access complete historical records for review and reporting
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Card className="border-blue-200 hover:shadow-lg transition-shadow">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold text-lg">Full Records History</h3>
-                  <p className="text-sm text-gray-600">Detailed records with filters</p>
-                </div>
-                <FileText className="h-8 w-8 text-blue-600" />
-              </div>
-              <Button 
-                onClick={() => navigate('/records')}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                View All Records
-              </Button>
-            </CardContent>
-          </Card>
-        </CardContent>
-      </Card>
-
       {/* Staff Upload */}
       <Card data-testid="staff-upload-card">
         <CardHeader>
