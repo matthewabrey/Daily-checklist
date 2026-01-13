@@ -1703,23 +1703,47 @@ function NewChecklist() {
                 </div>
               </div>
               
-              {/* Next: Check Type Button - moved to left side below Add New Machine */}
-              <div className="mt-4">
-                <Button 
-                  onClick={() => setStep(2)} 
-                  disabled={!selectedMake || !selectedName}
-                  className="bg-green-600 hover:bg-green-700"
-                  data-testid="proceed-to-check-type-btn"
-                >
-                  Next: Check Type
-                </Button>
-              </div>
-              
-              {machineCheckType && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm font-medium text-blue-900">
-                    Checklist Type: <span className="text-blue-700">{machineCheckType}</span>
-                  </p>
+              {/* Check Type Buttons - Show when machine is selected */}
+              {selectedMake && selectedName && (
+                <div className="mt-6 space-y-4">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm font-medium text-blue-900">
+                      Selected: <span className="text-blue-700">{selectedMake} - {selectedName}</span>
+                    </p>
+                    {machineCheckType && (
+                      <p className="text-xs text-blue-600 mt-1">Uses "{machineCheckType}" checklist template</p>
+                    )}
+                  </div>
+                  
+                  <p className="text-gray-700 font-medium">Select check type:</p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Button 
+                      onClick={() => {
+                        setSelectedCheckType('daily_check');
+                        setStep(3);
+                      }}
+                      className="h-auto py-4 bg-green-600 hover:bg-green-700 flex flex-col items-center gap-2"
+                      data-testid="daily-check-btn"
+                    >
+                      <CheckCircle2 className="h-6 w-6" />
+                      <span className="text-lg font-semibold">Daily Check</span>
+                      <span className="text-xs opacity-90">Complete {machineCheckType || 'startup'} inspection</span>
+                    </Button>
+                    
+                    <Button 
+                      onClick={() => {
+                        setSelectedCheckType('workshop_service');
+                        setStep(3);
+                      }}
+                      className="h-auto py-4 bg-orange-600 hover:bg-orange-700 flex flex-col items-center gap-2"
+                      data-testid="workshop-service-btn"
+                    >
+                      <Settings className="h-6 w-6" />
+                      <span className="text-lg font-semibold">Workshop Service</span>
+                      <span className="text-xs opacity-90">Record maintenance or repair</span>
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
