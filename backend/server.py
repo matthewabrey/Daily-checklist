@@ -588,6 +588,10 @@ async def create_checklist(checklist: Checklist):
     checklist_dict = checklist.dict()
     checklist_dict['completed_at'] = checklist_dict['completed_at'].isoformat()
     await db.checklists.insert_one(checklist_dict)
+    
+    # Invalidate dashboard cache so new machine additions show immediately
+    await invalidate_cache()
+    
     return ChecklistResponse(**checklist.dict())
 
 @app.get("/api/dashboard/stats")
