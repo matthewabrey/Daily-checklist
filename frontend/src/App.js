@@ -529,8 +529,8 @@ function Dashboard() {
                 )}
               </Button>
               <Button 
-                onClick={exportFilteredChecklists}
-                disabled={!selectedFilterMake || isExporting}
+                onClick={exportAllChecklists}
+                disabled={isExporting}
                 variant="outline"
                 className="border-green-500 text-green-700 hover:bg-green-50"
               >
@@ -542,7 +542,7 @@ function Dashboard() {
                 ) : (
                   <>
                     <Download className="h-4 w-4 mr-2" />
-                    Export to Excel
+                    Export All to Excel
                   </>
                 )}
               </Button>
@@ -551,7 +551,7 @@ function Dashboard() {
             {/* Info Box */}
             <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4">
               <p className="text-sm text-blue-800">
-                <strong>Export Info:</strong> Exports <strong>ALL checks for ALL time</strong> for the selected machine. 
+                <strong>Export Info:</strong> Exports <strong>ALL checks for ALL machines for ALL time</strong>. 
                 The Excel file will have a separate sheet for each check type (e.g., Tractor, HGV, Grader) with all checklist questions showing ✓ (pass), ✗ (fail), or N/A.
               </p>
             </div>
