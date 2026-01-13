@@ -54,11 +54,43 @@ async def compute_simple_stats(db):
         "check_type": "REPAIR COMPLETED"
     })
     
-    # For repairs due - just count repair_status entries
-    total_repair_records = await db.repair_status.count_documents({})
-    acknowledged_repairs = await db.repair_status.count_documents({"acknowledged": True, "completed": {"$ne": True}})
-    completed_repairs = await db.repair_status.count_documents({"completed": True})
-    new_repairs = total_repair_records - acknowledged_repairs - completed_repairs
+    # Count actual unsatisfactory items in checklists + general repairs
+    # This is what the repairs page actually shows
+    repair_checklists = await db.checklists.find(
+        {"$or": [
+            {"checklist_items.status": "unsatisfactory"},
+            {"check_type": "GENERAL REPAIR"}
+        ]},
+        {"id": 1, "checklist_items": 1, "check_type": 1, "_id": 0}
+    ).to_list(length=10000)
+    
+    # Build list of all repair IDs
+    all_repair_ids = []
+    for checklist in repair_checklists:
+        if checklist.get("check_type") == "GENERAL REPAIR":
+            all_repair_ids.append(checklist.get("id"))
+        else:
+            items = checklist.get("checklist_items", [])
+            for idx, item in enumerate(items):
+                if item.get("status") == "unsatisfactory":
+                    all_repair_ids.append(f"{checklist.get('id')}-{idx}")
+    
+    # Get repair statuses for these IDs
+    acknowledged_ids = set()
+    completed_ids = set()
+    if all_repair_ids:
+        async for status in db.repair_status.find(
+            {"repair_id": {"$in": all_repair_ids}},
+            {"repair_id": 1, "acknowledged": 1, "completed": 1, "_id": 0}
+        ):
+            if status.get("completed"):
+                completed_ids.add(status.get("repair_id"))
+            elif status.get("acknowledged"):
+                acknowledged_ids.add(status.get("repair_id"))
+    
+    total_repairs = len(all_repair_ids)
+    new_repairs = total_repairs - len(acknowledged_ids) - len(completed_ids)
+    repairs_due = len(acknowledged_ids)  # Acknowledged but not completed
     
     machine_additions = await db.checklists.count_documents({
         "check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]}
