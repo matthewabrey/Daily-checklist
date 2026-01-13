@@ -235,6 +235,113 @@ function Dashboard() {
     }
   };
 
+  // Total Checks Modal Functions
+  const openTotalChecksModal = async () => {
+    setShowTotalChecksModal(true);
+    setSelectedFilterMake('');
+    setSelectedFilterName('');
+    setFilteredChecklists([]);
+    
+    // Load available makes
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/assets/makes`);
+      const makes = await response.json();
+      setTotalChecksMakes(makes);
+    } catch (error) {
+      console.error('Error loading makes:', error);
+      toast.error('Failed to load machine makes');
+    }
+  };
+
+  const handleFilterMakeChange = async (make) => {
+    setSelectedFilterMake(make);
+    setSelectedFilterName('');
+    setFilteredChecklists([]);
+    
+    if (make) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/assets/names/${encodeURIComponent(make)}`);
+        const names = await response.json();
+        setTotalChecksNames(names);
+      } catch (error) {
+        console.error('Error loading names:', error);
+      }
+    } else {
+      setTotalChecksNames([]);
+    }
+  };
+
+  const handleFilterNameChange = (name) => {
+    setSelectedFilterName(name);
+  };
+
+  const loadFilteredChecklists = async () => {
+    if (!selectedFilterMake) {
+      toast.error('Please select a machine make');
+      return;
+    }
+    
+    setIsLoadingChecklists(true);
+    try {
+      let url = `${API_BASE_URL}/api/checklists/by-machine?make=${encodeURIComponent(selectedFilterMake)}`;
+      if (selectedFilterName) {
+        url += `&name=${encodeURIComponent(selectedFilterName)}`;
+      }
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      setFilteredChecklists(data);
+      
+      if (data.length === 0) {
+        toast.info('No checklists found for this machine');
+      }
+    } catch (error) {
+      console.error('Error loading checklists:', error);
+      toast.error('Failed to load checklists');
+    } finally {
+      setIsLoadingChecklists(false);
+    }
+  };
+
+  const exportFilteredChecklists = async () => {
+    if (!selectedFilterMake) {
+      toast.error('Please select a machine make first');
+      return;
+    }
+    
+    setIsExporting(true);
+    try {
+      let url = `${API_BASE_URL}/api/checklists/export/excel-by-machine?make=${encodeURIComponent(selectedFilterMake)}`;
+      if (selectedFilterName) {
+        url += `&name=${encodeURIComponent(selectedFilterName)}`;
+      }
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Export failed');
+      }
+      
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `checklists_${selectedFilterMake.replace(/\s+/g, '_')}${selectedFilterName ? '_' + selectedFilterName.replace(/\s+/g, '_') : ''}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      toast.success('Export downloaded! Each check type is on a separate sheet.');
+    } catch (error) {
+      console.error('Error exporting:', error);
+      toast.error(error.message || 'Failed to export checklists');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   useEffect(() => {
     // Fetch data whenever dashboard is visited
     console.log('Dashboard visited, fetching data from:', API_BASE_URL);
