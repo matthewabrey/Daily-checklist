@@ -647,6 +647,27 @@ async def get_todays_checklists():
     
     return checklists
 
+@app.get("/api/checklists/by-machine")
+async def get_checklists_by_machine(make: str = None, name: str = None, limit: int = 1000):
+    """Get all checklists for a specific machine with optional filters"""
+    query = {}
+    if make:
+        query["machine_make"] = make
+    if name:
+        query["machine_model"] = name
+    
+    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).limit(limit).to_list(length=limit)
+    
+    # Parse datetime strings
+    for checklist in checklists:
+        if checklist.get('completed_at') and isinstance(checklist['completed_at'], str):
+            try:
+                checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'].replace('Z', '+00:00'))
+            except:
+                pass
+    
+    return checklists
+
 @app.get("/api/checklists/{checklist_id}", response_model=ChecklistResponse)
 async def get_checklist(checklist_id: str):
     checklist = await db.checklists.find_one({"id": checklist_id}, {"_id": 0})
