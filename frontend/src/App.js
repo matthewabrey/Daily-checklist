@@ -903,7 +903,9 @@ function NewChecklist() {
         const items = template.items.map(templateItem => ({
           item: typeof templateItem === 'string' ? templateItem : templateItem.item,
           status: "unchecked",
-          notes: ""
+          notes: "",
+          compulsory: typeof templateItem === 'object' ? (templateItem.compulsory || false) : false,
+          photos: []
         }));
         setChecklistItems(items);
       } else {
