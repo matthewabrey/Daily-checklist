@@ -1337,6 +1337,11 @@ function NewChecklist() {
   const canProceedToStep2 = selectedCheckType !== '';
   
   // Check if all items have been addressed (status selected + notes if unsatisfactory + photos if required)
+  // Check if any compulsory items have failed
+  const hasFailedCompulsoryItems = checklistItems.some(item => 
+    item.compulsory && item.status === 'unsatisfactory'
+  );
+
   const allItemsAddressed = selectedCheckType === 'workshop_service' 
     ? workshopNotes.trim() !== '' 
     : checklistItems.every(item => {
@@ -1351,6 +1356,9 @@ function NewChecklist() {
         
         return hasStatus && hasNotesIfNeeded && hasPhotoIfRequired;
       });
+  
+  // Can only submit if all items addressed AND no compulsory items failed
+  const canSubmitChecklist = allItemsAddressed && !hasFailedCompulsoryItems;
 
   return (
     <div className="space-y-6">
