@@ -64,6 +64,25 @@ async def compute_simple_stats(db):
         "check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]}
     })
     
+    # Get count of acknowledged machine additions (stored in repair_status)
+    # First get all machine addition IDs, then count how many are acknowledged
+    machine_add_ids = []
+    async for doc in db.checklists.find(
+        {"check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]}},
+        {"id": 1, "_id": 0}
+    ):
+        if doc.get("id"):
+            machine_add_ids.append(doc["id"])
+    
+    acknowledged_machines = 0
+    if machine_add_ids:
+        acknowledged_machines = await db.repair_status.count_documents({
+            "repair_id": {"$in": machine_add_ids},
+            "acknowledged": True
+        })
+    
+    pending_machine_additions = max(0, machine_additions - acknowledged_machines)
+    
     return {
         "total_completed": total_completed,
         "today_by_type": {},  # Simplified - skip breakdown for speed
@@ -71,7 +90,8 @@ async def compute_simple_stats(db):
         "new_repairs": max(0, new_repairs),
         "repairs_due": acknowledged_repairs,
         "repairs_completed": repairs_completed,
-        "machine_additions_count": machine_additions
+        "machine_additions_count": pending_machine_additions,
+        "machine_additions_total": machine_additions
     }
 
 async def invalidate_cache():
