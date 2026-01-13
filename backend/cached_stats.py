@@ -64,11 +64,12 @@ async def compute_simple_stats(db):
         {"id": 1, "checklist_items": 1, "check_type": 1, "_id": 0}
     ).to_list(length=10000)
     
-    # Build list of all repair IDs
+    # Build list of all repair IDs - must match frontend format!
     all_repair_ids = []
     for checklist in repair_checklists:
         if checklist.get("check_type") == "GENERAL REPAIR":
-            all_repair_ids.append(checklist.get("id"))
+            # Frontend uses "{id}-general" format for GENERAL REPAIR
+            all_repair_ids.append(f"{checklist.get('id')}-general")
         else:
             items = checklist.get("checklist_items", [])
             for idx, item in enumerate(items):
