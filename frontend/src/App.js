@@ -303,20 +303,11 @@ function Dashboard() {
     }
   };
 
-  const exportFilteredChecklists = async () => {
-    if (!selectedFilterMake) {
-      toast.error('Please select a machine make first');
-      return;
-    }
-    
+  const exportAllChecklists = async () => {
     setIsExporting(true);
     try {
-      let url = `${API_BASE_URL}/api/checklists/export/excel-by-machine?make=${encodeURIComponent(selectedFilterMake)}`;
-      if (selectedFilterName) {
-        url += `&name=${encodeURIComponent(selectedFilterName)}`;
-      }
-      
-      const response = await fetch(url);
+      // Export ALL checks - no filters
+      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel-by-machine`);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -327,7 +318,7 @@ function Dashboard() {
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = downloadUrl;
-      a.download = `checklists_${selectedFilterMake.replace(/\s+/g, '_')}${selectedFilterName ? '_' + selectedFilterName.replace(/\s+/g, '_') : ''}.xlsx`;
+      a.download = `all_checklists_export.xlsx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
