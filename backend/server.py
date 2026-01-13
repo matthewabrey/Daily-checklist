@@ -1000,27 +1000,50 @@ async def upload_assets_file(file: UploadFile = File(...)):
                 matching_check_type = sheet_name
             
             # Extract checklist items from this sheet
+            # First, find the header row and locate the "Compulsory" column
             items = []
+            compulsory_col = None
+            item_col = 0  # Default to first column for item text
+            
+            # Get headers from first row to find Compulsory column
+            header_row = list(sheet.iter_rows(min_row=1, max_row=1, values_only=True))[0]
+            if header_row:
+                for col_idx, header in enumerate(header_row):
+                    if header:
+                        header_lower = str(header).strip().lower()
+                        if 'compulsory' in header_lower or 'compulsary' in header_lower:  # Handle common misspelling
+                            compulsory_col = col_idx
+                        elif 'item' in header_lower or 'task' in header_lower or 'check' in header_lower or 'description' in header_lower:
+                            item_col = col_idx
+            
             for row_num, row in enumerate(sheet.iter_rows(values_only=True), 1):
                 if row_num == 1:  # Skip header row
                     continue
                     
-                if row and row[0]:  # If first column has content
-                    item_text = str(row[0]).strip()
+                if row and len(row) > item_col and row[item_col]:  # If item column has content
+                    item_text = str(row[item_col]).strip()
                     # Skip obvious headers or empty items
                     if (item_text and 
                         item_text.lower() not in ['item', 'check', 'description', 'checklist', 'safety'] and
                         len(item_text) > 3):  # Minimum length filter
-                        items.append({"item": item_text, "critical": False})
+                        
+                        # Check if item is marked as compulsory
+                        is_compulsory = False
+                        if compulsory_col is not None and len(row) > compulsory_col and row[compulsory_col]:
+                            compulsory_value = str(row[compulsory_col]).strip().lower()
+                            is_compulsory = compulsory_value in ['yes', 'y', 'true', '1', 'x', 'compulsory']
+                        
+                        items.append({"item": item_text, "compulsory": is_compulsory})
             
             if items:
+                compulsory_count = sum(1 for item in items if item.get('compulsory', False))
                 template = {
                     "id": str(uuid.uuid4()),
                     "check_type": matching_check_type,
                     "items": items
                 }
                 checklist_templates.append(template)
-                processed_sheets.append(f"{sheet_name} -> {matching_check_type} ({len(items)} items)")
+                processed_sheets.append(f"{sheet_name} -> {matching_check_type} ({len(items)} items, {compulsory_count} compulsory)")
         
         # Update checklist templates in database
         if checklist_templates:
