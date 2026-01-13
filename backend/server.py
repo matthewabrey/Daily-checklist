@@ -569,6 +569,22 @@ async def reset_asset_qr_status(asset_ids: List[str]):
 
 @app.post("/api/checklists", response_model=ChecklistResponse)
 async def create_checklist(checklist: Checklist):
+    # Validate compulsory items - if any compulsory item is marked unsatisfactory, reject the checklist
+    if checklist.checklist_items:
+        failed_compulsory_items = []
+        for item in checklist.checklist_items:
+            if item.compulsory and item.status == 'unsatisfactory':
+                failed_compulsory_items.append(item.item)
+        
+        if failed_compulsory_items:
+            item_list = ", ".join(failed_compulsory_items[:3])  # Show first 3 items
+            if len(failed_compulsory_items) > 3:
+                item_list += f" and {len(failed_compulsory_items) - 3} more"
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot sign off: Compulsory check(s) failed: {item_list}. Please resolve these issues before completing the checklist."
+            )
+    
     checklist_dict = checklist.dict()
     checklist_dict['completed_at'] = checklist_dict['completed_at'].isoformat()
     await db.checklists.insert_one(checklist_dict)
