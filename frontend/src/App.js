@@ -560,8 +560,8 @@ function Dashboard() {
             {/* Info Box */}
             <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4">
               <p className="text-sm text-blue-800">
-                <strong>Export Info:</strong> The Excel file will have a separate sheet for each check type (e.g., Tractor, HGV, Grader). 
-                Each sheet includes all checklist questions with ✓ (pass), ✗ (fail), or N/A for each inspection.
+                <strong>Export Info:</strong> Exports <strong>ALL checks for ALL time</strong> for the selected machine. 
+                The Excel file will have a separate sheet for each check type (e.g., Tractor, HGV, Grader) with all checklist questions showing ✓ (pass), ✗ (fail), or N/A.
               </p>
             </div>
 
