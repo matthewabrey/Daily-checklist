@@ -179,6 +179,7 @@ function Dashboard() {
   const [filteredChecklists, setFilteredChecklists] = useState([]);
   const [isLoadingChecklists, setIsLoadingChecklists] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedCheckDetail, setSelectedCheckDetail] = useState(null);  // For viewing check details
 
   // Use location to trigger refresh on navigation
   const location = useLocation();
