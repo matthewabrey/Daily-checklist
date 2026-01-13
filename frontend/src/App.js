@@ -1266,6 +1266,22 @@ function NewChecklist() {
   };
 
   const handleSubmit = async () => {
+    // Check for failed compulsory items - block sign-off entirely
+    if (selectedCheckType === 'daily_check' || selectedCheckType !== 'workshop_service') {
+      const failedCompulsoryItems = checklistItems.filter(item => 
+        item.compulsory && item.status === 'unsatisfactory'
+      );
+      
+      if (failedCompulsoryItems.length > 0) {
+        const itemNames = failedCompulsoryItems.slice(0, 2).map(i => i.item.split(' - ')[0]).join(', ');
+        const moreText = failedCompulsoryItems.length > 2 ? ` and ${failedCompulsoryItems.length - 2} more` : '';
+        toast.error(`Cannot sign off: Compulsory check(s) failed: ${itemNames}${moreText}. Please resolve these issues before completing the checklist.`, {
+          duration: 6000
+        });
+        return;
+      }
+    }
+
     // Check for unsatisfactory items without explanations
     if (selectedCheckType === 'daily_check') {
       const unsatisfactoryWithoutNotes = checklistItems.find(item => 
@@ -1303,11 +1319,16 @@ function NewChecklist() {
         toast.success('Checklist completed successfully!');
         navigate('/');
       } else {
-        throw new Error('Failed to save checklist');
+        // Parse error response from backend
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.detail || 'Failed to save checklist';
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Error saving checklist:', error);
-      toast.error('Failed to save checklist. Please try again.');
+      toast.error(error.message || 'Failed to save checklist. Please try again.', {
+        duration: 5000
+      });
     } finally {
       setIsSubmitting(false);
     }
