@@ -568,6 +568,7 @@ function Dashboard() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Machine</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Check Type</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -589,8 +590,18 @@ function Dashboard() {
                           <span className={`px-2 py-1 text-xs rounded-full ${
                             checklist.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                           }`}>
-                            {checklist.status}
+                            {checklist.status || 'completed'}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedCheckDetail(checklist)}
+                            className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                          >
+                            View Details
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -611,6 +622,133 @@ function Dashboard() {
                 {selectedFilterName && ` - ${selectedFilterName}`}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Check Detail Modal */}
+      {selectedCheckDetail && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10001]"
+          onClick={() => setSelectedCheckDetail(null)}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[85vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Check Details</h3>
+                <p className="text-sm text-gray-600">
+                  {selectedCheckDetail.machine_make} - {selectedCheckDetail.machine_model}
+                </p>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setSelectedCheckDetail(null)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* Check Info */}
+            <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+              <div>
+                <p className="text-xs text-gray-500">Date & Time</p>
+                <p className="font-medium">{new Date(selectedCheckDetail.completed_at).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Staff</p>
+                <p className="font-medium">{selectedCheckDetail.staff_name}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Check Type</p>
+                <p className="font-medium">{selectedCheckDetail.check_type}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Status</p>
+                <span className={`px-2 py-1 text-xs rounded-full ${
+                  selectedCheckDetail.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {selectedCheckDetail.status || 'completed'}
+                </span>
+              </div>
+            </div>
+
+            {/* Checklist Items */}
+            {selectedCheckDetail.checklist_items && selectedCheckDetail.checklist_items.length > 0 ? (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-3">Checklist Items ({selectedCheckDetail.checklist_items.length})</h4>
+                <div className="space-y-2 max-h-[40vh] overflow-auto">
+                  {selectedCheckDetail.checklist_items.map((item, idx) => (
+                    <div key={idx} className={`p-3 rounded-lg border ${
+                      item.status === 'satisfactory' ? 'bg-green-50 border-green-200' :
+                      item.status === 'unsatisfactory' ? 'bg-red-50 border-red-200' :
+                      item.status === 'n/a' ? 'bg-gray-50 border-gray-200' :
+                      'bg-white border-gray-200'
+                    }`}>
+                      <div className="flex items-start justify-between">
+                        <p className="text-sm flex-1">{item.item}</p>
+                        <span className={`ml-2 px-2 py-1 text-xs rounded font-medium ${
+                          item.status === 'satisfactory' ? 'bg-green-200 text-green-800' :
+                          item.status === 'unsatisfactory' ? 'bg-red-200 text-red-800' :
+                          item.status === 'n/a' ? 'bg-gray-200 text-gray-800' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {item.status === 'satisfactory' ? '✓ Pass' :
+                           item.status === 'unsatisfactory' ? '✗ Fail' :
+                           item.status === 'n/a' ? 'N/A' : 'Not checked'}
+                        </span>
+                      </div>
+                      {item.notes && (
+                        <p className="mt-2 text-xs text-gray-600 bg-white p-2 rounded">
+                          <strong>Notes:</strong> {item.notes}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : selectedCheckDetail.workshop_notes ? (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-3">Workshop Notes</h4>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm whitespace-pre-wrap">{selectedCheckDetail.workshop_notes}</p>
+                </div>
+              </div>
+            ) : selectedCheckDetail.notes_summary ? (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-3">Summary</h4>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm">{selectedCheckDetail.notes_summary}</p>
+                  {selectedCheckDetail.items_total > 0 && (
+                    <div className="mt-3 flex gap-4 text-sm">
+                      <span className="text-green-600">✓ {selectedCheckDetail.items_satisfactory || 0} Pass</span>
+                      <span className="text-red-600">✗ {selectedCheckDetail.items_unsatisfactory || 0} Fail</span>
+                      <span className="text-gray-600">Total: {selectedCheckDetail.items_total}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
+                <p>No detailed checklist data available for this check.</p>
+                {selectedCheckDetail.items_total > 0 && (
+                  <div className="mt-3 flex justify-center gap-4 text-sm">
+                    <span className="text-green-600">✓ {selectedCheckDetail.items_satisfactory || 0} Pass</span>
+                    <span className="text-red-600">✗ {selectedCheckDetail.items_unsatisfactory || 0} Fail</span>
+                    <span className="text-gray-600">Total: {selectedCheckDetail.items_total}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-4 flex justify-end">
+              <Button onClick={() => setSelectedCheckDetail(null)}>
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}
