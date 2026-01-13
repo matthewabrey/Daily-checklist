@@ -120,8 +120,9 @@ async def compute_simple_stats(db):
         "today_by_type": {},  # Simplified - skip breakdown for speed
         "today_total": today_total,
         "new_repairs": max(0, new_repairs),
-        "repairs_due": acknowledged_repairs,
+        "repairs_due": repairs_due,
         "repairs_completed": repairs_completed,
+        "repairs_completed_count": len(completed_ids),
         "machine_additions_count": pending_machine_additions,
         "machine_additions_total": machine_additions
     }
