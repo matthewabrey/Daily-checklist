@@ -71,14 +71,19 @@ class Staff(BaseModel):
     
 class ChecklistItem(BaseModel):
     item: str
-    status: str = "unchecked"  # "unchecked", "satisfactory", "unsatisfactory"
+    status: str = "unchecked"  # "unchecked", "satisfactory", "unsatisfactory", "n/a"
     notes: Optional[str] = None
     photos: Optional[List[dict]] = []
+    compulsory: bool = False  # If True, item cannot be marked unsatisfactory when signing off
     
+class ChecklistTemplateItem(BaseModel):
+    item: str
+    compulsory: bool = False
+
 class ChecklistTemplate(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     check_type: str  # "daily_check", "grader_startup", "workshop_service"
-    items: List[str]
+    items: List[ChecklistTemplateItem]  # Now includes compulsory flag per item
     
 class Checklist(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
