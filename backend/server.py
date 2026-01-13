@@ -1498,8 +1498,8 @@ async def export_checklists_excel():
 
 @app.get("/api/checklists/export/excel-by-machine")
 async def export_checklists_excel_by_machine(make: str = None, name: str = None):
-    """Export checklists to Excel with separate sheets per check type, including all checklist questions.
-    If no filters provided, exports ALL checklists for ALL machines."""
+    """Export checklists to Excel with separate sheets per check type.
+    Each sheet has: Date, Time, Staff, Machine columns + all questions as columns with answers."""
     from fastapi.responses import StreamingResponse
     import io
     from openpyxl import Workbook
@@ -1526,15 +1526,20 @@ async def export_checklists_excel_by_machine(make: str = None, name: str = None)
             checklists_by_type[check_type] = []
         checklists_by_type[check_type].append(checklist)
     
+    # Get all checklist templates to know all possible questions per check type
+    templates = {}
+    async for template in db.checklist_templates.find({}, {"_id": 0}):
+        templates[template.get('check_type')] = template.get('items', [])
+    
     # Create workbook
     wb = Workbook()
     
     # Styles
     header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True)
-    question_fill = PatternFill(start_color="D9E2F3", end_color="D9E2F3", fill_type="solid")
     satisfactory_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
     unsatisfactory_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+    na_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
     thin_border = Border(
         left=Side(style='thin'),
         right=Side(style='thin'),
@@ -1544,29 +1549,48 @@ async def export_checklists_excel_by_machine(make: str = None, name: str = None)
     
     first_sheet = True
     
-    for check_type, type_checklists in checklists_by_type.items():
-        # Create or get worksheet
+    for check_type, type_checklists in sorted(checklists_by_type.items()):
+        # Skip if no checklists
+        if not type_checklists:
+            continue
+            
+        # Create worksheet
+        sheet_name = check_type[:31].replace('/', '-').replace('\\', '-')  # Excel sheet names max 31 chars, no slashes
         if first_sheet:
             ws = wb.active
-            ws.title = check_type[:31]  # Excel sheet names max 31 chars
+            ws.title = sheet_name
             first_sheet = False
         else:
-            ws = wb.create_sheet(title=check_type[:31])
+            ws = wb.create_sheet(title=sheet_name)
         
         # Get all unique checklist items for this check type
-        all_items = set()
+        # First from template, then from actual checklists
+        all_items = []
+        
+        # Get from template if exists
+        if check_type in templates:
+            template_items = templates[check_type]
+            for item in template_items:
+                if isinstance(item, dict):
+                    all_items.append(item.get('item', ''))
+                else:
+                    all_items.append(str(item))
+        
+        # Also collect from actual checklist data (might have items not in template)
         for checklist in type_checklists:
             for item in checklist.get('checklist_items', []):
-                all_items.add(item.get('item', ''))
-        all_items = sorted(list(all_items))
+                item_name = item.get('item', '')
+                if item_name and item_name not in all_items:
+                    all_items.append(item_name)
         
-        # Build headers: fixed columns + one column per checklist item
-        fixed_headers = ["Date", "Time", "Staff Name", "Machine Make", "Machine Model", "Status"]
+        # Build headers: fixed columns + one column per checklist question
+        fixed_headers = ["Date", "Time", "Staff Name", "Machine Make", "Machine Model"]
         
-        if check_type == 'workshop_service':
-            # Workshop service has different structure
-            headers = fixed_headers + ["Workshop Notes"]
+        if check_type == 'workshop_service' or not all_items:
+            # Workshop service has different structure - notes based
+            headers = fixed_headers + ["Workshop Notes", "Photos Count"]
         else:
+            # Regular check - questions as columns
             headers = fixed_headers + all_items + ["Notes"]
         
         # Write headers
@@ -1574,10 +1598,10 @@ async def export_checklists_excel_by_machine(make: str = None, name: str = None)
             cell = ws.cell(row=1, column=col, value=header)
             cell.fill = header_fill
             cell.font = header_font
-            cell.alignment = Alignment(wrap_text=True, vertical='center')
+            cell.alignment = Alignment(wrap_text=True, vertical='center', horizontal='center')
             cell.border = thin_border
         
-        # Write data rows
+        # Write data rows - each check is one row
         for row_idx, checklist in enumerate(type_checklists, 2):
             completed_at = checklist.get('completed_at', '')
             if isinstance(completed_at, str):
@@ -1586,8 +1610,8 @@ async def export_checklists_excel_by_machine(make: str = None, name: str = None)
                 except:
                     pass
             
-            date_str = completed_at.strftime('%Y-%m-%d') if hasattr(completed_at, 'strftime') else str(completed_at)[:10]
-            time_str = completed_at.strftime('%H:%M') if hasattr(completed_at, 'strftime') else str(completed_at)[11:16]
+            date_str = completed_at.strftime('%Y-%m-%d') if hasattr(completed_at, 'strftime') else str(completed_at)[:10] if completed_at else ''
+            time_str = completed_at.strftime('%H:%M') if hasattr(completed_at, 'strftime') else str(completed_at)[11:16] if completed_at and len(str(completed_at)) > 16 else ''
             
             # Fixed columns
             row_data = [
@@ -1595,24 +1619,24 @@ async def export_checklists_excel_by_machine(make: str = None, name: str = None)
                 time_str,
                 checklist.get('staff_name', ''),
                 checklist.get('machine_make', ''),
-                checklist.get('machine_model', ''),
-                checklist.get('status', '')
+                checklist.get('machine_model', '')
             ]
             
-            if check_type == 'workshop_service':
-                row_data.append(checklist.get('workshop_notes', ''))
+            if check_type == 'workshop_service' or not all_items:
+                row_data.append(checklist.get('workshop_notes', '') or checklist.get('notes_summary', ''))
+                row_data.append(len(checklist.get('workshop_photos', [])))
             else:
-                # Build item status map
+                # Build item status map from this checklist's items
                 item_status_map = {}
                 item_notes = []
                 for item in checklist.get('checklist_items', []):
                     item_name = item.get('item', '')
-                    status = item.get('status', 'unchecked')
+                    status = item.get('status', '')
                     item_status_map[item_name] = status
                     if item.get('notes'):
-                        item_notes.append(f"{item_name[:30]}: {item['notes']}")
+                        item_notes.append(f"{item_name[:25]}: {item['notes']}")
                 
-                # Add status for each item column
+                # Add answer for each question column
                 for item_name in all_items:
                     status = item_status_map.get(item_name, '')
                     if status == 'satisfactory':
@@ -1622,59 +1646,76 @@ async def export_checklists_excel_by_machine(make: str = None, name: str = None)
                     elif status == 'n/a':
                         row_data.append('N/A')
                     else:
-                        row_data.append('')
+                        row_data.append('')  # No data for this question
                 
                 # Add notes column
-                row_data.append('; '.join(item_notes))
+                row_data.append('; '.join(item_notes) if item_notes else checklist.get('notes_summary', ''))
             
             # Write row
             for col, value in enumerate(row_data, 1):
                 cell = ws.cell(row=row_idx, column=col, value=value)
                 cell.border = thin_border
-                cell.alignment = Alignment(vertical='center')
+                cell.alignment = Alignment(vertical='center', horizontal='center' if col > 5 else 'left')
                 
-                # Color code the status cells
-                if col > 6 and check_type != 'workshop_service' and col <= 6 + len(all_items):
+                # Color code the answer cells (columns after the fixed 5)
+                if col > 5 and check_type != 'workshop_service' and col <= 5 + len(all_items):
                     if value == '✓':
                         cell.fill = satisfactory_fill
                     elif value == '✗':
                         cell.fill = unsatisfactory_fill
+                    elif value == 'N/A':
+                        cell.fill = na_fill
         
-        # Auto-adjust column widths
-        for column in ws.columns:
-            max_length = 0
-            column_letter = column[0].column_letter
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = min(max(max_length + 2, 10), 40)
-            ws.column_dimensions[column_letter].width = adjusted_width
+        # Set column widths
+        ws.column_dimensions['A'].width = 12  # Date
+        ws.column_dimensions['B'].width = 8   # Time
+        ws.column_dimensions['C'].width = 18  # Staff Name
+        ws.column_dimensions['D'].width = 15  # Machine Make
+        ws.column_dimensions['E'].width = 20  # Machine Model
         
-        # Freeze header row
-        ws.freeze_panes = 'A2'
+        # Question columns - narrower since they just have ✓/✗
+        for col_idx in range(6, 6 + len(all_items)):
+            col_letter = ws.cell(row=1, column=col_idx).column_letter
+            ws.column_dimensions[col_letter].width = 8
+        
+        # Notes column wider
+        if all_items:
+            notes_col = ws.cell(row=1, column=6 + len(all_items)).column_letter
+            ws.column_dimensions[notes_col].width = 40
+        
+        # Freeze header row and first columns
+        ws.freeze_panes = 'F2'
+        
+        # Set row height for header
+        ws.row_dimensions[1].height = 60
     
-    # Add summary sheet
+    # Add summary sheet at the beginning
     summary_ws = wb.create_sheet(title="Summary", index=0)
-    summary_ws.append(["Check Type", "Total Checks", "Machine Make", "Machine Model"])
-    summary_ws.cell(row=1, column=1).fill = header_fill
-    summary_ws.cell(row=1, column=1).font = header_font
-    summary_ws.cell(row=1, column=2).fill = header_fill
-    summary_ws.cell(row=1, column=2).font = header_font
-    summary_ws.cell(row=1, column=3).fill = header_fill
-    summary_ws.cell(row=1, column=3).font = header_font
-    summary_ws.cell(row=1, column=4).fill = header_fill
-    summary_ws.cell(row=1, column=4).font = header_font
+    summary_headers = ["Check Type", "Total Checks", "Questions Count"]
+    for col, header in enumerate(summary_headers, 1):
+        cell = summary_ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.border = thin_border
     
-    for check_type, type_checklists in checklists_by_type.items():
-        summary_ws.append([
-            check_type,
-            len(type_checklists),
-            make or "All",
-            name or "All"
-        ])
+    for row_idx, (check_type, type_checklists) in enumerate(sorted(checklists_by_type.items()), 2):
+        # Count questions for this type
+        question_count = len(templates.get(check_type, []))
+        if question_count == 0:
+            # Count from actual data
+            all_q = set()
+            for c in type_checklists:
+                for item in c.get('checklist_items', []):
+                    all_q.add(item.get('item', ''))
+            question_count = len(all_q)
+        
+        summary_ws.cell(row=row_idx, column=1, value=check_type).border = thin_border
+        summary_ws.cell(row=row_idx, column=2, value=len(type_checklists)).border = thin_border
+        summary_ws.cell(row=row_idx, column=3, value=question_count).border = thin_border
+    
+    summary_ws.column_dimensions['A'].width = 25
+    summary_ws.column_dimensions['B'].width = 15
+    summary_ws.column_dimensions['C'].width = 18
     
     # Save to BytesIO
     output = io.BytesIO()
@@ -1682,12 +1723,7 @@ async def export_checklists_excel_by_machine(make: str = None, name: str = None)
     output.seek(0)
     
     # Create filename
-    filename_parts = ["checklists"]
-    if make:
-        filename_parts.append(make.replace(' ', '_'))
-    if name:
-        filename_parts.append(name.replace(' ', '_'))
-    filename = "_".join(filename_parts) + ".xlsx"
+    filename = "all_checklists_export.xlsx"
     
     return StreamingResponse(
         output,
