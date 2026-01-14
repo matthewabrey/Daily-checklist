@@ -190,11 +190,13 @@ async def ensure_indexes():
     try:
         print("Ensuring database indexes...")
         
-        # Checklists indexes
+        # Checklists indexes - optimized for common queries
         await db.checklists.create_index([("completed_at", -1)])
         await db.checklists.create_index([("check_type", 1)])
         await db.checklists.create_index([("check_type", 1), ("completed_at", -1)])
         await db.checklists.create_index([("machine_make", 1)])
+        await db.checklists.create_index([("machine_make", 1), ("completed_at", -1)])  # For by-machine queries
+        await db.checklists.create_index([("machine_make", 1), ("machine_model", 1), ("completed_at", -1)])  # Compound index
         await db.checklists.create_index([("employee_number", 1)])
         await db.checklists.create_index([("id", 1)])
         await db.checklists.create_index([("checklist_items.status", 1)])
