@@ -652,25 +652,42 @@ async def get_todays_checklists():
     return checklists
 
 @app.get("/api/checklists/by-machine")
-async def get_checklists_by_machine(make: str = None, name: str = None, limit: int = 1000):
-    """Get all checklists for a specific machine with optional filters"""
+async def get_checklists_by_machine(make: str = None, name: str = None, limit: int = 100, skip: int = 0):
+    """Get checklists for a specific machine with pagination for better performance"""
     query = {}
     if make:
         query["machine_make"] = make
     if name:
         query["machine_model"] = name
     
-    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).limit(limit).to_list(length=limit)
+    # Use projection to only get needed fields (faster)
+    projection = {
+        "_id": 0,
+        "id": 1,
+        "staff_name": 1,
+        "machine_make": 1,
+        "machine_model": 1,
+        "check_type": 1,
+        "completed_at": 1,
+        "status": 1,
+        "items_satisfactory": 1,
+        "items_unsatisfactory": 1,
+        "items_total": 1,
+        "notes_summary": 1
+    }
     
-    # Parse datetime strings
-    for checklist in checklists:
-        if checklist.get('completed_at') and isinstance(checklist['completed_at'], str):
-            try:
-                checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'].replace('Z', '+00:00'))
-            except:
-                pass
+    checklists = await db.checklists.find(query, projection).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
     
-    return checklists
+    # Get total count for pagination info
+    total = await db.checklists.count_documents(query)
+    
+    return {
+        "checklists": checklists,
+        "total": total,
+        "limit": limit,
+        "skip": skip,
+        "has_more": skip + len(checklists) < total
+    }
 
 @app.get("/api/checklists/{checklist_id}", response_model=ChecklistResponse)
 async def get_checklist(checklist_id: str):
