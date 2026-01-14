@@ -284,17 +284,24 @@ function Dashboard() {
     
     setIsLoadingChecklists(true);
     try {
-      let url = `${API_BASE_URL}/api/checklists/by-machine?make=${encodeURIComponent(selectedFilterMake)}`;
+      let url = `${API_BASE_URL}/api/checklists/by-machine?make=${encodeURIComponent(selectedFilterMake)}&limit=200`;
       if (selectedFilterName) {
         url += `&name=${encodeURIComponent(selectedFilterName)}`;
       }
       
       const response = await fetch(url);
       const data = await response.json();
-      setFilteredChecklists(data);
       
-      if (data.length === 0) {
+      // Handle new paginated response format
+      const checklists = data.checklists || data;
+      const total = data.total || checklists.length;
+      
+      setFilteredChecklists(checklists);
+      
+      if (checklists.length === 0) {
         toast.info('No checklists found for this machine');
+      } else if (total > checklists.length) {
+        toast.info(`Showing ${checklists.length} of ${total} checklists. Use Export for full data.`);
       }
     } catch (error) {
       console.error('Error loading checklists:', error);
@@ -306,6 +313,7 @@ function Dashboard() {
 
   const exportAllChecklists = async () => {
     setIsExporting(true);
+    toast.info('Generating Excel export... This may take a moment for large datasets.');
     try {
       // Export ALL checks - no filters
       const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel-by-machine`);
