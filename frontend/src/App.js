@@ -388,7 +388,11 @@ function Dashboard() {
         repairsDue: statsData.repairs_due || 0,
         nonAcknowledgedRepairs: statsData.new_repairs || 0,
         repairsCompletedLast7Days: statsData.repairs_completed || 0,
-        pendingMachineAdditions: statsData.machine_additions_count || 0
+        pendingMachineAdditions: statsData.machine_additions_count || 0,
+        nearMissesNew: statsData.near_misses_new || 0,
+        nearMissesTotal: statsData.near_misses_total || 0,
+        suggestionsNew: statsData.suggestions_new || 0,
+        suggestionsTotal: statsData.suggestions_total || 0
       });
       
       // Fetch recent checklists
