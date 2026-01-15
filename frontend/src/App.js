@@ -561,8 +561,21 @@ function Dashboard() {
         nearMissesNew: statsData.near_misses_new || 0,
         nearMissesTotal: statsData.near_misses_total || 0,
         suggestionsNew: statsData.suggestions_new || 0,
-        suggestionsTotal: statsData.suggestions_total || 0
+        suggestionsTotal: statsData.suggestions_total || 0,
+        accidentsNew: statsData.accidents_new || 0,
+        accidentsTotal: statsData.accidents_total || 0
       });
+      
+      // Fetch near misses by location for pie chart
+      try {
+        const pieResponse = await fetch(`${API_BASE_URL}/api/near-misses/stats/by-location`);
+        if (pieResponse.ok) {
+          const pieData = await pieResponse.json();
+          setNearMissesByLocation(pieData);
+        }
+      } catch (pieError) {
+        console.error('Error fetching pie chart data:', pieError);
+      }
       
       // Fetch recent checklists
       const recentResponse = await fetch(`${API_BASE_URL}/api/checklists?limit=5`);
