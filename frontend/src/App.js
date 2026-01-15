@@ -947,36 +947,37 @@ function Dashboard() {
             {/* Category (for suggestions only) */}
             {showReportModal === 'suggestion' && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Suggestion Type</label>
                 <select
                   value={reportCategory}
                   onChange={(e) => setReportCategory(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   data-testid="report-category-select"
                 >
-                  <option value="">Select a category...</option>
-                  <option value="safety">Safety</option>
-                  <option value="efficiency">Efficiency</option>
-                  <option value="equipment">Equipment</option>
-                  <option value="other">Other</option>
+                  <option value="">Select a type...</option>
+                  <option value="Financial">Financial</option>
+                  <option value="Well Being">Well Being</option>
+                  <option value="Health and Safety">Health and Safety</option>
                 </select>
               </div>
             )}
 
-            {/* Location (for near misses only) */}
-            {showReportModal === 'near-miss' && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                <input
-                  type="text"
-                  value={reportLocation}
-                  onChange={(e) => setReportLocation(e.target.value)}
-                  placeholder="Where did this occur?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  data-testid="report-location-input"
-                />
-              </div>
-            )}
+            {/* Location dropdown - shown for both near misses and suggestions */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+              <select
+                value={reportLocation}
+                onChange={(e) => setReportLocation(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                data-testid="report-location-select"
+              >
+                <option value="">Select a location...</option>
+                <option value="Farm">Farm</option>
+                <option value="Field">Field</option>
+                <option value="Storage">Storage</option>
+                <option value="Grading">Grading</option>
+              </select>
+            </div>
 
             {/* Description */}
             <div className="mb-4">
