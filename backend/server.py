@@ -1979,6 +1979,144 @@ async def review_suggestion(suggestion_id: str, status: str, reviewed_by: str = 
         return {"success": True, "message": f"Suggestion marked as {status}"}
     raise HTTPException(status_code=404, detail="Suggestion not found")
 
+# Add comment to near miss
+@app.post("/api/near-misses/{near_miss_id}/comment")
+async def add_near_miss_comment(near_miss_id: str, comment: str, commented_by: str = "Admin"):
+    """Add a comment to a near miss"""
+    result = await db.near_misses.update_one(
+        {"id": near_miss_id},
+        {"$push": {"comments": {
+            "text": comment,
+            "by": commented_by,
+            "at": datetime.now(timezone.utc).isoformat()
+        }}}
+    )
+    if result.modified_count > 0:
+        return {"success": True, "message": "Comment added"}
+    raise HTTPException(status_code=404, detail="Near miss not found")
+
+# Add comment to suggestion
+@app.post("/api/suggestions/{suggestion_id}/comment")
+async def add_suggestion_comment(suggestion_id: str, comment: str, commented_by: str = "Admin"):
+    """Add a comment to a suggestion"""
+    result = await db.suggestions.update_one(
+        {"id": suggestion_id},
+        {"$push": {"comments": {
+            "text": comment,
+            "by": commented_by,
+            "at": datetime.now(timezone.utc).isoformat()
+        }}}
+    )
+    if result.modified_count > 0:
+        return {"success": True, "message": "Comment added"}
+    raise HTTPException(status_code=404, detail="Suggestion not found")
+
+# Near miss stats by location for pie chart
+@app.get("/api/near-misses/stats/by-location")
+async def get_near_misses_by_location():
+    """Get near misses grouped by location for the last 4 months"""
+    four_months_ago = (datetime.now(timezone.utc) - timedelta(days=120)).isoformat()
+    
+    pipeline = [
+        {"$match": {"created_at": {"$gte": four_months_ago}}},
+        {"$group": {
+            "_id": {"$ifNull": ["$location", "Unknown"]},
+            "count": {"$sum": 1}
+        }},
+        {"$project": {
+            "location": "$_id",
+            "count": 1,
+            "_id": 0
+        }}
+    ]
+    
+    results = await db.near_misses.aggregate(pipeline).to_list(length=100)
+    return results
+
+# ============================================
+# Accident Endpoints
+# ============================================
+
+@app.post("/api/accidents")
+async def create_accident(accident: AccidentCreate, employee_number: str = None):
+    """Report a new accident"""
+    accident_doc = {
+        "id": str(uuid.uuid4()),
+        "date_time": accident.date_time,
+        "location": accident.location,
+        "description": accident.description,
+        "injured_persons": accident.injured_persons,
+        "injury_type": accident.injury_type,
+        "body_parts_affected": accident.body_parts_affected,
+        "first_aid_given": accident.first_aid_given,
+        "first_aid_details": accident.first_aid_details,
+        "witnesses": accident.witnesses,
+        "equipment_involved": accident.equipment_involved,
+        "photos": accident.photos,
+        "actions_taken": accident.actions_taken,
+        "emergency_services_called": accident.emergency_services_called,
+        "reported_by": accident.reported_by,
+        "employee_number": employee_number,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "status": "new",
+        "comments": []
+    }
+    await db.accidents.insert_one(accident_doc)
+    await invalidate_cache()
+    return {"success": True, "message": "Accident reported successfully", "id": accident_doc["id"]}
+
+@app.get("/api/accidents")
+async def get_accidents(status: str = None, limit: int = 100):
+    """Get accident reports"""
+    query = {}
+    if status:
+        query["status"] = status
+    
+    accidents = await db.accidents.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
+    return accidents
+
+@app.get("/api/accidents/count")
+async def get_accidents_count():
+    """Get count of accidents"""
+    total = await db.accidents.count_documents({})
+    new_count = await db.accidents.count_documents({"status": "new"})
+    return {"total": total, "new": new_count}
+
+@app.put("/api/accidents/{accident_id}/investigate")
+async def investigate_accident(accident_id: str, status: str, investigated_by: str = "Admin", investigation_notes: str = None):
+    """Update accident investigation status"""
+    if status not in ["investigating", "closed"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    result = await db.accidents.update_one(
+        {"id": accident_id},
+        {"$set": {
+            "status": status,
+            "investigated_at": datetime.now(timezone.utc).isoformat(),
+            "investigated_by": investigated_by,
+            "investigation_notes": investigation_notes
+        }}
+    )
+    await invalidate_cache()
+    if result.modified_count > 0:
+        return {"success": True, "message": f"Accident marked as {status}"}
+    raise HTTPException(status_code=404, detail="Accident not found")
+
+@app.post("/api/accidents/{accident_id}/comment")
+async def add_accident_comment(accident_id: str, comment: str, commented_by: str = "Admin"):
+    """Add a comment to an accident"""
+    result = await db.accidents.update_one(
+        {"id": accident_id},
+        {"$push": {"comments": {
+            "text": comment,
+            "by": commented_by,
+            "at": datetime.now(timezone.utc).isoformat()
+        }}}
+    )
+    if result.modified_count > 0:
+        return {"success": True, "message": "Comment added"}
+    raise HTTPException(status_code=404, detail="Accident not found")
+
 # ============================================
 # Work Progress Tracking Endpoints
 # ============================================
