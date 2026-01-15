@@ -138,6 +138,19 @@ Build a machine checklist application for managing equipment startup inspections
 
 ## What's Been Implemented
 
+### January 15, 2026
+- **Near Misses & Suggestions Feature** (COMPLETE)
+  - Backend: NearMiss and Suggestion models with anonymous submission support
+  - Backend: POST/GET /api/near-misses endpoints with acknowledge action
+  - Backend: POST/GET/PUT /api/suggestions endpoints with review actions (reviewed, implemented, declined)
+  - Backend: Dashboard stats include near_misses_new, near_misses_total, suggestions_new, suggestions_total
+  - Frontend: Dashboard cards showing Near Misses and Suggestions counts
+  - Frontend: "Report Near Miss" button with modal (name, location, description, photo upload, anonymous option)
+  - Frontend: "Submit Suggestion" button with modal (name, title, category, description, anonymous option)
+  - Frontend: /near-misses page with filter and detail modal (admin can acknowledge)
+  - Frontend: /suggestions page with filter and detail modal (admin can review)
+  - Testing: 18/18 backend tests passed, all frontend features verified
+
 ### January 13, 2026
 - **Compulsory Checks Feature** (COMPLETE)
   - Backend: Added `compulsory` field to ChecklistTemplateItem and ChecklistItem models
@@ -158,8 +171,8 @@ Build a machine checklist application for managing equipment startup inspections
   - Manager page accessible to managers and admins
 
 ## Upcoming Tasks
-1. Fix pre-existing lint errors in frontend (37 errors)
-2. Frontend refactoring (App.js is 6700+ lines)
+1. Fix pre-existing lint errors in frontend
+2. Frontend refactoring (App.js is 8000+ lines - needs breakdown into components)
 
 ## How to Use Compulsory Feature
 1. In your AssetList.xlsx, add a "Compulsory" column to the checklist sheets
