@@ -5877,6 +5877,298 @@ function SuggestionsPage() {
   );
 }
 
+// Accidents Page Component
+function AccidentsPage() {
+  const [accidents, setAccidents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [newComment, setNewComment] = useState('');
+  const [investigationNotes, setInvestigationNotes] = useState('');
+  const navigate = useNavigate();
+  const { employee } = useAuth();
+  const isAdmin = employee?.admin_control === 'yes';
+
+  useEffect(() => {
+    fetchAccidents();
+  }, []);
+
+  const fetchAccidents = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/accidents?limit=200`);
+      const data = await response.json();
+      setAccidents(data);
+    } catch (error) {
+      console.error('Error fetching accidents:', error);
+      toast.error('Failed to load accidents');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const investigateAccident = async (id, status) => {
+    try {
+      const params = new URLSearchParams({
+        status,
+        investigated_by: employee?.name || 'Admin',
+        ...(investigationNotes && { investigation_notes: investigationNotes })
+      });
+      
+      const response = await fetch(`${API_BASE_URL}/api/accidents/${id}/investigate?${params}`, {
+        method: 'PUT'
+      });
+      
+      if (response.ok) {
+        toast.success(`Accident marked as ${status}`);
+        fetchAccidents();
+        setSelectedItem(null);
+        setInvestigationNotes('');
+      }
+    } catch (error) {
+      console.error('Error updating accident:', error);
+      toast.error('Failed to update accident');
+    }
+  };
+
+  const addComment = async (id) => {
+    if (!newComment.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/accidents/${id}/comment?comment=${encodeURIComponent(newComment)}&commented_by=${encodeURIComponent(employee?.name || 'Admin')}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        toast.success('Comment added');
+        setNewComment('');
+        fetchAccidents();
+        // Refresh selected item
+        const updatedAccidents = await (await fetch(`${API_BASE_URL}/api/accidents?limit=200`)).json();
+        const updated = updatedAccidents.find(a => a.id === id);
+        if (updated) setSelectedItem(updated);
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment');
+    }
+  };
+
+  const filteredItems = accidents.filter(item => {
+    if (filter === 'new') return item.status === 'new';
+    if (filter === 'investigating') return item.status === 'investigating';
+    if (filter === 'closed') return item.status === 'closed';
+    return true;
+  });
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'new': return <Badge className="bg-red-500 text-white">New</Badge>;
+      case 'investigating': return <Badge className="bg-yellow-500 text-white">Investigating</Badge>;
+      case 'closed': return <Badge className="bg-green-500 text-white">Closed</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <ShieldAlert className="h-6 w-6 text-purple-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Accidents</h1>
+              <p className="text-sm text-gray-600">{filteredItems.length} reports</p>
+            </div>
+          </div>
+        </div>
+        
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+          data-testid="accident-filter"
+        >
+          <option value="all">All Reports</option>
+          <option value="new">New</option>
+          <option value="investigating">Investigating</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
+
+      {filteredItems.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <ShieldAlert className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No accidents reported</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filteredItems.map((item) => (
+            <Card 
+              key={item.id} 
+              className={`hover:shadow-md transition-shadow cursor-pointer ${
+                item.status === 'new' ? 'border-red-200 bg-red-50' : item.status === 'investigating' ? 'border-yellow-200 bg-yellow-50' : ''
+              }`}
+              onClick={() => setSelectedItem(item)}
+              data-testid={`accident-item-${item.id}`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      {getStatusBadge(item.status)}
+                      <Badge variant="outline">{item.location}</Badge>
+                      <span className="text-sm text-gray-600">Reported by: {item.reported_by}</span>
+                    </div>
+                    <p className="text-gray-800 line-clamp-2">{item.description}</p>
+                    {item.injured_persons && item.injured_persons.length > 0 && (
+                      <p className="text-sm text-red-600 mt-1">Injured: {item.injured_persons.join(', ')}</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-2">
+                      Accident: {new Date(item.date_time).toLocaleString()} | Reported: {new Date(item.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  {item.photos && item.photos.length > 0 && (
+                    <div className="ml-4 flex items-center gap-1">
+                      <Camera className="h-5 w-5 text-gray-400" />
+                      <span className="text-xs text-gray-400">{item.photos.length}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-auto relative z-[10000]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Accident Report</h3>
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(null); setInvestigationNotes(''); }}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                {getStatusBadge(selectedItem.status)}
+                <Badge variant="outline">{selectedItem.location}</Badge>
+                {selectedItem.emergency_services_called && <Badge className="bg-red-600 text-white">Emergency Services Called</Badge>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="text-xs text-gray-500">Date & Time</p><p className="text-gray-800">{new Date(selectedItem.date_time).toLocaleString()}</p></div>
+                <div><p className="text-xs text-gray-500">Reported By</p><p className="text-gray-800">{selectedItem.reported_by}</p></div>
+              </div>
+
+              <div><p className="text-xs text-gray-500">Description</p><p className="text-gray-800">{selectedItem.description}</p></div>
+
+              {selectedItem.injured_persons?.length > 0 && (
+                <div className="p-3 bg-red-50 rounded-lg">
+                  <p className="text-xs text-red-700 font-medium">Injured Persons</p>
+                  <p className="text-red-800">{selectedItem.injured_persons.join(', ')}</p>
+                  {selectedItem.injury_type && <p className="text-sm text-red-600 mt-1">Injury Type: {selectedItem.injury_type}</p>}
+                  {selectedItem.body_parts_affected && <p className="text-sm text-red-600">Body Parts: {selectedItem.body_parts_affected}</p>}
+                </div>
+              )}
+
+              {selectedItem.first_aid_given && (
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-green-700 font-medium">First Aid Given</p>
+                  <p className="text-green-800">{selectedItem.first_aid_details || 'Yes'}</p>
+                </div>
+              )}
+
+              {selectedItem.witnesses?.length > 0 && <div><p className="text-xs text-gray-500">Witnesses</p><p className="text-gray-800">{selectedItem.witnesses.join(', ')}</p></div>}
+              {selectedItem.equipment_involved && <div><p className="text-xs text-gray-500">Equipment Involved</p><p className="text-gray-800">{selectedItem.equipment_involved}</p></div>}
+              {selectedItem.actions_taken && <div><p className="text-xs text-gray-500">Actions Taken</p><p className="text-gray-800">{selectedItem.actions_taken}</p></div>}
+
+              {selectedItem.photos?.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Photos ({selectedItem.photos.length})</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {selectedItem.photos.map((photo, idx) => (
+                      <img key={idx} src={photo} alt={`Photo ${idx + 1}`} className="w-full h-24 object-cover rounded-lg border" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedItem.investigated_at && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">Investigation by {selectedItem.investigated_by} on {new Date(selectedItem.investigated_at).toLocaleString()}</p>
+                  {selectedItem.investigation_notes && <p className="text-sm text-gray-700 mt-1">{selectedItem.investigation_notes}</p>}
+                </div>
+              )}
+
+              {/* Comments Section */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Comments</h4>
+                {selectedItem.comments?.length > 0 ? (
+                  <div className="space-y-2 mb-3">
+                    {selectedItem.comments.map((comment, idx) => (
+                      <div key={idx} className="p-2 bg-gray-50 rounded text-sm">
+                        <p className="text-gray-800">{comment.text}</p>
+                        <p className="text-xs text-gray-500 mt-1">{comment.by} - {new Date(comment.at).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 mb-3">No comments yet</p>
+                )}
+                <div className="flex gap-2">
+                  <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Add a comment..." className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                  <Button size="sm" onClick={() => addComment(selectedItem.id)} disabled={!newComment.trim()}>Add</Button>
+                </div>
+              </div>
+
+              {/* Admin Actions */}
+              {isAdmin && selectedItem.status !== 'closed' && (
+                <div className="border-t pt-4 mt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Update Investigation Status</p>
+                  <Textarea value={investigationNotes} onChange={(e) => setInvestigationNotes(e.target.value)} placeholder="Investigation notes (optional)" rows={2} className="mb-3" />
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedItem.status === 'new' && (
+                      <Button onClick={() => investigateAccident(selectedItem.id, 'investigating')} variant="outline" className="border-yellow-500 text-yellow-700">
+                        Start Investigation
+                      </Button>
+                    )}
+                    <Button onClick={() => investigateAccident(selectedItem.id, 'closed')} className="bg-green-600 hover:bg-green-700">
+                      Close Investigation
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {(!isAdmin || selectedItem.status === 'closed') && (
+                <div className="flex justify-end mt-6">
+                  <Button onClick={() => { setSelectedItem(null); setInvestigationNotes(''); }}>Close</Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Machine Additions Page Component
 function MachineAdditionsPage() {
   const [machineRequests, setMachineRequests] = useState([]);
