@@ -1113,7 +1113,7 @@ function Dashboard() {
         </div>
         
         {/* Second Row - Near Miss and Suggestions */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row gap-3 mt-3 mb-4">
           <Button 
             onClick={() => openReportModal('near-miss')}
             className="bg-red-600 hover:bg-red-700 text-white flex-1 text-sm sm:text-base py-4 sm:py-6"
