@@ -122,6 +122,10 @@ async def compute_simple_stats(db):
     suggestions_new = await db.suggestions.count_documents({"status": "new"})
     suggestions_total = await db.suggestions.count_documents({})
     
+    # Accidents counts
+    accidents_new = await db.accidents.count_documents({"status": "new"})
+    accidents_total = await db.accidents.count_documents({})
+    
     return {
         "total_completed": total_completed,
         "today_by_type": {},  # Simplified - skip breakdown for speed
@@ -135,7 +139,9 @@ async def compute_simple_stats(db):
         "near_misses_new": near_misses_new,
         "near_misses_total": near_misses_total,
         "suggestions_new": suggestions_new,
-        "suggestions_total": suggestions_total
+        "suggestions_total": suggestions_total,
+        "accidents_new": accidents_new,
+        "accidents_total": accidents_total
     }
 
 async def invalidate_cache():
