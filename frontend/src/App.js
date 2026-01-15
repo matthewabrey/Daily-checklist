@@ -958,7 +958,7 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Near Miss / Suggestion Report Modal */}
+      {/* Near Miss / Suggestion / Accident Report Modal */}
       {showReportModal && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]"
@@ -967,20 +967,24 @@ function Dashboard() {
           <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-auto relative z-[10000]">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${showReportModal === 'near-miss' ? 'bg-red-100' : 'bg-blue-100'}`}>
+                <div className={`p-2 rounded-lg ${showReportModal === 'near-miss' ? 'bg-red-100' : showReportModal === 'accident' ? 'bg-purple-100' : 'bg-blue-100'}`}>
                   {showReportModal === 'near-miss' ? (
-                    <AlertTriangle className={`h-6 w-6 ${showReportModal === 'near-miss' ? 'text-red-600' : 'text-blue-600'}`} />
+                    <AlertTriangle className="h-6 w-6 text-red-600" />
+                  ) : showReportModal === 'accident' ? (
+                    <ShieldAlert className="h-6 w-6 text-purple-600" />
                   ) : (
                     <FileText className="h-6 w-6 text-blue-600" />
                   )}
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {showReportModal === 'near-miss' ? 'Report Near Miss' : 'Submit Suggestion'}
+                    {showReportModal === 'near-miss' ? 'Report Near Miss' : showReportModal === 'accident' ? 'Report Accident' : 'Submit Suggestion'}
                   </h3>
                   <p className="text-sm text-gray-600">
                     {showReportModal === 'near-miss' 
                       ? 'Report a safety incident or near miss' 
+                      : showReportModal === 'accident'
+                      ? 'Report a workplace accident'
                       : 'Share your idea for improvement'}
                   </p>
                 </div>
@@ -994,30 +998,251 @@ function Dashboard() {
               </Button>
             </div>
 
-            {/* Anonymous Toggle */}
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={reportIsAnonymous}
-                  onChange={(e) => setReportIsAnonymous(e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  data-testid="anonymous-checkbox"
-                />
-                <div>
-                  <span className="font-medium text-gray-900">Submit anonymously</span>
-                  <p className="text-xs text-gray-500">Your name will not be recorded</p>
+            {/* ACCIDENT FORM */}
+            {showReportModal === 'accident' ? (
+              <>
+                {/* Reporter Name */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reported By *</label>
+                  <input
+                    type="text"
+                    value={reportName}
+                    onChange={(e) => setReportName(e.target.value)}
+                    placeholder="Your name"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    data-testid="accident-reporter-input"
+                  />
                 </div>
-              </label>
-            </div>
 
-            {/* Name field (if not anonymous) */}
-            {!reportIsAnonymous && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Your Name *</label>
-                <input
-                  type="text"
-                  value={reportName}
+                {/* Date/Time of Accident */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date & Time of Accident *</label>
+                  <input
+                    type="datetime-local"
+                    value={accidentDateTime}
+                    onChange={(e) => setAccidentDateTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    data-testid="accident-datetime-input"
+                  />
+                </div>
+
+                {/* Location */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location *</label>
+                  <select
+                    value={reportLocation}
+                    onChange={(e) => setReportLocation(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    data-testid="accident-location-select"
+                  >
+                    <option value="">Select a location...</option>
+                    <option value="Farm">Farm</option>
+                    <option value="Field">Field</option>
+                    <option value="Storage">Storage</option>
+                    <option value="Grading">Grading</option>
+                  </select>
+                </div>
+
+                {/* Description */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">What Happened? *</label>
+                  <Textarea
+                    value={reportDescription}
+                    onChange={(e) => setReportDescription(e.target.value)}
+                    placeholder="Describe the accident in detail..."
+                    rows={3}
+                    className="w-full"
+                    data-testid="accident-description-input"
+                  />
+                </div>
+
+                {/* Injured Persons */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Injured Person(s)</label>
+                  <input
+                    type="text"
+                    value={accidentInjuredPersons}
+                    onChange={(e) => setAccidentInjuredPersons(e.target.value)}
+                    placeholder="Names (comma separated)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    data-testid="accident-injured-input"
+                  />
+                </div>
+
+                {/* Injury Type */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type of Injury</label>
+                  <select
+                    value={accidentInjuryType}
+                    onChange={(e) => setAccidentInjuryType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    data-testid="accident-injury-type-select"
+                  >
+                    <option value="">Select type...</option>
+                    <option value="Cut/Laceration">Cut/Laceration</option>
+                    <option value="Burn">Burn</option>
+                    <option value="Fracture">Fracture</option>
+                    <option value="Sprain/Strain">Sprain/Strain</option>
+                    <option value="Bruise/Contusion">Bruise/Contusion</option>
+                    <option value="Eye Injury">Eye Injury</option>
+                    <option value="Head Injury">Head Injury</option>
+                    <option value="Back Injury">Back Injury</option>
+                    <option value="Chemical Exposure">Chemical Exposure</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                {/* Body Parts Affected */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Body Part(s) Affected</label>
+                  <input
+                    type="text"
+                    value={accidentBodyParts}
+                    onChange={(e) => setAccidentBodyParts(e.target.value)}
+                    placeholder="e.g., Left hand, Right leg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    data-testid="accident-bodyparts-input"
+                  />
+                </div>
+
+                {/* First Aid Given */}
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={accidentFirstAid}
+                      onChange={(e) => setAccidentFirstAid(e.target.checked)}
+                      className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      data-testid="accident-firstaid-checkbox"
+                    />
+                    <span className="font-medium text-gray-900">First Aid Given</span>
+                  </label>
+                  {accidentFirstAid && (
+                    <input
+                      type="text"
+                      value={accidentFirstAidDetails}
+                      onChange={(e) => setAccidentFirstAidDetails(e.target.value)}
+                      placeholder="Describe first aid treatment..."
+                      className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      data-testid="accident-firstaid-details-input"
+                    />
+                  )}
+                </div>
+
+                {/* Emergency Services Called */}
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={accidentEmergencyServices}
+                      onChange={(e) => setAccidentEmergencyServices(e.target.checked)}
+                      className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      data-testid="accident-emergency-checkbox"
+                    />
+                    <span className="font-medium text-gray-900">Emergency Services Called</span>
+                  </label>
+                </div>
+
+                {/* Witnesses */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Witnesses</label>
+                  <input
+                    type="text"
+                    value={accidentWitnesses}
+                    onChange={(e) => setAccidentWitnesses(e.target.value)}
+                    placeholder="Names (comma separated)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    data-testid="accident-witnesses-input"
+                  />
+                </div>
+
+                {/* Equipment Involved */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Equipment Involved</label>
+                  <input
+                    type="text"
+                    value={accidentEquipment}
+                    onChange={(e) => setAccidentEquipment(e.target.value)}
+                    placeholder="e.g., Forklift, Ladder"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    data-testid="accident-equipment-input"
+                  />
+                </div>
+
+                {/* Actions Taken */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Immediate Actions Taken</label>
+                  <Textarea
+                    value={accidentActionsTaken}
+                    onChange={(e) => setAccidentActionsTaken(e.target.value)}
+                    placeholder="What actions were taken after the accident?"
+                    rows={2}
+                    className="w-full"
+                    data-testid="accident-actions-input"
+                  />
+                </div>
+
+                {/* Photos */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Photos (optional)</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {reportPhotos.map((photo, idx) => (
+                      <div key={idx} className="relative">
+                        <img src={photo} alt={`Photo ${idx + 1}`} className="w-20 h-20 object-cover rounded-lg border" />
+                        <button onClick={() => setReportPhotos(prev => prev.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors w-fit">
+                    <Camera className="h-5 w-5 text-gray-600" />
+                    <span className="text-sm text-gray-700">Add Photo</span>
+                    <input type="file" accept="image/*" capture="environment" multiple onChange={handlePhotoCapture} className="hidden" data-testid="accident-photo-input" />
+                  </label>
+                </div>
+
+                {/* Submit Button */}
+                <div className="flex gap-3 mt-6">
+                  <Button variant="outline" onClick={() => setShowReportModal(null)} className="flex-1">Cancel</Button>
+                  <Button onClick={submitReport} disabled={isSubmittingReport} className="flex-1 bg-purple-600 hover:bg-purple-700" data-testid="submit-accident-btn">
+                    {isSubmittingReport ? (<><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Submitting...</>) : 'Report Accident'}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Anonymous Toggle */}
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={reportIsAnonymous}
+                      onChange={(e) => setReportIsAnonymous(e.target.checked)}
+                      className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      data-testid="anonymous-checkbox"
+                    />
+                    <div>
+                      <span className="font-medium text-gray-900">Submit anonymously</span>
+                      <p className="text-xs text-gray-500">Your name will not be recorded</p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Name field (if not anonymous) */}
+                {!reportIsAnonymous && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Your Name *</label>
+                    <input
+                      type="text"
+                      value={reportName}
+                      onChange={(e) => setReportName(e.target.value)}
+                      placeholder="Enter your name"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      data-testid="report-name-input"
+                    />
+                  </div>
+                )}
                   onChange={(e) => setReportName(e.target.value)}
                   placeholder="Enter your name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
