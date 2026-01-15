@@ -161,7 +161,9 @@ class Suggestion(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
     description: str
-    category: Optional[str] = None  # safety, efficiency, equipment, other
+    category: Optional[str] = None  # Financial, Well Being, Health and Safety
+    location: Optional[str] = None  # Farm, Field, Storage, Grading
+    photos: List[str] = []  # Base64 encoded photos
     is_anonymous: bool = False
     submitted_by: Optional[str] = None
     employee_number: Optional[str] = None
@@ -175,6 +177,8 @@ class SuggestionCreate(BaseModel):
     title: str
     description: str
     category: Optional[str] = None
+    location: Optional[str] = None
+    photos: List[str] = []
     is_anonymous: bool = False
     submitted_by: Optional[str] = None
 
