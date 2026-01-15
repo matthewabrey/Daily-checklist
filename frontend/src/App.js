@@ -1297,6 +1297,65 @@ function Dashboard() {
         </Card>
       </div>
 
+      {/* Second Row Stats - Near Misses & Suggestions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-6">
+        {/* Near Misses Card */}
+        <Card 
+          className="hover:shadow-lg transition-shadow border-red-200 bg-red-50" 
+          style={{display: 'flex', flexDirection: 'column', height: '100%'}}
+          data-testid="near-misses-card"
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-red-900">Near Misses</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
+            <div style={{flex: 1}}>
+              <div className="text-2xl font-bold text-red-600">{stats.nearMissesNew || 0}</div>
+              <p className="text-xs text-red-700">New reports ({stats.nearMissesTotal || 0} total)</p>
+            </div>
+            <Button 
+              onClick={() => navigate('/near-misses')}
+              variant="outline"
+              size="sm"
+              className="w-full border-red-300 text-red-700 hover:bg-red-100"
+              style={{marginTop: 'auto'}}
+              data-testid="view-near-misses-btn"
+            >
+              View Near Misses
+            </Button>
+          </div>
+        </Card>
+
+        {/* Suggestions Card */}
+        <Card 
+          className="hover:shadow-lg transition-shadow border-indigo-200 bg-indigo-50" 
+          style={{display: 'flex', flexDirection: 'column', height: '100%'}}
+          data-testid="suggestions-card"
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-indigo-900">Suggestions</CardTitle>
+            <FileText className="h-4 w-4 text-indigo-600" />
+          </CardHeader>
+          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
+            <div style={{flex: 1}}>
+              <div className="text-2xl font-bold text-indigo-600">{stats.suggestionsNew || 0}</div>
+              <p className="text-xs text-indigo-700">New suggestions ({stats.suggestionsTotal || 0} total)</p>
+            </div>
+            <Button 
+              onClick={() => navigate('/suggestions')}
+              variant="outline"
+              size="sm"
+              className="w-full border-indigo-300 text-indigo-700 hover:bg-indigo-100"
+              style={{marginTop: 'auto'}}
+              data-testid="view-suggestions-btn"
+            >
+              View Suggestions
+            </Button>
+          </div>
+        </Card>
+      </div>
+
       {/* Work Progress Stats Section */}
       {jobs.length > 0 && (
         <div className="mt-6">
