@@ -1226,6 +1226,14 @@ function Dashboard() {
             <FileText className="mr-2 h-4 w-4" />
             Submit Suggestion
           </Button>
+          <Button 
+            onClick={() => openReportModal('accident')}
+            className="bg-purple-600 hover:bg-purple-700 text-white flex-1 text-sm sm:text-base py-4 sm:py-6"
+            data-testid="accident-btn"
+          >
+            <ShieldAlert className="mr-2 h-4 w-4" />
+            Report Accident
+          </Button>
         </div>
       </div>
 
