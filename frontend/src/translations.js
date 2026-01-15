@@ -17,7 +17,7 @@ export const translations = {
     logout: "Logout",
     
     // Dashboard
-    dashboardTitle: "Machine Checklist Dashboard",
+    dashboardTitle: "Dashboard",
     dashboardSubtitle: "Manage equipment startup checklists and safety inspections",
     checksAndServicing: "Checks and Servicing",
     breakdownRepairReporting: "Breakdown and repair reporting",
