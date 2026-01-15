@@ -116,6 +116,12 @@ async def compute_simple_stats(db):
     
     pending_machine_additions = max(0, machine_additions - acknowledged_machines)
     
+    # Near misses and suggestions counts
+    near_misses_new = await db.near_misses.count_documents({"acknowledged": False})
+    near_misses_total = await db.near_misses.count_documents({})
+    suggestions_new = await db.suggestions.count_documents({"status": "new"})
+    suggestions_total = await db.suggestions.count_documents({})
+    
     return {
         "total_completed": total_completed,
         "today_by_type": {},  # Simplified - skip breakdown for speed
@@ -125,7 +131,11 @@ async def compute_simple_stats(db):
         "repairs_completed": repairs_completed,
         "repairs_completed_count": len(completed_ids),
         "machine_additions_count": pending_machine_additions,
-        "machine_additions_total": machine_additions
+        "machine_additions_total": machine_additions,
+        "near_misses_new": near_misses_new,
+        "near_misses_total": near_misses_total,
+        "suggestions_new": suggestions_new,
+        "suggestions_total": suggestions_total
     }
 
 async def invalidate_cache():
