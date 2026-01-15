@@ -8712,6 +8712,11 @@ function AppContent() {
                 <SuggestionsPage />
               </ProtectedRoute>
             } />
+            <Route path="/accidents" element={
+              <ProtectedRoute>
+                <AccidentsPage />
+              </ProtectedRoute>
+            } />
             <Route path="/general-repair-record" element={
               <ProtectedRoute>
                 <GeneralRepairRecord />
