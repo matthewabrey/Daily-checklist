@@ -5373,6 +5373,7 @@ function NearMissesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [filter, setFilter] = useState('all'); // all, new, acknowledged
+  const [newComment, setNewComment] = useState('');
   const navigate = useNavigate();
   const { employee } = useAuth();
   const isAdmin = employee?.admin_control === 'yes';
@@ -5410,6 +5411,26 @@ function NearMissesPage() {
     } catch (error) {
       console.error('Error acknowledging near miss:', error);
       toast.error('Failed to acknowledge');
+    }
+  };
+
+  const addComment = async (id) => {
+    if (!newComment.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/near-misses/${id}/comment?comment=${encodeURIComponent(newComment)}&commented_by=${encodeURIComponent(employee?.name || 'Admin')}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        toast.success('Comment added');
+        setNewComment('');
+        fetchNearMisses();
+        const updatedItems = await (await fetch(`${API_BASE_URL}/api/near-misses?limit=200`)).json();
+        const updated = updatedItems.find(a => a.id === id);
+        if (updated) setSelectedItem(updated);
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment');
     }
   };
 
