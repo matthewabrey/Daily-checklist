@@ -163,7 +163,7 @@ const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
 function Dashboard() {
   const { t } = useTranslation();
   const [recentChecklists, setRecentChecklists] = useState([]);
-  const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0, nearMissesNew: 0, suggestionsNew: 0 });
+  const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0, nearMissesNew: 0, suggestionsNew: 0, accidentsNew: 0, accidentsTotal: 0 });
   const [showRepairWarning, setShowRepairWarning] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
@@ -171,8 +171,8 @@ function Dashboard() {
   const [jobs, setJobs] = useState([]);
   const navigate = useNavigate();
 
-  // Near Miss / Suggestion Modal state
-  const [showReportModal, setShowReportModal] = useState(null); // 'near-miss' or 'suggestion'
+  // Near Miss / Suggestion / Accident Modal state
+  const [showReportModal, setShowReportModal] = useState(null); // 'near-miss', 'suggestion', or 'accident'
   const [reportIsAnonymous, setReportIsAnonymous] = useState(false);
   const [reportName, setReportName] = useState('');
   const [reportDescription, setReportDescription] = useState('');
@@ -181,6 +181,21 @@ function Dashboard() {
   const [reportCategory, setReportCategory] = useState('');
   const [reportPhotos, setReportPhotos] = useState([]);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  
+  // Accident-specific fields
+  const [accidentDateTime, setAccidentDateTime] = useState('');
+  const [accidentInjuredPersons, setAccidentInjuredPersons] = useState('');
+  const [accidentInjuryType, setAccidentInjuryType] = useState('');
+  const [accidentBodyParts, setAccidentBodyParts] = useState('');
+  const [accidentFirstAid, setAccidentFirstAid] = useState(false);
+  const [accidentFirstAidDetails, setAccidentFirstAidDetails] = useState('');
+  const [accidentWitnesses, setAccidentWitnesses] = useState('');
+  const [accidentEquipment, setAccidentEquipment] = useState('');
+  const [accidentActionsTaken, setAccidentActionsTaken] = useState('');
+  const [accidentEmergencyServices, setAccidentEmergencyServices] = useState(false);
+
+  // Pie chart data for near misses by location
+  const [nearMissesByLocation, setNearMissesByLocation] = useState([]);
 
   // Total Checks Modal state
   const [showTotalChecksModal, setShowTotalChecksModal] = useState(false);
