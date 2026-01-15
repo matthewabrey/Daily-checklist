@@ -14,7 +14,7 @@
 **Fill out these details:**
 - **Name**: `Abreys Machine Checklist App`
 - **Supported account types**: Select "Accounts in this organizational directory only"
-- **Redirect URI**: Select "Web" and enter: `https://work-manager-8.preview.emergentagent.com/auth/callback`
+- **Redirect URI**: Select "Web" and enter: `https://plant-manager-8.preview.emergentagent.com/auth/callback`
 
 Click **Register**
 
