@@ -136,6 +136,48 @@ class WorkEntryCreate(BaseModel):
     date_completed: Optional[str] = None  # If not provided, use today
     entered_by: str
 
+# Near Miss and Suggestion Models
+class NearMiss(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    description: str
+    location: Optional[str] = None
+    photos: List[str] = []  # Base64 encoded photos
+    is_anonymous: bool = False
+    submitted_by: Optional[str] = None  # Name if not anonymous
+    employee_number: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    acknowledged: bool = False
+    acknowledged_at: Optional[str] = None
+    acknowledged_by: Optional[str] = None
+
+class NearMissCreate(BaseModel):
+    description: str
+    location: Optional[str] = None
+    photos: List[str] = []
+    is_anonymous: bool = False
+    submitted_by: Optional[str] = None
+
+class Suggestion(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    description: str
+    category: Optional[str] = None  # safety, efficiency, equipment, other
+    is_anonymous: bool = False
+    submitted_by: Optional[str] = None
+    employee_number: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    status: str = "new"  # new, reviewed, implemented, declined
+    reviewed_at: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    review_notes: Optional[str] = None
+
+class SuggestionCreate(BaseModel):
+    title: str
+    description: str
+    category: Optional[str] = None
+    is_anonymous: bool = False
+    submitted_by: Optional[str] = None
+
 # Initialize data
 async def initialize_data():
     # Check if data already exists
