@@ -860,6 +860,208 @@ function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Near Miss / Suggestion Report Modal */}
+      {showReportModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-auto relative z-[10000]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${showReportModal === 'near-miss' ? 'bg-red-100' : 'bg-blue-100'}`}>
+                  {showReportModal === 'near-miss' ? (
+                    <AlertTriangle className={`h-6 w-6 ${showReportModal === 'near-miss' ? 'text-red-600' : 'text-blue-600'}`} />
+                  ) : (
+                    <FileText className="h-6 w-6 text-blue-600" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {showReportModal === 'near-miss' ? 'Report Near Miss' : 'Submit Suggestion'}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {showReportModal === 'near-miss' 
+                      ? 'Report a safety incident or near miss' 
+                      : 'Share your idea for improvement'}
+                  </p>
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowReportModal(null)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* Anonymous Toggle */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={reportIsAnonymous}
+                  onChange={(e) => setReportIsAnonymous(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  data-testid="anonymous-checkbox"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Submit anonymously</span>
+                  <p className="text-xs text-gray-500">Your name will not be recorded</p>
+                </div>
+              </label>
+            </div>
+
+            {/* Name field (if not anonymous) */}
+            {!reportIsAnonymous && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Your Name *</label>
+                <input
+                  type="text"
+                  value={reportName}
+                  onChange={(e) => setReportName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  data-testid="report-name-input"
+                />
+              </div>
+            )}
+
+            {/* Title (for suggestions only) */}
+            {showReportModal === 'suggestion' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Suggestion Title *</label>
+                <input
+                  type="text"
+                  value={reportTitle}
+                  onChange={(e) => setReportTitle(e.target.value)}
+                  placeholder="Brief title for your suggestion"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  data-testid="report-title-input"
+                />
+              </div>
+            )}
+
+            {/* Category (for suggestions only) */}
+            {showReportModal === 'suggestion' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select
+                  value={reportCategory}
+                  onChange={(e) => setReportCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  data-testid="report-category-select"
+                >
+                  <option value="">Select a category...</option>
+                  <option value="safety">Safety</option>
+                  <option value="efficiency">Efficiency</option>
+                  <option value="equipment">Equipment</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            )}
+
+            {/* Location (for near misses only) */}
+            {showReportModal === 'near-miss' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input
+                  type="text"
+                  value={reportLocation}
+                  onChange={(e) => setReportLocation(e.target.value)}
+                  placeholder="Where did this occur?"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  data-testid="report-location-input"
+                />
+              </div>
+            )}
+
+            {/* Description */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {showReportModal === 'near-miss' ? 'What happened? *' : 'Description *'}
+              </label>
+              <Textarea
+                value={reportDescription}
+                onChange={(e) => setReportDescription(e.target.value)}
+                placeholder={showReportModal === 'near-miss' 
+                  ? 'Describe what happened and any potential hazards...'
+                  : 'Describe your suggestion in detail...'}
+                rows={4}
+                className="w-full"
+                data-testid="report-description-input"
+              />
+            </div>
+
+            {/* Photo Upload (for near misses only) */}
+            {showReportModal === 'near-miss' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Photos (optional)
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {reportPhotos.map((photo, idx) => (
+                    <div key={idx} className="relative">
+                      <img 
+                        src={photo} 
+                        alt={`Photo ${idx + 1}`}
+                        className="w-20 h-20 object-cover rounded-lg border"
+                      />
+                      <button
+                        onClick={() => setReportPhotos(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors w-fit">
+                  <Camera className="h-5 w-5 text-gray-600" />
+                  <span className="text-sm text-gray-700">Add Photo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    multiple
+                    onChange={handlePhotoCapture}
+                    className="hidden"
+                    data-testid="photo-upload-input"
+                  />
+                </label>
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <div className="flex gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowReportModal(null)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={submitReport}
+                disabled={isSubmittingReport}
+                className={`flex-1 ${showReportModal === 'near-miss' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                data-testid="submit-report-btn"
+              >
+                {isSubmittingReport ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="text-center sm:text-left">
         <div>
