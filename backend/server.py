@@ -1824,6 +1824,116 @@ async def add_progress_note(repair_id: str, note_text: str, author: str):
     return {"success": True, "message": "Progress note added", "note": note}
 
 # ============================================
+# Near Miss and Suggestion Endpoints
+# ============================================
+
+@app.post("/api/near-misses")
+async def create_near_miss(near_miss: NearMissCreate, employee_number: str = None):
+    """Submit a new near miss report"""
+    near_miss_doc = {
+        "id": str(uuid.uuid4()),
+        "description": near_miss.description,
+        "location": near_miss.location,
+        "photos": near_miss.photos,
+        "is_anonymous": near_miss.is_anonymous,
+        "submitted_by": near_miss.submitted_by if not near_miss.is_anonymous else None,
+        "employee_number": employee_number if not near_miss.is_anonymous else None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "acknowledged": False
+    }
+    await db.near_misses.insert_one(near_miss_doc)
+    await invalidate_cache()
+    return {"success": True, "message": "Near miss reported successfully", "id": near_miss_doc["id"]}
+
+@app.get("/api/near-misses")
+async def get_near_misses(acknowledged: bool = None, limit: int = 100):
+    """Get near miss reports"""
+    query = {}
+    if acknowledged is not None:
+        query["acknowledged"] = acknowledged
+    
+    near_misses = await db.near_misses.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
+    return near_misses
+
+@app.get("/api/near-misses/count")
+async def get_near_misses_count():
+    """Get count of new (unacknowledged) near misses"""
+    total = await db.near_misses.count_documents({})
+    new_count = await db.near_misses.count_documents({"acknowledged": False})
+    return {"total": total, "new": new_count}
+
+@app.post("/api/near-misses/{near_miss_id}/acknowledge")
+async def acknowledge_near_miss(near_miss_id: str, acknowledged_by: str = "Admin"):
+    """Acknowledge a near miss report"""
+    result = await db.near_misses.update_one(
+        {"id": near_miss_id},
+        {"$set": {
+            "acknowledged": True,
+            "acknowledged_at": datetime.now(timezone.utc).isoformat(),
+            "acknowledged_by": acknowledged_by
+        }}
+    )
+    await invalidate_cache()
+    if result.modified_count > 0:
+        return {"success": True, "message": "Near miss acknowledged"}
+    raise HTTPException(status_code=404, detail="Near miss not found")
+
+@app.post("/api/suggestions")
+async def create_suggestion(suggestion: SuggestionCreate, employee_number: str = None):
+    """Submit a new suggestion"""
+    suggestion_doc = {
+        "id": str(uuid.uuid4()),
+        "title": suggestion.title,
+        "description": suggestion.description,
+        "category": suggestion.category,
+        "is_anonymous": suggestion.is_anonymous,
+        "submitted_by": suggestion.submitted_by if not suggestion.is_anonymous else None,
+        "employee_number": employee_number if not suggestion.is_anonymous else None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "status": "new"
+    }
+    await db.suggestions.insert_one(suggestion_doc)
+    await invalidate_cache()
+    return {"success": True, "message": "Suggestion submitted successfully", "id": suggestion_doc["id"]}
+
+@app.get("/api/suggestions")
+async def get_suggestions(status: str = None, limit: int = 100):
+    """Get suggestions"""
+    query = {}
+    if status:
+        query["status"] = status
+    
+    suggestions = await db.suggestions.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
+    return suggestions
+
+@app.get("/api/suggestions/count")
+async def get_suggestions_count():
+    """Get count of new suggestions"""
+    total = await db.suggestions.count_documents({})
+    new_count = await db.suggestions.count_documents({"status": "new"})
+    return {"total": total, "new": new_count}
+
+@app.put("/api/suggestions/{suggestion_id}/review")
+async def review_suggestion(suggestion_id: str, status: str, reviewed_by: str = "Admin", review_notes: str = None):
+    """Review a suggestion - set status to reviewed, implemented, or declined"""
+    if status not in ["reviewed", "implemented", "declined"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    result = await db.suggestions.update_one(
+        {"id": suggestion_id},
+        {"$set": {
+            "status": status,
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "reviewed_by": reviewed_by,
+            "review_notes": review_notes
+        }}
+    )
+    await invalidate_cache()
+    if result.modified_count > 0:
+        return {"success": True, "message": f"Suggestion marked as {status}"}
+    raise HTTPException(status_code=404, detail="Suggestion not found")
+
+# ============================================
 # Work Progress Tracking Endpoints
 # ============================================
 
