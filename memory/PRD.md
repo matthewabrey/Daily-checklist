@@ -171,6 +171,18 @@ Build a machine checklist application for managing equipment startup inspections
 - POST /api/admin/jobs/{job_id}/work-entry - Add work entry
 - PUT /api/admin/jobs/{job_id}/reopen - Reopen completed job
 
+### Near Misses
+- POST /api/near-misses - Submit near miss report
+- GET /api/near-misses - Get list of near misses
+- GET /api/near-misses/count - Get counts (new, total)
+- POST /api/near-misses/{id}/acknowledge - Acknowledge a near miss (admin)
+
+### Suggestions
+- POST /api/suggestions - Submit suggestion
+- GET /api/suggestions - Get list of suggestions
+- GET /api/suggestions/count - Get counts (new, total)
+- PUT /api/suggestions/{id}/review - Review suggestion (set status, add notes)
+
 ## What's Been Implemented
 
 ### January 15, 2026
