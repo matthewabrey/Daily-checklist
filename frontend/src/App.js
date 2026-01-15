@@ -419,6 +419,8 @@ function Dashboard() {
             title: reportTitle,
             description: reportDescription,
             category: reportCategory,
+            location: reportLocation,
+            photos: reportPhotos,
             is_anonymous: reportIsAnonymous,
             submitted_by: reportIsAnonymous ? null : reportName
           })
