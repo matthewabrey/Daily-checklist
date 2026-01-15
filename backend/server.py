@@ -1890,6 +1890,8 @@ async def create_suggestion(suggestion: SuggestionCreate, employee_number: str =
         "title": suggestion.title,
         "description": suggestion.description,
         "category": suggestion.category,
+        "location": suggestion.location,
+        "photos": suggestion.photos,
         "is_anonymous": suggestion.is_anonymous,
         "submitted_by": suggestion.submitted_by if not suggestion.is_anonymous else None,
         "employee_number": employee_number if not suggestion.is_anonymous else None,
