@@ -1401,8 +1401,8 @@ function Dashboard() {
         </Card>
       </div>
 
-      {/* Second Row Stats - Near Misses & Suggestions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-6">
+      {/* Second Row Stats - Near Misses, Suggestions & Accidents */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {/* Near Misses Card */}
         <Card 
           className="hover:shadow-lg transition-shadow border-red-200 bg-red-50" 
@@ -1458,7 +1458,70 @@ function Dashboard() {
             </Button>
           </div>
         </Card>
+
+        {/* Accidents Card */}
+        <Card 
+          className="hover:shadow-lg transition-shadow border-purple-200 bg-purple-50" 
+          style={{display: 'flex', flexDirection: 'column', height: '100%'}}
+          data-testid="accidents-card"
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-purple-900">Accidents</CardTitle>
+            <ShieldAlert className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
+            <div style={{flex: 1}}>
+              <div className="text-2xl font-bold text-purple-600">{stats.accidentsNew || 0}</div>
+              <p className="text-xs text-purple-700">New reports ({stats.accidentsTotal || 0} total)</p>
+            </div>
+            <Button 
+              onClick={() => navigate('/accidents')}
+              variant="outline"
+              size="sm"
+              className="w-full border-purple-300 text-purple-700 hover:bg-purple-100"
+              style={{marginTop: 'auto'}}
+              data-testid="view-accidents-btn"
+            >
+              View Accidents
+            </Button>
+          </div>
+        </Card>
       </div>
+
+      {/* Near Misses by Location - Pie Chart */}
+      {nearMissesByLocation.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Near Misses by Location (Last 4 Months)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={nearMissesByLocation}
+                    dataKey="count"
+                    nameKey="location"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({ location, count }) => `${location}: ${count}`}
+                  >
+                    {nearMissesByLocation.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'][index % 6]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Work Progress Stats Section */}
       {jobs.length > 0 && (
