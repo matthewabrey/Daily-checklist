@@ -4973,6 +4973,516 @@ function RepairsCompletedPage() {
   );
 }
 
+// Near Misses Page Component
+function NearMissesPage() {
+  const [nearMisses, setNearMisses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [filter, setFilter] = useState('all'); // all, new, acknowledged
+  const navigate = useNavigate();
+  const { employee } = useAuth();
+  const isAdmin = employee?.admin_control === 'yes';
+
+  useEffect(() => {
+    fetchNearMisses();
+  }, []);
+
+  const fetchNearMisses = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/near-misses?limit=200`);
+      const data = await response.json();
+      setNearMisses(data);
+    } catch (error) {
+      console.error('Error fetching near misses:', error);
+      toast.error('Failed to load near misses');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const acknowledgeNearMiss = async (id) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/near-misses/${id}/acknowledge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acknowledged_by: employee?.name || 'Admin' })
+      });
+      
+      if (response.ok) {
+        toast.success('Near miss acknowledged');
+        fetchNearMisses();
+        setSelectedItem(null);
+      }
+    } catch (error) {
+      console.error('Error acknowledging near miss:', error);
+      toast.error('Failed to acknowledge');
+    }
+  };
+
+  const filteredItems = nearMisses.filter(item => {
+    if (filter === 'new') return !item.acknowledged;
+    if (filter === 'acknowledged') return item.acknowledged;
+    return true;
+  });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="h-8 w-8 animate-spin text-red-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-red-100 rounded-lg">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Near Misses</h1>
+              <p className="text-sm text-gray-600">{filteredItems.length} reports</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Filter */}
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+          data-testid="near-miss-filter"
+        >
+          <option value="all">All Reports</option>
+          <option value="new">New (Unacknowledged)</option>
+          <option value="acknowledged">Acknowledged</option>
+        </select>
+      </div>
+
+      {filteredItems.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <AlertTriangle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No near misses reported yet</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filteredItems.map((item) => (
+            <Card 
+              key={item.id} 
+              className={`hover:shadow-md transition-shadow cursor-pointer ${
+                !item.acknowledged ? 'border-red-200 bg-red-50' : ''
+              }`}
+              onClick={() => setSelectedItem(item)}
+              data-testid={`near-miss-item-${item.id}`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      {!item.acknowledged && (
+                        <Badge className="bg-red-500 text-white">New</Badge>
+                      )}
+                      {item.is_anonymous ? (
+                        <Badge variant="outline" className="text-gray-500">Anonymous</Badge>
+                      ) : (
+                        <span className="text-sm font-medium text-gray-700">{item.submitted_by}</span>
+                      )}
+                    </div>
+                    <p className="text-gray-800 line-clamp-2">{item.description}</p>
+                    {item.location && (
+                      <p className="text-sm text-gray-500 mt-1">Location: {item.location}</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-2">
+                      {new Date(item.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  {item.photos && item.photos.length > 0 && (
+                    <div className="ml-4">
+                      <Camera className="h-5 w-5 text-gray-400" />
+                      <span className="text-xs text-gray-400">{item.photos.length}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {selectedItem && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-auto relative z-[10000]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Near Miss Report</h3>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedItem(null)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                {!selectedItem.acknowledged ? (
+                  <Badge className="bg-red-500 text-white">Unacknowledged</Badge>
+                ) : (
+                  <Badge className="bg-green-500 text-white">Acknowledged</Badge>
+                )}
+                {selectedItem.is_anonymous ? (
+                  <Badge variant="outline">Anonymous</Badge>
+                ) : (
+                  <span className="text-sm text-gray-600">By: {selectedItem.submitted_by}</span>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Description</p>
+                <p className="text-gray-800">{selectedItem.description}</p>
+              </div>
+
+              {selectedItem.location && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Location</p>
+                  <p className="text-gray-800">{selectedItem.location}</p>
+                </div>
+              )}
+
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Reported</p>
+                <p className="text-gray-800">{new Date(selectedItem.created_at).toLocaleString()}</p>
+              </div>
+
+              {selectedItem.acknowledged && selectedItem.acknowledged_by && (
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-green-700">
+                    Acknowledged by {selectedItem.acknowledged_by} on {new Date(selectedItem.acknowledged_at).toLocaleString()}
+                  </p>
+                </div>
+              )}
+
+              {/* Photos */}
+              {selectedItem.photos && selectedItem.photos.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Photos ({selectedItem.photos.length})</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedItem.photos.map((photo, idx) => (
+                      <img 
+                        key={idx}
+                        src={photo}
+                        alt={`Photo ${idx + 1}`}
+                        className="w-full h-32 object-cover rounded-lg border"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3 mt-6">
+                <Button variant="outline" onClick={() => setSelectedItem(null)} className="flex-1">
+                  Close
+                </Button>
+                {isAdmin && !selectedItem.acknowledged && (
+                  <Button 
+                    onClick={() => acknowledgeNearMiss(selectedItem.id)}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    data-testid="acknowledge-near-miss-btn"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Acknowledge
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Suggestions Page Component
+function SuggestionsPage() {
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [filter, setFilter] = useState('all'); // all, new, reviewed, implemented, declined
+  const [reviewNotes, setReviewNotes] = useState('');
+  const navigate = useNavigate();
+  const { employee } = useAuth();
+  const isAdmin = employee?.admin_control === 'yes';
+
+  useEffect(() => {
+    fetchSuggestions();
+  }, []);
+
+  const fetchSuggestions = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/suggestions?limit=200`);
+      const data = await response.json();
+      setSuggestions(data);
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      toast.error('Failed to load suggestions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const reviewSuggestion = async (id, status) => {
+    try {
+      const params = new URLSearchParams({
+        status,
+        reviewed_by: employee?.name || 'Admin',
+        ...(reviewNotes && { review_notes: reviewNotes })
+      });
+      
+      const response = await fetch(`${API_BASE_URL}/api/suggestions/${id}/review?${params}`, {
+        method: 'PUT'
+      });
+      
+      if (response.ok) {
+        toast.success(`Suggestion marked as ${status}`);
+        fetchSuggestions();
+        setSelectedItem(null);
+        setReviewNotes('');
+      }
+    } catch (error) {
+      console.error('Error reviewing suggestion:', error);
+      toast.error('Failed to review suggestion');
+    }
+  };
+
+  const filteredItems = suggestions.filter(item => {
+    if (filter === 'new') return item.status === 'new';
+    if (filter === 'reviewed') return item.status === 'reviewed';
+    if (filter === 'implemented') return item.status === 'implemented';
+    if (filter === 'declined') return item.status === 'declined';
+    return true;
+  });
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'new': return <Badge className="bg-blue-500 text-white">New</Badge>;
+      case 'reviewed': return <Badge className="bg-yellow-500 text-white">Reviewed</Badge>;
+      case 'implemented': return <Badge className="bg-green-500 text-white">Implemented</Badge>;
+      case 'declined': return <Badge className="bg-gray-500 text-white">Declined</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getCategoryBadge = (category) => {
+    if (!category) return null;
+    const colors = {
+      safety: 'bg-red-100 text-red-700',
+      efficiency: 'bg-blue-100 text-blue-700',
+      equipment: 'bg-orange-100 text-orange-700',
+      other: 'bg-gray-100 text-gray-700'
+    };
+    return <Badge variant="outline" className={colors[category] || colors.other}>{category}</Badge>;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <FileText className="h-6 w-6 text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Suggestions</h1>
+              <p className="text-sm text-gray-600">{filteredItems.length} suggestions</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Filter */}
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          data-testid="suggestion-filter"
+        >
+          <option value="all">All Suggestions</option>
+          <option value="new">New</option>
+          <option value="reviewed">Reviewed</option>
+          <option value="implemented">Implemented</option>
+          <option value="declined">Declined</option>
+        </select>
+      </div>
+
+      {filteredItems.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No suggestions submitted yet</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filteredItems.map((item) => (
+            <Card 
+              key={item.id} 
+              className={`hover:shadow-md transition-shadow cursor-pointer ${
+                item.status === 'new' ? 'border-indigo-200 bg-indigo-50' : ''
+              }`}
+              onClick={() => setSelectedItem(item)}
+              data-testid={`suggestion-item-${item.id}`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      {getStatusBadge(item.status)}
+                      {getCategoryBadge(item.category)}
+                      {item.is_anonymous ? (
+                        <Badge variant="outline" className="text-gray-500">Anonymous</Badge>
+                      ) : (
+                        <span className="text-sm font-medium text-gray-700">{item.submitted_by}</span>
+                      )}
+                    </div>
+                    <h3 className="font-medium text-gray-900">{item.title}</h3>
+                    <p className="text-gray-600 text-sm line-clamp-2 mt-1">{item.description}</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {new Date(item.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {selectedItem && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-auto relative z-[10000]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Suggestion Details</h3>
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(null); setReviewNotes(''); }}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                {getStatusBadge(selectedItem.status)}
+                {getCategoryBadge(selectedItem.category)}
+                {selectedItem.is_anonymous ? (
+                  <Badge variant="outline">Anonymous</Badge>
+                ) : (
+                  <span className="text-sm text-gray-600">By: {selectedItem.submitted_by}</span>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Title</p>
+                <p className="text-gray-900 font-medium">{selectedItem.title}</p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Description</p>
+                <p className="text-gray-800">{selectedItem.description}</p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Submitted</p>
+                <p className="text-gray-800">{new Date(selectedItem.created_at).toLocaleString()}</p>
+              </div>
+
+              {selectedItem.reviewed_at && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">
+                    Reviewed by {selectedItem.reviewed_by} on {new Date(selectedItem.reviewed_at).toLocaleString()}
+                  </p>
+                  {selectedItem.review_notes && (
+                    <p className="text-sm text-gray-700 mt-1">Notes: {selectedItem.review_notes}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Admin Actions */}
+              {isAdmin && selectedItem.status === 'new' && (
+                <div className="border-t pt-4 mt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Review this suggestion</p>
+                  <Textarea
+                    value={reviewNotes}
+                    onChange={(e) => setReviewNotes(e.target.value)}
+                    placeholder="Add review notes (optional)"
+                    rows={2}
+                    className="mb-3"
+                  />
+                  <div className="flex gap-2 flex-wrap">
+                    <Button 
+                      onClick={() => reviewSuggestion(selectedItem.id, 'reviewed')}
+                      variant="outline"
+                      size="sm"
+                      className="border-yellow-500 text-yellow-700"
+                    >
+                      Mark Reviewed
+                    </Button>
+                    <Button 
+                      onClick={() => reviewSuggestion(selectedItem.id, 'implemented')}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      Mark Implemented
+                    </Button>
+                    <Button 
+                      onClick={() => reviewSuggestion(selectedItem.id, 'declined')}
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-400 text-gray-600"
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Close button for non-new or non-admin */}
+              {(!isAdmin || selectedItem.status !== 'new') && (
+                <div className="flex justify-end mt-6">
+                  <Button onClick={() => { setSelectedItem(null); setReviewNotes(''); }}>
+                    Close
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Machine Additions Page Component
 function MachineAdditionsPage() {
   const [machineRequests, setMachineRequests] = useState([]);
