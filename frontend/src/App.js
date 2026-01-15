@@ -162,13 +162,24 @@ const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
 function Dashboard() {
   const { t } = useTranslation();
   const [recentChecklists, setRecentChecklists] = useState([]);
-  const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0 });
+  const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0, nearMissesNew: 0, suggestionsNew: 0 });
   const [showRepairWarning, setShowRepairWarning] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [jobs, setJobs] = useState([]);
   const navigate = useNavigate();
+
+  // Near Miss / Suggestion Modal state
+  const [showReportModal, setShowReportModal] = useState(null); // 'near-miss' or 'suggestion'
+  const [reportIsAnonymous, setReportIsAnonymous] = useState(false);
+  const [reportName, setReportName] = useState('');
+  const [reportDescription, setReportDescription] = useState('');
+  const [reportTitle, setReportTitle] = useState('');
+  const [reportLocation, setReportLocation] = useState('');
+  const [reportCategory, setReportCategory] = useState('');
+  const [reportPhotos, setReportPhotos] = useState([]);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   // Total Checks Modal state
   const [showTotalChecksModal, setShowTotalChecksModal] = useState(false);
