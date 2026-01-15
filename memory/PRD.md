@@ -113,6 +113,41 @@ Build a machine checklist application for managing equipment startup inspections
 }
 ```
 
+### NearMiss
+```
+{
+  id: string,
+  description: string,
+  location: string | null,
+  photos: array,
+  is_anonymous: boolean,
+  submitted_by: string | null,
+  employee_number: string | null,
+  created_at: string,
+  acknowledged: boolean,
+  acknowledged_at: string | null,
+  acknowledged_by: string | null
+}
+```
+
+### Suggestion
+```
+{
+  id: string,
+  title: string,
+  description: string,
+  category: "safety" | "efficiency" | "equipment" | "other" | null,
+  is_anonymous: boolean,
+  submitted_by: string | null,
+  employee_number: string | null,
+  created_at: string,
+  status: "new" | "reviewed" | "implemented" | "declined",
+  reviewed_at: string | null,
+  reviewed_by: string | null,
+  review_notes: string | null
+}
+```
+
 ## API Endpoints
 
 ### Authentication
