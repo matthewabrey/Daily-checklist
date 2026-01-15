@@ -182,6 +182,46 @@ class SuggestionCreate(BaseModel):
     is_anonymous: bool = False
     submitted_by: Optional[str] = None
 
+# Accident Models
+class Accident(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    date_time: str  # When the accident occurred
+    location: str  # Farm, Field, Storage, Grading
+    description: str  # What happened
+    injured_persons: List[str] = []  # Names of injured people
+    injury_type: Optional[str] = None  # Cut, Burn, Fracture, Sprain, etc.
+    body_parts_affected: Optional[str] = None
+    first_aid_given: bool = False
+    first_aid_details: Optional[str] = None
+    witnesses: List[str] = []
+    equipment_involved: Optional[str] = None
+    photos: List[str] = []
+    actions_taken: Optional[str] = None
+    emergency_services_called: bool = False
+    reported_by: str
+    employee_number: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    status: str = "new"  # new, investigating, closed
+    investigation_notes: Optional[str] = None
+    investigated_by: Optional[str] = None
+    investigated_at: Optional[str] = None
+
+class AccidentCreate(BaseModel):
+    date_time: str
+    location: str
+    description: str
+    injured_persons: List[str] = []
+    injury_type: Optional[str] = None
+    body_parts_affected: Optional[str] = None
+    first_aid_given: bool = False
+    first_aid_details: Optional[str] = None
+    witnesses: List[str] = []
+    equipment_involved: Optional[str] = None
+    photos: List[str] = []
+    actions_taken: Optional[str] = None
+    emergency_services_called: bool = False
+    reported_by: str
+
 # Initialize data
 async def initialize_data():
     # Check if data already exists
