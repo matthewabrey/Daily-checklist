@@ -353,6 +353,91 @@ function Dashboard() {
     }
   };
 
+  // Near Miss / Suggestion submission
+  const openReportModal = (type) => {
+    setShowReportModal(type);
+    setReportIsAnonymous(false);
+    setReportName('');
+    setReportDescription('');
+    setReportTitle('');
+    setReportLocation('');
+    setReportCategory('');
+    setReportPhotos([]);
+  };
+
+  const handlePhotoCapture = (e) => {
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setReportPhotos(prev => [...prev, e.target.result]);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const submitReport = async () => {
+    if (!reportDescription.trim()) {
+      toast.error('Please provide a description');
+      return;
+    }
+    
+    if (showReportModal === 'suggestion' && !reportTitle.trim()) {
+      toast.error('Please provide a title for your suggestion');
+      return;
+    }
+    
+    if (!reportIsAnonymous && !reportName.trim()) {
+      toast.error('Please enter your name or choose anonymous');
+      return;
+    }
+
+    setIsSubmittingReport(true);
+    try {
+      if (showReportModal === 'near-miss') {
+        const response = await fetch(`${API_BASE_URL}/api/near-misses`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            description: reportDescription,
+            location: reportLocation,
+            photos: reportPhotos,
+            is_anonymous: reportIsAnonymous,
+            submitted_by: reportIsAnonymous ? null : reportName
+          })
+        });
+        
+        if (!response.ok) throw new Error('Failed to submit');
+        toast.success('Near miss reported successfully!');
+      } else {
+        const response = await fetch(`${API_BASE_URL}/api/suggestions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: reportTitle,
+            description: reportDescription,
+            category: reportCategory,
+            is_anonymous: reportIsAnonymous,
+            submitted_by: reportIsAnonymous ? null : reportName
+          })
+        });
+        
+        if (!response.ok) throw new Error('Failed to submit');
+        toast.success('Suggestion submitted successfully!');
+      }
+      
+      setShowReportModal(null);
+      fetchRecentChecklists(); // Refresh stats
+    } catch (error) {
+      console.error('Error submitting:', error);
+      toast.error('Failed to submit. Please try again.');
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
   useEffect(() => {
     // Fetch data whenever dashboard is visited
     console.log('Dashboard visited, fetching data from:', API_BASE_URL);
