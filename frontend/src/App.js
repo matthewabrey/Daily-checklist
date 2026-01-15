@@ -8016,6 +8016,16 @@ function AppContent() {
                 <RepairsNeeded />
               </ProtectedRoute>
             } />
+            <Route path="/near-misses" element={
+              <ProtectedRoute>
+                <NearMissesPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/suggestions" element={
+              <ProtectedRoute>
+                <SuggestionsPage />
+              </ProtectedRoute>
+            } />
             <Route path="/general-repair-record" element={
               <ProtectedRoute>
                 <GeneralRepairRecord />
