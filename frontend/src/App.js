@@ -369,7 +369,7 @@ function Dashboard() {
     }
   };
 
-  // Near Miss / Suggestion submission
+  // Near Miss / Suggestion / Accident submission
   const openReportModal = (type) => {
     setShowReportModal(type);
     setReportIsAnonymous(false);
@@ -379,6 +379,17 @@ function Dashboard() {
     setReportLocation('');
     setReportCategory('');
     setReportPhotos([]);
+    // Reset accident fields
+    setAccidentDateTime('');
+    setAccidentInjuredPersons('');
+    setAccidentInjuryType('');
+    setAccidentBodyParts('');
+    setAccidentFirstAid(false);
+    setAccidentFirstAidDetails('');
+    setAccidentWitnesses('');
+    setAccidentEquipment('');
+    setAccidentActionsTaken('');
+    setAccidentEmergencyServices(false);
   };
 
   const handlePhotoCapture = (e) => {
@@ -395,6 +406,61 @@ function Dashboard() {
   };
 
   const submitReport = async () => {
+    if (showReportModal === 'accident') {
+      // Validate accident form
+      if (!reportName.trim()) {
+        toast.error('Please enter your name');
+        return;
+      }
+      if (!accidentDateTime) {
+        toast.error('Please enter the date and time of the accident');
+        return;
+      }
+      if (!reportLocation) {
+        toast.error('Please select a location');
+        return;
+      }
+      if (!reportDescription.trim()) {
+        toast.error('Please describe what happened');
+        return;
+      }
+      
+      setIsSubmittingReport(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/accidents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date_time: accidentDateTime,
+            location: reportLocation,
+            description: reportDescription,
+            injured_persons: accidentInjuredPersons.split(',').map(s => s.trim()).filter(Boolean),
+            injury_type: accidentInjuryType,
+            body_parts_affected: accidentBodyParts,
+            first_aid_given: accidentFirstAid,
+            first_aid_details: accidentFirstAidDetails,
+            witnesses: accidentWitnesses.split(',').map(s => s.trim()).filter(Boolean),
+            equipment_involved: accidentEquipment,
+            photos: reportPhotos,
+            actions_taken: accidentActionsTaken,
+            emergency_services_called: accidentEmergencyServices,
+            reported_by: reportName
+          })
+        });
+        
+        if (!response.ok) throw new Error('Failed to submit');
+        toast.success('Accident reported successfully!');
+        setShowReportModal(null);
+        fetchRecentChecklists();
+      } catch (error) {
+        console.error('Error submitting:', error);
+        toast.error('Failed to submit. Please try again.');
+      } finally {
+        setIsSubmittingReport(false);
+      }
+      return;
+    }
+    
     if (!reportDescription.trim()) {
       toast.error('Please provide a description');
       return;
@@ -427,7 +493,7 @@ function Dashboard() {
         
         if (!response.ok) throw new Error('Failed to submit');
         toast.success('Near miss reported successfully!');
-      } else {
+      } else if (showReportModal === 'suggestion') {
         const response = await fetch(`${API_BASE_URL}/api/suggestions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
