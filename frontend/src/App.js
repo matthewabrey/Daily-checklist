@@ -909,6 +909,26 @@ function Dashboard() {
             Breakdown and repair reporting
           </Button>
         </div>
+        
+        {/* Second Row - Near Miss and Suggestions */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <Button 
+            onClick={() => openReportModal('near-miss')}
+            className="bg-red-600 hover:bg-red-700 text-white flex-1 text-sm sm:text-base py-4 sm:py-6"
+            data-testid="near-miss-btn"
+          >
+            <AlertTriangle className="mr-2 h-4 w-4" />
+            Report Near Miss
+          </Button>
+          <Button 
+            onClick={() => openReportModal('suggestion')}
+            className="bg-blue-600 hover:bg-blue-700 text-white flex-1 text-sm sm:text-base py-4 sm:py-6"
+            data-testid="suggestion-btn"
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            Submit Suggestion
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
