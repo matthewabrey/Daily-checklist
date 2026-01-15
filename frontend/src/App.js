@@ -7032,7 +7032,7 @@ function AppContent() {
                     className="h-8 sm:h-10 w-auto"
                     loading="eager"
                   />
-                  <span className="text-xs sm:text-sm text-gray-600 ml-2 sm:ml-3 font-medium hidden sm:block">Machine Checklist</span>
+                  <span className="text-xs sm:text-sm text-gray-600 ml-2 sm:ml-3 font-medium hidden sm:block">Dashboard</span>
                 </div>
               </Link>
               <nav className="flex items-center space-x-1 sm:space-x-4">
