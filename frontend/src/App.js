@@ -5519,9 +5519,12 @@ function NearMissesPage() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       {!item.acknowledged && (
                         <Badge className="bg-red-500 text-white">New</Badge>
+                      )}
+                      {item.location && (
+                        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">{item.location}</Badge>
                       )}
                       {item.is_anonymous ? (
                         <Badge variant="outline" className="text-gray-500">Anonymous</Badge>
@@ -5530,15 +5533,20 @@ function NearMissesPage() {
                       )}
                     </div>
                     <p className="text-gray-800 line-clamp-2">{item.description}</p>
-                    {item.location && (
-                      <p className="text-sm text-gray-500 mt-1">Location: {item.location}</p>
-                    )}
-                    <p className="text-xs text-gray-400 mt-2">
-                      {new Date(item.created_at).toLocaleString()}
-                    </p>
+                    <div className="flex items-center gap-4 mt-2">
+                      <p className="text-xs text-gray-400">
+                        {new Date(item.created_at).toLocaleString()}
+                      </p>
+                      {item.comments && item.comments.length > 0 && (
+                        <span className="text-xs text-blue-600 flex items-center gap-1">
+                          <MessageSquare className="h-3 w-3" />
+                          {item.comments.length} note{item.comments.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {item.photos && item.photos.length > 0 && (
-                    <div className="ml-4">
+                    <div className="ml-4 flex items-center gap-1">
                       <Camera className="h-5 w-5 text-gray-400" />
                       <span className="text-xs text-gray-400">{item.photos.length}</span>
                     </div>
