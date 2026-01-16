@@ -5367,6 +5367,7 @@ function NearMissesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [filter, setFilter] = useState('all'); // all, new, acknowledged
+  const [locationFilter, setLocationFilter] = useState('all'); // all, Farm, Field, Storage, Grading
   const [newComment, setNewComment] = useState('');
   const navigate = useNavigate();
   const { employee } = useAuth();
