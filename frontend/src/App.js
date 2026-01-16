@@ -5602,9 +5602,38 @@ function NearMissesPage() {
                 </div>
               )}
 
+              {/* Comments Section */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" /> Comments
+                </h4>
+                {selectedItem.comments?.length > 0 ? (
+                  <div className="space-y-2 mb-3">
+                    {selectedItem.comments.map((comment, idx) => (
+                      <div key={idx} className="p-2 bg-gray-50 rounded text-sm">
+                        <p className="text-gray-800">{comment.text}</p>
+                        <p className="text-xs text-gray-500 mt-1">{comment.by} - {new Date(comment.at).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 mb-3">No comments yet</p>
+                )}
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={newComment} 
+                    onChange={(e) => setNewComment(e.target.value)} 
+                    placeholder="Add a comment..." 
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" 
+                  />
+                  <Button size="sm" onClick={() => addComment(selectedItem.id)} disabled={!newComment.trim()}>Add</Button>
+                </div>
+              </div>
+
               {/* Actions */}
               <div className="flex gap-3 mt-6">
-                <Button variant="outline" onClick={() => setSelectedItem(null)} className="flex-1">
+                <Button variant="outline" onClick={() => { setSelectedItem(null); setNewComment(''); }} className="flex-1">
                   Close
                 </Button>
                 {isAdmin && !selectedItem.acknowledged && (
@@ -5633,6 +5662,7 @@ function SuggestionsPage() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [filter, setFilter] = useState('all'); // all, new, reviewed, implemented, declined
   const [reviewNotes, setReviewNotes] = useState('');
+  const [newComment, setNewComment] = useState('');
   const navigate = useNavigate();
   const { employee } = useAuth();
   const isAdmin = employee?.admin_control === 'yes';
