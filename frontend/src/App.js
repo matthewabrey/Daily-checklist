@@ -5708,6 +5708,26 @@ function SuggestionsPage() {
     }
   };
 
+  const addComment = async (id) => {
+    if (!newComment.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/suggestions/${id}/comment?comment=${encodeURIComponent(newComment)}&commented_by=${encodeURIComponent(employee?.name || 'Admin')}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        toast.success('Comment added');
+        setNewComment('');
+        fetchSuggestions();
+        const updatedItems = await (await fetch(`${API_BASE_URL}/api/suggestions?limit=200`)).json();
+        const updated = updatedItems.find(a => a.id === id);
+        if (updated) setSelectedItem(updated);
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment');
+    }
+  };
+
   const filteredItems = suggestions.filter(item => {
     if (filter === 'new') return item.status === 'new';
     if (filter === 'reviewed') return item.status === 'reviewed';
@@ -5729,6 +5749,9 @@ function SuggestionsPage() {
   const getCategoryBadge = (category) => {
     if (!category) return null;
     const colors = {
+      'Financial': 'bg-green-100 text-green-700',
+      'Well Being': 'bg-blue-100 text-blue-700',
+      'Health and Safety': 'bg-red-100 text-red-700',
       safety: 'bg-red-100 text-red-700',
       efficiency: 'bg-blue-100 text-blue-700',
       equipment: 'bg-orange-100 text-orange-700',
