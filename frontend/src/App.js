@@ -5817,19 +5817,36 @@ function SuggestionsPage() {
           </div>
         </div>
         
-        {/* Filter */}
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          data-testid="suggestion-filter"
-        >
-          <option value="all">All Suggestions</option>
-          <option value="new">New</option>
-          <option value="reviewed">Reviewed</option>
-          <option value="implemented">Implemented</option>
-          <option value="declined">Declined</option>
-        </select>
+        {/* Filters */}
+        <div className="flex gap-2 flex-wrap">
+          {/* Location Filter */}
+          <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            data-testid="suggestion-location-filter"
+          >
+            <option value="all">All Locations</option>
+            <option value="Farm">Farm</option>
+            <option value="Field">Field</option>
+            <option value="Storage">Storage</option>
+            <option value="Grading">Grading</option>
+          </select>
+          
+          {/* Status Filter */}
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            data-testid="suggestion-filter"
+          >
+            <option value="all">All Suggestions</option>
+            <option value="new">New</option>
+            <option value="reviewed">Reviewed</option>
+            <option value="implemented">Implemented</option>
+            <option value="declined">Declined</option>
+          </select>
+        </div>
       </div>
 
       {filteredItems.length === 0 ? (
