@@ -5873,6 +5873,9 @@ function SuggestionsPage() {
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       {getStatusBadge(item.status)}
                       {getCategoryBadge(item.category)}
+                      {item.location && (
+                        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">{item.location}</Badge>
+                      )}
                       {item.is_anonymous ? (
                         <Badge variant="outline" className="text-gray-500">Anonymous</Badge>
                       ) : (
@@ -5881,9 +5884,17 @@ function SuggestionsPage() {
                     </div>
                     <h3 className="font-medium text-gray-900">{item.title}</h3>
                     <p className="text-gray-600 text-sm line-clamp-2 mt-1">{item.description}</p>
-                    <p className="text-xs text-gray-400 mt-2">
-                      {new Date(item.created_at).toLocaleString()}
-                    </p>
+                    <div className="flex items-center gap-4 mt-2">
+                      <p className="text-xs text-gray-400">
+                        {new Date(item.created_at).toLocaleString()}
+                      </p>
+                      {item.comments && item.comments.length > 0 && (
+                        <span className="text-xs text-blue-600 flex items-center gap-1">
+                          <MessageSquare className="h-3 w-3" />
+                          {item.comments.length} note{item.comments.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
