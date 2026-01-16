@@ -5897,6 +5897,36 @@ function SuggestionsPage() {
               )}
 
               {/* Admin Actions */}
+              {/* Comments Section */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" /> Comments
+                </h4>
+                {selectedItem.comments?.length > 0 ? (
+                  <div className="space-y-2 mb-3">
+                    {selectedItem.comments.map((comment, idx) => (
+                      <div key={idx} className="p-2 bg-gray-50 rounded text-sm">
+                        <p className="text-gray-800">{comment.text}</p>
+                        <p className="text-xs text-gray-500 mt-1">{comment.by} - {new Date(comment.at).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 mb-3">No comments yet</p>
+                )}
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={newComment} 
+                    onChange={(e) => setNewComment(e.target.value)} 
+                    placeholder="Add a comment..." 
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" 
+                  />
+                  <Button size="sm" onClick={() => addComment(selectedItem.id)} disabled={!newComment.trim()}>Add</Button>
+                </div>
+              </div>
+
+              {/* Admin Actions */}
               {isAdmin && selectedItem.status === 'new' && (
                 <div className="border-t pt-4 mt-4">
                   <p className="text-sm font-medium text-gray-700 mb-2">Review this suggestion</p>
@@ -5938,7 +5968,7 @@ function SuggestionsPage() {
               {/* Close button for non-new or non-admin */}
               {(!isAdmin || selectedItem.status !== 'new') && (
                 <div className="flex justify-end mt-6">
-                  <Button onClick={() => { setSelectedItem(null); setReviewNotes(''); }}>
+                  <Button onClick={() => { setSelectedItem(null); setReviewNotes(''); setNewComment(''); }}>
                     Close
                   </Button>
                 </div>
