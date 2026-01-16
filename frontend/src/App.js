@@ -5687,6 +5687,7 @@ function SuggestionsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [filter, setFilter] = useState('all'); // all, new, reviewed, implemented, declined
+  const [locationFilter, setLocationFilter] = useState('all'); // all, Farm, Field, Storage, Grading
   const [reviewNotes, setReviewNotes] = useState('');
   const [newComment, setNewComment] = useState('');
   const navigate = useNavigate();
