@@ -374,7 +374,7 @@ function Dashboard() {
   const openReportModal = (type) => {
     setShowReportModal(type);
     setReportIsAnonymous(false);
-    setReportName('');
+    setReportName(employee?.name || ''); // Pre-fill with logged-in user's name
     setReportDescription('');
     setReportTitle('');
     setReportLocation('');
