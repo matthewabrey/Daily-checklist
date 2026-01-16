@@ -5756,10 +5756,13 @@ function SuggestionsPage() {
   };
 
   const filteredItems = suggestions.filter(item => {
-    if (filter === 'new') return item.status === 'new';
-    if (filter === 'reviewed') return item.status === 'reviewed';
-    if (filter === 'implemented') return item.status === 'implemented';
-    if (filter === 'declined') return item.status === 'declined';
+    // Status filter
+    if (filter === 'new' && item.status !== 'new') return false;
+    if (filter === 'reviewed' && item.status !== 'reviewed') return false;
+    if (filter === 'implemented' && item.status !== 'implemented') return false;
+    if (filter === 'declined' && item.status !== 'declined') return false;
+    // Location filter
+    if (locationFilter !== 'all' && item.location !== locationFilter) return false;
     return true;
   });
 
@@ -5797,7 +5800,7 @@ function SuggestionsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
             <ArrowLeft className="h-4 w-4 mr-1" />
