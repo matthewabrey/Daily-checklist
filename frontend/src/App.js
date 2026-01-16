@@ -5430,10 +5430,16 @@ function NearMissesPage() {
   };
 
   const filteredItems = nearMisses.filter(item => {
-    if (filter === 'new') return !item.acknowledged;
-    if (filter === 'acknowledged') return item.acknowledged;
+    // Status filter
+    if (filter === 'new' && item.acknowledged) return false;
+    if (filter === 'acknowledged' && !item.acknowledged) return false;
+    // Location filter
+    if (locationFilter !== 'all' && item.location !== locationFilter) return false;
     return true;
   });
+
+  // Get unique locations for filter dropdown
+  const locations = [...new Set(nearMisses.map(item => item.location).filter(Boolean))];
 
   if (loading) {
     return (
@@ -5445,7 +5451,7 @@ function NearMissesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
             <ArrowLeft className="h-4 w-4 mr-1" />
@@ -5462,12 +5468,28 @@ function NearMissesPage() {
           </div>
         </div>
         
-        {/* Filter */}
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-          data-testid="near-miss-filter"
+        {/* Filters */}
+        <div className="flex gap-2 flex-wrap">
+          {/* Location Filter */}
+          <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+            data-testid="near-miss-location-filter"
+          >
+            <option value="all">All Locations</option>
+            <option value="Farm">Farm</option>
+            <option value="Field">Field</option>
+            <option value="Storage">Storage</option>
+            <option value="Grading">Grading</option>
+          </select>
+          
+          {/* Status Filter */}
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+            data-testid="near-miss-filter"
         >
           <option value="all">All Reports</option>
           <option value="new">New (Unacknowledged)</option>
