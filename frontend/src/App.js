@@ -635,7 +635,9 @@ function Dashboard() {
         suggestionsNew: statsData.suggestions_new || 0,
         suggestionsTotal: statsData.suggestions_total || 0,
         accidentsNew: statsData.accidents_new || 0,
-        accidentsTotal: statsData.accidents_total || 0
+        accidentsTotal: statsData.accidents_total || 0,
+        whistleblowingNew: statsData.whistleblowing_new || 0,
+        whistleblowingTotal: statsData.whistleblowing_total || 0
       });
       
       // Fetch near misses by location for pie chart
