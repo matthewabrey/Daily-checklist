@@ -2210,6 +2210,82 @@ async def add_accident_comment(accident_id: str, comment: str, commented_by: str
     raise HTTPException(status_code=404, detail="Accident not found")
 
 # ============================================
+# Whistleblowing Endpoints
+# ============================================
+
+@app.post("/api/whistleblowing")
+async def create_whistleblow(whistleblow: WhistleblowCreate, employee_number: str = None):
+    """Submit a whistleblowing report"""
+    whistleblow_doc = {
+        "id": str(uuid.uuid4()),
+        "title": whistleblow.title,
+        "description": whistleblow.description,
+        "category": whistleblow.category,
+        "location": whistleblow.location,
+        "is_anonymous": whistleblow.is_anonymous,
+        "submitted_by": whistleblow.submitted_by if not whistleblow.is_anonymous else None,
+        "employee_number": employee_number if not whistleblow.is_anonymous else None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "status": "new",
+        "comments": []
+    }
+    await db.whistleblowing.insert_one(whistleblow_doc)
+    await invalidate_cache()
+    return {"success": True, "message": "Report submitted successfully", "id": whistleblow_doc["id"]}
+
+@app.get("/api/whistleblowing")
+async def get_whistleblowing(status: str = None, limit: int = 100):
+    """Get whistleblowing reports"""
+    query = {}
+    if status:
+        query["status"] = status
+    
+    reports = await db.whistleblowing.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
+    return reports
+
+@app.get("/api/whistleblowing/count")
+async def get_whistleblowing_count():
+    """Get count of whistleblowing reports"""
+    total = await db.whistleblowing.count_documents({})
+    new_count = await db.whistleblowing.count_documents({"status": "new"})
+    return {"total": total, "new": new_count}
+
+@app.put("/api/whistleblowing/{report_id}/investigate")
+async def investigate_whistleblow(report_id: str, status: str, investigated_by: str = "Admin", investigation_notes: str = None):
+    """Update whistleblowing investigation status"""
+    if status not in ["investigating", "resolved", "dismissed"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    result = await db.whistleblowing.update_one(
+        {"id": report_id},
+        {"$set": {
+            "status": status,
+            "investigated_at": datetime.now(timezone.utc).isoformat(),
+            "investigated_by": investigated_by,
+            "investigation_notes": investigation_notes
+        }}
+    )
+    await invalidate_cache()
+    if result.modified_count > 0:
+        return {"success": True, "message": f"Report marked as {status}"}
+    raise HTTPException(status_code=404, detail="Report not found")
+
+@app.post("/api/whistleblowing/{report_id}/comment")
+async def add_whistleblow_comment(report_id: str, comment: str, commented_by: str = "Admin"):
+    """Add a comment to a whistleblowing report"""
+    result = await db.whistleblowing.update_one(
+        {"id": report_id},
+        {"$push": {"comments": {
+            "text": comment,
+            "by": commented_by,
+            "at": datetime.now(timezone.utc).isoformat()
+        }}}
+    )
+    if result.modified_count > 0:
+        return {"success": True, "message": "Comment added"}
+    raise HTTPException(status_code=404, detail="Report not found")
+
+# ============================================
 # Work Progress Tracking Endpoints
 # ============================================
 
