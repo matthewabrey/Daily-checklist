@@ -380,27 +380,30 @@ function Dashboard() {
     }
   };
 
-  // Near Miss / Suggestion / Accident submission
+  // Near Miss / Suggestion / Accident / Whistleblowing submission
   const openReportModal = (type) => {
     setShowReportModal(type);
-    setReportIsAnonymous(false);
+    setReportIsAnonymous(type === 'whistleblowing'); // Default anonymous for whistleblowing
     setReportName(employee?.name || ''); // Pre-fill with logged-in user's name
     setReportDescription('');
     setReportTitle('');
     setReportLocation('');
     setReportCategory('');
     setReportPhotos([]);
-    // Reset accident fields
-    setAccidentDateTime('');
-    setAccidentInjuredPersons('');
-    setAccidentInjuryType('');
-    setAccidentBodyParts('');
-    setAccidentFirstAid(false);
-    setAccidentFirstAidDetails('');
-    setAccidentWitnesses('');
-    setAccidentEquipment('');
-    setAccidentActionsTaken('');
-    setAccidentEmergencyServices(false);
+    // Reset accident fields - matching official accident record book
+    setInjuredName('');
+    setInjuredAddress('');
+    setInjuredPostcode('');
+    setInjuredOccupation('');
+    setReporterAddress('');
+    setReporterPostcode('');
+    setReporterOccupation('');
+    setAccidentDate('');
+    setAccidentTime('');
+    setAccidentLocation('');
+    setAccidentDescription('');
+    setInjuryDetails('');
+    setEmployeeConsent(false);
   };
 
   const handlePhotoCapture = (e) => {
