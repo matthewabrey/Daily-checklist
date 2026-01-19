@@ -6277,6 +6277,10 @@ function AccidentsPage() {
   const [filter, setFilter] = useState('all');
   const [newComment, setNewComment] = useState('');
   const [investigationNotes, setInvestigationNotes] = useState('');
+  // RIDDOR Section 5 state
+  const [riddorReportable, setRiddorReportable] = useState(false);
+  const [riddorHowReported, setRiddorHowReported] = useState('');
+  const [riddorDateReported, setRiddorDateReported] = useState('');
   const navigate = useNavigate();
   const { employee } = useAuth();
   const isAdmin = employee?.admin_control === 'yes';
@@ -6295,6 +6299,33 @@ function AccidentsPage() {
       toast.error('Failed to load accidents');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Update RIDDOR details
+  const updateRiddor = async (id) => {
+    try {
+      const params = new URLSearchParams({
+        riddor_reportable: riddorReportable.toString(),
+        ...(riddorHowReported && { how_reported: riddorHowReported }),
+        ...(riddorDateReported && { date_reported: riddorDateReported })
+      });
+      
+      const response = await fetch(`${API_BASE_URL}/api/accidents/${id}/riddor?${params}`, {
+        method: 'PUT'
+      });
+      
+      if (response.ok) {
+        toast.success('RIDDOR details updated');
+        fetchAccidents();
+        // Refresh selected item
+        const updatedAccidents = await (await fetch(`${API_BASE_URL}/api/accidents?limit=200`)).json();
+        const updated = updatedAccidents.find(a => a.id === id);
+        if (updated) setSelectedItem(updated);
+      }
+    } catch (error) {
+      console.error('Error updating RIDDOR:', error);
+      toast.error('Failed to update RIDDOR details');
     }
   };
 
