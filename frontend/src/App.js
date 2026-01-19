@@ -6521,6 +6521,23 @@ function AccidentsPage() {
                     <p className="text-xs text-gray-400 mt-2">
                       {item.accident_date} {item.accident_time} | Reported by: {item.reporter_name || item.reported_by}
                     </p>
+                    {/* Display actual comments/notes */}
+                    {item.comments && item.comments.length > 0 && (
+                      <div className="mt-2 space-y-1 border-t pt-2">
+                        <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                          <MessageSquare className="h-3 w-3" /> Notes ({item.comments.length})
+                        </p>
+                        {item.comments.slice(-2).map((comment, idx) => (
+                          <div key={idx} className="text-xs bg-purple-50 p-2 rounded border-l-2 border-purple-400">
+                            <p className="text-gray-700">{comment.text}</p>
+                            <p className="text-gray-400 mt-1">{comment.commented_by} • {new Date(comment.commented_at).toLocaleDateString()}</p>
+                          </div>
+                        ))}
+                        {item.comments.length > 2 && (
+                          <p className="text-xs text-purple-600">+{item.comments.length - 2} more note{item.comments.length - 2 !== 1 ? 's' : ''}...</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {item.photos && item.photos.length > 0 && (
                     <div className="ml-4 flex items-center gap-1">
