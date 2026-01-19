@@ -421,21 +421,29 @@ function Dashboard() {
 
   const submitReport = async () => {
     if (showReportModal === 'accident') {
-      // Validate accident form
+      // Validate accident form - matching official accident record book
+      if (!injuredName.trim()) {
+        toast.error('Please enter the injured person\'s name');
+        return;
+      }
       if (!reportName.trim()) {
-        toast.error('Please enter your name');
+        toast.error('Please enter reporter name');
         return;
       }
-      if (!accidentDateTime) {
-        toast.error('Please enter the date and time of the accident');
+      if (!accidentDate) {
+        toast.error('Please enter the date of the accident');
         return;
       }
-      if (!reportLocation) {
-        toast.error('Please select a location');
+      if (!accidentTime) {
+        toast.error('Please enter the time of the accident');
         return;
       }
-      if (!reportDescription.trim()) {
-        toast.error('Please describe what happened');
+      if (!accidentLocation.trim()) {
+        toast.error('Please enter where the accident happened');
+        return;
+      }
+      if (!accidentDescription.trim()) {
+        toast.error('Please describe how the accident happened');
         return;
       }
       
@@ -445,25 +453,75 @@ function Dashboard() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            date_time: accidentDateTime,
-            location: reportLocation,
-            description: reportDescription,
-            injured_persons: accidentInjuredPersons.split(',').map(s => s.trim()).filter(Boolean),
-            injury_type: accidentInjuryType,
-            body_parts_affected: accidentBodyParts,
-            first_aid_given: accidentFirstAid,
-            first_aid_details: accidentFirstAidDetails,
-            witnesses: accidentWitnesses.split(',').map(s => s.trim()).filter(Boolean),
-            equipment_involved: accidentEquipment,
-            photos: reportPhotos,
-            actions_taken: accidentActionsTaken,
-            emergency_services_called: accidentEmergencyServices,
-            reported_by: reportName
+            // Section 1
+            injured_name: injuredName,
+            injured_address: injuredAddress,
+            injured_postcode: injuredPostcode,
+            injured_occupation: injuredOccupation,
+            // Section 2
+            reporter_name: reportName,
+            reporter_address: reporterAddress,
+            reporter_postcode: reporterPostcode,
+            reporter_occupation: reporterOccupation,
+            // Section 3
+            accident_date: accidentDate,
+            accident_time: accidentTime,
+            accident_location: accidentLocation,
+            accident_description: accidentDescription,
+            injury_details: injuryDetails,
+            // Section 4
+            employee_consent: employeeConsent,
+            // Photos
+            photos: reportPhotos
           })
         });
         
         if (!response.ok) throw new Error('Failed to submit');
-        toast.success('Accident reported successfully!');
+        const data = await response.json();
+        toast.success(`Accident reported successfully! Report #${data.report_number}`);
+        setShowReportModal(null);
+        fetchRecentChecklists();
+      } catch (error) {
+        console.error('Error submitting:', error);
+        toast.error('Failed to submit. Please try again.');
+      } finally {
+        setIsSubmittingReport(false);
+      }
+      return;
+    }
+    
+    if (showReportModal === 'whistleblowing') {
+      // Validate whistleblowing form
+      if (!reportTitle.trim()) {
+        toast.error('Please provide a title');
+        return;
+      }
+      if (!reportDescription.trim()) {
+        toast.error('Please provide a description');
+        return;
+      }
+      if (!reportIsAnonymous && !reportName.trim()) {
+        toast.error('Please enter your name or choose anonymous');
+        return;
+      }
+      
+      setIsSubmittingReport(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/whistleblowing`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: reportTitle,
+            description: reportDescription,
+            category: reportCategory,
+            location: reportLocation,
+            is_anonymous: reportIsAnonymous,
+            submitted_by: reportIsAnonymous ? null : reportName
+          })
+        });
+        
+        if (!response.ok) throw new Error('Failed to submit');
+        toast.success('Whistleblowing report submitted successfully!');
         setShowReportModal(null);
         fetchRecentChecklists();
       } catch (error) {
