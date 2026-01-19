@@ -6561,6 +6561,195 @@ function AccidentsPage() {
   );
 }
 
+// Whistleblowing Page Component
+function WhistleblowingPage() {
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState('all');
+  const [newComment, setNewComment] = useState('');
+  const [investigationNotes, setInvestigationNotes] = useState('');
+  const navigate = useNavigate();
+  const { employee } = useAuth();
+  const isAdmin = employee?.admin_control === 'yes';
+
+  useEffect(() => { fetchReports(); }, []);
+
+  const fetchReports = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/whistleblowing?limit=200`);
+      const data = await response.json();
+      setReports(data);
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+      toast.error('Failed to load reports');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const investigateReport = async (id, status) => {
+    try {
+      const params = new URLSearchParams({
+        status,
+        investigated_by: employee?.name || 'Admin',
+        ...(investigationNotes && { investigation_notes: investigationNotes })
+      });
+      const response = await fetch(`${API_BASE_URL}/api/whistleblowing/${id}/investigate?${params}`, { method: 'PUT' });
+      if (response.ok) {
+        toast.success(`Report marked as ${status}`);
+        fetchReports();
+        setSelectedItem(null);
+        setInvestigationNotes('');
+      }
+    } catch (error) {
+      toast.error('Failed to update report');
+    }
+  };
+
+  const addComment = async (id) => {
+    if (!newComment.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/whistleblowing/${id}/comment?comment=${encodeURIComponent(newComment)}&commented_by=${encodeURIComponent(employee?.name || 'Admin')}`, { method: 'POST' });
+      if (response.ok) {
+        toast.success('Comment added');
+        setNewComment('');
+        fetchReports();
+        const updated = (await (await fetch(`${API_BASE_URL}/api/whistleblowing?limit=200`)).json()).find(a => a.id === id);
+        if (updated) setSelectedItem(updated);
+      }
+    } catch (error) {
+      toast.error('Failed to add comment');
+    }
+  };
+
+  const filteredItems = reports.filter(item => {
+    if (filter !== 'all' && item.status !== filter) return false;
+    if (locationFilter !== 'all' && item.location !== locationFilter) return false;
+    return true;
+  });
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      'new': <Badge className="bg-amber-500 text-white">New</Badge>,
+      'investigating': <Badge className="bg-yellow-500 text-white">Investigating</Badge>,
+      'resolved': <Badge className="bg-green-500 text-white">Resolved</Badge>,
+      'dismissed': <Badge className="bg-gray-500 text-white">Dismissed</Badge>
+    };
+    return badges[status] || <Badge variant="outline">{status}</Badge>;
+  };
+
+  if (loading) return <div className="flex items-center justify-center p-8"><RefreshCw className="h-8 w-8 animate-spin text-amber-600" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')}><ArrowLeft className="h-4 w-4 mr-1" />Back</Button>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-amber-100 rounded-lg"><AlertCircle className="h-6 w-6 text-amber-600" /></div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Whistleblowing Reports</h1>
+              <p className="text-sm text-gray-600">{filteredItems.length} reports</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-md">
+            <option value="all">All Locations</option>
+            <option value="Farm">Farm</option>
+            <option value="Field">Field</option>
+            <option value="Storage">Storage</option>
+            <option value="Grading">Grading</option>
+          </select>
+          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-md">
+            <option value="all">All Reports</option>
+            <option value="new">New</option>
+            <option value="investigating">Investigating</option>
+            <option value="resolved">Resolved</option>
+            <option value="dismissed">Dismissed</option>
+          </select>
+        </div>
+      </div>
+
+      {filteredItems.length === 0 ? (
+        <Card><CardContent className="p-8 text-center"><AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" /><p className="text-gray-500">No reports submitted</p></CardContent></Card>
+      ) : (
+        <div className="space-y-3">
+          {filteredItems.map((item) => (
+            <Card key={item.id} className={`hover:shadow-md cursor-pointer ${item.status === 'new' ? 'border-amber-200 bg-amber-50' : ''}`} onClick={() => setSelectedItem(item)}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  {getStatusBadge(item.status)}
+                  {item.category && <Badge variant="outline">{item.category}</Badge>}
+                  {item.location && <Badge variant="outline" className="bg-orange-50 text-orange-700">{item.location}</Badge>}
+                  {item.is_anonymous ? <Badge variant="outline" className="text-gray-500">Anonymous</Badge> : <span className="text-sm text-gray-700">{item.submitted_by}</span>}
+                </div>
+                <h3 className="font-medium text-gray-900">{item.title}</h3>
+                <p className="text-gray-600 text-sm line-clamp-2 mt-1">{item.description}</p>
+                <div className="flex items-center gap-4 mt-2">
+                  <p className="text-xs text-gray-400">{new Date(item.created_at).toLocaleString()}</p>
+                  {item.comments?.length > 0 && <span className="text-xs text-blue-600 flex items-center gap-1"><MessageSquare className="h-3 w-3" />{item.comments.length}</span>}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Whistleblowing Report</h3>
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(null); setInvestigationNotes(''); }}><X className="h-5 w-5" /></Button>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                {getStatusBadge(selectedItem.status)}
+                {selectedItem.category && <Badge variant="outline">{selectedItem.category}</Badge>}
+                {selectedItem.is_anonymous ? <Badge variant="outline">Anonymous</Badge> : <span className="text-sm text-gray-600">By: {selectedItem.submitted_by}</span>}
+              </div>
+              <div><p className="text-xs text-gray-500">Title</p><p className="font-medium">{selectedItem.title}</p></div>
+              <div><p className="text-xs text-gray-500">Description</p><p>{selectedItem.description}</p></div>
+              {selectedItem.location && <div><p className="text-xs text-gray-500">Location</p><p>{selectedItem.location}</p></div>}
+              <div><p className="text-xs text-gray-500">Submitted</p><p>{new Date(selectedItem.created_at).toLocaleString()}</p></div>
+              {selectedItem.investigated_at && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">Investigated by {selectedItem.investigated_by} on {new Date(selectedItem.investigated_at).toLocaleString()}</p>
+                  {selectedItem.investigation_notes && <p className="text-sm mt-1">{selectedItem.investigation_notes}</p>}
+                </div>
+              )}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-2"><MessageSquare className="h-4 w-4" />Comments</h4>
+                {selectedItem.comments?.length > 0 ? (
+                  <div className="space-y-2 mb-3">{selectedItem.comments.map((c, i) => (<div key={i} className="p-2 bg-gray-50 rounded text-sm"><p>{c.text}</p><p className="text-xs text-gray-500 mt-1">{c.by} - {new Date(c.at).toLocaleString()}</p></div>))}</div>
+                ) : <p className="text-sm text-gray-500 mb-3">No comments yet</p>}
+                <div className="flex gap-2">
+                  <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Add a comment..." className="flex-1 px-3 py-2 border rounded-md text-sm" />
+                  <Button size="sm" onClick={() => addComment(selectedItem.id)} disabled={!newComment.trim()}>Add</Button>
+                </div>
+              </div>
+              {isAdmin && !['resolved', 'dismissed'].includes(selectedItem.status) && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-2">Update Status</p>
+                  <Textarea value={investigationNotes} onChange={(e) => setInvestigationNotes(e.target.value)} placeholder="Investigation notes..." rows={2} className="mb-3" />
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedItem.status === 'new' && <Button onClick={() => investigateReport(selectedItem.id, 'investigating')} variant="outline" className="border-yellow-500 text-yellow-700">Start Investigation</Button>}
+                    <Button onClick={() => investigateReport(selectedItem.id, 'resolved')} className="bg-green-600 hover:bg-green-700">Mark Resolved</Button>
+                    <Button onClick={() => investigateReport(selectedItem.id, 'dismissed')} variant="outline" className="border-gray-400 text-gray-600">Dismiss</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Machine Additions Page Component
 function MachineAdditionsPage() {
   const [machineRequests, setMachineRequests] = useState([]);
