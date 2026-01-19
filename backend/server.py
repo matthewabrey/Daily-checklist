@@ -2484,6 +2484,265 @@ async def delete_work_entry(entry_id: str):
         "message": "Work entry deleted"
     }
 
+# ============ EXCEL EXPORT ENDPOINTS FOR NEW FEATURES ============
+
+@app.get("/api/near-misses/export/excel")
+async def export_near_misses_excel():
+    """Export all near misses to Excel"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    
+    near_misses = await db.near_misses.find({}, {"_id": 0}).to_list(length=10000)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Near Misses"
+    
+    # Headers
+    headers = ["ID", "Date", "Location", "Description", "Submitted By", "Anonymous", "Acknowledged", "Acknowledged By", "Acknowledged Date"]
+    header_fill = PatternFill(start_color="FF6B6B", end_color="FF6B6B", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+    
+    # Data
+    for row_num, nm in enumerate(near_misses, 2):
+        ws.cell(row=row_num, column=1, value=nm.get("id", ""))
+        ws.cell(row=row_num, column=2, value=nm.get("created_at", "")[:10] if nm.get("created_at") else "")
+        ws.cell(row=row_num, column=3, value=nm.get("location", ""))
+        ws.cell(row=row_num, column=4, value=nm.get("description", ""))
+        ws.cell(row=row_num, column=5, value=nm.get("submitted_by", "") if not nm.get("is_anonymous") else "Anonymous")
+        ws.cell(row=row_num, column=6, value="Yes" if nm.get("is_anonymous") else "No")
+        ws.cell(row=row_num, column=7, value="Yes" if nm.get("acknowledged") else "No")
+        ws.cell(row=row_num, column=8, value=nm.get("acknowledged_by", ""))
+        ws.cell(row=row_num, column=9, value=nm.get("acknowledged_at", "")[:10] if nm.get("acknowledged_at") else "")
+    
+    # Adjust column widths
+    ws.column_dimensions['A'].width = 40
+    ws.column_dimensions['B'].width = 12
+    ws.column_dimensions['C'].width = 20
+    ws.column_dimensions['D'].width = 50
+    ws.column_dimensions['E'].width = 20
+    ws.column_dimensions['F'].width = 12
+    ws.column_dimensions['G'].width = 14
+    ws.column_dimensions['H'].width = 20
+    ws.column_dimensions['I'].width = 18
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={"Content-Disposition": "attachment; filename=near_misses.xlsx"}
+    )
+
+@app.get("/api/suggestions/export/excel")
+async def export_suggestions_excel():
+    """Export all suggestions to Excel"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    
+    suggestions = await db.suggestions.find({}, {"_id": 0}).to_list(length=10000)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Suggestions"
+    
+    # Headers
+    headers = ["ID", "Date", "Title", "Category", "Location", "Description", "Submitted By", "Anonymous", "Status", "Reviewed By", "Review Notes"]
+    header_fill = PatternFill(start_color="4ECDC4", end_color="4ECDC4", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+    
+    # Data
+    for row_num, sg in enumerate(suggestions, 2):
+        ws.cell(row=row_num, column=1, value=sg.get("id", ""))
+        ws.cell(row=row_num, column=2, value=sg.get("created_at", "")[:10] if sg.get("created_at") else "")
+        ws.cell(row=row_num, column=3, value=sg.get("title", ""))
+        ws.cell(row=row_num, column=4, value=sg.get("category", ""))
+        ws.cell(row=row_num, column=5, value=sg.get("location", ""))
+        ws.cell(row=row_num, column=6, value=sg.get("description", ""))
+        ws.cell(row=row_num, column=7, value=sg.get("submitted_by", "") if not sg.get("is_anonymous") else "Anonymous")
+        ws.cell(row=row_num, column=8, value="Yes" if sg.get("is_anonymous") else "No")
+        ws.cell(row=row_num, column=9, value=sg.get("status", "new").capitalize())
+        ws.cell(row=row_num, column=10, value=sg.get("reviewed_by", ""))
+        ws.cell(row=row_num, column=11, value=sg.get("review_notes", ""))
+    
+    # Adjust column widths
+    ws.column_dimensions['A'].width = 40
+    ws.column_dimensions['B'].width = 12
+    ws.column_dimensions['C'].width = 25
+    ws.column_dimensions['D'].width = 18
+    ws.column_dimensions['E'].width = 15
+    ws.column_dimensions['F'].width = 50
+    ws.column_dimensions['G'].width = 20
+    ws.column_dimensions['H'].width = 12
+    ws.column_dimensions['I'].width = 14
+    ws.column_dimensions['J'].width = 20
+    ws.column_dimensions['K'].width = 40
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={"Content-Disposition": "attachment; filename=suggestions.xlsx"}
+    )
+
+@app.get("/api/accidents/export/excel")
+async def export_accidents_excel():
+    """Export all accidents to Excel"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    
+    accidents = await db.accidents.find({}, {"_id": 0}).to_list(length=10000)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Accidents"
+    
+    # Headers
+    headers = [
+        "Report No", "Date", "Time", "Location", 
+        "Injured Name", "Injured Occupation", "Injured Address",
+        "Reporter Name", "Reporter Occupation",
+        "Accident Description", "Injury Details",
+        "Employee Consent", "RIDDOR Reportable", "RIDDOR How Reported", "RIDDOR Date Reported",
+        "Status", "Investigation Notes", "Investigated By"
+    ]
+    header_fill = PatternFill(start_color="9B59B6", end_color="9B59B6", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+    
+    # Data
+    for row_num, acc in enumerate(accidents, 2):
+        ws.cell(row=row_num, column=1, value=acc.get("report_number", ""))
+        ws.cell(row=row_num, column=2, value=acc.get("accident_date", ""))
+        ws.cell(row=row_num, column=3, value=acc.get("accident_time", ""))
+        ws.cell(row=row_num, column=4, value=acc.get("accident_location", ""))
+        ws.cell(row=row_num, column=5, value=acc.get("injured_name", ""))
+        ws.cell(row=row_num, column=6, value=acc.get("injured_occupation", ""))
+        ws.cell(row=row_num, column=7, value=f"{acc.get('injured_address', '')} {acc.get('injured_postcode', '')}".strip())
+        ws.cell(row=row_num, column=8, value=acc.get("reporter_name", ""))
+        ws.cell(row=row_num, column=9, value=acc.get("reporter_occupation", ""))
+        ws.cell(row=row_num, column=10, value=acc.get("accident_description", ""))
+        ws.cell(row=row_num, column=11, value=acc.get("injury_details", ""))
+        ws.cell(row=row_num, column=12, value="Yes" if acc.get("employee_consent") else "No")
+        ws.cell(row=row_num, column=13, value="Yes" if acc.get("riddor_reportable") else "No")
+        ws.cell(row=row_num, column=14, value=acc.get("riddor_how_reported", ""))
+        ws.cell(row=row_num, column=15, value=acc.get("riddor_date_reported", ""))
+        ws.cell(row=row_num, column=16, value=acc.get("status", "new").capitalize())
+        ws.cell(row=row_num, column=17, value=acc.get("investigation_notes", ""))
+        ws.cell(row=row_num, column=18, value=acc.get("investigated_by", ""))
+    
+    # Adjust column widths
+    ws.column_dimensions['A'].width = 12
+    ws.column_dimensions['B'].width = 12
+    ws.column_dimensions['C'].width = 10
+    ws.column_dimensions['D'].width = 25
+    ws.column_dimensions['E'].width = 20
+    ws.column_dimensions['F'].width = 18
+    ws.column_dimensions['G'].width = 35
+    ws.column_dimensions['H'].width = 20
+    ws.column_dimensions['I'].width = 18
+    ws.column_dimensions['J'].width = 50
+    ws.column_dimensions['K'].width = 35
+    ws.column_dimensions['L'].width = 16
+    ws.column_dimensions['M'].width = 16
+    ws.column_dimensions['N'].width = 20
+    ws.column_dimensions['O'].width = 18
+    ws.column_dimensions['P'].width = 14
+    ws.column_dimensions['Q'].width = 40
+    ws.column_dimensions['R'].width = 20
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={"Content-Disposition": "attachment; filename=accidents.xlsx"}
+    )
+
+@app.get("/api/whistleblowing/export/excel")
+async def export_whistleblowing_excel():
+    """Export all whistleblowing reports to Excel"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    
+    reports = await db.whistleblowing.find({}, {"_id": 0}).to_list(length=10000)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Whistleblowing"
+    
+    # Headers
+    headers = ["ID", "Date", "Title", "Category", "Location", "Description", "Submitted By", "Anonymous", "Status", "Investigation Notes", "Investigated By"]
+    header_fill = PatternFill(start_color="F39C12", end_color="F39C12", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+    
+    # Data
+    for row_num, rp in enumerate(reports, 2):
+        ws.cell(row=row_num, column=1, value=rp.get("id", ""))
+        ws.cell(row=row_num, column=2, value=rp.get("created_at", "")[:10] if rp.get("created_at") else "")
+        ws.cell(row=row_num, column=3, value=rp.get("title", ""))
+        ws.cell(row=row_num, column=4, value=rp.get("category", ""))
+        ws.cell(row=row_num, column=5, value=rp.get("location", ""))
+        ws.cell(row=row_num, column=6, value=rp.get("description", ""))
+        ws.cell(row=row_num, column=7, value=rp.get("submitted_by", "") if not rp.get("is_anonymous") else "Anonymous")
+        ws.cell(row=row_num, column=8, value="Yes" if rp.get("is_anonymous") else "No")
+        ws.cell(row=row_num, column=9, value=rp.get("status", "new").capitalize())
+        ws.cell(row=row_num, column=10, value=rp.get("investigation_notes", ""))
+        ws.cell(row=row_num, column=11, value=rp.get("investigated_by", ""))
+    
+    # Adjust column widths
+    ws.column_dimensions['A'].width = 40
+    ws.column_dimensions['B'].width = 12
+    ws.column_dimensions['C'].width = 30
+    ws.column_dimensions['D'].width = 18
+    ws.column_dimensions['E'].width = 15
+    ws.column_dimensions['F'].width = 50
+    ws.column_dimensions['G'].width = 20
+    ws.column_dimensions['H'].width = 12
+    ws.column_dimensions['I'].width = 14
+    ws.column_dimensions['J'].width = 40
+    ws.column_dimensions['K'].width = 20
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={"Content-Disposition": "attachment; filename=whistleblowing.xlsx"}
+    )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
