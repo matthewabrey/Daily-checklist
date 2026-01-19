@@ -126,6 +126,10 @@ async def compute_simple_stats(db):
     accidents_new = await db.accidents.count_documents({"status": "new"})
     accidents_total = await db.accidents.count_documents({})
     
+    # Whistleblowing counts
+    whistleblowing_new = await db.whistleblowing.count_documents({"status": "new"})
+    whistleblowing_total = await db.whistleblowing.count_documents({})
+    
     return {
         "total_completed": total_completed,
         "today_by_type": {},  # Simplified - skip breakdown for speed
@@ -141,7 +145,9 @@ async def compute_simple_stats(db):
         "suggestions_new": suggestions_new,
         "suggestions_total": suggestions_total,
         "accidents_new": accidents_new,
-        "accidents_total": accidents_total
+        "accidents_total": accidents_total,
+        "whistleblowing_new": whistleblowing_new,
+        "whistleblowing_total": whistleblowing_total
     }
 
 async def invalidate_cache():
