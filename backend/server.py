@@ -182,45 +182,102 @@ class SuggestionCreate(BaseModel):
     is_anonymous: bool = False
     submitted_by: Optional[str] = None
 
-# Accident Models
+# Accident Models - Matching official accident record book
 class Accident(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    date_time: str  # When the accident occurred
-    location: str  # Farm, Field, Storage, Grading
-    description: str  # What happened
-    injured_persons: List[str] = []  # Names of injured people
-    injury_type: Optional[str] = None  # Cut, Burn, Fracture, Sprain, etc.
-    body_parts_affected: Optional[str] = None
-    first_aid_given: bool = False
-    first_aid_details: Optional[str] = None
-    witnesses: List[str] = []
-    equipment_involved: Optional[str] = None
+    report_number: Optional[str] = None
+    
+    # Section 1: About the person who had the accident
+    injured_name: str
+    injured_address: Optional[str] = None
+    injured_postcode: Optional[str] = None
+    injured_occupation: Optional[str] = None
+    
+    # Section 2: About you, the person filling in this record
+    reporter_name: str
+    reporter_address: Optional[str] = None
+    reporter_postcode: Optional[str] = None
+    reporter_occupation: Optional[str] = None
+    
+    # Section 3: About the accident
+    accident_date: str  # Date of accident
+    accident_time: str  # Time of accident
+    accident_location: str  # Where it happened (room or place)
+    accident_description: str  # How the accident happened / cause
+    injury_details: Optional[str] = None  # What injury was suffered
+    
+    # Signature section
+    signature_date: Optional[str] = None
+    
+    # Section 4: For the employee only - consent
+    employee_consent: bool = False
+    employee_signature_date: Optional[str] = None
+    
+    # Section 5: For the employer only - RIDDOR
+    riddor_reportable: bool = False
+    riddor_how_reported: Optional[str] = None
+    riddor_date_reported: Optional[str] = None
+    employer_signature: Optional[str] = None
+    
+    # Additional fields
     photos: List[str] = []
-    actions_taken: Optional[str] = None
-    emergency_services_called: bool = False
-    reported_by: str
-    employee_number: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     status: str = "new"  # new, investigating, closed
+    comments: List[dict] = []
     investigation_notes: Optional[str] = None
     investigated_by: Optional[str] = None
     investigated_at: Optional[str] = None
 
 class AccidentCreate(BaseModel):
-    date_time: str
-    location: str
-    description: str
-    injured_persons: List[str] = []
-    injury_type: Optional[str] = None
-    body_parts_affected: Optional[str] = None
-    first_aid_given: bool = False
-    first_aid_details: Optional[str] = None
-    witnesses: List[str] = []
-    equipment_involved: Optional[str] = None
+    # Section 1
+    injured_name: str
+    injured_address: Optional[str] = None
+    injured_postcode: Optional[str] = None
+    injured_occupation: Optional[str] = None
+    
+    # Section 2
+    reporter_name: str
+    reporter_address: Optional[str] = None
+    reporter_postcode: Optional[str] = None
+    reporter_occupation: Optional[str] = None
+    
+    # Section 3
+    accident_date: str
+    accident_time: str
+    accident_location: str
+    accident_description: str
+    injury_details: Optional[str] = None
+    
+    # Section 4
+    employee_consent: bool = False
+    
+    # Photos
     photos: List[str] = []
-    actions_taken: Optional[str] = None
-    emergency_services_called: bool = False
-    reported_by: str
+
+# Whistleblowing Models
+class Whistleblow(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    description: str
+    category: Optional[str] = None  # Financial, Health and Safety, Misconduct, Other
+    location: Optional[str] = None
+    is_anonymous: bool = True  # Default anonymous for whistleblowing
+    submitted_by: Optional[str] = None
+    employee_number: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    status: str = "new"  # new, investigating, resolved, dismissed
+    investigated_at: Optional[str] = None
+    investigated_by: Optional[str] = None
+    investigation_notes: Optional[str] = None
+    comments: List[dict] = []
+
+class WhistleblowCreate(BaseModel):
+    title: str
+    description: str
+    category: Optional[str] = None
+    location: Optional[str] = None
+    is_anonymous: bool = True
+    submitted_by: Optional[str] = None
 
 # Initialize data
 async def initialize_data():
