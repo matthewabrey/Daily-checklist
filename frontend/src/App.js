@@ -1072,188 +1072,189 @@ function Dashboard() {
               </Button>
             </div>
 
-            {/* ACCIDENT FORM */}
+            {/* ACCIDENT FORM - Matching official accident record book */}
             {showReportModal === 'accident' ? (
               <>
-                {/* Reporter Name */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Reported By *</label>
-                  <input
-                    type="text"
-                    value={reportName}
-                    onChange={(e) => setReportName(e.target.value)}
-                    placeholder="Your name"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    data-testid="accident-reporter-input"
-                  />
-                </div>
-
-                {/* Date/Time of Accident */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date & Time of Accident *</label>
-                  <input
-                    type="datetime-local"
-                    value={accidentDateTime}
-                    onChange={(e) => setAccidentDateTime(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    data-testid="accident-datetime-input"
-                  />
-                </div>
-
-                {/* Location */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location *</label>
-                  <select
-                    value={reportLocation}
-                    onChange={(e) => setReportLocation(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    data-testid="accident-location-select"
-                  >
-                    <option value="">Select a location...</option>
-                    <option value="Farm">Farm</option>
-                    <option value="Field">Field</option>
-                    <option value="Storage">Storage</option>
-                    <option value="Grading">Grading</option>
-                  </select>
-                </div>
-
-                {/* Description */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">What Happened? *</label>
-                  <Textarea
-                    value={reportDescription}
-                    onChange={(e) => setReportDescription(e.target.value)}
-                    placeholder="Describe the accident in detail..."
-                    rows={3}
-                    className="w-full"
-                    data-testid="accident-description-input"
-                  />
-                </div>
-
-                {/* Injured Persons */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Injured Person(s)</label>
-                  <input
-                    type="text"
-                    value={accidentInjuredPersons}
-                    onChange={(e) => setAccidentInjuredPersons(e.target.value)}
-                    placeholder="Names (comma separated)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    data-testid="accident-injured-input"
-                  />
-                </div>
-
-                {/* Injury Type */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type of Injury</label>
-                  <select
-                    value={accidentInjuryType}
-                    onChange={(e) => setAccidentInjuryType(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    data-testid="accident-injury-type-select"
-                  >
-                    <option value="">Select type...</option>
-                    <option value="Cut/Laceration">Cut/Laceration</option>
-                    <option value="Burn">Burn</option>
-                    <option value="Fracture">Fracture</option>
-                    <option value="Sprain/Strain">Sprain/Strain</option>
-                    <option value="Bruise/Contusion">Bruise/Contusion</option>
-                    <option value="Eye Injury">Eye Injury</option>
-                    <option value="Head Injury">Head Injury</option>
-                    <option value="Back Injury">Back Injury</option>
-                    <option value="Chemical Exposure">Chemical Exposure</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                {/* Body Parts Affected */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Body Part(s) Affected</label>
-                  <input
-                    type="text"
-                    value={accidentBodyParts}
-                    onChange={(e) => setAccidentBodyParts(e.target.value)}
-                    placeholder="e.g., Left hand, Right leg"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    data-testid="accident-bodyparts-input"
-                  />
-                </div>
-
-                {/* First Aid Given */}
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={accidentFirstAid}
-                      onChange={(e) => setAccidentFirstAid(e.target.checked)}
-                      className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                      data-testid="accident-firstaid-checkbox"
-                    />
-                    <span className="font-medium text-gray-900">First Aid Given</span>
-                  </label>
-                  {accidentFirstAid && (
+                {/* Section 1: About the person who had the accident */}
+                <div className="mb-4 p-3 bg-purple-50 rounded-lg">
+                  <h4 className="font-semibold text-purple-900 mb-3">Section 1: About the person who had the accident</h4>
+                  
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
                     <input
                       type="text"
-                      value={accidentFirstAidDetails}
-                      onChange={(e) => setAccidentFirstAidDetails(e.target.value)}
-                      placeholder="Describe first aid treatment..."
-                      className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      data-testid="accident-firstaid-details-input"
+                      value={injuredName}
+                      onChange={(e) => setInjuredName(e.target.value)}
+                      placeholder="Name of person who had the accident"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      data-testid="injured-name-input"
                     />
-                  )}
+                  </div>
+                  
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                    <input
+                      type="text"
+                      value={injuredAddress}
+                      onChange={(e) => setInjuredAddress(e.target.value)}
+                      placeholder="Address"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Postcode</label>
+                      <input
+                        type="text"
+                        value={injuredPostcode}
+                        onChange={(e) => setInjuredPostcode(e.target.value)}
+                        placeholder="Postcode"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
+                      <input
+                        type="text"
+                        value={injuredOccupation}
+                        onChange={(e) => setInjuredOccupation(e.target.value)}
+                        placeholder="Job title"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                {/* Emergency Services Called */}
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <label className="flex items-center gap-3 cursor-pointer">
+                {/* Section 2: About the person filling in this record */}
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                  <h4 className="font-semibold text-blue-900 mb-3">Section 2: About you, the person filling in this record</h4>
+                  <p className="text-xs text-blue-700 mb-3">(If you did not have the accident, write your details here)</p>
+                  
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                    <input
+                      type="text"
+                      value={reportName}
+                      onChange={(e) => setReportName(e.target.value)}
+                      placeholder="Your name"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      data-testid="reporter-name-input"
+                    />
+                  </div>
+                  
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                    <input
+                      type="text"
+                      value={reporterAddress}
+                      onChange={(e) => setReporterAddress(e.target.value)}
+                      placeholder="Address"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Postcode</label>
+                      <input
+                        type="text"
+                        value={reporterPostcode}
+                        onChange={(e) => setReporterPostcode(e.target.value)}
+                        placeholder="Postcode"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
+                      <input
+                        type="text"
+                        value={reporterOccupation}
+                        onChange={(e) => setReporterOccupation(e.target.value)}
+                        placeholder="Job title"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: About the accident */}
+                <div className="mb-4 p-3 bg-red-50 rounded-lg">
+                  <h4 className="font-semibold text-red-900 mb-3">Section 3: About the accident</h4>
+                  
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date of Accident *</label>
+                      <input
+                        type="date"
+                        value={accidentDate}
+                        onChange={(e) => setAccidentDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                        data-testid="accident-date-input"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Time of Accident *</label>
+                      <input
+                        type="time"
+                        value={accidentTime}
+                        onChange={(e) => setAccidentTime(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                        data-testid="accident-time-input"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Where did the accident happen? (Room or place) *</label>
+                    <input
+                      type="text"
+                      value={accidentLocation}
+                      onChange={(e) => setAccidentLocation(e.target.value)}
+                      placeholder="Describe the location"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                      data-testid="accident-location-input"
+                    />
+                  </div>
+                  
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">How did the accident happen? Give the cause if you can. *</label>
+                    <Textarea
+                      value={accidentDescription}
+                      onChange={(e) => setAccidentDescription(e.target.value)}
+                      placeholder="Describe how the accident happened and the cause..."
+                      rows={3}
+                      className="w-full"
+                      data-testid="accident-description-input"
+                    />
+                  </div>
+                  
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">If the person who had the accident suffered an injury, say what it was</label>
+                    <Textarea
+                      value={injuryDetails}
+                      onChange={(e) => setInjuryDetails(e.target.value)}
+                      placeholder="Describe the injury..."
+                      rows={2}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+                {/* Section 4: For the employee only */}
+                <div className="mb-4 p-3 bg-yellow-50 rounded-lg">
+                  <h4 className="font-semibold text-yellow-900 mb-3">Section 4: For the employee only</h4>
+                  <label className="flex items-start gap-3 cursor-pointer">
                     <input 
                       type="checkbox" 
-                      checked={accidentEmergencyServices}
-                      onChange={(e) => setAccidentEmergencyServices(e.target.checked)}
-                      className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                      data-testid="accident-emergency-checkbox"
+                      checked={employeeConsent}
+                      onChange={(e) => setEmployeeConsent(e.target.checked)}
+                      className="w-5 h-5 mt-0.5 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
                     />
-                    <span className="font-medium text-gray-900">Emergency Services Called</span>
+                    <div className="text-sm text-gray-700">
+                      I consent to my employer disclosing information about my accident to the health and safety representatives on request.
+                    </div>
                   </label>
-                </div>
-
-                {/* Witnesses */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Witnesses</label>
-                  <input
-                    type="text"
-                    value={accidentWitnesses}
-                    onChange={(e) => setAccidentWitnesses(e.target.value)}
-                    placeholder="Names (comma separated)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    data-testid="accident-witnesses-input"
-                  />
-                </div>
-
-                {/* Equipment Involved */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Equipment Involved</label>
-                  <input
-                    type="text"
-                    value={accidentEquipment}
-                    onChange={(e) => setAccidentEquipment(e.target.value)}
-                    placeholder="e.g., Forklift, Ladder"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    data-testid="accident-equipment-input"
-                  />
-                </div>
-
-                {/* Actions Taken */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Immediate Actions Taken</label>
-                  <Textarea
-                    value={accidentActionsTaken}
-                    onChange={(e) => setAccidentActionsTaken(e.target.value)}
-                    placeholder="What actions were taken after the accident?"
-                    rows={2}
-                    className="w-full"
-                    data-testid="accident-actions-input"
-                  />
                 </div>
 
                 {/* Photos */}
@@ -1280,7 +1281,112 @@ function Dashboard() {
                 <div className="flex gap-3 mt-6">
                   <Button variant="outline" onClick={() => setShowReportModal(null)} className="flex-1">Cancel</Button>
                   <Button onClick={submitReport} disabled={isSubmittingReport} className="flex-1 bg-purple-600 hover:bg-purple-700" data-testid="submit-accident-btn">
-                    {isSubmittingReport ? (<><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Submitting...</>) : 'Report Accident'}
+                    {isSubmittingReport ? (<><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Submitting...</>) : 'Submit Accident Report'}
+                  </Button>
+                </div>
+              </>
+            ) : showReportModal === 'whistleblowing' ? (
+              <>
+                {/* Whistleblowing Form */}
+                <div className="mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <p className="text-sm text-amber-800">
+                    Whistleblowing reports are treated with the utmost confidentiality. You can submit anonymously if you prefer.
+                  </p>
+                </div>
+
+                {/* Anonymous Toggle */}
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={reportIsAnonymous}
+                      onChange={(e) => setReportIsAnonymous(e.target.checked)}
+                      className="w-5 h-5 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                    />
+                    <div>
+                      <span className="font-medium text-gray-900">Submit anonymously</span>
+                      <p className="text-xs text-gray-500">Your identity will be protected</p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Name field (if not anonymous) */}
+                {!reportIsAnonymous && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+                    <input
+                      type="text"
+                      value={reportName}
+                      onChange={(e) => setReportName(e.target.value)}
+                      placeholder="Enter your name"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                )}
+
+                {/* Title */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                  <input
+                    type="text"
+                    value={reportTitle}
+                    onChange={(e) => setReportTitle(e.target.value)}
+                    placeholder="Brief title for your report"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                {/* Category */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={reportCategory}
+                    onChange={(e) => setReportCategory(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="">Select a category...</option>
+                    <option value="Financial">Financial Misconduct</option>
+                    <option value="Health and Safety">Health and Safety Concerns</option>
+                    <option value="Misconduct">Staff Misconduct</option>
+                    <option value="Harassment">Harassment or Bullying</option>
+                    <option value="Discrimination">Discrimination</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                {/* Location */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <select
+                    value={reportLocation}
+                    onChange={(e) => setReportLocation(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="">Select a location...</option>
+                    <option value="Farm">Farm</option>
+                    <option value="Field">Field</option>
+                    <option value="Storage">Storage</option>
+                    <option value="Grading">Grading</option>
+                  </select>
+                </div>
+
+                {/* Description */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                  <Textarea
+                    value={reportDescription}
+                    onChange={(e) => setReportDescription(e.target.value)}
+                    placeholder="Please provide as much detail as possible about the concern..."
+                    rows={4}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Submit Button */}
+                <div className="flex gap-3 mt-6">
+                  <Button variant="outline" onClick={() => setShowReportModal(null)} className="flex-1">Cancel</Button>
+                  <Button onClick={submitReport} disabled={isSubmittingReport} className="flex-1 bg-amber-600 hover:bg-amber-700">
+                    {isSubmittingReport ? (<><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Submitting...</>) : 'Submit Report'}
                   </Button>
                 </div>
               </>
