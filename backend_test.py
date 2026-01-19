@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Any
 
 class MachineChecklistAPITester:
-    def __init__(self, base_url="https://plant-manager-8.preview.emergentagent.com"):
+    def __init__(self, base_url="https://safereport-5.preview.emergentagent.com"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
