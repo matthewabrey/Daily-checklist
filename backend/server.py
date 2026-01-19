@@ -2091,36 +2091,56 @@ async def get_near_misses_by_location():
     return results
 
 # ============================================
-# Accident Endpoints
+# Accident Endpoints (Matching official accident record book)
 # ============================================
 
 @app.post("/api/accidents")
 async def create_accident(accident: AccidentCreate, employee_number: str = None):
-    """Report a new accident"""
+    """Report a new accident - matching official accident record book format"""
+    # Generate report number
+    count = await db.accidents.count_documents({})
+    report_number = f"AR-{count + 1:04d}"
+    
     accident_doc = {
         "id": str(uuid.uuid4()),
-        "date_time": accident.date_time,
-        "location": accident.location,
-        "description": accident.description,
-        "injured_persons": accident.injured_persons,
-        "injury_type": accident.injury_type,
-        "body_parts_affected": accident.body_parts_affected,
-        "first_aid_given": accident.first_aid_given,
-        "first_aid_details": accident.first_aid_details,
-        "witnesses": accident.witnesses,
-        "equipment_involved": accident.equipment_involved,
+        "report_number": report_number,
+        
+        # Section 1: About the person who had the accident
+        "injured_name": accident.injured_name,
+        "injured_address": accident.injured_address,
+        "injured_postcode": accident.injured_postcode,
+        "injured_occupation": accident.injured_occupation,
+        
+        # Section 2: About you, the person filling in this record
+        "reporter_name": accident.reporter_name,
+        "reporter_address": accident.reporter_address,
+        "reporter_postcode": accident.reporter_postcode,
+        "reporter_occupation": accident.reporter_occupation,
+        
+        # Section 3: About the accident
+        "accident_date": accident.accident_date,
+        "accident_time": accident.accident_time,
+        "accident_location": accident.accident_location,
+        "accident_description": accident.accident_description,
+        "injury_details": accident.injury_details,
+        
+        # Section 4: Employee consent
+        "employee_consent": accident.employee_consent,
+        
+        # Section 5: RIDDOR (to be filled by employer)
+        "riddor_reportable": False,
+        "riddor_how_reported": None,
+        "riddor_date_reported": None,
+        
+        # Additional
         "photos": accident.photos,
-        "actions_taken": accident.actions_taken,
-        "emergency_services_called": accident.emergency_services_called,
-        "reported_by": accident.reported_by,
-        "employee_number": employee_number,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "new",
         "comments": []
     }
     await db.accidents.insert_one(accident_doc)
     await invalidate_cache()
-    return {"success": True, "message": "Accident reported successfully", "id": accident_doc["id"]}
+    return {"success": True, "message": "Accident reported successfully", "id": accident_doc["id"], "report_number": report_number}
 
 @app.get("/api/accidents")
 async def get_accidents(status: str = None, limit: int = 100):
@@ -2157,6 +2177,21 @@ async def investigate_accident(accident_id: str, status: str, investigated_by: s
     await invalidate_cache()
     if result.modified_count > 0:
         return {"success": True, "message": f"Accident marked as {status}"}
+    raise HTTPException(status_code=404, detail="Accident not found")
+
+@app.put("/api/accidents/{accident_id}/riddor")
+async def update_riddor(accident_id: str, riddor_reportable: bool, how_reported: str = None, date_reported: str = None):
+    """Update RIDDOR reporting details (employer only)"""
+    result = await db.accidents.update_one(
+        {"id": accident_id},
+        {"$set": {
+            "riddor_reportable": riddor_reportable,
+            "riddor_how_reported": how_reported,
+            "riddor_date_reported": date_reported
+        }}
+    )
+    if result.modified_count > 0:
+        return {"success": True, "message": "RIDDOR details updated"}
     raise HTTPException(status_code=404, detail="Accident not found")
 
 @app.post("/api/accidents/{accident_id}/comment")
