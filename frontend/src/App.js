@@ -1909,6 +1909,34 @@ function Dashboard() {
             </Button>
           </div>
         </Card>
+
+        {/* Whistleblowing Card */}
+        <Card 
+          className="hover:shadow-lg transition-shadow border-amber-200 bg-amber-50" 
+          style={{display: 'flex', flexDirection: 'column', height: '100%'}}
+          data-testid="whistleblowing-card"
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-amber-900">Whistleblowing</CardTitle>
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+          </CardHeader>
+          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
+            <div style={{flex: 1}}>
+              <div className="text-2xl font-bold text-amber-600">{stats.whistleblowingNew || 0}</div>
+              <p className="text-xs text-amber-700">New reports ({stats.whistleblowingTotal || 0} total)</p>
+            </div>
+            <Button 
+              onClick={() => navigate('/whistleblowing')}
+              variant="outline"
+              size="sm"
+              className="w-full border-amber-300 text-amber-700 hover:bg-amber-100"
+              style={{marginTop: 'auto'}}
+              data-testid="view-whistleblowing-btn"
+            >
+              View Reports
+            </Button>
+          </div>
+        </Card>
       </div>
 
       {/* Near Misses by Location - Pie Chart */}
