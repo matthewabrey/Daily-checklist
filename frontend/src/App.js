@@ -6441,17 +6441,31 @@ function AccidentsPage() {
           </div>
         </div>
         
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-          data-testid="accident-filter"
-        >
-          <option value="all">All Reports</option>
-          <option value="new">New</option>
-          <option value="investigating">Investigating</option>
-          <option value="closed">Closed</option>
-        </select>
+        <div className="flex gap-2">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+            data-testid="accident-filter"
+          >
+            <option value="all">All Reports</option>
+            <option value="new">New</option>
+            <option value="investigating">Investigating</option>
+            <option value="closed">Closed</option>
+          </select>
+          
+          {/* Export Button */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.open(`${API_BASE_URL}/api/accidents/export/excel`, '_blank')}
+            className="flex items-center gap-1"
+            data-testid="accident-export-btn"
+          >
+            <Download className="h-4 w-4" />
+            Export Excel
+          </Button>
+        </div>
       </div>
 
       {filteredItems.length === 0 ? (
