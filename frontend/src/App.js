@@ -6482,8 +6482,11 @@ function AccidentsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-auto relative z-[10000]">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Accident Report</h3>
-              <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(null); setInvestigationNotes(''); }}>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Accident Report</h3>
+                {selectedItem.report_number && <p className="text-sm text-gray-500">Report #{selectedItem.report_number}</p>}
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(null); setInvestigationNotes(''); setRiddorReportable(false); setRiddorHowReported(''); setRiddorDateReported(''); }}>
                 <X className="h-5 w-5" />
               </Button>
             </div>
@@ -6491,37 +6494,108 @@ function AccidentsPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-2 flex-wrap">
                 {getStatusBadge(selectedItem.status)}
-                <Badge variant="outline">{selectedItem.location}</Badge>
-                {selectedItem.emergency_services_called && <Badge className="bg-red-600 text-white">Emergency Services Called</Badge>}
+                {selectedItem.riddor_reportable && <Badge className="bg-orange-600 text-white">RIDDOR Reported</Badge>}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-xs text-gray-500">Date & Time</p><p className="text-gray-800">{new Date(selectedItem.date_time).toLocaleString()}</p></div>
-                <div><p className="text-xs text-gray-500">Reported By</p><p className="text-gray-800">{selectedItem.reported_by}</p></div>
+              {/* Section 1: About the person who had the accident */}
+              <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                <h4 className="font-semibold text-purple-900 mb-2 text-sm">Section 1: Person who had the accident</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><p className="text-xs text-gray-500">Name</p><p className="text-gray-800">{selectedItem.injured_name || '-'}</p></div>
+                  <div><p className="text-xs text-gray-500">Occupation</p><p className="text-gray-800">{selectedItem.injured_occupation || '-'}</p></div>
+                  <div className="col-span-2"><p className="text-xs text-gray-500">Address</p><p className="text-gray-800">{selectedItem.injured_address || '-'} {selectedItem.injured_postcode}</p></div>
+                </div>
               </div>
 
-              <div><p className="text-xs text-gray-500">Description</p><p className="text-gray-800">{selectedItem.description}</p></div>
-
-              {selectedItem.injured_persons?.length > 0 && (
-                <div className="p-3 bg-red-50 rounded-lg">
-                  <p className="text-xs text-red-700 font-medium">Injured Persons</p>
-                  <p className="text-red-800">{selectedItem.injured_persons.join(', ')}</p>
-                  {selectedItem.injury_type && <p className="text-sm text-red-600 mt-1">Injury Type: {selectedItem.injury_type}</p>}
-                  {selectedItem.body_parts_affected && <p className="text-sm text-red-600">Body Parts: {selectedItem.body_parts_affected}</p>}
+              {/* Section 2: About the person filling in this record */}
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-blue-900 mb-2 text-sm">Section 2: Person filling in this record</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><p className="text-xs text-gray-500">Name</p><p className="text-gray-800">{selectedItem.reporter_name || '-'}</p></div>
+                  <div><p className="text-xs text-gray-500">Occupation</p><p className="text-gray-800">{selectedItem.reporter_occupation || '-'}</p></div>
+                  <div className="col-span-2"><p className="text-xs text-gray-500">Address</p><p className="text-gray-800">{selectedItem.reporter_address || '-'} {selectedItem.reporter_postcode}</p></div>
                 </div>
-              )}
+              </div>
 
-              {selectedItem.first_aid_given && (
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <p className="text-xs text-green-700 font-medium">First Aid Given</p>
-                  <p className="text-green-800">{selectedItem.first_aid_details || 'Yes'}</p>
+              {/* Section 3: About the accident */}
+              <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                <h4 className="font-semibold text-red-900 mb-2 text-sm">Section 3: About the accident</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm mb-2">
+                  <div><p className="text-xs text-gray-500">Date</p><p className="text-gray-800">{selectedItem.accident_date || '-'}</p></div>
+                  <div><p className="text-xs text-gray-500">Time</p><p className="text-gray-800">{selectedItem.accident_time || '-'}</p></div>
                 </div>
-              )}
+                <div className="mb-2"><p className="text-xs text-gray-500">Where did the accident happen?</p><p className="text-gray-800">{selectedItem.accident_location || '-'}</p></div>
+                <div className="mb-2"><p className="text-xs text-gray-500">How did the accident happen?</p><p className="text-gray-800">{selectedItem.accident_description || '-'}</p></div>
+                {selectedItem.injury_details && <div><p className="text-xs text-gray-500">Injury suffered</p><p className="text-gray-800">{selectedItem.injury_details}</p></div>}
+              </div>
 
-              {selectedItem.witnesses?.length > 0 && <div><p className="text-xs text-gray-500">Witnesses</p><p className="text-gray-800">{selectedItem.witnesses.join(', ')}</p></div>}
-              {selectedItem.equipment_involved && <div><p className="text-xs text-gray-500">Equipment Involved</p><p className="text-gray-800">{selectedItem.equipment_involved}</p></div>}
-              {selectedItem.actions_taken && <div><p className="text-xs text-gray-500">Actions Taken</p><p className="text-gray-800">{selectedItem.actions_taken}</p></div>}
+              {/* Section 4: Employee consent */}
+              <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                <h4 className="font-semibold text-yellow-900 mb-2 text-sm">Section 4: Employee Consent</h4>
+                <p className="text-sm text-gray-700">
+                  {selectedItem.employee_consent 
+                    ? '✓ Employee consented to disclosure of information to health and safety representatives'
+                    : '✗ Employee did not consent to disclosure'}
+                </p>
+              </div>
 
+              {/* Section 5: For the employer only - RIDDOR */}
+              <div className="p-3 bg-gray-100 rounded-lg border border-gray-300">
+                <h4 className="font-semibold text-gray-900 mb-2 text-sm">Section 5: For the employer only (RIDDOR)</h4>
+                {selectedItem.riddor_reportable ? (
+                  <div className="text-sm space-y-1">
+                    <p><span className="text-gray-500">Reportable under RIDDOR:</span> <span className="text-green-700 font-medium">Yes</span></p>
+                    {selectedItem.riddor_how_reported && <p><span className="text-gray-500">How reported:</span> {selectedItem.riddor_how_reported}</p>}
+                    {selectedItem.riddor_date_reported && <p><span className="text-gray-500">Date reported:</span> {selectedItem.riddor_date_reported}</p>}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">Not yet marked as RIDDOR reportable</p>
+                )}
+                
+                {isAdmin && (
+                  <div className="mt-3 pt-3 border-t border-gray-300">
+                    <p className="text-xs text-gray-500 mb-2">Update RIDDOR details (Admin only)</p>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={riddorReportable || selectedItem.riddor_reportable}
+                          onChange={(e) => setRiddorReportable(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300"
+                        />
+                        <span className="text-sm">Reportable under RIDDOR</span>
+                      </label>
+                      <div>
+                        <label className="text-xs text-gray-500">How was it reported?</label>
+                        <select
+                          value={riddorHowReported || selectedItem.riddor_how_reported || ''}
+                          onChange={(e) => setRiddorHowReported(e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm mt-1"
+                        >
+                          <option value="">Select method...</option>
+                          <option value="Online">Online</option>
+                          <option value="Telephone">Telephone</option>
+                          <option value="Written">Written</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Date reported to RIDDOR</label>
+                        <input
+                          type="date"
+                          value={riddorDateReported || selectedItem.riddor_date_reported || ''}
+                          onChange={(e) => setRiddorDateReported(e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm mt-1"
+                        />
+                      </div>
+                      <Button size="sm" onClick={() => updateRiddor(selectedItem.id)} className="mt-2">
+                        Save RIDDOR Details
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Photos */}
               {selectedItem.photos?.length > 0 && (
                 <div>
                   <p className="text-xs text-gray-500 mb-2">Photos ({selectedItem.photos.length})</p>
