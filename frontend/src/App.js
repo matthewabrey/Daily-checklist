@@ -1032,7 +1032,7 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Near Miss / Suggestion / Accident Report Modal */}
+      {/* Near Miss / Suggestion / Accident / Whistleblowing Report Modal */}
       {showReportModal && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]"
@@ -1041,24 +1041,36 @@ function Dashboard() {
           <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-auto relative z-[10000]">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${showReportModal === 'near-miss' ? 'bg-red-100' : showReportModal === 'accident' ? 'bg-purple-100' : 'bg-blue-100'}`}>
+                <div className={`p-2 rounded-lg ${
+                  showReportModal === 'near-miss' ? 'bg-red-100' : 
+                  showReportModal === 'accident' ? 'bg-purple-100' : 
+                  showReportModal === 'whistleblowing' ? 'bg-amber-100' : 
+                  'bg-blue-100'
+                }`}>
                   {showReportModal === 'near-miss' ? (
                     <AlertTriangle className="h-6 w-6 text-red-600" />
                   ) : showReportModal === 'accident' ? (
                     <ShieldAlert className="h-6 w-6 text-purple-600" />
+                  ) : showReportModal === 'whistleblowing' ? (
+                    <AlertCircle className="h-6 w-6 text-amber-600" />
                   ) : (
                     <FileText className="h-6 w-6 text-blue-600" />
                   )}
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {showReportModal === 'near-miss' ? 'Report Near Miss' : showReportModal === 'accident' ? 'Report Accident' : 'Submit Suggestion'}
+                    {showReportModal === 'near-miss' ? 'Report Near Miss' : 
+                     showReportModal === 'accident' ? 'Report Accident' : 
+                     showReportModal === 'whistleblowing' ? 'Whistleblowing Report' :
+                     'Submit Suggestion'}
                   </h3>
                   <p className="text-sm text-gray-600">
                     {showReportModal === 'near-miss' 
                       ? 'Report a safety incident or near miss' 
                       : showReportModal === 'accident'
-                      ? 'Report a workplace accident'
+                      ? 'Record a workplace accident'
+                      : showReportModal === 'whistleblowing'
+                      ? 'Report concerns confidentially'
                       : 'Share your idea for improvement'}
                   </p>
                 </div>
