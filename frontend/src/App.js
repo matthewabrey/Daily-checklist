@@ -6453,15 +6453,17 @@ function AccidentsPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       {getStatusBadge(item.status)}
-                      <Badge variant="outline">{item.location}</Badge>
-                      <span className="text-sm text-gray-600">Reported by: {item.reported_by}</span>
+                      {item.report_number && <Badge variant="outline" className="text-gray-600">#{item.report_number}</Badge>}
+                      {item.accident_location && <Badge variant="outline" className="bg-orange-50 text-orange-700">{item.accident_location}</Badge>}
+                      {item.riddor_reportable && <Badge className="bg-orange-600 text-white text-xs">RIDDOR</Badge>}
                     </div>
-                    <p className="text-gray-800 line-clamp-2">{item.description}</p>
-                    {item.injured_persons && item.injured_persons.length > 0 && (
-                      <p className="text-sm text-red-600 mt-1">Injured: {item.injured_persons.join(', ')}</p>
+                    <p className="font-medium text-gray-900">{item.injured_name || 'Unknown'}</p>
+                    <p className="text-gray-600 text-sm line-clamp-2 mt-1">{item.accident_description || item.description}</p>
+                    {item.injury_details && (
+                      <p className="text-sm text-red-600 mt-1">Injury: {item.injury_details}</p>
                     )}
                     <p className="text-xs text-gray-400 mt-2">
-                      Accident: {new Date(item.date_time).toLocaleString()} | Reported: {new Date(item.created_at).toLocaleString()}
+                      {item.accident_date} {item.accident_time} | Reported by: {item.reporter_name || item.reported_by}
                     </p>
                   </div>
                   {item.photos && item.photos.length > 0 && (
