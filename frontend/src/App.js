@@ -183,17 +183,27 @@ function Dashboard() {
   const [reportPhotos, setReportPhotos] = useState([]);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   
-  // Accident-specific fields
-  const [accidentDateTime, setAccidentDateTime] = useState('');
-  const [accidentInjuredPersons, setAccidentInjuredPersons] = useState('');
-  const [accidentInjuryType, setAccidentInjuryType] = useState('');
-  const [accidentBodyParts, setAccidentBodyParts] = useState('');
-  const [accidentFirstAid, setAccidentFirstAid] = useState(false);
-  const [accidentFirstAidDetails, setAccidentFirstAidDetails] = useState('');
-  const [accidentWitnesses, setAccidentWitnesses] = useState('');
-  const [accidentEquipment, setAccidentEquipment] = useState('');
-  const [accidentActionsTaken, setAccidentActionsTaken] = useState('');
-  const [accidentEmergencyServices, setAccidentEmergencyServices] = useState(false);
+  // Accident-specific fields - Matching official accident record book
+  // Section 1: About the person who had the accident
+  const [injuredName, setInjuredName] = useState('');
+  const [injuredAddress, setInjuredAddress] = useState('');
+  const [injuredPostcode, setInjuredPostcode] = useState('');
+  const [injuredOccupation, setInjuredOccupation] = useState('');
+  
+  // Section 2: About the person filling in this record
+  const [reporterAddress, setReporterAddress] = useState('');
+  const [reporterPostcode, setReporterPostcode] = useState('');
+  const [reporterOccupation, setReporterOccupation] = useState('');
+  
+  // Section 3: About the accident
+  const [accidentDate, setAccidentDate] = useState('');
+  const [accidentTime, setAccidentTime] = useState('');
+  const [accidentLocation, setAccidentLocation] = useState('');
+  const [accidentDescription, setAccidentDescription] = useState('');
+  const [injuryDetails, setInjuryDetails] = useState('');
+  
+  // Section 4: Employee consent
+  const [employeeConsent, setEmployeeConsent] = useState(false);
 
   // Pie chart data for near misses by location
   const [nearMissesByLocation, setNearMissesByLocation] = useState([]);
