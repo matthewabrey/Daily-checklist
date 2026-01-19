@@ -6815,6 +6815,18 @@ function WhistleblowingPage() {
             <option value="resolved">Resolved</option>
             <option value="dismissed">Dismissed</option>
           </select>
+          
+          {/* Export Button */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.open(`${API_BASE_URL}/api/whistleblowing/export/excel`, '_blank')}
+            className="flex items-center gap-1"
+            data-testid="whistleblowing-export-btn"
+          >
+            <Download className="h-4 w-4" />
+            Export Excel
+          </Button>
         </div>
       </div>
 
