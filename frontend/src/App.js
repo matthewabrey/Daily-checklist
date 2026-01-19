@@ -1647,6 +1647,17 @@ function Dashboard() {
             Report Accident
           </Button>
         </div>
+        {/* Third Row - Whistleblowing */}
+        <div className="flex flex-col sm:flex-row gap-3 mt-3 mb-4">
+          <Button 
+            onClick={() => openReportModal('whistleblowing')}
+            className="bg-amber-600 hover:bg-amber-700 text-white flex-1 text-sm sm:text-base py-4 sm:py-6"
+            data-testid="whistleblowing-btn"
+          >
+            <AlertCircle className="mr-2 h-4 w-4" />
+            Whistleblowing Report
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
