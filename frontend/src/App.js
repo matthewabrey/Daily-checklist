@@ -6890,7 +6890,7 @@ function WhistleblowingPage() {
                     {item.comments.slice(-2).map((comment, idx) => (
                       <div key={idx} className="text-xs bg-amber-50 p-2 rounded border-l-2 border-amber-400">
                         <p className="text-gray-700">{comment.text}</p>
-                        <p className="text-gray-400 mt-1">{comment.commented_by} • {new Date(comment.commented_at).toLocaleDateString()}</p>
+                        <p className="text-gray-400 mt-1">{comment.by || comment.commented_by} • {comment.at || comment.commented_at ? new Date(comment.at || comment.commented_at).toLocaleDateString() : ''}</p>
                       </div>
                     ))}
                     {item.comments.length > 2 && (
