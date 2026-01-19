@@ -164,7 +164,7 @@ function Dashboard() {
   const { t } = useTranslation();
   const { employee } = useAuth();
   const [recentChecklists, setRecentChecklists] = useState([]);
-  const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0, nearMissesNew: 0, suggestionsNew: 0, accidentsNew: 0, accidentsTotal: 0 });
+  const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0, nearMissesNew: 0, suggestionsNew: 0, accidentsNew: 0, accidentsTotal: 0, whistleblowingNew: 0, whistleblowingTotal: 0 });
   const [showRepairWarning, setShowRepairWarning] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
@@ -172,7 +172,7 @@ function Dashboard() {
   const [jobs, setJobs] = useState([]);
   const navigate = useNavigate();
 
-  // Near Miss / Suggestion / Accident Modal state
+  // Near Miss / Suggestion / Accident / Whistleblowing Modal state
   const [showReportModal, setShowReportModal] = useState(null); // 'near-miss', 'suggestion', or 'accident'
   const [reportIsAnonymous, setReportIsAnonymous] = useState(false);
   const [reportName, setReportName] = useState('');
