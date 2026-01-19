@@ -9298,6 +9298,11 @@ function AppContent() {
                 <AccidentsPage />
               </ProtectedRoute>
             } />
+            <Route path="/whistleblowing" element={
+              <ProtectedRoute>
+                <WhistleblowingPage />
+              </ProtectedRoute>
+            } />
             <Route path="/general-repair-record" element={
               <ProtectedRoute>
                 <GeneralRepairRecord />
