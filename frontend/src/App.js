@@ -6147,17 +6147,26 @@ function SuggestionsPage() {
                     </div>
                     <h3 className="font-medium text-gray-900">{item.title}</h3>
                     <p className="text-gray-600 text-sm line-clamp-2 mt-1">{item.description}</p>
-                    <div className="flex items-center gap-4 mt-2">
-                      <p className="text-xs text-gray-400">
-                        {new Date(item.created_at).toLocaleString()}
-                      </p>
-                      {item.comments && item.comments.length > 0 && (
-                        <span className="text-xs text-blue-600 flex items-center gap-1">
-                          <MessageSquare className="h-3 w-3" />
-                          {item.comments.length} note{item.comments.length !== 1 ? 's' : ''}
-                        </span>
-                      )}
-                    </div>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {new Date(item.created_at).toLocaleString()}
+                    </p>
+                    {/* Display actual comments/notes */}
+                    {item.comments && item.comments.length > 0 && (
+                      <div className="mt-2 space-y-1 border-t pt-2">
+                        <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                          <MessageSquare className="h-3 w-3" /> Notes ({item.comments.length})
+                        </p>
+                        {item.comments.slice(-2).map((comment, idx) => (
+                          <div key={idx} className="text-xs bg-indigo-50 p-2 rounded border-l-2 border-indigo-400">
+                            <p className="text-gray-700">{comment.text}</p>
+                            <p className="text-gray-400 mt-1">{comment.commented_by} • {new Date(comment.commented_at).toLocaleDateString()}</p>
+                          </div>
+                        ))}
+                        {item.comments.length > 2 && (
+                          <p className="text-xs text-indigo-600">+{item.comments.length - 2} more note{item.comments.length - 2 !== 1 ? 's' : ''}...</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
