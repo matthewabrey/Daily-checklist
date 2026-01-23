@@ -2436,14 +2436,14 @@ async def delete_job(job_id: str):
 
 @app.put("/api/admin/jobs/{job_id}")
 async def update_job(job_id: str, job_data: JobCreate):
-    """Update a job's name or total area"""
+    """Update a job's name, total area, or target date"""
     job = await db.jobs.find_one({"id": job_id})
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     
     await db.jobs.update_one(
         {"id": job_id},
-        {"$set": {"name": job_data.name, "total_area": job_data.total_area}}
+        {"$set": {"name": job_data.name, "total_area": job_data.total_area, "target_date": job_data.target_date}}
     )
     
     return {
