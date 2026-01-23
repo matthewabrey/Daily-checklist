@@ -2348,7 +2348,8 @@ async def create_job(job_data: JobCreate):
     """Create a new job"""
     job = Job(
         name=job_data.name,
-        total_area=job_data.total_area
+        total_area=job_data.total_area,
+        target_date=job_data.target_date
     )
     
     await db.jobs.insert_one(job.dict())
