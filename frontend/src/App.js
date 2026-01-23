@@ -1991,43 +1991,103 @@ function Dashboard() {
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {jobs.filter(j => j.status === 'active').map(job => (
-              <Card key={job.id} className="border-orange-200 hover:shadow-lg transition-shadow">
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-gray-900">{job.name}</h3>
-                    <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">
-                      Active
-                    </Badge>
-                  </div>
+            {jobs.filter(j => j.status === 'active').map(job => {
+              // Calculate daily target based on 6-day work week until target date
+              let dailyTarget = null;
+              let daysRemaining = null;
+              let isOverdue = false;
+              
+              if (job.target_date && job.area_left > 0) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const targetDate = new Date(job.target_date);
+                targetDate.setHours(0, 0, 0, 0);
+                
+                // Calculate total days between now and target
+                const diffTime = targetDate - today;
+                const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (totalDays <= 0) {
+                  isOverdue = true;
+                  daysRemaining = Math.abs(totalDays);
+                } else {
+                  // Calculate work days (6 days per week)
+                  const fullWeeks = Math.floor(totalDays / 7);
+                  const remainingDays = totalDays % 7;
+                  const workDays = (fullWeeks * 6) + Math.min(remainingDays, 6);
+                  daysRemaining = workDays;
                   
-                  {/* Progress Bar */}
-                  <div className="mb-3">
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div 
-                        className="bg-gradient-to-r from-orange-500 to-green-500 h-2.5 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, (job.total_completed / job.total_area) * 100)}%` }}
-                      />
+                  if (workDays > 0) {
+                    dailyTarget = (job.area_left / workDays).toFixed(1);
+                  }
+                }
+              }
+              
+              return (
+                <Card key={job.id} className="border-orange-200 hover:shadow-lg transition-shadow">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-gray-900">{job.name}</h3>
+                      <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">
+                        Active
+                      </Badge>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {Math.round((job.total_completed / job.total_area) * 100)}% complete
-                    </p>
-                  </div>
+                    
+                    {/* Progress Bar */}
+                    <div className="mb-3">
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div 
+                          className="bg-gradient-to-r from-orange-500 to-green-500 h-2.5 rounded-full transition-all duration-500"
+                          style={{ width: `${Math.min(100, (job.total_completed / job.total_area) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {Math.round((job.total_completed / job.total_area) * 100)}% complete
+                      </p>
+                    </div>
 
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="bg-orange-50 rounded-lg p-2 text-center">
-                      <p className="text-orange-600 font-bold text-lg">{job.area_left}</p>
-                      <p className="text-orange-700 text-xs">Ha Left</p>
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="bg-orange-50 rounded-lg p-2 text-center">
+                        <p className="text-orange-600 font-bold text-lg">{job.area_left}</p>
+                        <p className="text-orange-700 text-xs">Ha Left</p>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg p-2 text-center">
+                        <p className="text-blue-600 font-bold text-lg">{job.ha_per_day}</p>
+                        <p className="text-blue-700 text-xs">Ha/Day Avg</p>
+                      </div>
                     </div>
-                    <div className="bg-blue-50 rounded-lg p-2 text-center">
-                      <p className="text-blue-600 font-bold text-lg">{job.ha_per_day}</p>
-                      <p className="text-blue-700 text-xs">Ha/Day Avg</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    
+                    {/* Daily Target Section */}
+                    {job.target_date && (
+                      <div className={`mt-3 p-2 rounded-lg border ${isOverdue ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium text-gray-600">Target: {new Date(job.target_date).toLocaleDateString()}</span>
+                          {isOverdue ? (
+                            <Badge className="bg-red-500 text-white text-xs">Overdue</Badge>
+                          ) : (
+                            <span className="text-xs text-gray-500">{daysRemaining} work days left</span>
+                          )}
+                        </div>
+                        {!isOverdue && dailyTarget && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">Required daily:</span>
+                            <span className={`font-bold ${parseFloat(dailyTarget) > parseFloat(job.ha_per_day || 0) ? 'text-red-600' : 'text-green-600'}`}>
+                              {dailyTarget} Ha/day
+                            </span>
+                          </div>
+                        )}
+                        {isOverdue && (
+                          <p className="text-xs text-red-600 font-medium">
+                            {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} overdue - {job.area_left} Ha remaining
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
             
             {/* Completed Jobs Summary */}
             {jobs.filter(j => j.status === 'complete').length > 0 && (
