@@ -3605,7 +3605,7 @@ function WorkProgressAdmin() {
   const [showAddJobModal, setShowAddJobModal] = useState(false);
   const [showAddEntryModal, setShowAddEntryModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
-  const [newJob, setNewJob] = useState({ name: '', total_area: '' });
+  const [newJob, setNewJob] = useState({ name: '', total_area: '', target_date: '' });
   const [newEntry, setNewEntry] = useState({ hectares_completed: '', date_completed: '' });
 
   useEffect(() => {
@@ -3640,14 +3640,15 @@ function WorkProgressAdmin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newJob.name.trim(),
-          total_area: parseFloat(newJob.total_area)
+          total_area: parseFloat(newJob.total_area),
+          target_date: newJob.target_date || null
         })
       });
 
       if (response.ok) {
         toast.success('Job created successfully');
         setShowAddJobModal(false);
-        setNewJob({ name: '', total_area: '' });
+        setNewJob({ name: '', total_area: '', target_date: '' });
         fetchJobs();
       } else {
         toast.error('Failed to create job');
