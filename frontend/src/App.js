@@ -3996,21 +3996,33 @@ function WorkProgressAdmin() {
                               <h5 className="font-semibold text-lg">{job.name}</h5>
                               <p className="text-sm text-gray-600">
                                 Total: {job.total_area} Ha
+                                {job.target_date && (
+                                  <span className="ml-2 text-purple-600">| Target: {new Date(job.target_date).toLocaleDateString()}</span>
+                                )}
                               </p>
                             </div>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleDeleteJob(job.id, job.name);
-                              }}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200"
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => openEditJobModal(job)}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDeleteJob(job.id, job.name);
+                                }}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                           
                           {/* Progress Bar */}
