@@ -5,7 +5,7 @@
 export const translations = {
   en: {
     // Login Page
-    loginTitle: "Abreys Health & Safety, Wellbeing and Work App",
+    loginTitle: "Abreys Health & Safety, Well-being and Work App",
     loginSubtitle: "Enter your employee number to continue",
     employeeNumber: "Employee Number",
     employeeNumberPlaceholder: "Enter employee number",
