@@ -3768,6 +3768,16 @@ function WorkProgressAdmin() {
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Target Completion Date</label>
+                <input
+                  type="date"
+                  value={newJob.target_date}
+                  onChange={(e) => setNewJob(prev => ({ ...prev, target_date: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Optional - Set a deadline for this job</p>
+              </div>
               <div className="flex justify-end space-x-3">
                 <Button variant="outline" onClick={() => setShowAddJobModal(false)}>Cancel</Button>
                 <Button onClick={handleCreateJob} className="bg-orange-600 hover:bg-orange-700">
