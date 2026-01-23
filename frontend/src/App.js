@@ -1870,16 +1870,18 @@ function Dashboard() {
               <div className="text-2xl font-bold text-indigo-600">{stats.suggestionsNew || 0}</div>
               <p className="text-xs text-indigo-700">New suggestions ({stats.suggestionsTotal || 0} total)</p>
             </div>
-            <Button 
-              onClick={() => navigate('/suggestions')}
-              variant="outline"
-              size="sm"
-              className="w-full border-indigo-300 text-indigo-700 hover:bg-indigo-100"
-              style={{marginTop: 'auto'}}
-              data-testid="view-suggestions-btn"
-            >
-              View Suggestions
-            </Button>
+            {isAdmin && (
+              <Button 
+                onClick={() => navigate('/suggestions')}
+                variant="outline"
+                size="sm"
+                className="w-full border-indigo-300 text-indigo-700 hover:bg-indigo-100"
+                style={{marginTop: 'auto'}}
+                data-testid="view-suggestions-btn"
+              >
+                View Suggestions
+              </Button>
+            )}
           </div>
         </Card>
 
