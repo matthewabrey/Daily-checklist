@@ -1533,42 +1533,51 @@ async def sync_all_from_sharepoint():
 
 @app.get("/api/checklists/export/csv")
 async def export_checklists_csv():
+    """Fast CSV export - use this for very large datasets"""
     from fastapi.responses import StreamingResponse
     import io
     import csv
     
-    # Limit export to last 10000 records for performance
-    checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).limit(10000).to_list(length=10000)
+    # Use projection for speed
+    projection = {
+        "_id": 0, "id": 1, "staff_name": 1, "machine_make": 1, "machine_model": 1,
+        "check_type": 1, "completed_at": 1, "status": 1, "checklist_items": 1, "workshop_notes": 1
+    }
+    
+    checklists = await db.checklists.find({}, projection).sort("completed_at", -1).limit(10000).to_list(length=10000)
     
     output = io.StringIO()
     writer = csv.writer(output)
     
     # Write header
-    writer.writerow(["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Items Satisfactory", "Items Unsatisfactory", "Items Total", "Notes", "Workshop Details"])
+    writer.writerow(["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Satisfactory", "Unsatisfactory", "Total", "Notes", "Workshop Details"])
     
     # Write data
     for checklist in checklists:
-        if checklist['check_type'] in ['daily_check', 'grader_startup']:
-            items_satisfactory = sum(1 for item in checklist['checklist_items'] if item['status'] == 'satisfactory')
-            items_unsatisfactory = sum(1 for item in checklist['checklist_items'] if item['status'] == 'unsatisfactory')
-            items_total = len(checklist['checklist_items'])
-            notes = "; ".join([item['notes'] for item in checklist['checklist_items'] if item.get('notes')])
+        check_type = checklist.get('check_type', '')
+        if check_type in ['daily_check', 'grader_startup']:
+            items = checklist.get('checklist_items', [])
+            items_satisfactory = sum(1 for item in items if item.get('status') == 'satisfactory')
+            items_unsatisfactory = sum(1 for item in items if item.get('status') == 'unsatisfactory')
+            items_total = len(items)
+            notes_list = [item.get('notes', '')[:100] for item in items if item.get('notes')]
+            notes = "; ".join(notes_list)[:500] if notes_list else ""
             workshop_details = ""
         else:
             items_satisfactory = 0
             items_unsatisfactory = 0
             items_total = 0
             notes = ""
-            workshop_details = checklist.get('workshop_notes', '')
+            workshop_details = (checklist.get('workshop_notes') or '')[:500]
         
         writer.writerow([
-            checklist['id'],
-            checklist['staff_name'],
-            checklist['machine_make'],
-            checklist['machine_model'],
-            checklist['check_type'],
-            checklist['completed_at'],
-            checklist['status'],
+            checklist.get('id', ''),
+            checklist.get('staff_name', ''),
+            checklist.get('machine_make', ''),
+            checklist.get('machine_model', ''),
+            check_type,
+            checklist.get('completed_at', ''),
+            checklist.get('status', ''),
             items_satisfactory,
             items_unsatisfactory,
             items_total,
@@ -1581,7 +1590,7 @@ async def export_checklists_csv():
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode('utf-8')),
         media_type='text/csv',
-        headers={"Content-Disposition": "attachment; filename=machine_checklists.csv"}
+        headers={"Content-Disposition": "attachment; filename=all_checks.csv"}
     )
 
 @app.get("/api/checklists/export/excel")
