@@ -18,7 +18,7 @@ export const translations = {
     
     // Dashboard
     dashboardTitle: "Dashboard",
-    dashboardSubtitle: "Health & Safety, Wellbeing and Work Management",
+    dashboardSubtitle: "Health & Safety, Well-being and Work Management",
     checksAndServicing: "Checks and Servicing",
     breakdownRepairReporting: "Breakdown and repair reporting",
     
