@@ -3672,8 +3672,10 @@ function WorkProgressAdmin() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddJobModal, setShowAddJobModal] = useState(false);
+  const [showEditJobModal, setShowEditJobModal] = useState(false);
   const [showAddEntryModal, setShowAddEntryModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [editingJob, setEditingJob] = useState(null);
   const [newJob, setNewJob] = useState({ name: '', total_area: '', target_date: '' });
   const [newEntry, setNewEntry] = useState({ hectares_completed: '', date_completed: '' });
 
