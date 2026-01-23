@@ -5253,14 +5253,25 @@ function AllChecksCompleted() {
             </p>
           </div>
         </div>
-        <Button 
-          onClick={handleExport} 
-          variant="outline"
-          className="bg-green-600 hover:bg-green-700 text-white"
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Export to Excel
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleExport} 
+            variant="outline"
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Excel
+          </Button>
+          <Button 
+            onClick={handleExportCSV} 
+            variant="outline"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            title="Faster for large datasets"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            CSV
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
