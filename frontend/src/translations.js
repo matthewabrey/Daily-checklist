@@ -5,7 +5,7 @@
 export const translations = {
   en: {
     // Login Page
-    loginTitle: "Machine Checklist",
+    loginTitle: "Abreys Health & Safety, Wellbeing and Work App",
     loginSubtitle: "Enter your employee number to continue",
     employeeNumber: "Employee Number",
     employeeNumberPlaceholder: "Enter employee number",
@@ -18,7 +18,7 @@ export const translations = {
     
     // Dashboard
     dashboardTitle: "Dashboard",
-    dashboardSubtitle: "Manage equipment startup checklists and safety inspections",
+    dashboardSubtitle: "Health & Safety, Wellbeing and Work Management",
     checksAndServicing: "Checks and Servicing",
     breakdownRepairReporting: "Breakdown and repair reporting",
     
