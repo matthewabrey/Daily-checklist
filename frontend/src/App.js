@@ -9502,19 +9502,19 @@ function AppContent() {
               </ProtectedRoute>
             } />
             <Route path="/suggestions" element={
-              <ProtectedRoute>
+              <AdminProtectedRoute>
                 <SuggestionsPage />
-              </ProtectedRoute>
+              </AdminProtectedRoute>
             } />
             <Route path="/accidents" element={
-              <ProtectedRoute>
+              <AdminProtectedRoute>
                 <AccidentsPage />
-              </ProtectedRoute>
+              </AdminProtectedRoute>
             } />
             <Route path="/whistleblowing" element={
-              <ProtectedRoute>
+              <AdminProtectedRoute>
                 <WhistleblowingPage />
-              </ProtectedRoute>
+              </AdminProtectedRoute>
             } />
             <Route path="/general-repair-record" element={
               <ProtectedRoute>
