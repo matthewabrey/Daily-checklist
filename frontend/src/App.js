@@ -1900,16 +1900,18 @@ function Dashboard() {
               <div className="text-2xl font-bold text-purple-600">{stats.accidentsNew || 0}</div>
               <p className="text-xs text-purple-700">New reports ({stats.accidentsTotal || 0} total)</p>
             </div>
-            <Button 
-              onClick={() => navigate('/accidents')}
-              variant="outline"
-              size="sm"
-              className="w-full border-purple-300 text-purple-700 hover:bg-purple-100"
-              style={{marginTop: 'auto'}}
-              data-testid="view-accidents-btn"
-            >
-              View Accidents
-            </Button>
+            {isAdmin && (
+              <Button 
+                onClick={() => navigate('/accidents')}
+                variant="outline"
+                size="sm"
+                className="w-full border-purple-300 text-purple-700 hover:bg-purple-100"
+                style={{marginTop: 'auto'}}
+                data-testid="view-accidents-btn"
+              >
+                View Accidents
+              </Button>
+            )}
           </div>
         </Card>
 
