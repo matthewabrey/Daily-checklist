@@ -124,12 +124,14 @@ class Job(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str  # e.g., "Carrot Drilling"
     total_area: float  # Total hectares
+    target_date: Optional[str] = None  # Target completion date (YYYY-MM-DD)
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     status: str = "active"  # "active" or "complete"
 
 class JobCreate(BaseModel):
     name: str
     total_area: float
+    target_date: Optional[str] = None  # Target completion date (YYYY-MM-DD)
 
 class WorkEntryCreate(BaseModel):
     hectares_completed: float
