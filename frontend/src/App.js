@@ -3730,6 +3730,47 @@ function WorkProgressAdmin() {
     }
   };
 
+  const openEditJobModal = (job) => {
+    setEditingJob({
+      id: job.id,
+      name: job.name,
+      total_area: job.total_area,
+      target_date: job.target_date || ''
+    });
+    setShowEditJobModal(true);
+  };
+
+  const handleUpdateJob = async () => {
+    if (!editingJob.name.trim() || !editingJob.total_area) {
+      toast.error('Please enter job name and total area');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${editingJob.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingJob.name.trim(),
+          total_area: parseFloat(editingJob.total_area),
+          target_date: editingJob.target_date || null
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Job updated successfully');
+        setShowEditJobModal(false);
+        setEditingJob(null);
+        fetchJobs();
+      } else {
+        toast.error('Failed to update job');
+      }
+    } catch (error) {
+      console.error('Error updating job:', error);
+      toast.error('Failed to update job');
+    }
+  };
+
   const handleAddEntry = async () => {
     if (!newEntry.hectares_completed || !selectedJob) {
       toast.error('Please enter hectares completed');
