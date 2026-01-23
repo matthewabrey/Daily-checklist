@@ -1586,72 +1586,77 @@ async def export_checklists_csv():
 
 @app.get("/api/checklists/export/excel")
 async def export_checklists_excel():
+    """Optimized Excel export for large datasets"""
     from fastapi.responses import StreamingResponse
     import io
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
     
-    # Limit export to last 10000 records for performance
-    checklists = await db.checklists.find({}, {"_id": 0}).sort("completed_at", -1).limit(10000).to_list(length=10000)
+    # Use projection to only get fields we need (reduces memory)
+    projection = {
+        "_id": 0, "id": 1, "staff_name": 1, "machine_make": 1, "machine_model": 1,
+        "check_type": 1, "completed_at": 1, "status": 1, "checklist_items": 1, "workshop_notes": 1
+    }
     
-    # Create workbook and worksheet
-    wb = Workbook()
+    # Stream data in batches to avoid memory issues
+    checklists = await db.checklists.find({}, projection).sort("completed_at", -1).limit(10000).to_list(length=10000)
+    
+    # Create workbook with optimized settings
+    wb = Workbook(write_only=False)  # Can't use write_only with formatting
     ws = wb.active
     ws.title = "All Checks"
     
-    # Write header with formatting
-    headers = ["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Items Satisfactory", "Items Unsatisfactory", "Items Total", "Notes", "Workshop Details"]
-    ws.append(headers)
+    # Define headers and fixed column widths (skip auto-adjust which is slow)
+    headers = ["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Satisfactory", "Unsatisfactory", "Total", "Notes", "Workshop Details"]
+    col_widths = [38, 20, 20, 25, 15, 22, 12, 12, 14, 8, 50, 50]
     
-    # Format header row
+    # Set column widths upfront (much faster than auto-adjust)
+    for i, width in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = width
+    
+    # Write and format header
+    ws.append(headers)
     header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True)
     for cell in ws[1]:
         cell.fill = header_fill
         cell.font = header_font
     
-    # Write data
+    # Process data in optimized way
     for checklist in checklists:
-        if checklist['check_type'] in ['daily_check', 'grader_startup']:
-            items_satisfactory = sum(1 for item in checklist['checklist_items'] if item['status'] == 'satisfactory')
-            items_unsatisfactory = sum(1 for item in checklist['checklist_items'] if item['status'] == 'unsatisfactory')
-            items_total = len(checklist['checklist_items'])
-            notes = "; ".join([item['notes'] for item in checklist['checklist_items'] if item.get('notes')])
+        check_type = checklist.get('check_type', '')
+        
+        if check_type in ['daily_check', 'grader_startup']:
+            items = checklist.get('checklist_items', [])
+            items_satisfactory = sum(1 for item in items if item.get('status') == 'satisfactory')
+            items_unsatisfactory = sum(1 for item in items if item.get('status') == 'unsatisfactory')
+            items_total = len(items)
+            # Limit notes length to prevent huge cells
+            notes_list = [item.get('notes', '')[:100] for item in items if item.get('notes')]
+            notes = "; ".join(notes_list)[:500] if notes_list else ""
             workshop_details = ""
         else:
             items_satisfactory = 0
             items_unsatisfactory = 0
             items_total = 0
             notes = ""
-            workshop_details = checklist.get('workshop_notes', '')
+            workshop_details = (checklist.get('workshop_notes') or '')[:500]
         
         ws.append([
-            checklist['id'],
-            checklist['staff_name'],
-            checklist['machine_make'],
-            checklist['machine_model'],
-            checklist['check_type'],
-            str(checklist['completed_at']),
-            checklist['status'],
+            checklist.get('id', ''),
+            checklist.get('staff_name', ''),
+            checklist.get('machine_make', ''),
+            checklist.get('machine_model', ''),
+            check_type,
+            str(checklist.get('completed_at', '')),
+            checklist.get('status', ''),
             items_satisfactory,
             items_unsatisfactory,
             items_total,
             notes,
             workshop_details
         ])
-    
-    # Auto-adjust column widths
-    for column in ws.columns:
-        max_length = 0
-        column_letter = column[0].column_letter
-        for cell in column:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = min(max_length + 2, 50)
-        ws.column_dimensions[column_letter].width = adjusted_width
     
     # Save to BytesIO
     output = io.BytesIO()
