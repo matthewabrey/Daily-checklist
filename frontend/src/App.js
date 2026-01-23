@@ -3901,6 +3901,56 @@ function WorkProgressAdmin() {
         </div>
       )}
 
+      {/* Edit Job Modal */}
+      {showEditJobModal && editingJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Edit Job</h3>
+              <Button variant="ghost" size="sm" onClick={() => { setShowEditJobModal(false); setEditingJob(null); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Job Name</label>
+                <input
+                  type="text"
+                  value={editingJob.name}
+                  onChange={(e) => setEditingJob(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Total Area (Ha)</label>
+                <input
+                  type="number"
+                  value={editingJob.total_area}
+                  onChange={(e) => setEditingJob(prev => ({ ...prev, total_area: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Target Completion Date</label>
+                <input
+                  type="date"
+                  value={editingJob.target_date}
+                  onChange={(e) => setEditingJob(prev => ({ ...prev, target_date: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Set a deadline - shows required daily Ha on dashboard</p>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <Button variant="outline" onClick={() => { setShowEditJobModal(false); setEditingJob(null); }}>Cancel</Button>
+                <Button onClick={handleUpdateJob} className="bg-orange-600 hover:bg-orange-700">
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Work Entry Modal */}
       {showAddEntryModal && selectedJob && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
