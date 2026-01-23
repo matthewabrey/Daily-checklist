@@ -1930,16 +1930,18 @@ function Dashboard() {
               <div className="text-2xl font-bold text-amber-600">{stats.whistleblowingNew || 0}</div>
               <p className="text-xs text-amber-700">New reports ({stats.whistleblowingTotal || 0} total)</p>
             </div>
-            <Button 
-              onClick={() => navigate('/whistleblowing')}
-              variant="outline"
-              size="sm"
-              className="w-full border-amber-300 text-amber-700 hover:bg-amber-100"
-              style={{marginTop: 'auto'}}
-              data-testid="view-whistleblowing-btn"
-            >
-              View Reports
-            </Button>
+            {isAdmin && (
+              <Button 
+                onClick={() => navigate('/whistleblowing')}
+                variant="outline"
+                size="sm"
+                className="w-full border-amber-300 text-amber-700 hover:bg-amber-100"
+                style={{marginTop: 'auto'}}
+                data-testid="view-whistleblowing-btn"
+              >
+                View Reports
+              </Button>
+            )}
           </div>
         </Card>
       </div>
