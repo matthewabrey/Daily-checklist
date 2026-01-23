@@ -823,9 +823,18 @@ function Dashboard() {
                 ) : (
                   <>
                     <Download className="h-4 w-4 mr-2" />
-                    Export All to Excel
+                    Excel (Detailed)
                   </>
                 )}
+              </Button>
+              <Button 
+                onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/csv`, '_blank')}
+                variant="outline"
+                className="border-blue-500 text-blue-700 hover:bg-blue-50"
+                title="Faster download for large datasets"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                CSV (Fast)
               </Button>
             </div>
 
