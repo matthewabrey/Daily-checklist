@@ -830,7 +830,15 @@ async def get_checklists_by_machine(make: str = None, name: str = None, limit: i
         "items_satisfactory": 1,
         "items_unsatisfactory": 1,
         "items_total": 1,
-        "notes_summary": 1
+        "notes_summary": 1,
+        "checklist_items": 1,
+        "workshop_notes": 1,
+        "workshop_photos": 1,
+        # Fuel and Mileage fields
+        "fuel_mileage": 1,
+        "fuel_added": 1,
+        "adblue_added": 1,
+        "fuel_notes": 1
     }
     
     checklists = await db.checklists.find(query, projection).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
