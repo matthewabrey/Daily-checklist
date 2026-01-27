@@ -2233,10 +2233,15 @@ function NewChecklist() {
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedName, setSelectedName] = useState('');
   const [machineCheckType, setMachineCheckType] = useState('');
-  const [selectedCheckType, setSelectedCheckType] = useState(''); // daily or workshop
+  const [selectedCheckType, setSelectedCheckType] = useState(''); // daily or workshop or fuel_mileage
   const [checklistItems, setChecklistItems] = useState([]);
   const [workshopNotes, setWorkshopNotes] = useState('');
   const [workshopPhotos, setWorkshopPhotos] = useState([]);
+  // Fuel and Mileage fields
+  const [fuelMileage, setFuelMileage] = useState('');
+  const [fuelAdded, setFuelAdded] = useState('');
+  const [adBlueAdded, setAdBlueAdded] = useState('');
+  const [fuelNotes, setFuelNotes] = useState('');
   const [makes, setMakes] = useState([]);
   const [names, setNames] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
