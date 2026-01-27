@@ -291,6 +291,38 @@ class WhistleblowCreate(BaseModel):
     is_anonymous: bool = True
     submitted_by: Optional[str] = None
 
+# Training Record Models
+class TraineeSignature(BaseModel):
+    employee_id: Optional[str] = None
+    employee_name: str
+    is_agency: bool = False
+    signed: bool = False
+    signed_at: Optional[str] = None
+    signature_data: Optional[str] = None  # Base64 signature image
+
+class TrainingRecord(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    swp_number: str  # Safe Working Practice number
+    swp_version: str
+    department: str
+    training_date: str
+    notes: Optional[str] = None
+    trainer_name: str
+    trainer_employee_number: Optional[str] = None
+    trainees: List[TraineeSignature] = []
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    status: str = "pending_signatures"  # pending_signatures, completed
+
+class TrainingRecordCreate(BaseModel):
+    swp_number: str
+    swp_version: str
+    department: str
+    training_date: str
+    notes: Optional[str] = None
+    trainer_name: str
+    trainer_employee_number: Optional[str] = None
+    trainees: List[dict] = []  # List of {employee_id, employee_name, is_agency}
+
 # Initialize data
 async def initialize_data():
     # Check if data already exists
