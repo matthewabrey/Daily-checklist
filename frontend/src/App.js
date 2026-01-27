@@ -3314,6 +3314,27 @@ function NewChecklist() {
                     </div>
                   </div>
                 </Card>
+
+                <Card 
+                  className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-blue-400 border-2 ${selectedCheckType === 'fuel_mileage' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                  onClick={() => {
+                    setSelectedCheckType('fuel_mileage');
+                    setStep(3);
+                  }}
+                  data-testid="fuel-mileage-option"
+                >
+                  <div className="flex items-center space-x-3 sm:space-x-4">
+                    <div className="p-3 bg-blue-100 rounded-lg">
+                      <TrendingUp className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg sm:text-xl">Fuel and Mileage Recording</h3>
+                      <p className="text-gray-600 text-sm sm:text-base">Record fuel, AdBlue and mileage</p>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">Track fuel consumption and vehicle mileage</p>
+                      <p className="text-sm text-blue-600 font-medium mt-2">Tap to start →</p>
+                    </div>
+                  </div>
+                </Card>
               </div>
               
               <div className="flex justify-start pt-6">
