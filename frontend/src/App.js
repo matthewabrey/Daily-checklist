@@ -641,6 +641,21 @@ function Dashboard() {
         whistleblowingTotal: statsData.whistleblowing_total || 0
       });
       
+      // Fetch training stats
+      try {
+        const trainingResponse = await fetch(`${API_BASE_URL}/api/training/stats/count`);
+        if (trainingResponse.ok) {
+          const trainingData = await trainingResponse.json();
+          setStats(prev => ({
+            ...prev,
+            trainingPending: trainingData.pending || 0,
+            trainingTotal: trainingData.total || 0
+          }));
+        }
+      } catch (trainingError) {
+        console.error('Error fetching training stats:', trainingError);
+      }
+      
       // Fetch near misses by location for pie chart
       try {
         const pieResponse = await fetch(`${API_BASE_URL}/api/near-misses/stats/by-location`);
