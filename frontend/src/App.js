@@ -3241,7 +3241,7 @@ function NewChecklist() {
                   
                   <p className="text-gray-700 font-medium">Select check type:</p>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <Button 
                       onClick={() => {
                         setSelectedCheckType('daily_check');
@@ -3266,6 +3266,19 @@ function NewChecklist() {
                       <Settings className="h-6 w-6" />
                       <span className="text-lg font-semibold">Workshop Service</span>
                       <span className="text-xs opacity-90">Record maintenance or repair</span>
+                    </Button>
+                    
+                    <Button 
+                      onClick={() => {
+                        setSelectedCheckType('fuel_mileage');
+                        setStep(3);
+                      }}
+                      className="h-auto py-4 bg-blue-600 hover:bg-blue-700 flex flex-col items-center gap-2"
+                      data-testid="fuel-mileage-btn"
+                    >
+                      <TrendingUp className="h-6 w-6" />
+                      <span className="text-lg font-semibold">Fuel & Mileage</span>
+                      <span className="text-xs opacity-90">Record fuel and mileage</span>
                     </Button>
                   </div>
                 </div>
