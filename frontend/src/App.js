@@ -7357,6 +7357,552 @@ function WhistleblowingPage() {
   );
 }
 
+// Training Records Page Component
+function TrainingPage() {
+  const { employee } = useAuth();
+  const navigate = useNavigate();
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showSignModal, setShowSignModal] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [pendingSignatures, setPendingSignatures] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [filter, setFilter] = useState('all');
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    swp_number: '',
+    swp_version: '',
+    department: '',
+    training_date: new Date().toISOString().split('T')[0],
+    notes: '',
+    selectedEmployees: [],
+    agencyStaff: ''
+  });
+  
+  const [signatureData, setSignatureData] = useState('');
+  const canvasRef = React.useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  const isAdmin = employee?.admin_control === 'yes';
+
+  const departments = [
+    'Farm', 'Field', 'Grading', 'Storage', 'Transport', 'Workshop', 'Office', 'Other'
+  ];
+
+  useEffect(() => {
+    fetchRecords();
+    fetchStaff();
+    if (employee?.employee_number) {
+      fetchPendingSignatures();
+    }
+  }, [employee]);
+
+  const fetchRecords = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/training`);
+      if (response.ok) {
+        const data = await response.json();
+        setRecords(data);
+      }
+    } catch (error) {
+      console.error('Error fetching training records:', error);
+      toast.error('Failed to load training records');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStaff = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/staff`);
+      if (response.ok) {
+        const data = await response.json();
+        setStaffList(data);
+      }
+    } catch (error) {
+      console.error('Error fetching staff:', error);
+    }
+  };
+
+  const fetchPendingSignatures = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/training/pending/${employee.employee_number}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPendingSignatures(data);
+      }
+    } catch (error) {
+      console.error('Error fetching pending signatures:', error);
+    }
+  };
+
+  const handleCreateRecord = async () => {
+    if (!formData.swp_number || !formData.department || !formData.training_date) {
+      toast.error('Please fill in SWP Number, Department, and Training Date');
+      return;
+    }
+
+    const trainees = [];
+    
+    // Add selected employees
+    formData.selectedEmployees.forEach(emp => {
+      trainees.push({
+        employee_id: emp.employee_number,
+        employee_name: emp.name,
+        is_agency: false
+      });
+    });
+    
+    // Add agency staff
+    if (formData.agencyStaff.trim()) {
+      formData.agencyStaff.split('\n').forEach(name => {
+        if (name.trim()) {
+          trainees.push({
+            employee_id: null,
+            employee_name: name.trim(),
+            is_agency: true
+          });
+        }
+      });
+    }
+
+    if (trainees.length === 0) {
+      toast.error('Please add at least one trainee');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/training`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          swp_number: formData.swp_number,
+          swp_version: formData.swp_version,
+          department: formData.department,
+          training_date: formData.training_date,
+          notes: formData.notes,
+          trainer_name: employee.name,
+          trainer_employee_number: employee.employee_number,
+          trainees
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Training record created');
+        setShowCreateModal(false);
+        setFormData({
+          swp_number: '',
+          swp_version: '',
+          department: '',
+          training_date: new Date().toISOString().split('T')[0],
+          notes: '',
+          selectedEmployees: [],
+          agencyStaff: ''
+        });
+        fetchRecords();
+      } else {
+        toast.error('Failed to create training record');
+      }
+    } catch (error) {
+      console.error('Error creating training record:', error);
+      toast.error('Failed to create training record');
+    }
+  };
+
+  const handleSign = async () => {
+    if (!signatureData) {
+      toast.error('Please provide your signature');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/training/${selectedRecord.id}/sign?employee_id=${employee.employee_number}&signature_data=${encodeURIComponent(signatureData)}`, {
+        method: 'PUT'
+      });
+
+      if (response.ok) {
+        toast.success('Signature recorded');
+        setShowSignModal(false);
+        setSignatureData('');
+        fetchRecords();
+        fetchPendingSignatures();
+      } else {
+        toast.error('Failed to record signature');
+      }
+    } catch (error) {
+      console.error('Error signing:', error);
+      toast.error('Failed to record signature');
+    }
+  };
+
+  // Canvas drawing functions for signature
+  const startDrawing = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
+    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+  };
+
+  const draw = (e) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
+    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    if (isDrawing) {
+      setIsDrawing(false);
+      const canvas = canvasRef.current;
+      if (canvas) {
+        setSignatureData(canvas.toDataURL());
+      }
+    }
+  };
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      setSignatureData('');
+    }
+  };
+
+  const filteredRecords = records.filter(record => {
+    if (filter === 'all') return true;
+    return record.status === filter;
+  });
+
+  const toggleEmployeeSelection = (emp) => {
+    setFormData(prev => {
+      const isSelected = prev.selectedEmployees.some(e => e.employee_number === emp.employee_number);
+      if (isSelected) {
+        return { ...prev, selectedEmployees: prev.selectedEmployees.filter(e => e.employee_number !== emp.employee_number) };
+      } else {
+        return { ...prev, selectedEmployees: [...prev.selectedEmployees, emp] };
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back
+          </Button>
+          <h1 className="text-2xl font-bold text-gray-900">Training Records</h1>
+        </div>
+        <Button onClick={() => setShowCreateModal(true)} className="bg-teal-600 hover:bg-teal-700">
+          <Plus className="h-4 w-4 mr-2" /> New Training Record
+        </Button>
+      </div>
+
+      {/* Pending Signatures Alert */}
+      {pendingSignatures.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-yellow-800">
+            <AlertTriangle className="h-5 w-5" />
+            <span className="font-medium">You have {pendingSignatures.length} training record(s) awaiting your signature</span>
+          </div>
+          <div className="mt-2 space-y-2">
+            {pendingSignatures.map(record => (
+              <div key={record.id} className="flex items-center justify-between bg-white p-2 rounded border">
+                <span className="text-sm">SWP {record.swp_number} - {record.department} ({record.training_date})</span>
+                <Button size="sm" onClick={() => { setSelectedRecord(record); setShowSignModal(true); }}>
+                  Sign Now
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex gap-2">
+        <select value={filter} onChange={(e) => setFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-md">
+          <option value="all">All Records</option>
+          <option value="pending_signatures">Pending Signatures</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+
+      {/* Records List */}
+      {loading ? (
+        <div className="text-center py-8"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></div>
+      ) : filteredRecords.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">No training records found</div>
+      ) : (
+        <div className="grid gap-4">
+          {filteredRecords.map(record => (
+            <Card key={record.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => { setSelectedRecord(record); setShowDetailModal(true); }}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-lg">SWP {record.swp_number}</h3>
+                      {record.swp_version && <Badge variant="outline">v{record.swp_version}</Badge>}
+                      <Badge className={record.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'}>
+                        {record.status === 'completed' ? 'Completed' : 'Pending Signatures'}
+                      </Badge>
+                    </div>
+                    <p className="text-gray-600 mt-1">{record.department}</p>
+                    <p className="text-sm text-gray-500">Training Date: {record.training_date}</p>
+                    <p className="text-sm text-gray-500">Trainer: {record.trainer_name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500">{record.trainees?.length || 0} trainees</p>
+                    <p className="text-xs text-gray-400">{record.trainees?.filter(t => t.signed).length || 0} signed</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Create Training Record Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">New Training Record</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}><X className="h-4 w-4" /></Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">SWP Number *</label>
+                  <input
+                    type="text"
+                    value={formData.swp_number}
+                    onChange={(e) => setFormData(prev => ({ ...prev, swp_number: e.target.value }))}
+                    placeholder="e.g., SWP-001"
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Version</label>
+                  <input
+                    type="text"
+                    value={formData.swp_version}
+                    onChange={(e) => setFormData(prev => ({ ...prev, swp_version: e.target.value }))}
+                    placeholder="e.g., 1.0"
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Department/Area *</label>
+                  <select
+                    value={formData.department}
+                    onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="">Select department...</option>
+                    {departments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Training Date *</label>
+                  <input
+                    type="date"
+                    value={formData.training_date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, training_date: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <Textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Additional training notes..."
+                  className="min-h-[80px]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Select Employees</label>
+                <div className="border rounded-md max-h-48 overflow-auto p-2">
+                  {staffList.map(emp => (
+                    <label key={emp.employee_number} className="flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.selectedEmployees.some(e => e.employee_number === emp.employee_number)}
+                        onChange={() => toggleEmployeeSelection(emp)}
+                        className="rounded"
+                      />
+                      <span>{emp.name}</span>
+                      <span className="text-xs text-gray-400">({emp.employee_number})</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">{formData.selectedEmployees.length} employee(s) selected</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Agency Staff (one per line)</label>
+                <Textarea
+                  value={formData.agencyStaff}
+                  onChange={(e) => setFormData(prev => ({ ...prev, agencyStaff: e.target.value }))}
+                  placeholder="Enter agency staff names, one per line..."
+                  className="min-h-[80px]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+                <Button onClick={handleCreateRecord} className="bg-teal-600 hover:bg-teal-700">Create Record</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {showDetailModal && selectedRecord && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Training Record Details</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowDetailModal(false)}><X className="h-4 w-4" /></Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div><p className="text-xs text-gray-500">SWP Number</p><p className="font-medium">{selectedRecord.swp_number}</p></div>
+                <div><p className="text-xs text-gray-500">Version</p><p className="font-medium">{selectedRecord.swp_version || 'N/A'}</p></div>
+                <div><p className="text-xs text-gray-500">Department</p><p className="font-medium">{selectedRecord.department}</p></div>
+                <div><p className="text-xs text-gray-500">Training Date</p><p className="font-medium">{selectedRecord.training_date}</p></div>
+                <div><p className="text-xs text-gray-500">Trainer</p><p className="font-medium">{selectedRecord.trainer_name}</p></div>
+                <div><p className="text-xs text-gray-500">Status</p><Badge className={selectedRecord.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'}>{selectedRecord.status === 'completed' ? 'Completed' : 'Pending'}</Badge></div>
+              </div>
+
+              {selectedRecord.notes && (
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1">Notes</p>
+                  <p className="text-sm">{selectedRecord.notes}</p>
+                </div>
+              )}
+
+              <div>
+                <h4 className="font-medium mb-2">Trainees ({selectedRecord.trainees?.length || 0})</h4>
+                <div className="border rounded-lg divide-y">
+                  {selectedRecord.trainees?.map((trainee, idx) => (
+                    <div key={idx} className="p-3 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{trainee.employee_name}</p>
+                        <p className="text-xs text-gray-500">{trainee.is_agency ? 'Agency Staff' : `Employee #${trainee.employee_id}`}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {trainee.signed ? (
+                          <>
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                            <span className="text-xs text-green-600">Signed {trainee.signed_at ? new Date(trainee.signed_at).toLocaleDateString() : ''}</span>
+                          </>
+                        ) : (
+                          <Badge variant="outline" className="text-yellow-600 border-yellow-300">Pending</Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                {isAdmin && (
+                  <Button variant="outline" className="text-red-600 border-red-300" onClick={async () => {
+                    if (window.confirm('Are you sure you want to delete this training record?')) {
+                      await fetch(`${API_BASE_URL}/api/training/${selectedRecord.id}`, { method: 'DELETE' });
+                      toast.success('Training record deleted');
+                      setShowDetailModal(false);
+                      fetchRecords();
+                    }
+                  }}>
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setShowDetailModal(false)}>Close</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Signature Modal */}
+      {showSignModal && selectedRecord && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Sign Training Record</h3>
+              <Button variant="ghost" size="sm" onClick={() => { setShowSignModal(false); clearSignature(); }}><X className="h-4 w-4" /></Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm"><strong>SWP:</strong> {selectedRecord.swp_number}</p>
+                <p className="text-sm"><strong>Department:</strong> {selectedRecord.department}</p>
+                <p className="text-sm"><strong>Date:</strong> {selectedRecord.training_date}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Your Signature</label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-1">
+                  <canvas
+                    ref={canvasRef}
+                    width={350}
+                    height={150}
+                    className="w-full bg-white cursor-crosshair"
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
+                  />
+                </div>
+                <Button variant="outline" size="sm" className="mt-2" onClick={clearSignature}>Clear Signature</Button>
+              </div>
+
+              <p className="text-xs text-gray-500">By signing, I confirm that I have received and understood the training for SWP {selectedRecord.swp_number}.</p>
+
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => { setShowSignModal(false); clearSignature(); }}>Cancel</Button>
+                <Button onClick={handleSign} className="bg-teal-600 hover:bg-teal-700">Submit Signature</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Machine Additions Page Component
 function MachineAdditionsPage() {
   const [machineRequests, setMachineRequests] = useState([]);
