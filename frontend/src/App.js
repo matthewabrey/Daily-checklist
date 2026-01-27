@@ -1997,6 +1997,33 @@ function Dashboard() {
             )}
           </div>
         </Card>
+
+        {/* Training Card */}
+        <Card className="border-teal-200 hover:shadow-lg transition-shadow"
+          style={{display: 'flex', flexDirection: 'column', minHeight: '160px'}}>
+          <CardHeader className="pb-2" style={{flex: 0}}>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-teal-600" />
+              Training Records
+            </CardTitle>
+          </CardHeader>
+          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
+            <div style={{flex: 1}}>
+              <div className="text-2xl font-bold text-teal-600">{stats.trainingPending || 0}</div>
+              <p className="text-xs text-teal-700">Pending signatures ({stats.trainingTotal || 0} total)</p>
+            </div>
+            <Button 
+              onClick={() => navigate('/training')}
+              variant="outline"
+              size="sm"
+              className="w-full border-teal-300 text-teal-700 hover:bg-teal-100"
+              style={{marginTop: 'auto'}}
+              data-testid="view-training-btn"
+            >
+              View Training
+            </Button>
+          </div>
+        </Card>
       </div>
 
       {/* Near Misses by Location - Pie Chart */}
