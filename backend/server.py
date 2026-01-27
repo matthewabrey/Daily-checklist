@@ -2352,6 +2352,124 @@ async def add_whistleblow_comment(report_id: str, comment: str, commented_by: st
     raise HTTPException(status_code=404, detail="Report not found")
 
 # ============================================
+# Training Records Endpoints
+# ============================================
+
+@app.post("/api/training")
+async def create_training_record(training: TrainingRecordCreate):
+    """Create a new training record"""
+    trainees_with_signatures = []
+    for trainee in training.trainees:
+        trainees_with_signatures.append({
+            "employee_id": trainee.get("employee_id"),
+            "employee_name": trainee.get("employee_name"),
+            "is_agency": trainee.get("is_agency", False),
+            "signed": False,
+            "signed_at": None,
+            "signature_data": None
+        })
+    
+    training_doc = {
+        "id": str(uuid.uuid4()),
+        "swp_number": training.swp_number,
+        "swp_version": training.swp_version,
+        "department": training.department,
+        "training_date": training.training_date,
+        "notes": training.notes,
+        "trainer_name": training.trainer_name,
+        "trainer_employee_number": training.trainer_employee_number,
+        "trainees": trainees_with_signatures,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "status": "pending_signatures"
+    }
+    
+    await db.training_records.insert_one(training_doc)
+    return {"success": True, "message": "Training record created", "id": training_doc["id"]}
+
+@app.get("/api/training")
+async def get_training_records(status: str = None, limit: int = 100):
+    """Get all training records"""
+    query = {}
+    if status:
+        query["status"] = status
+    records = await db.training_records.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
+    return records
+
+@app.get("/api/training/{record_id}")
+async def get_training_record(record_id: str):
+    """Get a specific training record"""
+    record = await db.training_records.find_one({"id": record_id}, {"_id": 0})
+    if not record:
+        raise HTTPException(status_code=404, detail="Training record not found")
+    return record
+
+@app.get("/api/training/pending/{employee_number}")
+async def get_pending_signatures(employee_number: str):
+    """Get training records pending signature for a specific employee"""
+    # Find records where this employee hasn't signed yet
+    records = await db.training_records.find({
+        "trainees": {
+            "$elemMatch": {
+                "employee_id": employee_number,
+                "signed": False
+            }
+        }
+    }, {"_id": 0}).to_list(length=100)
+    return records
+
+@app.put("/api/training/{record_id}/sign")
+async def sign_training_record(record_id: str, employee_id: str = None, employee_name: str = None, signature_data: str = None):
+    """Sign a training record"""
+    record = await db.training_records.find_one({"id": record_id})
+    if not record:
+        raise HTTPException(status_code=404, detail="Training record not found")
+    
+    # Find and update the trainee's signature
+    trainees = record.get("trainees", [])
+    updated = False
+    all_signed = True
+    
+    for trainee in trainees:
+        # Match by employee_id or employee_name for agency staff
+        if (employee_id and trainee.get("employee_id") == employee_id) or \
+           (employee_name and trainee.get("employee_name") == employee_name and trainee.get("is_agency")):
+            trainee["signed"] = True
+            trainee["signed_at"] = datetime.now(timezone.utc).isoformat()
+            trainee["signature_data"] = signature_data
+            updated = True
+        
+        if not trainee.get("signed"):
+            all_signed = False
+    
+    if not updated:
+        raise HTTPException(status_code=404, detail="Trainee not found in this record")
+    
+    # Update the record
+    new_status = "completed" if all_signed else "pending_signatures"
+    await db.training_records.update_one(
+        {"id": record_id},
+        {"$set": {"trainees": trainees, "status": new_status}}
+    )
+    
+    return {"success": True, "message": "Signature recorded", "all_signed": all_signed}
+
+@app.delete("/api/training/{record_id}")
+async def delete_training_record(record_id: str):
+    """Delete a training record"""
+    result = await db.training_records.delete_one({"id": record_id})
+    if result.deleted_count > 0:
+        return {"success": True, "message": "Training record deleted"}
+    raise HTTPException(status_code=404, detail="Training record not found")
+
+@app.get("/api/training/stats/count")
+async def get_training_stats():
+    """Get training record counts"""
+    total = await db.training_records.count_documents({})
+    pending = await db.training_records.count_documents({"status": "pending_signatures"})
+    completed = await db.training_records.count_documents({"status": "completed"})
+    return {"total": total, "pending": pending, "completed": completed}
+
+# ============================================
 # Work Progress Tracking Endpoints
 # ============================================
 
