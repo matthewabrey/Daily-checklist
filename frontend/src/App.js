@@ -2861,6 +2861,8 @@ function NewChecklist() {
 
   const allItemsAddressed = selectedCheckType === 'workshop_service' 
     ? workshopNotes.trim() !== '' 
+    : selectedCheckType === 'fuel_mileage'
+    ? (fuelMileage.trim() !== '' || fuelAdded.trim() !== '' || adBlueAdded.trim() !== '')
     : checklistItems.every(item => {
         // Must have a status (not unchecked)
         const hasStatus = item.status === 'satisfactory' || item.status === 'n/a' || item.status === 'unsatisfactory';
