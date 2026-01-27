@@ -3584,6 +3584,73 @@ function NewChecklist() {
                     </div>
                   </Card>
                 </div>
+              ) : selectedCheckType === 'fuel_mileage' ? (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Fuel and Mileage Recording</h3>
+                  <p className="text-sm text-gray-600">Record fuel, AdBlue additions and current mileage for this vehicle.</p>
+                  
+                  <Card className="p-4">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Current Mileage / Hours</label>
+                        <input
+                          type="number"
+                          placeholder="Enter current mileage or hours"
+                          value={fuelMileage}
+                          onChange={(e) => setFuelMileage(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          data-testid="fuel-mileage-input"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Enter odometer reading or hour meter</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Fuel Added (Litres)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            placeholder="Enter litres added"
+                            value={fuelAdded}
+                            onChange={(e) => setFuelAdded(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            data-testid="fuel-added-input"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">AdBlue Added (Litres)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            placeholder="Enter litres added"
+                            value={adBlueAdded}
+                            onChange={(e) => setAdBlueAdded(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            data-testid="adblue-added-input"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Notes (Optional)</label>
+                        <Textarea
+                          placeholder="Any additional notes about fueling..."
+                          value={fuelNotes}
+                          onChange={(e) => setFuelNotes(e.target.value)}
+                          className="min-h-[80px]"
+                          data-testid="fuel-notes-input"
+                        />
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> At least mileage OR fuel/AdBlue amount must be entered to save this record.
+                    </p>
+                  </div>
+                </div>
               ) : (
                 <div className="space-y-4">
                   {/* Mandatory photo notice */}
