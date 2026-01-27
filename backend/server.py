@@ -91,10 +91,15 @@ class Checklist(BaseModel):
     staff_name: str
     machine_make: str
     machine_model: str
-    check_type: str  # "daily_check", "grader_startup", or "workshop_service"
+    check_type: str  # "daily_check", "grader_startup", "workshop_service", or "fuel_mileage"
     checklist_items: List[ChecklistItem] = []
     workshop_notes: Optional[str] = None
     workshop_photos: Optional[List[dict]] = []
+    # Fuel and Mileage fields
+    fuel_mileage: Optional[str] = None
+    fuel_added: Optional[str] = None
+    adblue_added: Optional[str] = None
+    fuel_notes: Optional[str] = None
     completed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     status: str = "completed"
     
@@ -108,6 +113,11 @@ class ChecklistResponse(BaseModel):
     checklist_items: List[ChecklistItem]
     workshop_notes: Optional[str] = None
     workshop_photos: Optional[List[dict]] = []
+    # Fuel and Mileage fields
+    fuel_mileage: Optional[str] = None
+    fuel_added: Optional[str] = None
+    adblue_added: Optional[str] = None
+    fuel_notes: Optional[str] = None
     completed_at: datetime
     status: str
 
