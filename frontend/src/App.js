@@ -3359,7 +3359,7 @@ function NewChecklist() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <ClipboardList className="h-5 w-5 text-green-600" />
-                    <span className="font-medium">Check Type: {selectedCheckType === 'daily_check' ? `Daily Check (${machineCheckType})` : 'Workshop Service'}</span>
+                    <span className="font-medium">Check Type: {selectedCheckType === 'daily_check' ? `Daily Check (${machineCheckType})` : selectedCheckType === 'fuel_mileage' ? 'Fuel & Mileage Recording' : 'Workshop Service'}</span>
                   </div>
                 </div>
                 {selectedCheckType === 'daily_check' && (
