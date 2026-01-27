@@ -2816,7 +2816,12 @@ function NewChecklist() {
         check_type: selectedCheckType,
         checklist_items: selectedCheckType === 'daily_check' ? checklistItems : [],
         workshop_notes: selectedCheckType === 'workshop_service' ? workshopNotes : null,
-        workshop_photos: selectedCheckType === 'workshop_service' ? workshopPhotos : []
+        workshop_photos: selectedCheckType === 'workshop_service' ? workshopPhotos : [],
+        // Fuel and Mileage fields
+        fuel_mileage: selectedCheckType === 'fuel_mileage' ? fuelMileage : null,
+        fuel_added: selectedCheckType === 'fuel_mileage' ? fuelAdded : null,
+        adblue_added: selectedCheckType === 'fuel_mileage' ? adBlueAdded : null,
+        fuel_notes: selectedCheckType === 'fuel_mileage' ? fuelNotes : null
       };
 
       const response = await fetch(`${API_BASE_URL}/api/checklists`, {
