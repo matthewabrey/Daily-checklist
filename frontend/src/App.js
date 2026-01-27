@@ -1006,6 +1006,35 @@ function Dashboard() {
                   <p className="text-sm whitespace-pre-wrap">{selectedCheckDetail.workshop_notes}</p>
                 </div>
               </div>
+            ) : selectedCheckDetail.check_type === 'fuel_mileage' || selectedCheckDetail.fuel_mileage || selectedCheckDetail.fuel_added || selectedCheckDetail.adblue_added ? (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-3">Fuel and Mileage Record</h4>
+                <div className="p-4 bg-blue-50 rounded-lg space-y-3">
+                  {selectedCheckDetail.fuel_mileage && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-700">Mileage / Hours:</span>
+                      <span className="font-semibold text-blue-700">{selectedCheckDetail.fuel_mileage}</span>
+                    </div>
+                  )}
+                  {selectedCheckDetail.fuel_added && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-700">Fuel Added:</span>
+                      <span className="font-semibold text-green-700">{selectedCheckDetail.fuel_added} Litres</span>
+                    </div>
+                  )}
+                  {selectedCheckDetail.adblue_added && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-700">AdBlue Added:</span>
+                      <span className="font-semibold text-purple-700">{selectedCheckDetail.adblue_added} Litres</span>
+                    </div>
+                  )}
+                  {selectedCheckDetail.fuel_notes && (
+                    <div className="mt-2 pt-2 border-t border-blue-200">
+                      <span className="text-sm text-gray-600">Notes: {selectedCheckDetail.fuel_notes}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             ) : selectedCheckDetail.notes_summary ? (
               <div>
                 <h4 className="font-medium text-gray-900 mb-3">Summary</h4>
