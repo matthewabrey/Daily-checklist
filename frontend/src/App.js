@@ -1701,7 +1701,7 @@ function Dashboard() {
             Report Accident
           </Button>
         </div>
-        {/* Third Row - Whistleblowing */}
+        {/* Third Row - Whistleblowing and Training */}
         <div className="flex flex-col sm:flex-row gap-3 mt-3 mb-4">
           <Button 
             onClick={() => openReportModal('whistleblowing')}
@@ -1710,6 +1710,14 @@ function Dashboard() {
           >
             <AlertCircle className="mr-2 h-4 w-4" />
             Whistleblowing Report
+          </Button>
+          <Button 
+            onClick={() => navigate('/training')}
+            className="bg-teal-600 hover:bg-teal-700 text-white flex-1 text-sm sm:text-base py-4 sm:py-6"
+            data-testid="training-btn"
+          >
+            <ClipboardList className="mr-2 h-4 w-4" />
+            Training Records
           </Button>
         </div>
       </div>
