@@ -4827,6 +4827,38 @@ function Records() {
                 </div>
               )}
 
+              {/* Fuel and Mileage Record */}
+              {(selectedChecklist.check_type === 'fuel_mileage' || selectedChecklist.fuel_mileage || selectedChecklist.fuel_added || selectedChecklist.adblue_added) && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Fuel and Mileage Record</h3>
+                  <div className="bg-blue-50 p-4 rounded-lg space-y-3">
+                    {selectedChecklist.fuel_mileage && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-700 font-medium">Mileage / Hours:</span>
+                        <span className="font-bold text-blue-700 text-lg">{selectedChecklist.fuel_mileage}</span>
+                      </div>
+                    )}
+                    {selectedChecklist.fuel_added && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-700 font-medium">Fuel Added:</span>
+                        <span className="font-bold text-green-700 text-lg">{selectedChecklist.fuel_added} Litres</span>
+                      </div>
+                    )}
+                    {selectedChecklist.adblue_added && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-700 font-medium">AdBlue Added:</span>
+                        <span className="font-bold text-purple-700 text-lg">{selectedChecklist.adblue_added} Litres</span>
+                      </div>
+                    )}
+                    {selectedChecklist.fuel_notes && (
+                      <div className="mt-3 pt-3 border-t border-blue-200">
+                        <p className="text-sm text-gray-600"><strong>Notes:</strong> {selectedChecklist.fuel_notes}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Workshop Photos */}
               {selectedChecklist.workshop_photos && selectedChecklist.workshop_photos.length > 0 && (
                 <div>
