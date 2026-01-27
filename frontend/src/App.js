@@ -165,7 +165,7 @@ function Dashboard() {
   const { employee } = useAuth();
   const isAdmin = employee?.admin_control === 'yes';
   const [recentChecklists, setRecentChecklists] = useState([]);
-  const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0, nearMissesNew: 0, suggestionsNew: 0, accidentsNew: 0, accidentsTotal: 0, whistleblowingNew: 0, whistleblowingTotal: 0 });
+  const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0, nearMissesNew: 0, suggestionsNew: 0, accidentsNew: 0, accidentsTotal: 0, whistleblowingNew: 0, whistleblowingTotal: 0, trainingPending: 0, trainingTotal: 0 });
   const [showRepairWarning, setShowRepairWarning] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
