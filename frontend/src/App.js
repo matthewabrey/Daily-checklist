@@ -7728,9 +7728,9 @@ function TrainingPage() {
       ) : (
         <div className="grid gap-4">
           {filteredRecords.map(record => (
-            <Card key={record.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => { setSelectedRecord(record); setShowDetailModal(true); }}>
+            <Card key={record.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-4">
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between cursor-pointer" onClick={() => { setSelectedRecord(record); setShowDetailModal(true); }}>
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-lg">SWP {record.swp_number}</h3>
@@ -7747,6 +7747,36 @@ function TrainingPage() {
                     <p className="text-sm text-gray-500">{record.trainees?.length || 0} trainees</p>
                     <p className="text-xs text-gray-400">{record.trainees?.filter(t => t.signed).length || 0} signed</p>
                   </div>
+                </div>
+                {/* Sage HR Checkbox - directly on card */}
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={record.added_to_sage_hr || false}
+                      onChange={async (e) => {
+                        const checked = e.target.checked;
+                        try {
+                          const response = await fetch(`${API_BASE_URL}/api/training/${record.id}/sage-hr?added=${checked}&updated_by=${encodeURIComponent(employee.name)}`, {
+                            method: 'PUT'
+                          });
+                          if (response.ok) {
+                            toast.success(checked ? 'Marked as added to Sage HR' : 'Sage HR status removed');
+                            fetchRecords();
+                          }
+                        } catch (error) {
+                          toast.error('Failed to update Sage HR status');
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-purple-400 text-purple-600 focus:ring-purple-500"
+                    />
+                    <span className="text-sm text-purple-700 font-medium">Added to Sage HR</span>
+                    {record.added_to_sage_hr && record.added_to_sage_hr_at && (
+                      <span className="text-xs text-purple-500 ml-1">
+                        ({new Date(record.added_to_sage_hr_at).toLocaleDateString()} by {record.added_to_sage_hr_by || 'Unknown'})
+                      </span>
+                    )}
+                  </label>
                 </div>
               </CardContent>
             </Card>
