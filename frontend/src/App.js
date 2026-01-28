@@ -7950,7 +7950,7 @@ function TrainingPage() {
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Sign Training Record</h3>
-              <Button variant="ghost" size="sm" onClick={() => { setShowSignModal(false); clearSignature(); }}><X className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="sm" onClick={() => { setShowSignModal(false); clearSignature(); setSigningTrainee(null); }}><X className="h-4 w-4" /></Button>
             </div>
             
             <div className="space-y-4">
@@ -7960,8 +7960,16 @@ function TrainingPage() {
                 <p className="text-sm"><strong>Date:</strong> {selectedRecord.training_date}</p>
               </div>
 
+              {signingTrainee && (
+                <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                  <p className="text-sm font-medium text-teal-800">Collecting signature for:</p>
+                  <p className="text-lg font-bold text-teal-900">{signingTrainee.employee_name}</p>
+                  {signingTrainee.is_agency && <p className="text-xs text-teal-600">(Agency Staff)</p>}
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-medium mb-2">Your Signature</label>
+                <label className="block text-sm font-medium mb-2">{signingTrainee ? `${signingTrainee.employee_name}'s Signature` : 'Your Signature'}</label>
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-1">
                   <canvas
                     ref={canvasRef}
