@@ -10616,14 +10616,14 @@ function AppContent() {
               </AdminProtectedRoute>
             } />
             <Route path="/accidents" element={
-              <AdminProtectedRoute>
+              <ManagerProtectedRoute>
                 <AccidentsPage />
-              </AdminProtectedRoute>
+              </ManagerProtectedRoute>
             } />
             <Route path="/whistleblowing" element={
-              <AdminProtectedRoute>
+              <ManagerProtectedRoute>
                 <WhistleblowingPage />
-              </AdminProtectedRoute>
+              </ManagerProtectedRoute>
             } />
             <Route path="/training" element={
               <ProtectedRoute>
