@@ -161,6 +161,17 @@ class NearMiss(BaseModel):
     acknowledged: bool = False
     acknowledged_at: Optional[str] = None
     acknowledged_by: Optional[str] = None
+    comments: List[dict] = []
+    # Investigation fields
+    severity: Optional[str] = None  # red, orange, green
+    action_required: Optional[str] = None
+    progress: Optional[str] = None  # not_started, in_progress, completed
+    investigation_notes: Optional[str] = None
+    no_swp_or_not_covered: bool = False  # No Safe Working Procedure or it doesn't cover this
+    swp_training_not_received: bool = False  # Training on SWP not received by person
+    trained_but_not_following: bool = False  # Trained but individual not following SWP
+    investigated_by: Optional[str] = None
+    investigated_at: Optional[str] = None
 
 class NearMissCreate(BaseModel):
     description: str
