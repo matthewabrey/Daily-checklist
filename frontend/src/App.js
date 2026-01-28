@@ -7924,6 +7924,46 @@ function TrainingPage() {
                 </div>
               </div>
 
+              {/* Sage HR Checkbox */}
+              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedRecord.added_to_sage_hr || false}
+                    onChange={async (e) => {
+                      const checked = e.target.checked;
+                      try {
+                        const response = await fetch(`${API_BASE_URL}/api/training/${selectedRecord.id}/sage-hr?added=${checked}&updated_by=${encodeURIComponent(employee.name)}`, {
+                          method: 'PUT'
+                        });
+                        if (response.ok) {
+                          toast.success(checked ? 'Marked as added to Sage HR' : 'Sage HR status removed');
+                          // Update the selected record locally
+                          setSelectedRecord(prev => ({
+                            ...prev,
+                            added_to_sage_hr: checked,
+                            added_to_sage_hr_at: checked ? new Date().toISOString() : null,
+                            added_to_sage_hr_by: checked ? employee.name : null
+                          }));
+                          fetchRecords();
+                        }
+                      } catch (error) {
+                        toast.error('Failed to update Sage HR status');
+                      }
+                    }}
+                    className="w-5 h-5 rounded border-purple-400 text-purple-600 focus:ring-purple-500"
+                  />
+                  <div>
+                    <span className="font-medium text-purple-900">Added to Sage HR</span>
+                    {selectedRecord.added_to_sage_hr && selectedRecord.added_to_sage_hr_at && (
+                      <p className="text-xs text-purple-600">
+                        Added on {new Date(selectedRecord.added_to_sage_hr_at).toLocaleDateString()} by {selectedRecord.added_to_sage_hr_by || 'Unknown'}
+                      </p>
+                    )}
+                  </div>
+                </label>
+              </div>
+
               <div className="flex justify-end gap-3 pt-4">
                 {isAdmin && (
                   <Button variant="outline" className="text-red-600 border-red-300" onClick={async () => {
