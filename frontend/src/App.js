@@ -7411,6 +7411,7 @@ function WhistleblowingPage() {
 function TrainingPage() {
   const { employee } = useAuth();
   const navigate = useNavigate();
+  const location = window.location;
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -7447,6 +7448,13 @@ function TrainingPage() {
     fetchStaff();
     if (employee?.employee_number) {
       fetchPendingSignatures();
+    }
+    // Auto-open create modal if ?create=true is in URL
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('create') === 'true') {
+      setShowCreateModal(true);
+      // Clear the URL parameter
+      window.history.replaceState({}, '', '/training');
     }
   }, [employee]);
 
