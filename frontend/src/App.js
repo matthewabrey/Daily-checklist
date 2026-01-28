@@ -7579,16 +7579,34 @@ function TrainingPage() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/training/${selectedRecord.id}/sign?employee_id=${employee.employee_number}&signature_data=${encodeURIComponent(signatureData)}`, {
+      // Use signingTrainee if set (collecting signature for someone else), otherwise use current employee
+      const traineeToSign = signingTrainee || { employee_id: employee.employee_number, employee_name: employee.name };
+      
+      const params = new URLSearchParams();
+      if (traineeToSign.employee_id) {
+        params.append('employee_id', traineeToSign.employee_id);
+      }
+      if (traineeToSign.employee_name) {
+        params.append('employee_name', traineeToSign.employee_name);
+      }
+      params.append('signature_data', signatureData);
+      
+      const response = await fetch(`${API_BASE_URL}/api/training/${selectedRecord.id}/sign?${params.toString()}`, {
         method: 'PUT'
       });
 
       if (response.ok) {
-        toast.success('Signature recorded');
+        toast.success(`Signature recorded for ${traineeToSign.employee_name}`);
         setShowSignModal(false);
         setSignatureData('');
+        setSigningTrainee(null);
         fetchRecords();
         fetchPendingSignatures();
+        // Refresh the selected record
+        const updatedResponse = await fetch(`${API_BASE_URL}/api/training/${selectedRecord.id}`);
+        if (updatedResponse.ok) {
+          setSelectedRecord(await updatedResponse.json());
+        }
       } else {
         toast.error('Failed to record signature');
       }
