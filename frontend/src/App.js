@@ -1712,12 +1712,12 @@ function Dashboard() {
             Whistleblowing Report
           </Button>
           <Button 
-            onClick={() => navigate('/training')}
+            onClick={() => navigate('/training?create=true')}
             className="bg-teal-600 hover:bg-teal-700 text-white flex-1 text-sm sm:text-base py-4 sm:py-6"
             data-testid="training-btn"
           >
             <ClipboardList className="mr-2 h-4 w-4" />
-            Training Records
+            New Training Record
           </Button>
         </div>
       </div>
