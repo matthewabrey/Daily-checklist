@@ -706,9 +706,9 @@ function Dashboard() {
 
       {/* Loading indicator */}
       {isLoading && (
-        <div className="flex items-center justify-center p-4 bg-blue-50 rounded-lg">
-          <RefreshCw className="h-5 w-5 animate-spin text-blue-600 mr-2" />
-          <span className="text-blue-700">Loading dashboard data...</span>
+        <div className="fixed top-20 right-4 z-50 flex items-center bg-blue-100 border border-blue-300 rounded-full px-3 py-1.5 shadow-sm">
+          <RefreshCw className="h-4 w-4 animate-spin text-blue-600 mr-2" />
+          <span className="text-sm text-blue-700">Loading...</span>
         </div>
       )}
       
