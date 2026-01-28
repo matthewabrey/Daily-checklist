@@ -7436,6 +7436,7 @@ function TrainingPage() {
   const [signatureData, setSignatureData] = useState('');
   const canvasRef = React.useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [signingTrainee, setSigningTrainee] = useState(null);
 
   const isAdmin = employee?.admin_control === 'yes';
 
