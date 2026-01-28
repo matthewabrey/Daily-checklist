@@ -2464,6 +2464,22 @@ async def delete_training_record(record_id: str):
         return {"success": True, "message": "Training record deleted"}
     raise HTTPException(status_code=404, detail="Training record not found")
 
+@app.put("/api/training/{record_id}/sage-hr")
+async def update_sage_hr_status(record_id: str, added: bool = True, updated_by: str = None):
+    """Update the Sage HR status for a training record"""
+    record = await db.training_records.find_one({"id": record_id})
+    if not record:
+        raise HTTPException(status_code=404, detail="Training record not found")
+    
+    update_data = {
+        "added_to_sage_hr": added,
+        "added_to_sage_hr_at": datetime.now(timezone.utc).isoformat() if added else None,
+        "added_to_sage_hr_by": updated_by if added else None
+    }
+    
+    await db.training_records.update_one({"id": record_id}, {"$set": update_data})
+    return {"success": True, "message": "Sage HR status updated"}
+
 @app.get("/api/training/stats/count")
 async def get_training_stats():
     """Get training record counts"""
