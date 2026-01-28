@@ -2132,6 +2132,38 @@ async def add_near_miss_comment(near_miss_id: str, comment: str, commented_by: s
         return {"success": True, "message": "Comment added"}
     raise HTTPException(status_code=404, detail="Near miss not found")
 
+@app.put("/api/near-misses/{near_miss_id}/investigate")
+async def investigate_near_miss(
+    near_miss_id: str,
+    severity: str = None,
+    action_required: str = None,
+    progress: str = None,
+    investigation_notes: str = None,
+    no_swp_or_not_covered: bool = False,
+    swp_training_not_received: bool = False,
+    trained_but_not_following: bool = False,
+    investigated_by: str = None
+):
+    """Update investigation details for a near miss"""
+    near_miss = await db.near_misses.find_one({"id": near_miss_id})
+    if not near_miss:
+        raise HTTPException(status_code=404, detail="Near miss not found")
+    
+    update_data = {
+        "severity": severity,
+        "action_required": action_required,
+        "progress": progress,
+        "investigation_notes": investigation_notes,
+        "no_swp_or_not_covered": no_swp_or_not_covered,
+        "swp_training_not_received": swp_training_not_received,
+        "trained_but_not_following": trained_but_not_following,
+        "investigated_by": investigated_by,
+        "investigated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.near_misses.update_one({"id": near_miss_id}, {"$set": update_data})
+    return {"success": True, "message": "Investigation updated"}
+
 # Add comment to suggestion
 @app.post("/api/suggestions/{suggestion_id}/comment")
 async def add_suggestion_comment(suggestion_id: str, comment: str, commented_by: str = "Admin"):
