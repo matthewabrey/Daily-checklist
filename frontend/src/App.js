@@ -7883,7 +7883,21 @@ function TrainingPage() {
                             <span className="text-xs text-green-600">Signed {trainee.signed_at ? new Date(trainee.signed_at).toLocaleDateString() : ''}</span>
                           </>
                         ) : (
-                          <Badge variant="outline" className="text-yellow-600 border-yellow-300">Pending</Badge>
+                          <>
+                            <Badge variant="outline" className="text-yellow-600 border-yellow-300">Pending</Badge>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="text-teal-600 border-teal-300 ml-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSigningTrainee(trainee);
+                                setShowSignModal(true);
+                              }}
+                            >
+                              Collect Signature
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>
