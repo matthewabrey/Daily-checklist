@@ -312,6 +312,9 @@ class TrainingRecord(BaseModel):
     trainees: List[TraineeSignature] = []
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     status: str = "pending_signatures"  # pending_signatures, completed
+    added_to_sage_hr: bool = False
+    added_to_sage_hr_at: Optional[str] = None
+    added_to_sage_hr_by: Optional[str] = None
 
 class TrainingRecordCreate(BaseModel):
     swp_number: str
