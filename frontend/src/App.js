@@ -1963,7 +1963,7 @@ function Dashboard() {
               <div className="text-2xl font-bold text-purple-600">{stats.accidentsNew || 0}</div>
               <p className="text-xs text-purple-700">New reports ({stats.accidentsTotal || 0} total)</p>
             </div>
-            {isAdmin && (
+            {hasManagerAccess && (
               <Button 
                 onClick={() => navigate('/accidents')}
                 variant="outline"
@@ -1993,7 +1993,7 @@ function Dashboard() {
               <div className="text-2xl font-bold text-amber-600">{stats.whistleblowingNew || 0}</div>
               <p className="text-xs text-amber-700">New reports ({stats.whistleblowingTotal || 0} total)</p>
             </div>
-            {isAdmin && (
+            {hasManagerAccess && (
               <Button 
                 onClick={() => navigate('/whistleblowing')}
                 variant="outline"
