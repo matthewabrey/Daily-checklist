@@ -6127,6 +6127,79 @@ function NearMissesPage() {
     }
   };
 
+  // Open investigation mode with existing data
+  const openInvestigation = (item) => {
+    setInvestigationData({
+      severity: item.severity || '',
+      action_required: item.action_required || '',
+      progress: item.progress || 'not_started',
+      investigation_notes: item.investigation_notes || '',
+      no_swp_or_not_covered: item.no_swp_or_not_covered || false,
+      swp_training_not_received: item.swp_training_not_received || false,
+      trained_but_not_following: item.trained_but_not_following || false
+    });
+    setInvestigationMode(true);
+  };
+
+  // Save investigation data
+  const saveInvestigation = async () => {
+    if (!selectedItem) return;
+    setSavingInvestigation(true);
+    try {
+      const params = new URLSearchParams({
+        severity: investigationData.severity,
+        action_required: investigationData.action_required,
+        progress: investigationData.progress,
+        investigation_notes: investigationData.investigation_notes,
+        no_swp_or_not_covered: investigationData.no_swp_or_not_covered,
+        swp_training_not_received: investigationData.swp_training_not_received,
+        trained_but_not_following: investigationData.trained_but_not_following,
+        investigated_by: employee?.name || 'Admin'
+      });
+      
+      const response = await fetch(`${API_BASE_URL}/api/near-misses/${selectedItem.id}/investigate?${params}`, {
+        method: 'PUT'
+      });
+      
+      if (response.ok) {
+        toast.success('Investigation saved successfully');
+        setInvestigationMode(false);
+        fetchNearMisses();
+        // Refresh the selected item
+        const updatedItems = await (await fetch(`${API_BASE_URL}/api/near-misses?limit=200`)).json();
+        const updated = updatedItems.find(a => a.id === selectedItem.id);
+        if (updated) setSelectedItem(updated);
+      } else {
+        toast.error('Failed to save investigation');
+      }
+    } catch (error) {
+      console.error('Error saving investigation:', error);
+      toast.error('Failed to save investigation');
+    } finally {
+      setSavingInvestigation(false);
+    }
+  };
+
+  // Helper to get severity color
+  const getSeverityColor = (severity) => {
+    switch (severity) {
+      case 'red': return 'bg-red-500';
+      case 'orange': return 'bg-orange-500';
+      case 'green': return 'bg-green-500';
+      default: return 'bg-gray-300';
+    }
+  };
+
+  // Helper to get progress label
+  const getProgressLabel = (progress) => {
+    switch (progress) {
+      case 'not_started': return 'Not Started';
+      case 'in_progress': return 'In Progress';
+      case 'completed': return 'Completed';
+      default: return 'Not Started';
+    }
+  };
+
   const filteredItems = nearMisses.filter(item => {
     // Status filter
     if (filter === 'new' && item.acknowledged) return false;
