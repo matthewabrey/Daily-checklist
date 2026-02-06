@@ -113,7 +113,7 @@ Build a machine checklist application for managing equipment startup inspections
 }
 ```
 
-### NearMiss
+### NearMiss (Updated Feb 2026)
 ```
 {
   id: string,
@@ -126,7 +126,17 @@ Build a machine checklist application for managing equipment startup inspections
   created_at: string,
   acknowledged: boolean,
   acknowledged_at: string | null,
-  acknowledged_by: string | null
+  acknowledged_by: string | null,
+  // Investigation fields
+  severity: "red" | "orange" | "green" | null,
+  action_required: string | null,
+  progress: "not_started" | "in_progress" | "completed" | null,
+  investigation_notes: string | null,
+  no_swp_or_not_covered: boolean,
+  swp_training_not_received: boolean,
+  trained_but_not_following: boolean,
+  investigated_by: string | null,
+  investigated_at: string | null
 }
 ```
 
