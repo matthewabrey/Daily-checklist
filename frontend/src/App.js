@@ -6433,6 +6433,225 @@ function NearMissesPage() {
                 </div>
               )}
 
+              {/* Investigation Section */}
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <FileText className="h-4 w-4" /> Investigation
+                  </h4>
+                  {canInvestigate && !investigationMode && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => openInvestigation(selectedItem)}
+                      data-testid="edit-investigation-btn"
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      {selectedItem.severity ? 'Edit' : 'Add Investigation'}
+                    </Button>
+                  )}
+                </div>
+
+                {investigationMode ? (
+                  /* Investigation Edit Form */
+                  <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
+                    {/* Severity */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Severity *</label>
+                      <div className="flex gap-2">
+                        {[
+                          { value: 'red', label: 'High (Red)', color: 'bg-red-500 hover:bg-red-600' },
+                          { value: 'orange', label: 'Medium (Orange)', color: 'bg-orange-500 hover:bg-orange-600' },
+                          { value: 'green', label: 'Low (Green)', color: 'bg-green-500 hover:bg-green-600' }
+                        ].map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setInvestigationData({...investigationData, severity: opt.value})}
+                            className={`flex-1 px-3 py-2 rounded-md text-white text-sm font-medium transition-all ${opt.color} ${
+                              investigationData.severity === opt.value ? 'ring-2 ring-offset-2 ring-gray-800' : 'opacity-60'
+                            }`}
+                            data-testid={`severity-${opt.value}-btn`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Progress */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Progress</label>
+                      <select
+                        value={investigationData.progress}
+                        onChange={(e) => setInvestigationData({...investigationData, progress: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        data-testid="investigation-progress-select"
+                      >
+                        <option value="not_started">Not Started</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                    </div>
+
+                    {/* Action Required */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Action to be Taken</label>
+                      <textarea
+                        value={investigationData.action_required}
+                        onChange={(e) => setInvestigationData({...investigationData, action_required: e.target.value})}
+                        placeholder="Describe the action to be taken..."
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        data-testid="investigation-action-textarea"
+                      />
+                    </div>
+
+                    {/* Investigation Notes */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Investigation Notes</label>
+                      <textarea
+                        value={investigationData.investigation_notes}
+                        onChange={(e) => setInvestigationData({...investigationData, investigation_notes: e.target.value})}
+                        placeholder="Additional notes..."
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        data-testid="investigation-notes-textarea"
+                      />
+                    </div>
+
+                    {/* SWP Checkboxes */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-600">Safe Working Procedure (SWP) Assessment</p>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={investigationData.no_swp_or_not_covered}
+                          onChange={(e) => setInvestigationData({...investigationData, no_swp_or_not_covered: e.target.checked})}
+                          className="mt-1"
+                          data-testid="swp-not-covered-checkbox"
+                        />
+                        <span className="text-sm text-gray-700">No SWP in place or existing SWP doesn't cover this</span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={investigationData.swp_training_not_received}
+                          onChange={(e) => setInvestigationData({...investigationData, swp_training_not_received: e.target.checked})}
+                          className="mt-1"
+                          data-testid="swp-training-checkbox"
+                        />
+                        <span className="text-sm text-gray-700">Training on SWP not received by person</span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={investigationData.trained_but_not_following}
+                          onChange={(e) => setInvestigationData({...investigationData, trained_but_not_following: e.target.checked})}
+                          className="mt-1"
+                          data-testid="swp-not-following-checkbox"
+                        />
+                        <span className="text-sm text-gray-700">Trained but individual not following SWP</span>
+                      </label>
+                    </div>
+
+                    {/* Save/Cancel Buttons */}
+                    <div className="flex gap-2 pt-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setInvestigationMode(false)}
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        onClick={saveInvestigation}
+                        disabled={savingInvestigation || !investigationData.severity}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700"
+                        data-testid="save-investigation-btn"
+                      >
+                        {savingInvestigation ? 'Saving...' : 'Save Investigation'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Investigation Display */
+                  selectedItem.severity ? (
+                    <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">Severity:</span>
+                          <div className={`px-3 py-1 rounded-full text-white text-xs font-medium ${getSeverityColor(selectedItem.severity)}`}>
+                            {selectedItem.severity.charAt(0).toUpperCase() + selectedItem.severity.slice(1)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">Progress:</span>
+                          <Badge variant="outline" className={
+                            selectedItem.progress === 'completed' ? 'bg-green-50 text-green-700' :
+                            selectedItem.progress === 'in_progress' ? 'bg-blue-50 text-blue-700' :
+                            'bg-gray-100 text-gray-600'
+                          }>
+                            {getProgressLabel(selectedItem.progress)}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {selectedItem.action_required && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Action to be Taken</p>
+                          <p className="text-sm text-gray-800">{selectedItem.action_required}</p>
+                        </div>
+                      )}
+
+                      {selectedItem.investigation_notes && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Investigation Notes</p>
+                          <p className="text-sm text-gray-800">{selectedItem.investigation_notes}</p>
+                        </div>
+                      )}
+
+                      {/* SWP Assessment Display */}
+                      {(selectedItem.no_swp_or_not_covered || selectedItem.swp_training_not_received || selectedItem.trained_but_not_following) && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-2">SWP Assessment</p>
+                          <div className="space-y-1">
+                            {selectedItem.no_swp_or_not_covered && (
+                              <div className="flex items-center gap-2 text-sm text-amber-700">
+                                <AlertCircle className="h-4 w-4" />
+                                <span>No SWP in place or doesn't cover this</span>
+                              </div>
+                            )}
+                            {selectedItem.swp_training_not_received && (
+                              <div className="flex items-center gap-2 text-sm text-amber-700">
+                                <AlertCircle className="h-4 w-4" />
+                                <span>Training on SWP not received</span>
+                              </div>
+                            )}
+                            {selectedItem.trained_but_not_following && (
+                              <div className="flex items-center gap-2 text-sm text-amber-700">
+                                <AlertCircle className="h-4 w-4" />
+                                <span>Trained but not following SWP</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedItem.investigated_by && (
+                        <p className="text-xs text-gray-400 pt-2 border-t">
+                          Investigated by {selectedItem.investigated_by} on {new Date(selectedItem.investigated_at).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">No investigation recorded yet</p>
+                  )
+                )}
+              </div>
+
               {/* Comments Section */}
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
