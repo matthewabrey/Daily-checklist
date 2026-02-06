@@ -186,6 +186,7 @@ Build a machine checklist application for managing equipment startup inspections
 - GET /api/near-misses - Get list of near misses
 - GET /api/near-misses/count - Get counts (new, total)
 - POST /api/near-misses/{id}/acknowledge - Acknowledge a near miss (admin)
+- PUT /api/near-misses/{id}/investigate - Add/update investigation details (admin/manager)
 
 ### Suggestions
 - POST /api/suggestions - Submit suggestion
