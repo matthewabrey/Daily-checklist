@@ -1,0 +1,87 @@
+{
+  "summary": "Completed comprehensive testing of Near Miss Investigation feature. Backend: 11/11 tests passed (100%). Frontend: All investigation UI elements working correctly including severity buttons, progress dropdown, action/notes textareas, SWP checkboxes, and access control.",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/auth/employee-login",
+        "issue": "Admin user (4444) has manager_control=null instead of 'yes'. This doesn't affect functionality since admin_control='yes' grants investigation access.",
+        "priority": "LOW"
+      }
+    ]
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  
+  "passed_tests": [
+    "Backend: Health check API",
+    "Backend: Admin login with employee 4444 (admin_control=yes)",
+    "Backend: Regular user login with employee 1447",
+    "Backend: Create near miss for investigation",
+    "Backend: Investigate near miss with RED severity",
+    "Backend: Investigate near miss with ORANGE severity",
+    "Backend: Investigate near miss with GREEN severity",
+    "Backend: Update investigation progress (not_started -> in_progress -> completed)",
+    "Backend: 404 returned for non-existent near miss investigation",
+    "Backend: Near miss list includes all investigation fields",
+    "Backend: All 3 SWP checkboxes can be set",
+    "Frontend: Near Misses list displays severity color dots",
+    "Frontend: Near Misses list displays progress badges (In Progress, Completed)",
+    "Frontend: Near Miss detail modal shows Investigation section",
+    "Frontend: Admin can see Edit/Add Investigation button",
+    "Frontend: Investigation form has severity buttons (Red/Orange/Green)",
+    "Frontend: Investigation form has progress dropdown (Not Started/In Progress/Completed)",
+    "Frontend: Investigation form has action textarea",
+    "Frontend: Investigation form has notes textarea",
+    "Frontend: Investigation form has 3 SWP checkboxes",
+    "Frontend: Save Investigation button works",
+    "Frontend: Investigation data persists after save",
+    "Frontend: Investigation display shows all saved data correctly",
+    "Frontend: Regular user (1447) cannot see Edit Investigation button",
+    "Frontend: Regular user can view investigation data (read-only)"
+  ],
+  
+  "test_report_links": [
+    "/app/backend/tests/test_near_miss_investigation.py",
+    "/app/test_reports/pytest/pytest_investigation.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [
+    "Backend PUT /api/near-misses/{id}/investigate endpoint correctly implemented at line 2135",
+    "NearMiss model includes all investigation fields: severity, progress, action_required, investigation_notes, SWP checkboxes",
+    "Frontend NearMissesPage component correctly implements canInvestigate check (isAdmin || isManager)",
+    "Investigation form uses proper data-testid attributes for all interactive elements",
+    "Severity buttons correctly styled with Red/Orange/Green colors",
+    "Progress dropdown has correct options: not_started, in_progress, completed",
+    "SWP checkboxes correctly labeled and functional"
+  ],
+  
+  "updated_files": [
+    "/app/backend/tests/test_near_miss_investigation.py"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% (all tested features working)"
+  },
+  
+  "test_credentials": {
+    "admin_user": "Employee Number 4444 (Admin User)",
+    "regular_user": "Employee Number 1447 (AbbieNixon)"
+  },
+  
+  "seed_data_creation": "Created multiple test near misses with TEST_INVESTIGATION_ prefix during backend testing",
+  
+  "retest_needed": false,
+  
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "Near Miss Investigation feature is fully implemented and working. Backend API supports all investigation fields (severity, progress, action_required, investigation_notes, 3 SWP checkboxes). Frontend displays severity color dots and progress badges in list view, and shows full investigation form in detail modal for admin/manager users. Regular users can view but not edit investigations. Test data exists with TEST_INVESTIGATION_ prefix."
+}
