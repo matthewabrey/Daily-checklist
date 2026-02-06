@@ -6683,7 +6683,7 @@ function NearMissesPage() {
 
               {/* Actions */}
               <div className="flex gap-3 mt-6">
-                <Button variant="outline" onClick={() => { setSelectedItem(null); setNewComment(''); }} className="flex-1">
+                <Button variant="outline" onClick={() => { setSelectedItem(null); setNewComment(''); setInvestigationMode(false); }} className="flex-1">
                   Close
                 </Button>
                 {isAdmin && !selectedItem.acknowledged && (
