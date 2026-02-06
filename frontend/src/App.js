@@ -6296,18 +6296,31 @@ function NearMissesPage() {
               className={`hover:shadow-md transition-shadow cursor-pointer ${
                 !item.acknowledged ? 'border-red-200 bg-red-50' : ''
               }`}
-              onClick={() => setSelectedItem(item)}
+              onClick={() => { setSelectedItem(item); setInvestigationMode(false); }}
               data-testid={`near-miss-item-${item.id}`}
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      {/* Severity indicator */}
+                      {item.severity && (
+                        <div className={`w-3 h-3 rounded-full ${getSeverityColor(item.severity)}`} title={`Severity: ${item.severity}`} />
+                      )}
                       {!item.acknowledged && (
                         <Badge className="bg-red-500 text-white">New</Badge>
                       )}
                       {item.location && (
                         <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">{item.location}</Badge>
+                      )}
+                      {/* Progress indicator */}
+                      {item.progress && item.progress !== 'not_started' && (
+                        <Badge 
+                          variant="outline" 
+                          className={item.progress === 'completed' ? 'bg-green-50 text-green-700 border-green-300' : 'bg-blue-50 text-blue-700 border-blue-300'}
+                        >
+                          {getProgressLabel(item.progress)}
+                        </Badge>
                       )}
                       {item.is_anonymous ? (
                         <Badge variant="outline" className="text-gray-500">Anonymous</Badge>
