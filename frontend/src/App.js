@@ -6055,6 +6055,21 @@ function NearMissesPage() {
   const navigate = useNavigate();
   const { employee } = useAuth();
   const isAdmin = employee?.admin_control === 'yes';
+  const isManager = employee?.manager_control === 'yes';
+  const canInvestigate = isAdmin || isManager;
+  
+  // Investigation form state
+  const [investigationMode, setInvestigationMode] = useState(false);
+  const [investigationData, setInvestigationData] = useState({
+    severity: '',
+    action_required: '',
+    progress: 'not_started',
+    investigation_notes: '',
+    no_swp_or_not_covered: false,
+    swp_training_not_received: false,
+    trained_but_not_following: false
+  });
+  const [savingInvestigation, setSavingInvestigation] = useState(false);
 
   useEffect(() => {
     fetchNearMisses();
