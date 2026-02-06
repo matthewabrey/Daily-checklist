@@ -26,7 +26,7 @@ import sys
 import os
 
 # Backend URL
-BASE_URL = "https://safereport-5.preview.emergentagent.com/api"
+BASE_URL = "https://safeguard-hub-27.preview.emergentagent.com/api"
 
 def read_staff_file(filename):
     """Read staff names from a text file (one name per line)"""
