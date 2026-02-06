@@ -198,6 +198,29 @@ Build a machine checklist application for managing equipment startup inspections
   - Frontend: /suggestions page with filter and detail modal (admin can review)
   - Testing: 18/18 backend tests passed, all frontend features verified
 
+### February 6, 2026
+- **Near Miss Investigation Feature** (COMPLETE)
+  - Backend: Added investigation fields to NearMiss model (severity, progress, action_required, investigation_notes, SWP checkboxes)
+  - Backend: PUT /api/near-misses/{id}/investigate endpoint to update investigation details
+  - Frontend: Investigation section in near miss detail modal
+  - Frontend: Admin/Manager can add/edit investigation with:
+    - Severity buttons (Red=High, Orange=Medium, Green=Low) with color coding
+    - Progress dropdown (Not Started, In Progress, Completed)
+    - Action to be Taken textarea
+    - Investigation Notes textarea
+    - 3 SWP checkboxes (No SWP in place, Training not received, Not following SWP)
+  - Frontend: List view shows severity color dot and progress badge
+  - Frontend: Regular users can view but not edit investigations
+  - Testing: 100% backend and frontend tests passed
+
+- **Frontend Refactoring Progress** (IN PROGRESS)
+  - Created directory structure: /pages, /components/common, /contexts, /services
+  - Extracted AuthContext to /contexts/AuthContext.js
+  - Extracted API service to /services/api.js
+  - Extracted QRScanner component to /components/common/QRScanner.jsx
+  - Extracted NearMissesPage to /pages/NearMissesPage.jsx
+  - Main App.js still needs further extraction (11,000+ lines)
+
 ### January 13, 2026
 - **Compulsory Checks Feature** (COMPLETE)
   - Backend: Added `compulsory` field to ChecklistTemplateItem and ChecklistItem models
