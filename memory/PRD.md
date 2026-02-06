@@ -252,8 +252,13 @@ Build a machine checklist application for managing equipment startup inspections
   - Manager page accessible to managers and admins
 
 ## Upcoming Tasks
-1. Fix pre-existing lint errors in frontend
-2. Frontend refactoring (App.js is 8000+ lines - needs breakdown into components)
+1. **Frontend Refactoring (P1 - CRITICAL)** - App.js is 11,000+ lines and needs to be broken into:
+   - Pages: Dashboard, EmployeeLogin, NewChecklist, WorkProgressAdmin, Records, etc.
+   - Components: Header, Modals, Cards, Forms
+   - Use the new /pages, /components, /contexts, /services structure
+2. Fix pre-existing lint errors in frontend (P2)
+3. Add date range filter to "All Checks Overview" modal (P2)
+4. Enhance mobile-friendliness of the UI (P2)
 
 ## How to Use Compulsory Feature
 1. In your AssetList.xlsx, add a "Compulsory" column to the checklist sheets
