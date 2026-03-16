@@ -356,8 +356,15 @@ function Dashboard() {
     setIsExporting(true);
     toast.info('Generating Excel export... This may take a moment for large datasets.');
     try {
+      // Use a longer timeout for large exports
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      
       // Export ALL checks - no filters
-      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel-by-machine`);
+      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel-by-machine`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -377,7 +384,11 @@ function Dashboard() {
       toast.success('Export downloaded! Each check type is on a separate sheet.');
     } catch (error) {
       console.error('Error exporting:', error);
-      toast.error(error.message || 'Failed to export checklists');
+      if (error.name === 'AbortError') {
+        toast.error('Export timed out. Try the faster CSV export instead.');
+      } else {
+        toast.error(error.message || 'Failed to export checklists. Try CSV for large datasets.');
+      }
     } finally {
       setIsExporting(false);
     }
