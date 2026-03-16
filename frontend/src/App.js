@@ -1676,7 +1676,7 @@ function Dashboard() {
           </Button>
         </div>
         
-        {/* Second Row - Near Miss and Suggestions */}
+        {/* HIDDEN FOR DEPLOYMENT - Second Row - Near Miss and Suggestions
         <div className="flex flex-col sm:flex-row gap-3 mt-3 mb-4">
           <Button 
             onClick={() => openReportModal('near-miss')}
@@ -1703,7 +1703,8 @@ function Dashboard() {
             Report Accident
           </Button>
         </div>
-        {/* Third Row - Whistleblowing and Training */}
+        */}
+        {/* HIDDEN FOR DEPLOYMENT - Third Row - Whistleblowing and Training
         <div className="flex flex-col sm:flex-row gap-3 mt-3 mb-4">
           <Button 
             onClick={() => openReportModal('whistleblowing')}
@@ -1722,6 +1723,7 @@ function Dashboard() {
             New Training Record
           </Button>
         </div>
+        */}
       </div>
 
       {/* Stats Cards */}
