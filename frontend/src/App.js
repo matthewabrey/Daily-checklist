@@ -2068,6 +2068,7 @@ function Dashboard() {
           </CardContent>
         </Card>
       )}
+      */}
 
       {/* Work Progress Stats Section */}
       {jobs.length > 0 && (
