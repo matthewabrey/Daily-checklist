@@ -1890,9 +1890,8 @@ function Dashboard() {
         </Card>
       </div>
 
-      {/* Second Row Stats - Near Misses, Suggestions & Accidents */}
+      {/* HIDDEN FOR DEPLOYMENT - Second Row Stats - Near Misses, Suggestions & Accidents
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        {/* Near Misses Card */}
         <Card 
           className="hover:shadow-lg transition-shadow border-red-200 bg-red-50" 
           style={{display: 'flex', flexDirection: 'column', height: '100%'}}
@@ -1920,7 +1919,6 @@ function Dashboard() {
           </div>
         </Card>
 
-        {/* Suggestions Card */}
         <Card 
           className="hover:shadow-lg transition-shadow border-indigo-200 bg-indigo-50" 
           style={{display: 'flex', flexDirection: 'column', height: '100%'}}
@@ -1950,7 +1948,6 @@ function Dashboard() {
           </div>
         </Card>
 
-        {/* Accidents Card */}
         <Card 
           className="hover:shadow-lg transition-shadow border-purple-200 bg-purple-50" 
           style={{display: 'flex', flexDirection: 'column', height: '100%'}}
@@ -1980,7 +1977,6 @@ function Dashboard() {
           </div>
         </Card>
 
-        {/* Whistleblowing Card */}
         <Card 
           className="hover:shadow-lg transition-shadow border-amber-200 bg-amber-50" 
           style={{display: 'flex', flexDirection: 'column', height: '100%'}}
@@ -2010,7 +2006,6 @@ function Dashboard() {
           </div>
         </Card>
 
-        {/* Training Card */}
         <Card className="border-teal-200 hover:shadow-lg transition-shadow"
           style={{display: 'flex', flexDirection: 'column', minHeight: '160px'}}>
           <CardHeader className="pb-2" style={{flex: 0}}>
@@ -2037,8 +2032,9 @@ function Dashboard() {
           </div>
         </Card>
       </div>
+      */}
 
-      {/* Near Misses by Location - Pie Chart */}
+      {/* HIDDEN FOR DEPLOYMENT - Near Misses by Location - Pie Chart
       {nearMissesByLocation.length > 0 && (
         <Card className="mb-6">
           <CardHeader>
