@@ -819,7 +819,7 @@ function Dashboard() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 mb-4">
+            <div className="flex gap-3 mb-4 flex-wrap">
               <Button 
                 onClick={loadFilteredChecklists}
                 disabled={!selectedFilterMake || isLoadingChecklists}
@@ -863,6 +863,15 @@ function Dashboard() {
               >
                 <Download className="h-4 w-4 mr-2" />
                 CSV (Fast)
+              </Button>
+              <Button 
+                onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel-by-machine`, '_blank')}
+                variant="outline"
+                className="text-gray-600"
+                title="Opens in new tab - use if Excel button times out"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Direct Excel Link
               </Button>
             </div>
 
