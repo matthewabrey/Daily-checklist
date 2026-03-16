@@ -5416,8 +5416,17 @@ function AllChecksCompleted() {
 
   const handleExport = async () => {
     try {
-      toast.info('Generating Excel export... Please wait');
-      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel`);
+      toast.info('Generating Excel export... This may take a moment for large datasets.');
+      
+      // Use a longer timeout for large exports
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      
+      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
       if (!response.ok) {
         throw new Error('Export failed');
       }
@@ -5433,7 +5442,11 @@ function AllChecksCompleted() {
       toast.success('Checks exported successfully to Excel');
     } catch (error) {
       console.error('Export error:', error);
-      toast.error('Failed to export checks. Try CSV format for large datasets.');
+      if (error.name === 'AbortError') {
+        toast.error('Export timed out. Try the faster CSV format instead.');
+      } else {
+        toast.error('Failed to export checks. Try CSV format for large datasets.');
+      }
     }
   };
 
