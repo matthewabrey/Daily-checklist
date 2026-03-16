@@ -5605,11 +5605,12 @@ function AllChecksCompleted() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button 
             onClick={handleExport} 
             variant="outline"
             className="bg-green-600 hover:bg-green-700 text-white"
+            title="Download as Excel file"
           >
             <Download className="mr-2 h-4 w-4" />
             Excel
@@ -5621,7 +5622,16 @@ function AllChecksCompleted() {
             title="Faster for large datasets"
           >
             <Download className="mr-2 h-4 w-4" />
-            CSV
+            CSV (Fast)
+          </Button>
+          <Button 
+            onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel`, '_blank')}
+            variant="outline"
+            className="text-gray-600"
+            title="Opens in new tab - use if other exports timeout"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Direct Link
           </Button>
         </div>
       </div>
