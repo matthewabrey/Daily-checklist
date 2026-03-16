@@ -10926,6 +10926,7 @@ function AppContent() {
                 <RepairsNeeded />
               </ProtectedRoute>
             } />
+            {/* HIDDEN FOR DEPLOYMENT - Near Misses, Suggestions, Accidents, Whistleblowing, Training routes
             <Route path="/near-misses" element={
               <ProtectedRoute>
                 <NearMissesPage />
@@ -10951,6 +10952,7 @@ function AppContent() {
                 <TrainingPage />
               </ProtectedRoute>
             } />
+            */}
             <Route path="/general-repair-record" element={
               <ProtectedRoute>
                 <GeneralRepairRecord />
