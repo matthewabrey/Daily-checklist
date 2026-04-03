@@ -4535,6 +4535,22 @@ function SharePointAdminComponent() {
         </CardContent>
       </Card>
 
+      {/* SharePoint Auto-Sync */}
+      <Card data-testid="sharepoint-sync-card" className="border-purple-200 bg-purple-50">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <RefreshCw className="h-5 w-5 text-purple-600" />
+            <span>SharePoint Auto-Sync</span>
+          </CardTitle>
+          <CardDescription>
+            Staff list syncs automatically from SharePoint every day at 9:00 AM
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <SharePointSyncStatus />
+        </CardContent>
+      </Card>
+
       {/* Staff Upload */}
       <Card data-testid="staff-upload-card">
         <CardHeader>
