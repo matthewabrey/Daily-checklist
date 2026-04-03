@@ -584,7 +584,8 @@ class SharePointAutoSync:
         except Exception as e:
             return {
                 'success': False,
-                'message': f'Connection failed: {str(e)}'
+                'message': f'Connection failed: {str(e)}',
+                'credentials_info': credentials_info
             }
 
 
