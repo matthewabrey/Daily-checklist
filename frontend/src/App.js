@@ -4711,7 +4711,7 @@ function SharePointAdminComponent() {
             <span>SharePoint Auto-Sync</span>
           </CardTitle>
           <CardDescription>
-            Staff list syncs automatically from SharePoint every day at 9:00 AM
+            Staff list and asset list sync automatically from SharePoint every day at 9:00 AM
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
