@@ -547,7 +547,6 @@ class SharePointAutoSync:
                     'secret_length': len(self.client_secret) if self.client_secret else 0
                 }
             }
-            }
             
             # Check staff file
             try:
