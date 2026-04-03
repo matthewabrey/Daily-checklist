@@ -1038,65 +1038,18 @@ async def update_asset_list(assets: List[AssetUpdate]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update asset list: {str(e)}")
 
-@app.get("/api/admin/sharepoint/auth-url")
-async def get_sharepoint_auth_url():
-    """Get SharePoint authentication URL for user login"""
-    try:
-        auth_url = sharepoint_integration.get_auth_url()
-        return {"auth_url": auth_url}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get auth URL: {str(e)}")
+# ============ OLD SharePoint OAuth Endpoints (Deprecated) ============
+# These endpoints use user OAuth flow which requires manual authentication.
+# Now replaced by SharePoint Auto-Sync with client credentials (app-only auth).
+# Keeping them commented for reference but they won't work in production.
+
+# @app.get("/api/admin/sharepoint/auth-url")
+# @app.post("/api/admin/sharepoint/callback")
+# @app.get("/api/admin/sharepoint/test")
+# @app.post("/api/admin/sharepoint/sync-staff")
 
 class AuthCallbackRequest(BaseModel):
     auth_code: str
-
-@app.post("/api/admin/sharepoint/callback")
-async def sharepoint_auth_callback(request: AuthCallbackRequest):
-    """Handle SharePoint authentication callback"""
-    try:
-        result = sharepoint_integration.acquire_token_by_auth_code(request.auth_code)
-        return {"message": "Authentication successful", "user": result.get("account", {})}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Authentication failed: {str(e)}")
-
-@app.get("/api/admin/sharepoint/test")
-async def test_sharepoint_connection():
-    """Test SharePoint connection and file access"""
-    try:
-        results = sharepoint_integration.test_connection()
-        return results
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Connection test failed: {str(e)}")
-
-@app.post("/api/admin/sharepoint/sync-staff")
-async def sync_staff_from_sharepoint():
-    """Sync staff data from SharePoint Excel file"""
-    try:
-        # Get staff data from SharePoint
-        staff_names = sharepoint_integration.get_staff_data()
-        
-        if not staff_names:
-            raise HTTPException(status_code=400, detail="No staff data found in SharePoint file")
-        
-        # Clear existing staff except admin (4444)
-        await db.staff.delete_many({"employee_number": {"$ne": "4444"}})
-        
-        # Add new staff from SharePoint
-        new_staff = []
-        for staff_name in staff_names:
-            staff = Staff(name=staff_name.strip())
-            new_staff.append(staff.dict())
-        
-        if new_staff:
-            await db.staff.insert_many(new_staff)
-        
-        return {
-            "message": f"Successfully synced {len(new_staff)} staff members from SharePoint",
-            "count": len(new_staff),
-            "staff_names": staff_names[:10]  # Show first 10 names as preview
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to sync staff data: {str(e)}")
 
 # OLD SharePoint sync endpoints removed - now using SharePoint Auto-Sync with client credentials
 
