@@ -526,6 +526,11 @@ class SharePointAutoSync:
     def test_connection(self) -> Dict:
         """Test the SharePoint connection for both files"""
         try:
+            # Log credential info (not the actual values)
+            logger.info(f"Testing connection with client_id starting with: {self.client_id[:8] if self.client_id else 'NONE'}...")
+            logger.info(f"Tenant ID starting with: {self.tenant_id[:8] if self.tenant_id else 'NONE'}...")
+            logger.info(f"Secret length: {len(self.client_secret) if self.client_secret else 0}")
+            
             self._get_access_token()
             site_id = self._get_site_id()
             drive_id = self._get_drive_id(site_id)
@@ -535,7 +540,13 @@ class SharePointAutoSync:
                 'message': 'SharePoint connection successful',
                 'site_id': site_id,
                 'drive_id': drive_id,
-                'files': {}
+                'files': {},
+                'credentials_info': {
+                    'client_id_prefix': self.client_id[:8] if self.client_id else 'NONE',
+                    'tenant_id_prefix': self.tenant_id[:8] if self.tenant_id else 'NONE',
+                    'secret_length': len(self.client_secret) if self.client_secret else 0
+                }
+            }
             }
             
             # Check staff file
