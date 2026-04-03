@@ -62,6 +62,53 @@ db = client[DB_NAME]
 # db.assets - machine/asset data
 # db.staff - staff data
 # db.repair_status - tracks acknowledged/completed status of repairs (NEW)
+# db.sync_logs - SharePoint sync history
+
+# Scheduled SharePoint sync function
+async def scheduled_sharepoint_sync():
+    """Scheduled task to sync staff list from SharePoint at 9am daily"""
+    logger.info("Starting scheduled SharePoint staff sync...")
+    try:
+        result = await sharepoint_auto_sync.sync_staff_list(db)
+        # Log the sync result
+        await db.sync_logs.insert_one({
+            'type': 'scheduled',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'success': result.get('success', False),
+            'message': result.get('message', ''),
+            'count': result.get('count', 0)
+        })
+        logger.info(f"Scheduled sync completed: {result.get('message')}")
+    except Exception as e:
+        logger.error(f"Scheduled sync error: {str(e)}")
+        await db.sync_logs.insert_one({
+            'type': 'scheduled',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'success': False,
+            'message': str(e),
+            'count': 0
+        })
+
+# Setup scheduler on startup
+@app.on_event("startup")
+async def startup_event():
+    """Start the scheduler when the app starts"""
+    # Schedule daily sync at 9:00 AM UK time
+    scheduler.add_job(
+        scheduled_sharepoint_sync,
+        CronTrigger(hour=9, minute=0, timezone="Europe/London"),
+        id="daily_staff_sync",
+        name="Daily SharePoint Staff Sync",
+        replace_existing=True
+    )
+    scheduler.start()
+    logger.info("Scheduler started - Daily staff sync scheduled for 9:00 AM UK time")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop the scheduler when the app shuts down"""
+    scheduler.shutdown()
+    logger.info("Scheduler stopped")
 
 # Pydantic models
 class Asset(BaseModel):
