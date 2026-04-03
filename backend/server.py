@@ -11,13 +11,25 @@ import uuid
 from bson import ObjectId
 from dotenv import load_dotenv
 from sharepoint_integration import sharepoint_integration
+from sharepoint_auto_sync import sharepoint_auto_sync
 from cached_stats import get_cached_stats, invalidate_cache
 import qrcode
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+import asyncio
+import logging
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
 
 app = FastAPI(title="Machine Checklist API")
+
+# Scheduler for automatic SharePoint sync
+scheduler = AsyncIOScheduler(timezone="Europe/London")
 
 # CORS setup
 CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
