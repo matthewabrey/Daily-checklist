@@ -1192,6 +1192,22 @@ async def test_sharepoint_connection():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Connection test failed: {str(e)}")
 
+@app.get("/api/admin/sharepoint/debug-env")
+async def debug_sharepoint_env():
+    """Debug endpoint to check if Azure environment variables are set (without revealing secrets)"""
+    import os
+    return {
+        "AZURE_CLIENT_ID_SET": bool(os.environ.get('AZURE_CLIENT_ID')),
+        "AZURE_CLIENT_ID_LENGTH": len(os.environ.get('AZURE_CLIENT_ID', '')),
+        "AZURE_CLIENT_SECRET_SET": bool(os.environ.get('AZURE_CLIENT_SECRET')),
+        "AZURE_CLIENT_SECRET_LENGTH": len(os.environ.get('AZURE_CLIENT_SECRET', '')),
+        "AZURE_TENANT_ID_SET": bool(os.environ.get('AZURE_TENANT_ID')),
+        "AZURE_TENANT_ID_LENGTH": len(os.environ.get('AZURE_TENANT_ID', '')),
+        "SHAREPOINT_SITE_URL": os.environ.get('SHAREPOINT_SITE_URL', 'NOT SET'),
+        "SHAREPOINT_STAFF_FILENAME": os.environ.get('SHAREPOINT_STAFF_FILENAME', 'NOT SET'),
+        "SHAREPOINT_ASSETS_FILENAME": os.environ.get('SHAREPOINT_ASSETS_FILENAME', 'NOT SET')
+    }
+
 @app.post("/api/admin/sharepoint/sync-now")
 async def trigger_sharepoint_sync():
     """Manually trigger a SharePoint staff sync"""
