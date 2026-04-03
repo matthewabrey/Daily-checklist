@@ -4401,7 +4401,7 @@ function WorkProgressAdmin() {
 function SharePointSyncStatus() {
   const [syncStatus, setSyncStatus] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
+  const [syncing, setSyncing] = useState(null); // null, 'staff', 'assets', 'all'
   const [testing, setTesting] = useState(false);
 
   useEffect(() => {
@@ -4420,16 +4420,23 @@ function SharePointSyncStatus() {
     }
   };
 
-  const triggerSync = async () => {
-    setSyncing(true);
+  const triggerSync = async (type) => {
+    setSyncing(type);
+    const endpoint = type === 'all' ? 'sync-all' : type === 'assets' ? 'sync-assets' : 'sync-now';
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/sync-now`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/${endpoint}`, {
         method: 'POST'
       });
       const data = await response.json();
       
       if (response.ok) {
-        toast.success(`Synced ${data.count} staff members from SharePoint`);
+        if (type === 'all') {
+          toast.success(`Synced ${data.staff?.count || 0} staff and ${data.assets?.assets_count || 0} assets`);
+        } else if (type === 'assets') {
+          toast.success(`Synced ${data.assets_count} assets and ${data.templates_count} checklist templates`);
+        } else {
+          toast.success(`Synced ${data.count} staff members`);
+        }
         fetchSyncStatus();
       } else {
         toast.error(data.detail || 'Sync failed');
@@ -4438,7 +4445,7 @@ function SharePointSyncStatus() {
       toast.error('Failed to sync from SharePoint');
       console.error('Sync error:', error);
     } finally {
-      setSyncing(false);
+      setSyncing(null);
     }
   };
 
@@ -4449,7 +4456,9 @@ function SharePointSyncStatus() {
       const data = await response.json();
       
       if (data.success) {
-        toast.success(`Connected! File: ${data.file_name} (${Math.round(data.file_size / 1024)}KB)`);
+        const staffInfo = data.files?.staff;
+        const assetsInfo = data.files?.assets;
+        toast.success(`Connected! Staff: ${staffInfo?.file_name} (${Math.round(staffInfo?.file_size / 1024)}KB), Assets: ${assetsInfo?.file_name} (${Math.round(assetsInfo?.file_size / 1024)}KB)`);
       } else {
         toast.error(data.message || 'Connection failed');
       }
@@ -4467,32 +4476,50 @@ function SharePointSyncStatus() {
   return (
     <div className="space-y-4">
       {/* Connection Status */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <div className={`w-3 h-3 rounded-full ${syncStatus?.scheduler_running ? 'bg-green-500' : 'bg-red-500'}`} />
           <span className="text-sm font-medium">
-            {syncStatus?.scheduler_running ? 'Auto-sync active' : 'Auto-sync inactive'}
+            {syncStatus?.scheduler_running ? 'Auto-sync active (9AM daily)' : 'Auto-sync inactive'}
           </span>
         </div>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={testConnection}
-            disabled={testing}
-            className="text-purple-700 border-purple-300"
-          >
-            {testing ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Test Connection'}
-          </Button>
-          <Button
-            size="sm"
-            onClick={triggerSync}
-            disabled={syncing}
-            className="bg-purple-600 hover:bg-purple-700"
-          >
-            {syncing ? <><RefreshCw className="h-4 w-4 animate-spin mr-1" /> Syncing...</> : 'Sync Now'}
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={testConnection}
+          disabled={testing}
+          className="text-purple-700 border-purple-300"
+        >
+          {testing ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Test Connection'}
+        </Button>
+      </div>
+
+      {/* Sync Buttons */}
+      <div className="flex gap-2 flex-wrap">
+        <Button
+          size="sm"
+          onClick={() => triggerSync('staff')}
+          disabled={syncing !== null}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          {syncing === 'staff' ? <><RefreshCw className="h-4 w-4 animate-spin mr-1" /> Syncing...</> : 'Sync Staff'}
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => triggerSync('assets')}
+          disabled={syncing !== null}
+          className="bg-green-600 hover:bg-green-700"
+        >
+          {syncing === 'assets' ? <><RefreshCw className="h-4 w-4 animate-spin mr-1" /> Syncing...</> : 'Sync Assets'}
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => triggerSync('all')}
+          disabled={syncing !== null}
+          className="bg-purple-600 hover:bg-purple-700"
+        >
+          {syncing === 'all' ? <><RefreshCw className="h-4 w-4 animate-spin mr-1" /> Syncing...</> : 'Sync All'}
+        </Button>
       </div>
 
       {/* Last Sync Info */}
@@ -4508,7 +4535,7 @@ function SharePointSyncStatus() {
             <div className="text-right">
               {syncStatus.last_sync.success ? (
                 <span className="text-green-600 text-sm font-medium flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4" /> {syncStatus.last_sync.count} staff synced
+                  <CheckCircle className="h-4 w-4" /> Success
                 </span>
               ) : (
                 <span className="text-red-600 text-sm font-medium flex items-center gap-1">
@@ -4517,6 +4544,9 @@ function SharePointSyncStatus() {
               )}
             </div>
           </div>
+          {syncStatus.last_sync.message && (
+            <p className="text-xs text-gray-600 mt-1">{syncStatus.last_sync.message}</p>
+          )}
         </div>
       )}
 
@@ -4529,7 +4559,7 @@ function SharePointSyncStatus() {
       )}
 
       <p className="text-xs text-gray-500">
-        File location: SharePoint → Crops → General → Apps → Checklist App → Name List.xlsx
+        Files: SharePoint → Crops → General → Apps → Checklist App → (Name List.xlsx, AssetList.xlsx)
       </p>
     </div>
   );
