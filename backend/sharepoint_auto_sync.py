@@ -292,6 +292,231 @@ class SharePointAutoSync:
                 'synced_at': datetime.now().isoformat()
             }
     
+    def _parse_assets_excel(self, file_content: bytes) -> Tuple[List[Dict], List[Dict]]:
+        """Parse assets Excel file and extract asset data and checklist templates"""
+        workbook = openpyxl.load_workbook(BytesIO(file_content))
+        
+        # First sheet contains assets
+        sheet = workbook[workbook.sheetnames[0]]
+        headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
+        logger.info(f"Assets Excel headers: {headers}")
+        
+        # Find column indices
+        check_type_col = None
+        name_col = None
+        make_col = None
+        
+        for i, header in enumerate(headers):
+            if header == 'check type' or 'checktype' in header:
+                check_type_col = i
+            elif header == 'namecolumn' or ('name' in header and 'check' not in header):
+                name_col = i
+            elif header == 'makecolumn' or 'make' in header:
+                make_col = i
+        
+        if check_type_col is None or name_col is None or make_col is None:
+            raise Exception(f"Could not find required columns. Found: {headers}")
+        
+        logger.info(f"Assets column mapping - check_type: {check_type_col}, name: {name_col}, make: {make_col}")
+        
+        # Extract assets
+        assets = []
+        for row in sheet.iter_rows(min_row=2, values_only=True):
+            if row and len(row) > max(check_type_col, name_col, make_col):
+                check_type = str(row[check_type_col]).strip() if row[check_type_col] else ''
+                name = str(row[name_col]).strip() if row[name_col] else ''
+                make = str(row[make_col]).strip() if row[make_col] else ''
+                
+                if check_type and name and make:
+                    assets.append({
+                        'check_type': check_type,
+                        'name': name,
+                        'make': make
+                    })
+        
+        logger.info(f"Parsed {len(assets)} assets from Excel")
+        
+        # Process checklist template sheets
+        checklist_templates = []
+        unique_check_types = set(asset['check_type'] for asset in assets)
+        
+        for sheet_name in workbook.sheetnames[1:]:  # Skip first sheet (assets)
+            sheet = workbook[sheet_name]
+            
+            # Try to match sheet name with check types
+            matching_check_type = None
+            sheet_name_clean = sheet_name.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
+            
+            for check_type in unique_check_types:
+                check_type_clean = check_type.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
+                if sheet_name_clean == check_type_clean or check_type.lower() == sheet_name.lower():
+                    matching_check_type = check_type
+                    break
+            
+            # Fuzzy matching fallback
+            if not matching_check_type:
+                for check_type in unique_check_types:
+                    if check_type_clean in sheet_name_clean or sheet_name_clean in check_type_clean:
+                        matching_check_type = check_type
+                        break
+            
+            if not matching_check_type:
+                logger.warning(f"Sheet '{sheet_name}' doesn't match any check type, skipping")
+                continue
+            
+            # Extract checklist items from sheet
+            items = []
+            sheet_headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
+            
+            item_col = None
+            critical_col = None
+            photo_col = None
+            
+            for i, h in enumerate(sheet_headers):
+                if 'item' in h or 'check' in h or 'task' in h:
+                    item_col = i
+                elif 'critical' in h or 'common' in h:
+                    critical_col = i
+                elif 'photo' in h:
+                    photo_col = i
+            
+            if item_col is None:
+                item_col = 0  # Fallback to first column
+            
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                if row and len(row) > item_col and row[item_col]:
+                    item_text = str(row[item_col]).strip()
+                    if item_text and item_text.lower() not in ['item', 'check', 'task', '']:
+                        is_critical = False
+                        photo_required = False
+                        
+                        if critical_col is not None and len(row) > critical_col and row[critical_col]:
+                            is_critical = str(row[critical_col]).strip().lower() in ['yes', 'true', '1', 'y']
+                        
+                        if photo_col is not None and len(row) > photo_col and row[photo_col]:
+                            photo_required = str(row[photo_col]).strip().lower() in ['yes', 'true', '1', 'y']
+                        
+                        items.append({
+                            'item': item_text,
+                            'critical': is_critical,
+                            'photo_required': photo_required
+                        })
+            
+            if items:
+                checklist_templates.append({
+                    'check_type': matching_check_type,
+                    'sheet_name': sheet_name,
+                    'items': items
+                })
+                logger.info(f"Parsed {len(items)} checklist items for '{matching_check_type}' from sheet '{sheet_name}'")
+        
+        return assets, checklist_templates
+    
+    async def sync_assets_list(self, db) -> Dict:
+        """Sync assets and checklist templates from SharePoint"""
+        try:
+            logger.info(f"Starting SharePoint assets sync at {datetime.now()}")
+            
+            # Get site and drive info
+            site_id = self._get_site_id()
+            drive_id = self._get_drive_id(site_id)
+            
+            # Find and download the assets file
+            item_id = self._find_file(drive_id, self.assets_filename)
+            file_content = self._download_file(drive_id, item_id)
+            
+            # Parse the Excel file
+            assets, checklist_templates = self._parse_assets_excel(file_content)
+            
+            if not assets:
+                raise Exception("No valid asset data found in Excel file")
+            
+            # Get existing QR print status to preserve
+            existing_assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
+            existing_qr_status = {}
+            for ea in existing_assets:
+                key = f"{ea.get('make', '')}:{ea.get('name', '')}"
+                if ea.get('qr_printed'):
+                    existing_qr_status[key] = {
+                        'qr_printed': ea.get('qr_printed', False),
+                        'qr_printed_at': ea.get('qr_printed_at')
+                    }
+            
+            # Update assets database
+            await db.assets.delete_many({})
+            
+            import uuid
+            new_assets = []
+            for asset in assets:
+                asset_dict = {
+                    'id': str(uuid.uuid4()),
+                    'check_type': asset['check_type'],
+                    'name': asset['name'],
+                    'make': asset['make'],
+                    'qr_printed': False,
+                    'qr_printed_at': None
+                }
+                # Preserve QR print status
+                key = f"{asset_dict['make']}:{asset_dict['name']}"
+                if key in existing_qr_status:
+                    asset_dict['qr_printed'] = existing_qr_status[key]['qr_printed']
+                    asset_dict['qr_printed_at'] = existing_qr_status[key]['qr_printed_at']
+                new_assets.append(asset_dict)
+            
+            await db.assets.insert_many(new_assets)
+            logger.info(f"Inserted {len(new_assets)} assets")
+            
+            # Update checklist templates
+            templates_count = 0
+            for template in checklist_templates:
+                await db.checklist_templates.update_one(
+                    {'check_type': template['check_type']},
+                    {'$set': {
+                        'check_type': template['check_type'],
+                        'sheet_name': template['sheet_name'],
+                        'items': template['items'],
+                        'updated_at': datetime.now().isoformat()
+                    }},
+                    upsert=True
+                )
+                templates_count += 1
+            
+            logger.info(f"Updated {templates_count} checklist templates")
+            
+            result = {
+                'success': True,
+                'message': f'Successfully synced {len(assets)} assets and {templates_count} checklist templates',
+                'assets_count': len(assets),
+                'templates_count': templates_count,
+                'synced_at': datetime.now().isoformat(),
+                'preview': assets[:5]
+            }
+            
+            logger.info(f"Assets sync completed: {result['message']}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Assets sync failed: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return {
+                'success': False,
+                'message': f'Sync failed: {str(e)}',
+                'synced_at': datetime.now().isoformat()
+            }
+    
+    async def sync_all(self, db) -> Dict:
+        """Sync both staff and assets from SharePoint"""
+        staff_result = await self.sync_staff_list(db)
+        assets_result = await self.sync_assets_list(db)
+        
+        return {
+            'success': staff_result.get('success', False) and assets_result.get('success', False),
+            'staff': staff_result,
+            'assets': assets_result,
+            'synced_at': datetime.now().isoformat()
+        }
+    
     def test_connection(self) -> Dict:
         """Test the SharePoint connection"""
         try:
