@@ -518,26 +518,49 @@ class SharePointAutoSync:
         }
     
     def test_connection(self) -> Dict:
-        """Test the SharePoint connection"""
+        """Test the SharePoint connection for both files"""
         try:
             self._get_access_token()
             site_id = self._get_site_id()
             drive_id = self._get_drive_id(site_id)
-            item_id = self._find_file(drive_id, self.staff_filename)
             
-            # Get file info
-            url = f"{self.graph_url}/drives/{drive_id}/items/{item_id}"
-            file_info = self._make_graph_request(url)
-            
-            return {
+            result = {
                 'success': True,
                 'message': 'SharePoint connection successful',
-                'file_name': file_info.get('name'),
-                'file_size': file_info.get('size'),
-                'last_modified': file_info.get('lastModifiedDateTime'),
                 'site_id': site_id,
-                'drive_id': drive_id
+                'drive_id': drive_id,
+                'files': {}
             }
+            
+            # Check staff file
+            try:
+                staff_item_id = self._find_file(drive_id, self.staff_filename)
+                url = f"{self.graph_url}/drives/{drive_id}/items/{staff_item_id}"
+                staff_info = self._make_graph_request(url)
+                result['files']['staff'] = {
+                    'file_name': staff_info.get('name'),
+                    'file_size': staff_info.get('size'),
+                    'last_modified': staff_info.get('lastModifiedDateTime'),
+                    'status': 'found'
+                }
+            except Exception as e:
+                result['files']['staff'] = {'status': 'not_found', 'error': str(e)}
+            
+            # Check assets file
+            try:
+                assets_item_id = self._find_file(drive_id, self.assets_filename)
+                url = f"{self.graph_url}/drives/{drive_id}/items/{assets_item_id}"
+                assets_info = self._make_graph_request(url)
+                result['files']['assets'] = {
+                    'file_name': assets_info.get('name'),
+                    'file_size': assets_info.get('size'),
+                    'last_modified': assets_info.get('lastModifiedDateTime'),
+                    'status': 'found'
+                }
+            except Exception as e:
+                result['files']['assets'] = {'status': 'not_found', 'error': str(e)}
+            
+            return result
         except Exception as e:
             return {
                 'success': False,
