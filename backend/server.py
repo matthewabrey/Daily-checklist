@@ -1093,16 +1093,24 @@ async def upload_staff_file(file: UploadFile = File(...)):
         manager_col = None
         
         for i, header in enumerate(headers):
-            if 'name' in header and 'employee' not in header:
-                name_col = i
-            elif 'number' in header or 'employee' in header or 'emp' in header:
+            # Check for employee number column FIRST (more specific match)
+            if ('employee' in header and 'number' in header) or header == 'emp no' or header == 'emp number' or header == 'employee_number':
                 number_col = i
+            elif 'name' in header and 'employee' not in header:
+                name_col = i
             elif 'workshop' in header and 'control' in header:
                 workshop_col = i
             elif 'admin' in header and 'control' in header:
                 admin_col = i
             elif 'manager' in header:  # Accept "Manager" or "Manager Control"
                 manager_col = i
+        
+        # If we didn't find employee number yet, look for other patterns (but NOT phone number)
+        if number_col is None:
+            for i, header in enumerate(headers):
+                if ('number' in header or 'emp' in header) and 'phone' not in header and 'tel' not in header:
+                    number_col = i
+                    break
         
         print(f"[STAFF UPLOAD] Column mapping - name_col: {name_col}, number_col: {number_col}, workshop_col: {workshop_col}, admin_col: {admin_col}, manager_col: {manager_col}")
         
