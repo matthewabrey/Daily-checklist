@@ -31,8 +31,14 @@ class SharePointAutoSync:
         
     def _get_access_token(self) -> str:
         """Get access token using client credentials flow (app-only)"""
-        if not all([self.client_id, self.client_secret, self.tenant_id]):
-            raise ValueError("Missing Azure credentials (CLIENT_ID, CLIENT_SECRET, TENANT_ID)")
+        if not self.client_id:
+            raise ValueError("Missing AZURE_CLIENT_ID environment variable")
+        if not self.client_secret:
+            raise ValueError("Missing AZURE_CLIENT_SECRET environment variable")
+        if not self.tenant_id:
+            raise ValueError("Missing AZURE_TENANT_ID environment variable")
+        
+        logger.info(f"Attempting to get access token with client_id length: {len(self.client_id)}, tenant_id length: {len(self.tenant_id)}")
         
         data = {
             'grant_type': 'client_credentials',
