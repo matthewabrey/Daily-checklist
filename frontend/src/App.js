@@ -4397,6 +4397,144 @@ function WorkProgressAdmin() {
   );
 }
 
+// SharePoint Sync Status Component
+function SharePointSyncStatus() {
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    fetchSyncStatus();
+  }, []);
+
+  const fetchSyncStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/sync-status`);
+      const data = await response.json();
+      setSyncStatus(data);
+    } catch (error) {
+      console.error('Error fetching sync status:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const triggerSync = async () => {
+    setSyncing(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/sync-now`, {
+        method: 'POST'
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast.success(`Synced ${data.count} staff members from SharePoint`);
+        fetchSyncStatus();
+      } else {
+        toast.error(data.detail || 'Sync failed');
+      }
+    } catch (error) {
+      toast.error('Failed to sync from SharePoint');
+      console.error('Sync error:', error);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const testConnection = async () => {
+    setTesting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/test-connection`);
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success(`Connected! File: ${data.file_name} (${Math.round(data.file_size / 1024)}KB)`);
+      } else {
+        toast.error(data.message || 'Connection failed');
+      }
+    } catch (error) {
+      toast.error('Connection test failed');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center gap-2 text-purple-600"><RefreshCw className="h-4 w-4 animate-spin" /> Loading status...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Connection Status */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={`w-3 h-3 rounded-full ${syncStatus?.scheduler_running ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className="text-sm font-medium">
+            {syncStatus?.scheduler_running ? 'Auto-sync active' : 'Auto-sync inactive'}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={testConnection}
+            disabled={testing}
+            className="text-purple-700 border-purple-300"
+          >
+            {testing ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Test Connection'}
+          </Button>
+          <Button
+            size="sm"
+            onClick={triggerSync}
+            disabled={syncing}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            {syncing ? <><RefreshCw className="h-4 w-4 animate-spin mr-1" /> Syncing...</> : 'Sync Now'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Last Sync Info */}
+      {syncStatus?.last_sync && (
+        <div className="bg-white p-3 rounded-lg border border-purple-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Last Sync</p>
+              <p className="text-xs text-gray-500">
+                {new Date(syncStatus.last_sync.timestamp).toLocaleString()} ({syncStatus.last_sync.type})
+              </p>
+            </div>
+            <div className="text-right">
+              {syncStatus.last_sync.success ? (
+                <span className="text-green-600 text-sm font-medium flex items-center gap-1">
+                  <CheckCircle className="h-4 w-4" /> {syncStatus.last_sync.count} staff synced
+                </span>
+              ) : (
+                <span className="text-red-600 text-sm font-medium flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" /> Failed
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Next Scheduled Sync */}
+      {syncStatus?.next_scheduled_sync && (
+        <div className="text-sm text-purple-700">
+          <Clock className="h-4 w-4 inline mr-1" />
+          Next sync: {new Date(syncStatus.next_scheduled_sync).toLocaleString()}
+        </div>
+      )}
+
+      <p className="text-xs text-gray-500">
+        File location: SharePoint → Crops → General → Apps → Checklist App → Name List.xlsx
+      </p>
+    </div>
+  );
+}
+
 // SharePoint Admin Component
 function SharePointAdminComponent() {
   const [uploadResults, setUploadResults] = useState(null);
