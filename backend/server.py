@@ -66,19 +66,21 @@ db = client[DB_NAME]
 
 # Scheduled SharePoint sync function
 async def scheduled_sharepoint_sync():
-    """Scheduled task to sync staff list from SharePoint at 9am daily"""
-    logger.info("Starting scheduled SharePoint staff sync...")
+    """Scheduled task to sync staff list and assets from SharePoint at 9am daily"""
+    logger.info("Starting scheduled SharePoint sync (staff + assets)...")
     try:
-        result = await sharepoint_auto_sync.sync_staff_list(db)
+        result = await sharepoint_auto_sync.sync_all(db)
         # Log the sync result
         await db.sync_logs.insert_one({
             'type': 'scheduled',
             'timestamp': datetime.now(timezone.utc).isoformat(),
             'success': result.get('success', False),
-            'message': result.get('message', ''),
-            'count': result.get('count', 0)
+            'message': f"Staff: {result.get('staff', {}).get('message', 'N/A')}, Assets: {result.get('assets', {}).get('message', 'N/A')}",
+            'staff_count': result.get('staff', {}).get('count', 0),
+            'assets_count': result.get('assets', {}).get('assets_count', 0),
+            'templates_count': result.get('assets', {}).get('templates_count', 0)
         })
-        logger.info(f"Scheduled sync completed: {result.get('message')}")
+        logger.info(f"Scheduled sync completed: Staff={result.get('staff', {}).get('success')}, Assets={result.get('assets', {}).get('success')}")
     except Exception as e:
         logger.error(f"Scheduled sync error: {str(e)}")
         await db.sync_logs.insert_one({
@@ -86,7 +88,8 @@ async def scheduled_sharepoint_sync():
             'timestamp': datetime.now(timezone.utc).isoformat(),
             'success': False,
             'message': str(e),
-            'count': 0
+            'staff_count': 0,
+            'assets_count': 0
         })
 
 # Setup scheduler on startup
