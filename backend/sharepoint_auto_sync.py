@@ -22,6 +22,7 @@ class SharePointAutoSync:
         self.tenant_id = os.environ.get('AZURE_TENANT_ID')
         self.site_url = os.environ.get('SHAREPOINT_SITE_URL', 'https://rgafarms.sharepoint.com/sites/Crops')
         self.staff_filename = os.environ.get('SHAREPOINT_STAFF_FILENAME', 'Name List.xlsx')
+        self.assets_filename = os.environ.get('SHAREPOINT_ASSETS_FILENAME', 'AssetList.xlsx')
         self.folder_path = 'General/Apps/Checklist App'  # Folder path within the document library
         
         self.token_url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
