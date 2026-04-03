@@ -1552,47 +1552,8 @@ async def upload_checklist_file(check_type: str, file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process checklist file: {str(e)}")
 
-@app.post("/api/admin/sharepoint/sync-checklists")
-async def sync_checklists_from_sharepoint():
-    """Sync checklist templates from SharePoint Excel files"""
-    try:
-        results = {}
-        
-        # Sync each checklist type
-        for checklist_type in ['daily_check', 'grader_startup', 'workshop_service']:
-            try:
-                checklist_data = sharepoint_integration.get_checklist_data(checklist_type)
-                
-                # Clear existing checklist template for this type
-                await db.checklist_templates.delete_many({"check_type": checklist_type})
-                
-                # Store checklist items with all metadata
-                template = {
-                    "check_type": checklist_type,
-                    "items": checklist_data  # Full item data with photo_required, critical, etc.
-                }
-                
-                await db.checklist_templates.insert_one(template)
-                
-                results[checklist_type] = {
-                    "success": True,
-                    "count": len(items),
-                    "message": f"Synced {len(items)} items for {checklist_type}"
-                }
-            except Exception as e:
-                results[checklist_type] = {"success": False, "error": str(e)}
-        
-        # Overall success
-        overall_success = all(r.get('success', False) for r in results.values())
-        
-        return {
-            "message": "Checklist sync completed",
-            "success": overall_success,
-            "results": results
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to sync checklists: {str(e)}")
+# OLD sync-checklists endpoint removed - now handled by sync_assets_list which processes
+# checklist templates from the AssetList.xlsx file sheets
 
 @app.get("/api/checklist-templates/{check_type:path}")
 async def get_checklist_template(check_type: str):
