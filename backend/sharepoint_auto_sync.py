@@ -107,24 +107,43 @@ class SharePointAutoSync:
         return drive_id
     
     def _find_file(self, drive_id: str, filename: str) -> str:
-        """Find a file in the drive by name"""
-        # Search in root folder
-        url = f"{self.graph_url}/drives/{drive_id}/root/children"
-        items = self._make_graph_request(url)
+        """Find a file in the drive by name, checking specific folder first"""
         
-        for item in items.get('value', []):
-            if item['name'].lower() == filename.lower():
-                logger.info(f"Found file: {item['name']} (ID: {item['id']})")
-                return item['id']
+        # First try the specific folder path (Shared Documents/General)
+        try:
+            folder_url = f"{self.graph_url}/drives/{drive_id}/root:/{self.folder_path}:/children"
+            items = self._make_graph_request(folder_url)
+            
+            for item in items.get('value', []):
+                if item['name'].lower() == filename.lower():
+                    logger.info(f"Found file in {self.folder_path}: {item['name']} (ID: {item['id']})")
+                    return item['id']
+        except Exception as e:
+            logger.warning(f"Could not access folder {self.folder_path}: {e}")
         
-        # If not found in root, search recursively
-        url = f"{self.graph_url}/drives/{drive_id}/root/search(q='{filename}')"
-        search_results = self._make_graph_request(url)
+        # Try root folder
+        try:
+            url = f"{self.graph_url}/drives/{drive_id}/root/children"
+            items = self._make_graph_request(url)
+            
+            for item in items.get('value', []):
+                if item['name'].lower() == filename.lower():
+                    logger.info(f"Found file in root: {item['name']} (ID: {item['id']})")
+                    return item['id']
+        except Exception as e:
+            logger.warning(f"Could not access root folder: {e}")
         
-        for item in search_results.get('value', []):
-            if item['name'].lower() == filename.lower():
-                logger.info(f"Found file via search: {item['name']} (ID: {item['id']})")
-                return item['id']
+        # Search recursively as fallback
+        try:
+            url = f"{self.graph_url}/drives/{drive_id}/root/search(q='{filename}')"
+            search_results = self._make_graph_request(url)
+            
+            for item in search_results.get('value', []):
+                if item['name'].lower() == filename.lower():
+                    logger.info(f"Found file via search: {item['name']} (ID: {item['id']})")
+                    return item['id']
+        except Exception as e:
+            logger.warning(f"Search failed: {e}")
         
         raise Exception(f"File '{filename}' not found in SharePoint")
     
