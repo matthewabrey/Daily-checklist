@@ -1075,13 +1075,17 @@ async def upload_staff_file(file: UploadFile = File(...)):
         
         # Read file content
         file_content = await file.read()
+        print(f"[STAFF UPLOAD] File received: {file.filename}, size: {len(file_content)} bytes")
         
         # Load the Excel file
         workbook = openpyxl.load_workbook(BytesIO(file_content))
         sheet = workbook[workbook.sheetnames[0]]  # Use first sheet, not active
+        print(f"[STAFF UPLOAD] Sheet name: {workbook.sheetnames[0]}, max_row: {sheet.max_row}, max_col: {sheet.max_column}")
         
         # Get headers and find name/employee number/workshop control/admin control/manager control columns
         headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
+        print(f"[STAFF UPLOAD] Headers found: {headers}")
+        
         name_col = None
         number_col = None
         workshop_col = None
@@ -1100,18 +1104,25 @@ async def upload_staff_file(file: UploadFile = File(...)):
             elif 'manager' in header:  # Accept "Manager" or "Manager Control"
                 manager_col = i
         
+        print(f"[STAFF UPLOAD] Column mapping - name_col: {name_col}, number_col: {number_col}, workshop_col: {workshop_col}, admin_col: {admin_col}, manager_col: {manager_col}")
+        
         # Fallback: assume first column is names, second is numbers
         if name_col is None:
             name_col = 0
+            print(f"[STAFF UPLOAD] Using fallback name_col: 0")
         if number_col is None and len(headers) > 1:
             number_col = 1
+            print(f"[STAFF UPLOAD] Using fallback number_col: 1")
         
         if number_col is None:
             raise HTTPException(status_code=400, detail="Could not find Employee Number column. Please ensure your Excel has both Name and Employee Number columns.")
         
         # Extract staff data
         staff_data = []
+        rows_processed = 0
+        rows_skipped = 0
         for row in sheet.iter_rows(min_row=2, values_only=True):  # Skip header
+            rows_processed += 1
             if row and len(row) > max(name_col, number_col):
                 name = str(row[name_col]).strip() if row[name_col] else ''
                 emp_number = str(row[number_col]).strip() if row[number_col] else ''
@@ -1137,22 +1148,41 @@ async def upload_staff_file(file: UploadFile = File(...)):
                         "admin_control": admin_control,
                         "manager_control": manager_control
                     })
+                else:
+                    rows_skipped += 1
+                    if rows_processed <= 5:
+                        print(f"[STAFF UPLOAD] Skipped row {rows_processed}: name='{name}', emp_number='{emp_number}'")
+            else:
+                rows_skipped += 1
+        
+        print(f"[STAFF UPLOAD] Rows processed: {rows_processed}, valid staff: {len(staff_data)}, skipped: {rows_skipped}")
         
         if not staff_data:
-            raise HTTPException(status_code=400, detail="No valid staff data found. Please ensure your Excel has Name and Employee Number columns with data.")
+            raise HTTPException(status_code=400, detail=f"No valid staff data found. Processed {rows_processed} rows but none had valid Name and Employee Number. Headers found: {headers}")
         
         # Update database - preserve admin account (4444)
-        await db.staff.delete_many({"employee_number": {"$ne": "4444"}})  # Delete all except admin
+        delete_result = await db.staff.delete_many({"employee_number": {"$ne": "4444"}})
+        print(f"[STAFF UPLOAD] Deleted {delete_result.deleted_count} existing staff records")
+        
         new_staff = [Staff(**data).dict() for data in staff_data]
-        await db.staff.insert_many(new_staff)
+        insert_result = await db.staff.insert_many(new_staff)
+        print(f"[STAFF UPLOAD] Inserted {len(insert_result.inserted_ids)} new staff records")
         
         return {
             "message": f"Successfully uploaded {len(staff_data)} staff members with employee numbers",
             "count": len(staff_data),
-            "preview": staff_data[:5]
+            "preview": staff_data[:5],
+            "debug": {
+                "headers_found": headers,
+                "rows_processed": rows_processed,
+                "rows_skipped": rows_skipped
+            }
         }
         
     except Exception as e:
+        import traceback
+        print(f"[STAFF UPLOAD ERROR] {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Failed to process staff file: {str(e)}")
 
 @app.post("/api/admin/upload-assets-file") 
