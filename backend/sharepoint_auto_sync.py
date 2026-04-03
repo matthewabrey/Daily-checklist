@@ -1,0 +1,303 @@
+"""
+SharePoint Auto-Sync Service for Staff List
+Uses client credentials flow (app-only authentication) for scheduled background sync.
+"""
+
+import os
+import requests
+import logging
+from typing import List, Dict, Tuple
+from io import BytesIO
+import openpyxl
+from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
+logger = logging.getLogger(__name__)
+
+class SharePointAutoSync:
+    def __init__(self):
+        self.client_id = os.environ.get('AZURE_CLIENT_ID')
+        self.client_secret = os.environ.get('AZURE_CLIENT_SECRET')
+        self.tenant_id = os.environ.get('AZURE_TENANT_ID')
+        self.site_url = os.environ.get('SHAREPOINT_SITE_URL', 'https://rgafarms.sharepoint.com/sites/Crops')
+        self.staff_filename = os.environ.get('SHAREPOINT_STAFF_FILENAME', 'Name List.xlsx')
+        
+        self.token_url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
+        self.graph_url = "https://graph.microsoft.com/v1.0"
+        self.access_token = None
+        
+    def _get_access_token(self) -> str:
+        """Get access token using client credentials flow (app-only)"""
+        if not all([self.client_id, self.client_secret, self.tenant_id]):
+            raise ValueError("Missing Azure credentials (CLIENT_ID, CLIENT_SECRET, TENANT_ID)")
+        
+        data = {
+            'grant_type': 'client_credentials',
+            'client_id': self.client_id,
+            'client_secret': self.client_secret,
+            'scope': 'https://graph.microsoft.com/.default'
+        }
+        
+        response = requests.post(self.token_url, data=data, timeout=30)
+        
+        if response.status_code != 200:
+            logger.error(f"Token request failed: {response.status_code} - {response.text}")
+            raise Exception(f"Failed to get access token: {response.text}")
+        
+        token_data = response.json()
+        self.access_token = token_data['access_token']
+        logger.info("Successfully acquired access token via client credentials")
+        return self.access_token
+    
+    def _make_graph_request(self, url: str, stream: bool = False):
+        """Make authenticated request to Microsoft Graph API"""
+        if not self.access_token:
+            self._get_access_token()
+        
+        headers = {
+            'Authorization': f'Bearer {self.access_token}',
+            'Accept': 'application/json'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=60, stream=stream)
+        
+        if response.status_code == 401:
+            # Token might be expired, try to refresh
+            self._get_access_token()
+            headers['Authorization'] = f'Bearer {self.access_token}'
+            response = requests.get(url, headers=headers, timeout=60, stream=stream)
+        
+        if response.status_code != 200:
+            logger.error(f"Graph API request failed: {response.status_code} - {response.text}")
+            raise Exception(f"Graph API request failed: {response.status_code}")
+        
+        if stream:
+            return response.content
+        return response.json()
+    
+    def _get_site_id(self) -> str:
+        """Get the SharePoint site ID"""
+        # Parse site URL to get hostname and site path
+        # URL format: https://rgafarms.sharepoint.com/sites/Crops
+        from urllib.parse import urlparse
+        parsed = urlparse(self.site_url)
+        hostname = parsed.netloc
+        site_path = parsed.path
+        
+        # Get site by path
+        url = f"{self.graph_url}/sites/{hostname}:{site_path}"
+        site_info = self._make_graph_request(url)
+        site_id = site_info['id']
+        logger.info(f"Found site ID: {site_id}")
+        return site_id
+    
+    def _get_drive_id(self, site_id: str) -> str:
+        """Get the default document library drive ID for the site"""
+        url = f"{self.graph_url}/sites/{site_id}/drives"
+        drives = self._make_graph_request(url)
+        
+        if not drives.get('value'):
+            raise Exception("No document libraries found in the site")
+        
+        # Use the first drive (usually "Documents")
+        drive_id = drives['value'][0]['id']
+        logger.info(f"Found drive ID: {drive_id}")
+        return drive_id
+    
+    def _find_file(self, drive_id: str, filename: str) -> str:
+        """Find a file in the drive by name"""
+        # Search in root folder
+        url = f"{self.graph_url}/drives/{drive_id}/root/children"
+        items = self._make_graph_request(url)
+        
+        for item in items.get('value', []):
+            if item['name'].lower() == filename.lower():
+                logger.info(f"Found file: {item['name']} (ID: {item['id']})")
+                return item['id']
+        
+        # If not found in root, search recursively
+        url = f"{self.graph_url}/drives/{drive_id}/root/search(q='{filename}')"
+        search_results = self._make_graph_request(url)
+        
+        for item in search_results.get('value', []):
+            if item['name'].lower() == filename.lower():
+                logger.info(f"Found file via search: {item['name']} (ID: {item['id']})")
+                return item['id']
+        
+        raise Exception(f"File '{filename}' not found in SharePoint")
+    
+    def _download_file(self, drive_id: str, item_id: str) -> bytes:
+        """Download file content from SharePoint"""
+        url = f"{self.graph_url}/drives/{drive_id}/items/{item_id}/content"
+        content = self._make_graph_request(url, stream=True)
+        logger.info(f"Downloaded file: {len(content)} bytes")
+        return content
+    
+    def _parse_staff_excel(self, file_content: bytes) -> List[Dict]:
+        """Parse staff Excel file and extract employee data"""
+        workbook = openpyxl.load_workbook(BytesIO(file_content))
+        sheet = workbook[workbook.sheetnames[0]]
+        
+        # Get headers
+        headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
+        logger.info(f"Excel headers: {headers}")
+        
+        # Find column indices - prioritize 'employee number' column
+        name_col = None
+        number_col = None
+        workshop_col = None
+        admin_col = None
+        manager_col = None
+        
+        for i, header in enumerate(headers):
+            # Check for employee number column FIRST (more specific match)
+            if ('employee' in header and 'number' in header) or header == 'emp no' or header == 'employee_number':
+                number_col = i
+            elif 'name' in header and 'employee' not in header:
+                name_col = i
+            elif 'workshop' in header and 'control' in header:
+                workshop_col = i
+            elif 'admin' in header and 'control' in header:
+                admin_col = i
+            elif 'manager' in header:
+                manager_col = i
+        
+        # If we didn't find employee number yet, look for other patterns (but NOT phone number)
+        if number_col is None:
+            for i, header in enumerate(headers):
+                if ('number' in header or 'emp' in header) and 'phone' not in header and 'tel' not in header:
+                    number_col = i
+                    break
+        
+        # Fallback
+        if name_col is None:
+            name_col = 0
+        if number_col is None and len(headers) > 1:
+            number_col = 1
+        
+        logger.info(f"Column mapping - name: {name_col}, number: {number_col}, workshop: {workshop_col}, admin: {admin_col}, manager: {manager_col}")
+        
+        if number_col is None:
+            raise Exception("Could not find Employee Number column")
+        
+        # Extract staff data
+        staff_data = []
+        for row in sheet.iter_rows(min_row=2, values_only=True):
+            if row and len(row) > max(name_col, number_col):
+                name = str(row[name_col]).strip() if row[name_col] else ''
+                emp_number = str(row[number_col]).strip() if row[number_col] else ''
+                
+                workshop_control = None
+                admin_control = None
+                manager_control = None
+                
+                if workshop_col is not None and len(row) > workshop_col and row[workshop_col]:
+                    workshop_control = str(row[workshop_col]).strip().lower()
+                
+                if admin_col is not None and len(row) > admin_col and row[admin_col]:
+                    admin_control = str(row[admin_col]).strip().lower()
+                
+                if manager_col is not None and len(row) > manager_col and row[manager_col]:
+                    manager_control = str(row[manager_col]).strip().lower()
+                
+                if name and emp_number and name.lower() not in ['name', 'staff', 'employee']:
+                    staff_data.append({
+                        'name': name,
+                        'employee_number': emp_number,
+                        'active': True,
+                        'workshop_control': workshop_control,
+                        'admin_control': admin_control,
+                        'manager_control': manager_control
+                    })
+        
+        logger.info(f"Parsed {len(staff_data)} staff members from Excel")
+        return staff_data
+    
+    async def sync_staff_list(self, db) -> Dict:
+        """Main sync function - downloads staff list from SharePoint and updates database"""
+        try:
+            logger.info(f"Starting SharePoint staff sync at {datetime.now()}")
+            
+            # Get site and drive info
+            site_id = self._get_site_id()
+            drive_id = self._get_drive_id(site_id)
+            
+            # Find and download the staff file
+            item_id = self._find_file(drive_id, self.staff_filename)
+            file_content = self._download_file(drive_id, item_id)
+            
+            # Parse the Excel file
+            staff_data = self._parse_staff_excel(file_content)
+            
+            if not staff_data:
+                raise Exception("No valid staff data found in Excel file")
+            
+            # Update database - preserve admin account (4444)
+            from pydantic import BaseModel
+            from typing import Optional
+            
+            class Staff(BaseModel):
+                name: str
+                employee_number: str
+                active: bool = True
+                workshop_control: Optional[str] = None
+                admin_control: Optional[str] = None
+                manager_control: Optional[str] = None
+            
+            delete_result = await db.staff.delete_many({"employee_number": {"$ne": "4444"}})
+            logger.info(f"Deleted {delete_result.deleted_count} existing staff records")
+            
+            new_staff = [Staff(**data).dict() for data in staff_data]
+            insert_result = await db.staff.insert_many(new_staff)
+            logger.info(f"Inserted {len(insert_result.inserted_ids)} new staff records")
+            
+            result = {
+                'success': True,
+                'message': f'Successfully synced {len(staff_data)} staff members from SharePoint',
+                'count': len(staff_data),
+                'synced_at': datetime.now().isoformat(),
+                'preview': staff_data[:5]
+            }
+            
+            logger.info(f"SharePoint sync completed: {result['message']}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"SharePoint sync failed: {str(e)}")
+            return {
+                'success': False,
+                'message': f'Sync failed: {str(e)}',
+                'synced_at': datetime.now().isoformat()
+            }
+    
+    def test_connection(self) -> Dict:
+        """Test the SharePoint connection"""
+        try:
+            self._get_access_token()
+            site_id = self._get_site_id()
+            drive_id = self._get_drive_id(site_id)
+            item_id = self._find_file(drive_id, self.staff_filename)
+            
+            # Get file info
+            url = f"{self.graph_url}/drives/{drive_id}/items/{item_id}"
+            file_info = self._make_graph_request(url)
+            
+            return {
+                'success': True,
+                'message': 'SharePoint connection successful',
+                'file_name': file_info.get('name'),
+                'file_size': file_info.get('size'),
+                'last_modified': file_info.get('lastModifiedDateTime'),
+                'site_id': site_id,
+                'drive_id': drive_id
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'Connection failed: {str(e)}'
+            }
+
+
+# Global instance
+sharepoint_auto_sync = SharePointAutoSync()
