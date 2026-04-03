@@ -1252,6 +1252,83 @@ async def upload_staff_file(file: UploadFile = File(...)):
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Failed to process staff file: {str(e)}")
 
+
+# ============ SharePoint Auto-Sync Endpoints ============
+
+@app.get("/api/admin/sharepoint/test-connection")
+async def test_sharepoint_connection():
+    """Test the SharePoint connection and return file info"""
+    try:
+        result = sharepoint_auto_sync.test_connection()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Connection test failed: {str(e)}")
+
+@app.post("/api/admin/sharepoint/sync-now")
+async def trigger_sharepoint_sync():
+    """Manually trigger a SharePoint staff sync"""
+    try:
+        result = await sharepoint_auto_sync.sync_staff_list(db)
+        
+        # Log the sync
+        await db.sync_logs.insert_one({
+            'type': 'manual',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'success': result.get('success', False),
+            'message': result.get('message', ''),
+            'count': result.get('count', 0)
+        })
+        
+        if result.get('success'):
+            return result
+        else:
+            raise HTTPException(status_code=500, detail=result.get('message', 'Sync failed'))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+
+@app.get("/api/admin/sharepoint/sync-status")
+async def get_sync_status():
+    """Get the status of SharePoint sync including last sync time and next scheduled sync"""
+    try:
+        # Get last sync log
+        last_sync = await db.sync_logs.find_one(
+            {},
+            sort=[('timestamp', -1)]
+        )
+        
+        # Get scheduler job info
+        job = scheduler.get_job('daily_staff_sync')
+        next_run = job.next_run_time.isoformat() if job and job.next_run_time else None
+        
+        return {
+            'last_sync': {
+                'timestamp': last_sync.get('timestamp') if last_sync else None,
+                'success': last_sync.get('success') if last_sync else None,
+                'message': last_sync.get('message') if last_sync else None,
+                'count': last_sync.get('count') if last_sync else None,
+                'type': last_sync.get('type') if last_sync else None
+            } if last_sync else None,
+            'next_scheduled_sync': next_run,
+            'scheduler_running': scheduler.running
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get sync status: {str(e)}")
+
+@app.get("/api/admin/sharepoint/sync-logs")
+async def get_sync_logs(limit: int = 10):
+    """Get recent sync logs"""
+    try:
+        logs = await db.sync_logs.find(
+            {},
+            {'_id': 0}
+        ).sort('timestamp', -1).limit(limit).to_list(length=limit)
+        return logs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get sync logs: {str(e)}")
+
+
 @app.post("/api/admin/upload-assets-file") 
 async def upload_assets_file(file: UploadFile = File(...)):
     """Upload and process assets from Excel file"""
