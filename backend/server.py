@@ -1275,11 +1275,62 @@ async def trigger_sharepoint_sync():
         
         # Log the sync
         await db.sync_logs.insert_one({
-            'type': 'manual',
+            'type': 'manual_staff',
             'timestamp': datetime.now(timezone.utc).isoformat(),
             'success': result.get('success', False),
             'message': result.get('message', ''),
             'count': result.get('count', 0)
+        })
+        
+        if result.get('success'):
+            return result
+        else:
+            raise HTTPException(status_code=500, detail=result.get('message', 'Sync failed'))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+
+@app.post("/api/admin/sharepoint/sync-assets")
+async def trigger_assets_sync():
+    """Manually trigger a SharePoint assets sync"""
+    try:
+        result = await sharepoint_auto_sync.sync_assets_list(db)
+        
+        # Log the sync
+        await db.sync_logs.insert_one({
+            'type': 'manual_assets',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'success': result.get('success', False),
+            'message': result.get('message', ''),
+            'assets_count': result.get('assets_count', 0),
+            'templates_count': result.get('templates_count', 0)
+        })
+        
+        if result.get('success'):
+            return result
+        else:
+            raise HTTPException(status_code=500, detail=result.get('message', 'Sync failed'))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+
+@app.post("/api/admin/sharepoint/sync-all")
+async def trigger_full_sync():
+    """Manually trigger a full SharePoint sync (staff + assets)"""
+    try:
+        result = await sharepoint_auto_sync.sync_all(db)
+        
+        # Log the sync
+        await db.sync_logs.insert_one({
+            'type': 'manual_all',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'success': result.get('success', False),
+            'message': f"Staff: {result.get('staff', {}).get('message', 'N/A')}, Assets: {result.get('assets', {}).get('message', 'N/A')}",
+            'staff_count': result.get('staff', {}).get('count', 0),
+            'assets_count': result.get('assets', {}).get('assets_count', 0),
+            'templates_count': result.get('assets', {}).get('templates_count', 0)
         })
         
         if result.get('success'):
