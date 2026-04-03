@@ -1098,35 +1098,7 @@ async def sync_staff_from_sharepoint():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to sync staff data: {str(e)}")
 
-@app.post("/api/admin/sharepoint/sync-assets")
-async def sync_assets_from_sharepoint():
-    """Sync asset data from SharePoint Excel file"""
-    try:
-        # Get asset data from SharePoint
-        assets_data = sharepoint_integration.get_asset_data()
-        
-        if not assets_data:
-            raise HTTPException(status_code=400, detail="No asset data found in SharePoint file")
-        
-        # Clear existing assets
-        await db.assets.delete_many({})
-        
-        # Add new assets from SharePoint
-        new_assets = []
-        for asset_data in assets_data:
-            asset = Asset(make=asset_data['make'], model=asset_data['model'])
-            new_assets.append(asset.dict())
-        
-        if new_assets:
-            await db.assets.insert_many(new_assets)
-        
-        return {
-            "message": f"Successfully synced {len(new_assets)} assets from SharePoint",
-            "count": len(new_assets),
-            "sample_assets": assets_data[:5]  # Show first 5 assets as preview
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to sync asset data: {str(e)}")
+# OLD SharePoint sync endpoints removed - now using SharePoint Auto-Sync with client credentials
 
 @app.post("/api/admin/upload-staff-file")
 async def upload_staff_file(file: UploadFile = File(...)):
