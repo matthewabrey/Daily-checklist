@@ -10,7 +10,7 @@ import { Separator } from './components/ui/separator';
 import { toast } from 'sonner';
 import { useTranslation } from './LanguageContext';
 import { languages } from './translations';
-import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock, FileCheck } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
@@ -4565,6 +4565,81 @@ function SharePointSyncStatus() {
   );
 }
 
+// Template Diagnostics Component - verify check_type to template mappings
+function TemplateDiagnostics() {
+  const [diagnostics, setDiagnostics] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const fetchDiagnostics = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/template-diagnostics`);
+      const data = await response.json();
+      setDiagnostics(data);
+      setExpanded(true);
+    } catch (error) {
+      toast.error('Failed to load diagnostics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card data-testid="template-diagnostics-card" className="border-blue-200 bg-blue-50">
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <FileCheck className="h-5 w-5 text-blue-600" />
+          <span>Template Diagnostics</span>
+        </CardTitle>
+        <CardDescription>
+          Verify which checklist template is assigned to each check type
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Button onClick={fetchDiagnostics} disabled={loading} className="bg-blue-600 hover:bg-blue-700" data-testid="run-diagnostics-btn">
+          {loading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+          {loading ? 'Loading...' : 'Check Template Mappings'}
+        </Button>
+
+        {diagnostics && expanded && (
+          <div className="space-y-3 mt-4">
+            <p className="text-sm font-medium text-gray-700">Total Assets: {diagnostics.total_assets}</p>
+            
+            {diagnostics.missing_templates?.length > 0 && (
+              <div className="p-3 bg-red-100 border border-red-300 rounded-lg">
+                <p className="text-red-800 font-medium text-sm">Missing templates for: {diagnostics.missing_templates.join(', ')}</p>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              {diagnostics.templates?.map((t, i) => (
+                <div key={i} className="p-3 bg-white rounded-lg border shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-sm">{t.check_type}</span>
+                      <span className="text-xs text-gray-500 ml-2">(sheet: "{t.sheet_name}")</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{t.item_count} items</span>
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">{t.assets_using_this} assets</span>
+                    </div>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {t.first_3_items?.map((item, j) => (
+                      <span key={j} className="block truncate">• {item}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // SharePoint Admin Component
 function SharePointAdminComponent() {
   const [uploadResults, setUploadResults] = useState(null);
@@ -4718,6 +4793,9 @@ function SharePointAdminComponent() {
           <SharePointSyncStatus />
         </CardContent>
       </Card>
+
+      {/* Template Diagnostics */}
+      <TemplateDiagnostics />
 
       {/* Staff Upload */}
       <Card data-testid="staff-upload-card">

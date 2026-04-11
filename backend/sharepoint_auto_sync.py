@@ -353,15 +353,17 @@ class SharePointAutoSync:
             matching_check_type = None
             sheet_name_clean = sheet_name.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
             
+            # First try exact matches
             for check_type in unique_check_types:
                 check_type_clean = check_type.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
                 if sheet_name_clean == check_type_clean or check_type.lower() == sheet_name.lower():
                     matching_check_type = check_type
                     break
             
-            # Fuzzy matching fallback
+            # If no exact match, try partial matches (recalculate check_type_clean each iteration)
             if not matching_check_type:
                 for check_type in unique_check_types:
+                    check_type_clean = check_type.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
                     if check_type_clean in sheet_name_clean or sheet_name_clean in check_type_clean:
                         matching_check_type = check_type
                         break
@@ -370,6 +372,8 @@ class SharePointAutoSync:
                 logger.warning(f"Sheet '{sheet_name}' doesn't match any check type, skipping")
                 continue
             
+            logger.info(f"Matched sheet '{sheet_name}' -> check_type '{matching_check_type}'")
+            
             # Extract checklist items from sheet
             items = []
             sheet_headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
@@ -377,14 +381,17 @@ class SharePointAutoSync:
             item_col = None
             critical_col = None
             photo_col = None
+            compulsory_col = None
             
             for i, h in enumerate(sheet_headers):
-                if 'item' in h or 'check' in h or 'task' in h:
+                if 'item' in h or 'check' in h or 'task' in h or 'description' in h:
                     item_col = i
                 elif 'critical' in h or 'common' in h:
                     critical_col = i
                 elif 'photo' in h:
                     photo_col = i
+                elif 'compulsory' in h or 'compulsary' in h:
+                    compulsory_col = i
             
             if item_col is None:
                 item_col = 0  # Fallback to first column
@@ -392,9 +399,10 @@ class SharePointAutoSync:
             for row in sheet.iter_rows(min_row=2, values_only=True):
                 if row and len(row) > item_col and row[item_col]:
                     item_text = str(row[item_col]).strip()
-                    if item_text and item_text.lower() not in ['item', 'check', 'task', '']:
+                    if item_text and item_text.lower() not in ['item', 'check', 'task', 'description', ''] and len(item_text) > 3:
                         is_critical = False
                         photo_required = False
+                        is_compulsory = False
                         
                         if critical_col is not None and len(row) > critical_col and row[critical_col]:
                             is_critical = str(row[critical_col]).strip().lower() in ['yes', 'true', '1', 'y']
@@ -402,10 +410,14 @@ class SharePointAutoSync:
                         if photo_col is not None and len(row) > photo_col and row[photo_col]:
                             photo_required = str(row[photo_col]).strip().lower() in ['yes', 'true', '1', 'y']
                         
+                        if compulsory_col is not None and len(row) > compulsory_col and row[compulsory_col]:
+                            is_compulsory = str(row[compulsory_col]).strip().lower() in ['yes', 'true', '1', 'y', 'x', 'compulsory']
+                        
                         items.append({
                             'item': item_text,
                             'critical': is_critical,
-                            'photo_required': photo_required
+                            'photo_required': photo_required,
+                            'compulsory': is_compulsory
                         })
             
             if items:
@@ -472,22 +484,17 @@ class SharePointAutoSync:
             await db.assets.insert_many(new_assets)
             logger.info(f"Inserted {len(new_assets)} assets")
             
-            # Update checklist templates
-            templates_count = 0
-            for template in checklist_templates:
-                await db.checklist_templates.update_one(
-                    {'check_type': template['check_type']},
-                    {'$set': {
-                        'check_type': template['check_type'],
-                        'sheet_name': template['sheet_name'],
-                        'items': template['items'],
-                        'updated_at': datetime.now().isoformat()
-                    }},
-                    upsert=True
-                )
-                templates_count += 1
+            # Update checklist templates - clear all and re-insert for clean state
+            if checklist_templates:
+                await db.checklist_templates.delete_many({})
+                for template in checklist_templates:
+                    template['updated_at'] = datetime.now().isoformat()
+                await db.checklist_templates.insert_many(checklist_templates)
+                templates_count = len(checklist_templates)
+            else:
+                templates_count = 0
             
-            logger.info(f"Updated {templates_count} checklist templates")
+            logger.info(f"Replaced all checklist templates: {templates_count} templates")
             
             result = {
                 'success': True,

@@ -1324,6 +1324,46 @@ async def get_sync_logs(limit: int = 10):
         raise HTTPException(status_code=500, detail=f"Failed to get sync logs: {str(e)}")
 
 
+@app.get("/api/admin/template-diagnostics")
+async def get_template_diagnostics():
+    """Diagnostic endpoint to verify template-to-asset mappings"""
+    try:
+        # Get all unique check_types from assets
+        assets = await db.assets.find({}, {"_id": 0, "check_type": 1, "name": 1}).to_list(length=10000)
+        check_type_counts = {}
+        for a in assets:
+            ct = a.get('check_type', 'unknown')
+            check_type_counts[ct] = check_type_counts.get(ct, 0) + 1
+        
+        # Get all templates
+        templates = await db.checklist_templates.find({}, {"_id": 0}).to_list(length=100)
+        template_info = []
+        for t in templates:
+            items = t.get('items', [])
+            template_info.append({
+                'check_type': t.get('check_type'),
+                'sheet_name': t.get('sheet_name'),
+                'item_count': len(items),
+                'first_3_items': [i.get('item', '') for i in items[:3]],
+                'updated_at': t.get('updated_at'),
+                'assets_using_this': check_type_counts.get(t.get('check_type'), 0)
+            })
+        
+        # Find check_types with no template
+        template_types = set(t.get('check_type') for t in templates)
+        missing_templates = [ct for ct in check_type_counts if ct not in template_types]
+        
+        return {
+            'total_assets': len(assets),
+            'check_type_counts': check_type_counts,
+            'templates': template_info,
+            'missing_templates': missing_templates
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get diagnostics: {str(e)}")
+
+
+
 @app.post("/api/admin/upload-assets-file") 
 async def upload_assets_file(file: UploadFile = File(...)):
     """Upload and process assets from Excel file"""
