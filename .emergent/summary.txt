@@ -1,0 +1,152 @@
+<analysis>**original_problem_statement:** The user originally requested a QR code-based machine checklist application, which evolved to include comprehensive health, safety, and work management features. In this session, the user requested to hide several new sections (Near misses, suggestions, accidents, whistleblowing, training) to deploy a limited version of the app. The user also reported issues with Excel export timeouts and staff login failures on the live deployment. Finally, the user requested an automated daily sync for Staff and Asset lists from a SharePoint/OneDrive folder. 
+
+**PRODUCT REQUIREMENTS:**
+1.  **Deployment Feature Toggling:** Hide specific modules (Near Misses, Suggestions, Accidents, Whistleblowing, Training) temporarily for a specific deployment phase while keeping Work Progress and core checks active.
+2.  **Export Optimization:** Ensure All Checks and Detailed Excel exports do not timeout on large datasets in production.
+3.  **SharePoint Auto-Sync:** Automatically sync  (Staff) and  (Questions/Machines) from a specific SharePoint directory every day at 9:00 AM using Microsoft Graph API.
+4.  **Admin UI:** Provide an admin interface to monitor SharePoint sync status, test connections, and trigger manual syncs for staff and assets.
+
+**User's preferred language**: INSTRUCT next agent to respond in English.
+
+**what currently exists?** 
+A full-stack React/FastAPI/MongoDB application. The application now includes a background scheduler () running a daily SharePoint sync at 9 AM using the Microsoft Graph API (Client Credentials Flow). Specific health and safety modules are currently commented out (hidden) in the frontend codebase per user request to accommodate a limited production rollout. The frontend  is undergoing a massive refactoring but still sits at around 10,000 lines.
+
+**Last working item**: 
+    - Last item agent was working: Debugging SharePoint auto-sync 401 errors on the live deployment environment and verifying that user logins work successfully after the production database was correctly populated via the Graph API sync. 
+    - Status: USER VERIFICATION PENDING
+    - Agent Testing Done: Y
+    - Which testing method agent to use? backend testing agent/ manual testing by python -c
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**: 
+  Issue 1: Pre-existing lint errors in frontend  (P2)
+  
+  Issues Detail:
+  - Issue 1: 
+     - Attempted fixes: None in this session. Deferred due to feature requests.
+     - Next debug checklist: Run yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. in  and manually resolve remaining errors in .
+     - Why fix this issue and what will be achieved with the fix? Improves code quality and is a mandatory prerequisite before continuing the massive frontend refactoring task.
+     - Status: NOT STARTED
+     - Is recurring issue? Y
+     - Should Test frontend/backend/both after fix? frontend
+     - Blocked on other issue: None
+
+**In progress Task List**:
+  Task 1: Frontend Refactoring of  (P1)
+  
+  Task Detail:
+  - Task 1: 
+     - Where to resume: The agent started extracting components (AuthContext, API service, QRScanner, NearMissesPage) but  is still ~10,000 lines. Resume extracting pages, modals, and sub-components into the newly created , , and  directories.
+     - What will be achieved with this? Eliminates extreme technical debt, makes the app maintainable, and prevents future context-window exhaustion.
+     - Status: IN PROGRESS
+     - Should Test frontend/backend/both after fix? frontend
+     - Blocked on something: None
+
+**Upcoming and Future Tasks**
+    Upcoming Tasks:
+    - (P1) Restore/unhide the temporarily hidden features (Near Misses, Suggestions, Accidents, Whistleblowing, Training) when the user is ready for the full application rollout. Look for  comments in .
+    - (P0) Continue Frontend Refactoring ( breakdown). Do not take large feature requests without addressing this.
+    Future Tasks:
+    - (P2) Add date range filter to All Checks Overview modal.
+    - (P2) Enhance mobile-friendliness of the UI overall.
+
+**Completed work in this session**
+- Near Miss Investigation feature UI (Added investigation section to detail modal, severity color coding, and edit form) in  (DONE)
+- Partial Frontend Refactoring (Created directory structure, extracted , , , ) (DONE)
+- Hide specific application sections for limited deployment (Commented out specific cards, charts, and routes in ) (DONE)
+- Export Timeout Fixes (Added Direct Excel Link bypassing JS fetch timeouts for large datasets) in  (DONE)
+- Staff Upload Fix (Corrected index reading from phone number to employee number) in  (DONE)
+- SharePoint Auto-Sync Integration (Created , integrated  for daily 9 AM sync of Staff and Assets via MS Graph API) (DONE)
+- SharePoint Sync Admin UI (Added connection testing, manual sync triggers, and last sync timestamp to Admin dashboard) in  (DONE)
+- Cleaned up deprecated User-OAuth SharePoint endpoints from  (DONE)
+
+**Earlier issues found/mentioned but not fixed**
+   - Issue 1: Linting errors in 
+   - Debug checklist: Run yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. and manually correct remaining issues.
+   - Why to solve this issue and what will be achieved with this? Prerequisite for safe refactoring.
+   - Should Test frontend/backend/both after fix: Frontend
+   - Is recurring issue? Y
+
+**Known issue recurrence from previous fork**
+  - Issue recurrence in previous fork: Massive  technical debt hindering development.
+  - Recurrence count: 2
+  - Status: IN PROGRESS (Started, but paused to address deployment issues).
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+- Backend: FastAPI, Motor, APScheduler (for daily cron jobs), Microsoft Graph API (App-only / Client Credentials Flow).
+- Frontend: React, TailwindCSS.
+- Database: MongoDB.
+
+**key DB schema**
+  - : {{employee_number, name, active, admin_control, ...}}
+  - : {{id, check_type, name, make, model}}
+
+**changes in tech stack**
+  -  and  were added to Python requirements for background cron task scheduling.
+
+**All files of reference**
+  -  (Added APScheduler logic, added new sync endpoints, removed old user-OAuth MS graph endpoints).
+  -  (NEW - Handles Microsoft Graph API token acquisition and Excel parsing).
+  -  (Added Near Miss investigation UI, commented out specific application modules, added SharePoint sync Admin UI).
+  -  (NEW - Extracted from ).
+  -  (NEW - Extracted from ).
+  -  (NEW - Extracted from ).
+  -  (NEW - Extracted from ).
+
+**Areas that need refactoring**: 
+ remains critically bloated. Extraction of components into the newly created folder structure must continue.
+
+**key api endpoints**
+  -  (POST): Syncs both staff and assets manually.
+  -  (GET): Tests Azure credentials and file existence.
+  -  (GET): Returns scheduler status and last sync timestamp.
+  -  (GET): Detailed Excel export.
+
+**Critical Info for New Agent** 
+- **DO NOT DELETE COMMENTED CODE IN **: Several major features (Near Misses, Suggestions, Accidents, Whistleblowing, Training) were commented out wrapped in  comments. The user explicitly requested to hide them for a limited release. They will need to be uncommented later.
+- The SharePoint integration was completely rewritten from a User Delegated OAuth flow to a Client Credentials (App-only) flow to support background headless syncing. 
+- Deployment environment variables (, , , , , ) were successfully set up on the live environment to fix a 401 issue.
+
+**documents and test reports created in this job**
+  - 
+  - 
+
+**Last 10 User Messages and any pending HUMAN messages** 
+ - *User*: ive been onto the live site and it still isnt loging inother than 4444, canyou check at... (Resolved - Agent checked live site, found old Azure credentials causing a 401 error, and guided user to update them in deployment settings. Triggered sync successfully).
+ - *User*: Use deployment agent to identify the issues... (Resolved - Agent cleaned up duplicate/old endpoints causing deployment confusion).
+ - *User*: we may aswell add an auto update for the asset list as well whici contains all the questions etc..... (Completed - Agent added  to the sync logic).
+ - *User*: Provided OneDrive folder ID info. (Completed).
+ - *User*: Provided Azure Client ID, Directory ID, and Secret. (Completed).
+ - *User*: can we make this an auto link to the one drive? so it updates the name list every day at 9am? (Completed - Agent built the background scheduler).
+ - *User*: it didnt say anything (referring to staff upload). (Resolved - Agent debugged the upload logic and found wrong column index).
+ - *User*: ive uplaoded several times, it seems to do it very quickly (Resolved).
+ - *User*: still isnt allowing me to log in apart from using 4444 (Resolved - Was an issue with live DB lacking staff records).
+ - *User*: on the live app... it is letting me log in with 4444 but noone elses login details. (Resolved).
+ - *Pending*: The agent asked the user to verify if the live site logins and sync are fully functional now. 
+
+**Project Health Check:**
+- Broken: None.
+- Mocked: None.
+- Tech Debt: Critical (Frontend ).
+
+**3rd Party Integrations**
+  - Microsoft Graph API / SharePoint (Staff & Asset Sync) — requires User API Key (Azure App Registration details: Client ID, Secret, Tenant ID).
+
+**Testing status**
+  - Testing agent used after significant changes: YES (For Near Miss investigation feature).
+  - Troubleshoot agent used after agent stuck in loop: NO.
+  - Test files created: 
+  - Known regressions: None.
+
+**Credentials to test flow:**
+  - Admin: Employee Number 
+  - Regular Users:  (AbbieNixon),  (Matthew Abrey)
+
+**What agent forgot to execute**
+- The agent started the high-priority frontend refactoring task but abandoned it quickly when the user asked for deployment adjustments. The refactoring task remains largely unfinished.
+- The pre-existing linting errors in  were ignored entirely.</analysis>
