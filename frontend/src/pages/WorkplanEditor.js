@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Save, Send, Trash2, Copy, Palette, ListPlus,
-  ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine, BarChart3
+  ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine, BarChart3, UserX, UserCheck
 } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
@@ -741,6 +741,14 @@ export default function WorkplanEditor() {
                     </button>
                     <button onClick={() => deleteRow(row.id)} className="text-red-400 hover:text-red-700" title="Delete row" data-testid={`wp-delete-${rIdx}`}>
                       <Trash2 className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => updateRow(row.id, { left: !row.left })}
+                      className={row.left ? "text-green-500 hover:text-green-700" : "text-orange-400 hover:text-orange-700"}
+                      title={row.left ? "Mark as active" : "Mark as left"}
+                      data-testid={`wp-left-${rIdx}`}
+                    >
+                      {row.left ? <UserCheck className="h-3 w-3" /> : <UserX className="h-3 w-3" />}
                     </button>
                     <button onClick={() => moveRow(row.id, 1)} className="text-gray-400 hover:text-gray-700" title="Move down">
                       <ChevronDown className="h-3 w-3" />
