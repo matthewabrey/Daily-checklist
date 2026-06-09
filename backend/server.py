@@ -3234,11 +3234,12 @@ async def delete_workplan_color(color_id: str):
 
 @app.post("/api/admin/workplan/import-staff")
 async def import_workplan_staff():
-    """Import staff rows from the uploaded original Excel workplan into the current week's workplan."""
+    """Import staff rows from the uploaded original Excel workplan into the current week's workplan.
+    Parses daily assignments, marks leavers, fuzzy-matches job names."""
     import openpyxl, re
     from io import BytesIO
+    from difflib import get_close_matches
     
-    # Download the Excel file from the known URL
     excel_url = "https://customer-assets.emergentagent.com/job_3e1cee5c-63e2-4d27-9a1e-16878b2e56b8/artifacts/ls1wpmcs_Daily%2520Workplan%25202024%20%28version%201%29.xlsb.xlsx"
     
     import httpx
@@ -3248,7 +3249,63 @@ async def import_workplan_staff():
             raise HTTPException(status_code=500, detail="Failed to download Excel file")
         wb = openpyxl.load_workbook(BytesIO(resp.content), data_only=True)
     
+    # Build job name lookup for fuzzy matching
+    all_jobs_docs = await db.workplan_jobs.find({}, {"_id": 0}).to_list(length=None)
+    job_names = [j["name"] for j in all_jobs_docs]
+    job_names_lower = {j.lower().strip(): j for j in job_names}
+    
+    # Get colour categories for auto-assignment
+    all_colors = await db.workplan_colors.find({}, {"_id": 0}).to_list(length=None)
+    color_by_name = {c["name"].lower(): c for c in all_colors}
+    
+    def fuzzy_match_job(raw):
+        if not raw:
+            return ''
+        raw_clean = raw.strip()
+        if not raw_clean:
+            return ''
+        # Exact match (case-insensitive)
+        if raw_clean.lower() in job_names_lower:
+            return job_names_lower[raw_clean.lower()]
+        # Close match
+        matches = get_close_matches(raw_clean.lower(), list(job_names_lower.keys()), n=1, cutoff=0.6)
+        if matches:
+            return job_names_lower[matches[0]]
+        # Partial match
+        for jn_lower, jn in job_names_lower.items():
+            if raw_clean.lower() in jn_lower or jn_lower in raw_clean.lower():
+                return jn
+        return raw_clean  # Return as-is if no match
+    
+    def auto_color_for_notes(notes_text):
+        """Try to assign a colour based on field/notes text."""
+        if not notes_text:
+            return '', ''
+        nl = notes_text.lower()
+        for cname, cdata in color_by_name.items():
+            # Check if crop/area name appears in notes
+            if cname.replace('/', '').replace(' ', '') in nl.replace('/', '').replace(' ', ''):
+                return cdata.get('color', ''), cdata.get('id', '')
+        # Common keywords
+        if 'larkshall' in nl:
+            c = color_by_name.get('larkshall')
+            if c: return c['color'], c['id']
+        if 'snetterton' in nl:
+            c = color_by_name.get('snetterton')
+            if c: return c['color'], c['id']
+        if 'onion' in nl:
+            c = color_by_name.get('onions')
+            if c: return c['color'], c['id']
+        if 'carrot' in nl:
+            c = color_by_name.get('carrots')
+            if c: return c['color'], c['id']
+        if 'potato' in nl or 'spud' in nl:
+            c = color_by_name.get('potatoes')
+            if c: return c['color'], c['id']
+        return '', ''
+    
     rows = []
+    jcb_reached = False
     
     # Parse Main Sheet
     ws_main = wb['Main Sheet']
@@ -3277,6 +3334,41 @@ async def import_workplan_staff():
         
         fn = str(field_notes).strip() if field_notes else ''
         
+        # Detect JCB rows and mark everything below as left
+        if emp.upper().startswith('JCB'):
+            jcb_reached = True
+        
+        is_left = jcb_reached
+        
+        # Parse daily job assignments (cols 7-20: 7 days x 2 cols AM/PM)
+        # Wed=7/8, Thu=9/10, Fri=11/12, Sat=13/14, Sun=15/16, Mon=17/18, Tue=19/20
+        # Map to our 0-6 (Mon-Sun) index
+        excel_day_cols = {
+            0: (17, 18),  # Monday
+            1: (19, 20),  # Tuesday
+            2: (7, 8),    # Wednesday
+            3: (9, 10),   # Thursday
+            4: (11, 12),  # Friday
+            5: (13, 14),  # Saturday
+            6: (15, 16),  # Sunday
+        }
+        
+        note_color, note_color_id = auto_color_for_notes(fn)
+        
+        days = {}
+        for day_idx in range(7):
+            am_col, pm_col = excel_day_cols[day_idx]
+            am_raw = ws_main.cell(r, am_col).value
+            pm_raw = ws_main.cell(r, pm_col).value
+            
+            am_job = fuzzy_match_job(str(am_raw) if am_raw else '')
+            pm_job = fuzzy_match_job(str(pm_raw) if pm_raw else '')
+            
+            days[str(day_idx)] = {
+                'am': {'job': am_job, 'color': note_color, 'color_id': note_color_id},
+                'pm': {'job': pm_job, 'color': note_color, 'color_id': note_color_id}
+            }
+        
         rows.append({
             'id': str(uuid.uuid4()),
             'employee_name': emp,
@@ -3286,12 +3378,24 @@ async def import_workplan_staff():
             'start_time': st,
             'notes': fn,
             'groupColor': '',
-            'days': {str(d): {'am': {'job': '', 'color': '', 'color_id': ''}, 'pm': {'job': '', 'color': '', 'color_id': ''}} for d in range(7)}
+            'left': is_left,
+            'days': days
         })
     
     # Parse Harvest Staff
     if 'Harvest Staff' in wb.sheetnames:
         ws_harvest = wb['Harvest Staff']
+        # Harvest days start at col 6 (Sun), col 7 (Mon), ..., col 12 (Sat)
+        harvest_day_cols = {
+            0: 7,   # Monday
+            1: 8,   # Tuesday
+            2: 9,   # Wednesday
+            3: 10,  # Thursday
+            4: 11,  # Friday
+            5: 12,  # Saturday
+            6: 6,   # Sunday
+        }
+        
         for r in range(3, ws_harvest.max_row + 1):
             role = ws_harvest.cell(r, 2).value
             name = ws_harvest.cell(r, 3).value
@@ -3312,6 +3416,18 @@ async def import_workplan_staff():
                 if m:
                     st = m.group(1).replace('.', ':')
             
+            note_color, note_color_id = auto_color_for_notes(at_ws)
+            
+            days = {}
+            for day_idx in range(7):
+                col = harvest_day_cols[day_idx]
+                raw = ws_harvest.cell(r, col).value
+                job = fuzzy_match_job(str(raw) if raw else '')
+                days[str(day_idx)] = {
+                    'am': {'job': job, 'color': note_color, 'color_id': note_color_id},
+                    'pm': {'job': job, 'color': note_color, 'color_id': note_color_id}
+                }
+            
             rows.append({
                 'id': str(uuid.uuid4()),
                 'employee_name': emp,
@@ -3321,10 +3437,11 @@ async def import_workplan_staff():
                 'start_time': st,
                 'notes': at_ws,
                 'groupColor': '',
-                'days': {str(d): {'am': {'job': '', 'color': '', 'color_id': ''}, 'pm': {'job': '', 'color': '', 'color_id': ''}} for d in range(7)}
+                'left': False,
+                'days': days
             })
     
-    # Also update jobs from the Jobs sheet
+    # Update jobs from Excel
     if 'Jobs' in wb.sheetnames:
         ws_jobs = wb['Jobs']
         jobs_from_excel = []
@@ -3332,31 +3449,25 @@ async def import_workplan_staff():
             v = ws_jobs.cell(r, 1).value
             if v and str(v).strip():
                 jobs_from_excel.append(str(v).strip())
-        
         if 'Wet Day Jobs' in wb.sheetnames:
             ws_wet = wb['Wet Day Jobs']
             for r in range(1, ws_wet.max_row + 1):
                 v = ws_wet.cell(r, 1).value
                 if v and str(v).strip():
                     jobs_from_excel.append(str(v).strip())
-        
-        # Deduplicate
         seen = set()
         unique_jobs = []
         for j in jobs_from_excel:
             if j not in seen:
                 seen.add(j)
                 unique_jobs.append(j)
-        
-        # Replace all jobs
         await db.workplan_jobs.delete_many({})
         for i, name in enumerate(unique_jobs):
             await db.workplan_jobs.insert_one({"id": str(uuid.uuid4()), "name": name, "order": i})
     
-    # Save as current week's workplan draft
+    # Save workplan
     from datetime import datetime, timezone
     today = datetime.now(timezone.utc)
-    # Calculate Monday of this week
     monday = today - timedelta(days=today.weekday())
     week_start = monday.strftime('%Y-%m-%d')
     
@@ -3371,12 +3482,89 @@ async def import_workplan_staff():
         upsert=True
     )
     
+    active = sum(1 for r in rows if not r.get('left', False))
+    left = sum(1 for r in rows if r.get('left', False))
+    
     return {
         "success": True,
-        "main_sheet_rows": sum(1 for r in rows if r.get('notes', '') and 'Workshop' not in r.get('notes', '')),
-        "harvest_rows": sum(1 for r in rows if 'Workshop' in r.get('notes', '')),
         "total_rows": len(rows),
+        "active_rows": active,
+        "left_rows": left,
         "jobs_updated": True
+    }
+
+@app.get("/api/workplan/costing")
+async def get_workplan_costing():
+    """Calculate % breakdown of time spent per job and per colour/crop area."""
+    doc = await db.workplan.find_one({"key": "current"}, {"_id": 0})
+    if not doc:
+        return {"job_breakdown": [], "color_breakdown": [], "total_cells": 0}
+    
+    rows = doc.get("draft_rows", []) or doc.get("published_rows", [])
+    
+    all_colors = await db.workplan_colors.find({}, {"_id": 0}).to_list(length=None)
+    color_lookup = {c["id"]: c for c in all_colors}
+    color_by_hex = {c["color"]: c for c in all_colors}
+    
+    job_counts = {}
+    color_counts = {}
+    total_cells = 0
+    left_job_counts = {}
+    left_color_counts = {}
+    left_total = 0
+    
+    for row in rows:
+        is_left = row.get('left', False)
+        days = row.get('days', {})
+        # Handle both array and dict format
+        if isinstance(days, list):
+            day_items = enumerate(days)
+        else:
+            day_items = days.items()
+        for day_idx, day_data in day_items:
+            for period in ['am', 'pm']:
+                cell = day_data.get(period, {})
+                job = cell.get('job', '').strip()
+                color = cell.get('color', '')
+                color_id = cell.get('color_id', '')
+                
+                if not job:
+                    continue
+                
+                if is_left:
+                    left_total += 1
+                    left_job_counts[job] = left_job_counts.get(job, 0) + 1
+                    c_name = ''
+                    if color_id and color_id in color_lookup:
+                        c_name = color_lookup[color_id]['name']
+                    elif color and color in color_by_hex:
+                        c_name = color_by_hex[color]['name']
+                    if c_name:
+                        left_color_counts[c_name] = left_color_counts.get(c_name, 0) + 1
+                else:
+                    total_cells += 1
+                    job_counts[job] = job_counts.get(job, 0) + 1
+                    c_name = ''
+                    if color_id and color_id in color_lookup:
+                        c_name = color_lookup[color_id]['name']
+                    elif color and color in color_by_hex:
+                        c_name = color_by_hex[color]['name']
+                    if c_name:
+                        color_counts[c_name] = color_counts.get(c_name, 0) + 1
+    
+    def to_breakdown(counts, total):
+        return sorted([
+            {"name": k, "count": v, "percent": round(v / total * 100, 1) if total > 0 else 0}
+            for k, v in counts.items()
+        ], key=lambda x: -x["count"])
+    
+    return {
+        "job_breakdown": to_breakdown(job_counts, total_cells),
+        "color_breakdown": to_breakdown(color_counts, total_cells),
+        "total_cells": total_cells,
+        "left_job_breakdown": to_breakdown(left_job_counts, left_total),
+        "left_color_breakdown": to_breakdown(left_color_counts, left_total),
+        "left_total_cells": left_total
     }
 
 if __name__ == "__main__":

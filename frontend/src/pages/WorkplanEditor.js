@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Save, Send, Trash2, Copy, Palette, ListPlus,
-  ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine
+  ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine, BarChart3
 } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
@@ -63,6 +63,7 @@ const newRow = () => ({
   start_time: '06:30',
   notes: '',
   group_color: null,
+  left: false,
   days: emptyDays(),
 });
 
@@ -82,6 +83,11 @@ export default function WorkplanEditor() {
   const [showColors, setShowColors] = useState(false);
   const [showJobs, setShowJobs] = useState(false);
   const [bandPickerRow, setBandPickerRow] = useState(null);
+  const [showLeavers, setShowLeavers] = useState(false);
+  const [showCosting, setShowCosting] = useState(false);
+  const [costingData, setCostingData] = useState(null);
+  const [staffFilter, setStaffFilter] = useState('');
+  const [assetFilter, setAssetFilter] = useState('');
 
   // excel-like cell selection / clipboard / drag-fill
   const [selCells, setSelCells] = useState([]); // [{rowIdx, colIdx}]
@@ -124,17 +130,27 @@ export default function WorkplanEditor() {
     })();
   }, []);
 
-  const normalizeRow = (r) => ({
-    ...newRow(),
-    ...r,
-    days:
-      Array.isArray(r.days) && r.days.length === 7
-        ? r.days.map((d) => ({
-            am: { job: d?.am?.job || '', color_id: d?.am?.color_id ?? null },
-            pm: { job: d?.pm?.job || '', color_id: d?.pm?.color_id ?? null },
-          }))
-        : emptyDays(),
-  });
+  const normalizeRow = (r) => {
+    // days can be an array [7 items] OR dict {"0": ..., "1": ...} from the backend import
+    let normalizedDays;
+    if (Array.isArray(r.days) && r.days.length === 7) {
+      normalizedDays = r.days.map((d) => ({
+        am: { job: d?.am?.job || '', color_id: d?.am?.color_id ?? null, color: d?.am?.color || '' },
+        pm: { job: d?.pm?.job || '', color_id: d?.pm?.color_id ?? null, color: d?.pm?.color || '' },
+      }));
+    } else if (r.days && typeof r.days === 'object' && !Array.isArray(r.days)) {
+      normalizedDays = [0, 1, 2, 3, 4, 5, 6].map((d) => {
+        const src = r.days[d] || r.days[String(d)] || {};
+        return {
+          am: { job: src?.am?.job || '', color_id: src?.am?.color_id ?? null, color: src?.am?.color || '' },
+          pm: { job: src?.pm?.job || '', color_id: src?.pm?.color_id ?? null, color: src?.pm?.color || '' },
+        };
+      });
+    } else {
+      normalizedDays = emptyDays();
+    }
+    return { ...newRow(), ...r, days: normalizedDays };
+  };
 
   // ---------- autosave ----------
   const persist = useCallback(async (ws, rws) => {
@@ -437,11 +453,33 @@ export default function WorkplanEditor() {
 
   const inRect = (ri, ci) => dragRect && ri >= dragRect.r0 && ri <= dragRect.r1 && ci >= dragRect.c0 && ci <= dragRect.c1;
 
+  // Filtered datalist options (max 30 to avoid slow rendering)
+  const filteredStaff = staffFilter
+    ? staffOptions.filter(s => s.toLowerCase().includes(staffFilter.toLowerCase())).slice(0, 30)
+    : staffOptions.slice(0, 30);
+
+  const filteredAssets = assetFilter
+    ? assetOptions.filter(a => a.toLowerCase().includes(assetFilter.toLowerCase())).slice(0, 30)
+    : assetOptions.slice(0, 30);
+
+  // Separate active vs left rows
+  const activeRows = rows.filter(r => !r.left);
+  const leftRows = rows.filter(r => r.left);
+  const displayRows = showLeavers ? rows : activeRows;
+
+  const fetchCosting = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/workplan/costing`);
+      setCostingData(await res.json());
+      setShowCosting(true);
+    } catch { toast.error('Failed to load costing'); }
+  };
+
   return (
     <div className="space-y-4">
-      {/* datalists */}
-      <datalist id="wp-staff">{staffOptions.map((s) => <option key={s} value={s} />)}</datalist>
-      <datalist id="wp-assets">{assetOptions.map((a) => <option key={a} value={a} />)}</datalist>
+      {/* datalists — filtered for performance */}
+      <datalist id="wp-staff">{filteredStaff.map((s) => <option key={s} value={s} />)}</datalist>
+      <datalist id="wp-assets">{filteredAssets.map((a) => <option key={a} value={a} />)}</datalist>
 
       {/* header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -466,6 +504,12 @@ export default function WorkplanEditor() {
           </Button>
           <Button variant="outline" size="sm" onClick={sortByManager} data-testid="sort-manager-btn">
             Sort by Manager
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowLeavers(!showLeavers)} data-testid="toggle-leavers-btn">
+            {showLeavers ? 'Hide' : 'Show'} Leavers ({leftRows.length})
+          </Button>
+          <Button variant="outline" size="sm" onClick={fetchCosting} data-testid="costing-btn">
+            <BarChart3 className="h-4 w-4 mr-1" /> Costing
           </Button>
           <Button onClick={publish} className="bg-green-600 hover:bg-green-700" size="sm" data-testid="publish-btn">
             <Send className="h-4 w-4 mr-1" /> Publish to Home
@@ -496,6 +540,9 @@ export default function WorkplanEditor() {
               {c.name}
             </span>
           ))}
+          <span className="text-gray-400 ml-2">|</span>
+          <span className="text-gray-500">{activeRows.length} active</span>
+          {leftRows.length > 0 && <span className="text-red-400">{leftRows.length} leavers</span>}
         </div>
       )}
 
@@ -554,10 +601,10 @@ export default function WorkplanEditor() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, rIdx) => {
-              const tint = managerTint(row.manager);
+            {displayRows.map((row, rIdx) => {
+              const tint = row.left ? '#fef2f2' : managerTint(row.manager);
               return (
-              <tr key={row.id} className="hover:bg-yellow-50" data-testid={`wp-row-${rIdx}`}>
+              <tr key={row.id} className={row.left ? 'opacity-50' : 'hover:bg-yellow-50'} data-testid={`wp-row-${rIdx}`}>
                 {/* band colour */}
                 <td
                   className="border p-0 cursor-pointer text-center align-middle"
@@ -566,14 +613,15 @@ export default function WorkplanEditor() {
                   title="Click to colour-band this person (group)"
                   data-testid={`wp-band-${rIdx}`}
                 >
-                  <span className="text-gray-300 text-[9px]">⋮</span>
+                  <span className="text-gray-300 text-[9px]">{row.left ? '✕' : '⋮'}</span>
                 </td>
                 {/* employee */}
                 <td className="border p-0.5 sticky left-0 z-10" style={{ background: tint || '#ffffff' }}>
                   <input
                     list="wp-staff"
                     value={row.employee_name}
-                    onChange={(e) => updateRow(row.id, { employee_name: e.target.value })}
+                    onChange={(e) => { setStaffFilter(e.target.value); updateRow(row.id, { employee_name: e.target.value }); }}
+                    onFocus={(e) => setStaffFilter(e.target.value)}
                     placeholder="Name"
                     className="w-full px-1 py-1 text-xs outline-none bg-transparent"
                     data-testid={`wp-employee-${rIdx}`}
@@ -584,7 +632,8 @@ export default function WorkplanEditor() {
                   <input
                     list="wp-assets"
                     value={row.vehicle}
-                    onChange={(e) => updateRow(row.id, { vehicle: e.target.value })}
+                    onChange={(e) => { setAssetFilter(e.target.value); updateRow(row.id, { vehicle: e.target.value }); }}
+                    onFocus={(e) => setAssetFilter(e.target.value)}
                     placeholder="Vehicle"
                     className="w-full px-1 py-1 text-xs outline-none bg-transparent"
                     data-testid={`wp-vehicle-${rIdx}`}
@@ -642,6 +691,8 @@ export default function WorkplanEditor() {
                       const colIdx = dIdx * 2 + (period === 'pm' ? 1 : 0);
                       const cell = row.days[dIdx][period];
                       const col = cell.color_id ? colorsById[cell.color_id] : null;
+                      const cellBg = col ? col.color : (cell.color || 'transparent');
+                      const cellFg = (col || cell.color) ? textOn(col ? col.color : cell.color) : '#374151';
                       const isSel = isCellSelected(rIdx, colIdx);
                       const isHandleCell = selBox && rIdx === selBox.r1 && colIdx === selBox.c1;
                       const inFill = inRect(rIdx, colIdx);
@@ -650,8 +701,8 @@ export default function WorkplanEditor() {
                           key={period}
                           className="border p-0 cursor-pointer text-center relative select-none"
                           style={{
-                            background: col ? col.color : 'transparent',
-                            color: col ? textOn(col.color) : '#374151',
+                            background: cellBg,
+                            color: cellFg,
                             minWidth: 64,
                             outline: isSel ? '2px solid #2563eb' : inFill ? '2px solid #93c5fd' : 'none',
                             outlineOffset: '-2px',
@@ -816,6 +867,94 @@ export default function WorkplanEditor() {
               </button>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Costing breakdown */}
+      <Dialog open={showCosting} onOpenChange={(o) => !o && setShowCosting(false)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby={undefined}>
+          <DialogHeader><DialogTitle>Workplan Costing Breakdown</DialogTitle></DialogHeader>
+          {costingData && (
+            <div className="space-y-6">
+              {/* Active staff - By Crop/Area */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Active Staff — Time by Area / Crop</h3>
+                {costingData.color_breakdown?.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {costingData.color_breakdown.map((c) => (
+                      <div key={c.name} className="flex items-center gap-2">
+                        <span className="text-xs w-24 truncate font-medium">{c.name}</span>
+                        <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
+                          <div className="h-full rounded-full bg-green-500 flex items-center pl-2" style={{ width: `${Math.max(c.percent, 3)}%` }}>
+                            <span className="text-[10px] font-bold text-white">{c.percent}%</span>
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-500 w-16 text-right">{c.count} cells</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="text-xs text-gray-400">No colour-coded cells yet</p>}
+                <p className="text-xs text-gray-400 mt-1">Total active cells: {costingData.total_cells}</p>
+              </div>
+
+              {/* Active staff - By Job */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Active Staff — Time by Job</h3>
+                {costingData.job_breakdown?.length > 0 ? (
+                  <div className="space-y-1">
+                    {costingData.job_breakdown.slice(0, 20).map((j) => (
+                      <div key={j.name} className="flex items-center gap-2">
+                        <span className="text-xs w-36 truncate">{j.name}</span>
+                        <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
+                          <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.max(j.percent, 2)}%` }} />
+                        </div>
+                        <span className="text-xs text-gray-500 w-20 text-right">{j.percent}% ({j.count})</span>
+                      </div>
+                    ))}
+                    {costingData.job_breakdown.length > 20 && (
+                      <p className="text-xs text-gray-400">+ {costingData.job_breakdown.length - 20} more jobs</p>
+                    )}
+                  </div>
+                ) : <p className="text-xs text-gray-400">No jobs assigned yet</p>}
+              </div>
+
+              {/* Leavers costing (if any) */}
+              {costingData.left_total_cells > 0 && (
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Leavers — Historic Cost Data ({costingData.left_total_cells} cells)</h3>
+                  {costingData.left_color_breakdown?.length > 0 && (
+                    <div className="space-y-1 mb-3">
+                      <p className="text-xs font-medium text-gray-500">By Area / Crop:</p>
+                      {costingData.left_color_breakdown.map((c) => (
+                        <div key={c.name} className="flex items-center gap-2">
+                          <span className="text-xs w-24 truncate">{c.name}</span>
+                          <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
+                            <div className="h-full rounded-full bg-orange-400" style={{ width: `${Math.max(c.percent, 2)}%` }} />
+                          </div>
+                          <span className="text-xs text-gray-500 w-16 text-right">{c.percent}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {costingData.left_job_breakdown?.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-gray-500">By Job:</p>
+                      {costingData.left_job_breakdown.slice(0, 10).map((j) => (
+                        <div key={j.name} className="flex items-center gap-2">
+                          <span className="text-xs w-36 truncate">{j.name}</span>
+                          <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
+                            <div className="h-full rounded-full bg-orange-400" style={{ width: `${Math.max(j.percent, 2)}%` }} />
+                          </div>
+                          <span className="text-xs text-gray-500 w-20 text-right">{j.percent}% ({j.count})</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter><Button variant="outline" onClick={() => setShowCosting(false)}>Close</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

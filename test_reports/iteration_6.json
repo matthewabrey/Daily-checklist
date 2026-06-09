@@ -1,0 +1,78 @@
+{
+  "summary": "Completed comprehensive testing of Workplan Enhancements. Backend: 12/12 tests passed (100%). Frontend: All features working correctly - colour-coded cells with job names, Show Leavers toggle (101 active, 158 leavers), faded leaver rows, Costing dialog with job % and area/crop % breakdown.",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  
+  "passed_tests": [
+    "Backend: GET /api/workplan returns rows with 'left' field for leaver identification",
+    "Backend: 259 total rows - 101 active, 158 leavers (marked with left:true)",
+    "Backend: GET /api/workplan/costing returns job_breakdown with percentages",
+    "Backend: GET /api/workplan/costing returns color_breakdown (area/crop) with percentages",
+    "Backend: Costing handles both array and dict day formats",
+    "Backend: Costing separates active staff from leavers data",
+    "Backend: GET /api/workplan/jobs returns job list with expected jobs",
+    "Backend: GET /api/workplan/colors returns color categories",
+    "Backend: Active rows have employee names",
+    "Backend: Rows have 7 days of data with AM/PM structure",
+    "Backend: Daily cells are pre-filled with job assignments from Excel import",
+    "Backend: Health check passed",
+    "Frontend: Workplan grid loads with colour-coded cells",
+    "Frontend: Cells show job names (Loading-JCB, Off, Planting, Destoning, etc.)",
+    "Frontend: 'Show Leavers (158)' toggle button present and working",
+    "Frontend: Toggle changes row count from 101 to 259",
+    "Frontend: 158 leaver rows appear faded/dimmed (opacity-50)",
+    "Frontend: Legend shows '101 active 158 leavers' count",
+    "Frontend: Costing dialog opens with job % breakdown",
+    "Frontend: Costing shows 'Time by Area / Crop' with Larkshall (18%) and Snetterton (12%)",
+    "Frontend: Costing shows 'Time by Job' with Off (37.7%), Irrigation Overground (13.4%), Loading-JCB (10%), etc.",
+    "Frontend: Costing shows 'Leavers — Historic Cost Data' section",
+    "Frontend: Datalist search is filtered to max 30 options for performance"
+  ],
+  
+  "test_report_links": [
+    "/app/backend/tests/test_workplan_enhancements.py",
+    "/app/test_reports/pytest/pytest_workplan_enhancements.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [
+    "Backend import-staff endpoint (line 3235-3494) correctly parses Excel, marks leavers below JCB rows, and uses fuzzy matching for job names",
+    "Backend costing endpoint (line 3496-3568) correctly handles both array and dict day formats, separates active from leaver data",
+    "Frontend WorkplanEditor.js normalizeRow function (line 133-153) correctly handles both array and dict day formats",
+    "Frontend displayRows filtering (line 466-468) correctly separates active vs left rows",
+    "Frontend datalist filtering (line 457-463) limits options to max 30 for performance",
+    "Frontend costing dialog (line 874-959) displays job and color breakdown with percentages",
+    "Leaver rows styled with opacity-50 class for visual distinction (line 607)"
+  ],
+  
+  "updated_files": [
+    "/app/backend/tests/test_workplan_enhancements.py"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (all tested features working)"
+  },
+  
+  "test_credentials": {
+    "admin_user": "Employee Number 4444 (Admin User)"
+  },
+  
+  "seed_data_creation": "Workplan data imported from original Excel file with 259 rows (101 active, 158 leavers). Daily cells pre-filled with job assignments.",
+  
+  "retest_needed": false,
+  
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "Workplan enhancements fully implemented and tested. Key features: 1) Leavers marked with left:true field and hidden by default, shown with 'Show Leavers' toggle, appear faded when shown. 2) Daily cells pre-filled with job assignments from Excel import using fuzzy matching. 3) Costing dialog shows % breakdown by job and by area/crop for both active staff and leavers. 4) Datalist search filtered to max 30 options for performance. Backend endpoints: /api/workplan (GET/PUT), /api/workplan/costing (GET), /api/admin/workplan/import-staff (POST)."
+}
