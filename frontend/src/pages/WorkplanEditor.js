@@ -661,15 +661,33 @@ export default function WorkplanEditor() {
                     data-testid={`wp-manager-${rIdx}`}
                   />
                 </td>
-                {/* start time */}
-                <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
-                  <input
-                    type="time"
-                    value={row.start_time}
-                    onChange={(e) => updateRow(row.id, { start_time: e.target.value })}
-                    className="w-full px-1 py-1 text-xs outline-none bg-transparent"
-                    data-testid={`wp-start-${rIdx}`}
-                  />
+                {/* start time with copy-down */}
+                <td className="border p-0.5 relative group/time" style={{ background: tint || 'transparent' }}>
+                  <div className="flex items-center">
+                    <input
+                      type="time"
+                      value={row.start_time}
+                      onChange={(e) => updateRow(row.id, { start_time: e.target.value })}
+                      className="w-full px-1 py-1 text-xs outline-none bg-transparent"
+                      data-testid={`wp-start-${rIdx}`}
+                    />
+                    {row.start_time && (
+                      <button
+                        onClick={() => {
+                          const idx = displayRows.findIndex(r => r.id === row.id);
+                          if (idx < 0) return;
+                          const below = displayRows.slice(idx + 1);
+                          below.forEach(r => updateRow(r.id, { start_time: row.start_time }));
+                          toast.success(`Copied ${row.start_time} to ${below.length} rows below`);
+                        }}
+                        className="opacity-0 group-hover/time:opacity-100 text-blue-400 hover:text-blue-700 ml-0.5 shrink-0 transition-opacity"
+                        title={`Copy ${row.start_time} to all rows below`}
+                        data-testid={`wp-time-copy-down-${rIdx}`}
+                      >
+                        <ChevronDown className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                 </td>
                 {/* notes - expandable, always shows full text */}
                 <td className="border p-0.5 align-top" style={{ background: tint || 'transparent' }}>
@@ -744,11 +762,11 @@ export default function WorkplanEditor() {
                     </button>
                     <button
                       onClick={() => updateRow(row.id, { left: !row.left })}
-                      className={row.left ? "text-green-500 hover:text-green-700" : "text-orange-400 hover:text-orange-700"}
+                      className={`flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-medium ${row.left ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-orange-100 text-orange-700 hover:bg-orange-200"}`}
                       title={row.left ? "Mark as active" : "Mark as left"}
                       data-testid={`wp-left-${rIdx}`}
                     >
-                      {row.left ? <UserCheck className="h-3 w-3" /> : <UserX className="h-3 w-3" />}
+                      {row.left ? <><UserCheck className="h-3.5 w-3.5" /> Active</> : <><UserX className="h-3.5 w-3.5" /> Left</>}
                     </button>
                     <button onClick={() => moveRow(row.id, 1)} className="text-gray-400 hover:text-gray-700" title="Move down">
                       <ChevronDown className="h-3 w-3" />
@@ -887,7 +905,7 @@ export default function WorkplanEditor() {
               {/* Active staff - Combined Area + Job breakdown */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">Active Staff — Time by Area / Crop + Job</h3>
-                <p className="text-xs text-gray-400 mb-3">Total: {costingData.total_cells} half-day cells</p>
+                <p className="text-xs text-gray-400 mb-3">Total: {costingData.total_cells * 6} hours ({costingData.total_cells} half-days)</p>
                 {costingData.combined_breakdown?.length > 0 ? (
                   <div className="space-y-1.5">
                     {costingData.combined_breakdown.map((c) => (
@@ -902,7 +920,7 @@ export default function WorkplanEditor() {
                             <span className="text-[10px] font-bold text-white">{c.percent}%</span>
                           </div>
                         </div>
-                        <span className="text-xs text-gray-500 w-16 text-right">{c.count} cells</span>
+                        <span className="text-xs text-gray-500 w-20 text-right">{c.count * 6}hrs</span>
                       </div>
                     ))}
                   </div>
@@ -912,7 +930,7 @@ export default function WorkplanEditor() {
               {/* Leavers costing (if any) */}
               {costingData.left_total_cells > 0 && (
                 <div className="border-t pt-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Leavers — Historic Cost Data ({costingData.left_total_cells} cells)</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Leavers — Historic Cost Data ({costingData.left_total_cells * 6} hours)</h3>
                   {costingData.left_combined_breakdown?.length > 0 && (
                     <div className="space-y-1">
                       {costingData.left_combined_breakdown.map((c) => (
@@ -925,7 +943,7 @@ export default function WorkplanEditor() {
                           <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
                             <div className="h-full rounded-full bg-orange-400" style={{ width: `${Math.max(c.percent, 2)}%` }} />
                           </div>
-                          <span className="text-xs text-gray-500 w-20 text-right">{c.percent}% ({c.count})</span>
+                          <span className="text-xs text-gray-500 w-20 text-right">{c.percent}% ({c.count * 6}hrs)</span>
                         </div>
                       ))}
                     </div>
