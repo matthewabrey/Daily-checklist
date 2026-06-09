@@ -442,9 +442,46 @@ async def initialize_data():
         admin_dict = admin_staff.dict()
         await db.staff.insert_one(admin_dict)
 
+async def initialize_workplan_data():
+    """Seed default jobs and colour categories for the Daily Workplan feature."""
+    if await db.workplan_jobs.count_documents({}) == 0:
+        default_jobs = [
+            "Band Spraying", "Bed Tilling", "Bed Cracker", "Bed Mixing", "Bed Chopping",
+            "Box Sorting", "Bowser", "Carting Crop", "Carting Manure", "Chitting Seed",
+            "Dam Diking", "De Bagging", "Deep Cultivation", "Destoning", "Digging",
+            "Drain Jetting", "Drilling", "Estate Work", "Flailing", "Fencing", "360 Work",
+            "Fertiliser Spreading", "Night Destoning", "Fleecing", "Forklift", "Grading",
+            "Harvest", "Hedge Cutting", "Headland Cultivation", "Hoeing", "Holiday",
+            "Irrigation Moving", "Irrigation Overground", "Irrigation Service",
+            "Irrigation Underground", "Loadall", "Keeble", "Loading - JCB", "Off",
+            "Muck Spreading", "Office Work", "Rolling", "Planting", "Ploughing",
+            "Poly Laying", "Poly Lifting", "Packing", "On Call", "Re-Ridging", "Rotavating",
+            "Ridging", "Sample Digging", "Service Cultivation", "Service Harvest",
+            "Service Other", "Service Planting/Drill", "Shallow Cultivation", "Sickness",
+            "Spraying", "Storage", "Stone Burying", "Tractor Shed", "Tractor Only Broken",
+            "Training", "Wind Rowing", "Wheel Change", "Weeding", "Topping",
+            "Tractor Only Spare", "Fert Bowser"
+        ]
+        for i, name in enumerate(default_jobs):
+            await db.workplan_jobs.insert_one({"id": str(uuid.uuid4()), "name": name, "order": i})
+
+    if await db.workplan_colors.count_documents({}) == 0:
+        default_colors = [
+            ("Onions", "#16a34a"),
+            ("Carrots", "#f97316"),
+            ("Potatoes", "#a16207"),
+            ("Larkshall", "#0ea5e9"),
+            ("Snetterton", "#a855f7"),
+            ("Off / Holiday", "#ef4444"),
+            ("Servicing", "#eab308"),
+        ]
+        for i, (name, color) in enumerate(default_colors):
+            await db.workplan_colors.insert_one({"id": str(uuid.uuid4()), "name": name, "color": color, "order": i})
+
 @app.on_event("startup")
 async def startup_event():
     await initialize_data()
+    await initialize_workplan_data()
     await migrate_existing_checklists()
     await ensure_indexes()
 
@@ -3068,6 +3105,127 @@ async def export_whistleblowing_excel():
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         headers={"Content-Disposition": "attachment; filename=whistleblowing.xlsx"}
     )
+
+# DAILY WORKPLAN ENDPOINTS
+# Collections:
+#   db.workplan        -> single doc {key:'current', week_start, draft_rows, published_rows, published_week_start, published_at}
+#   db.workplan_jobs   -> {id, name, order}
+#   db.workplan_colors -> {id, name, color, order}
+# ==========================================================================
+
+class WorkplanSaveRequest(BaseModel):
+    week_start: str
+    rows: List[dict] = []
+
+class JobItem(BaseModel):
+    name: str
+
+class ColorItem(BaseModel):
+    name: str
+    color: str
+
+@app.get("/api/workplan")
+async def get_workplan():
+    """Return the draft workplan that managers edit."""
+    doc = await db.workplan.find_one({"key": "current"}, {"_id": 0})
+    if not doc:
+        return {"week_start": None, "rows": [], "published_at": None, "is_published": False}
+    return {
+        "week_start": doc.get("week_start"),
+        "rows": doc.get("draft_rows", []),
+        "published_at": doc.get("published_at"),
+        "is_published": bool(doc.get("published_rows"))
+    }
+
+@app.put("/api/workplan")
+async def save_workplan(req: WorkplanSaveRequest):
+    """Save the draft workplan."""
+    await db.workplan.update_one(
+        {"key": "current"},
+        {"$set": {
+            "key": "current",
+            "week_start": req.week_start,
+            "draft_rows": req.rows,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    return {"success": True}
+
+@app.post("/api/workplan/publish")
+async def publish_workplan():
+    """Publish the current draft so staff see it on the dashboard."""
+    doc = await db.workplan.find_one({"key": "current"})
+    if not doc:
+        raise HTTPException(status_code=404, detail="No workplan to publish")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.workplan.update_one(
+        {"key": "current"},
+        {"$set": {
+            "published_rows": doc.get("draft_rows", []),
+            "published_week_start": doc.get("week_start"),
+            "published_at": now
+        }}
+    )
+    return {"success": True, "published_at": now}
+
+@app.get("/api/workplan/published")
+async def get_published_workplan():
+    """Return the published workplan for the staff dashboard view."""
+    doc = await db.workplan.find_one({"key": "current"}, {"_id": 0})
+    if not doc or not doc.get("published_rows"):
+        return {"week_start": None, "rows": [], "published_at": None}
+    return {
+        "week_start": doc.get("published_week_start"),
+        "rows": doc.get("published_rows", []),
+        "published_at": doc.get("published_at")
+    }
+
+@app.get("/api/workplan/jobs")
+async def get_workplan_jobs():
+    jobs = await db.workplan_jobs.find({}, {"_id": 0}).sort("order", 1).to_list(length=None)
+    return jobs
+
+@app.post("/api/workplan/jobs")
+async def add_workplan_job(item: JobItem):
+    if not item.name.strip():
+        raise HTTPException(status_code=400, detail="Job name is required")
+    count = await db.workplan_jobs.count_documents({})
+    job = {"id": str(uuid.uuid4()), "name": item.name.strip(), "order": count}
+    await db.workplan_jobs.insert_one({**job})
+    return job
+
+@app.delete("/api/workplan/jobs/{job_id}")
+async def delete_workplan_job(job_id: str):
+    await db.workplan_jobs.delete_one({"id": job_id})
+    return {"success": True}
+
+@app.get("/api/workplan/colors")
+async def get_workplan_colors():
+    colors = await db.workplan_colors.find({}, {"_id": 0}).sort("order", 1).to_list(length=None)
+    return colors
+
+@app.post("/api/workplan/colors")
+async def add_workplan_color(item: ColorItem):
+    if not item.name.strip():
+        raise HTTPException(status_code=400, detail="Colour name is required")
+    count = await db.workplan_colors.count_documents({})
+    c = {"id": str(uuid.uuid4()), "name": item.name.strip(), "color": item.color, "order": count}
+    await db.workplan_colors.insert_one({**c})
+    return c
+
+@app.put("/api/workplan/colors/{color_id}")
+async def update_workplan_color(color_id: str, item: ColorItem):
+    await db.workplan_colors.update_one(
+        {"id": color_id},
+        {"$set": {"name": item.name.strip(), "color": item.color}}
+    )
+    return {"success": True}
+
+@app.delete("/api/workplan/colors/{color_id}")
+async def delete_workplan_color(color_id: str):
+    await db.workplan_colors.delete_one({"id": color_id})
+    return {"success": True}
 
 if __name__ == "__main__":
     import uvicorn

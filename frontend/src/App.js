@@ -10,10 +10,12 @@ import { Separator } from './components/ui/separator';
 import { toast } from 'sonner';
 import { useTranslation } from './LanguageContext';
 import { languages } from './translations';
-import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock, FileCheck } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock, FileCheck, CalendarDays } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import WorkplanEditor from './pages/WorkplanEditor';
+import WorkplanBoard from './components/WorkplanBoard';
 import './App.css';
 
 // Use SharePointAdminComponent directly for now
@@ -2089,6 +2091,9 @@ function Dashboard() {
         </Card>
       )}
       */}
+
+      {/* Published Work Plan */}
+      <WorkplanBoard />
 
       {/* Work Progress Stats Section */}
       {jobs.length > 0 && (
@@ -11169,6 +11174,15 @@ function AppContent() {
                     Admin
                   </Link>
                 )}
+                {hasAdminAccess && (
+                  <Link 
+                    to="/workplan" 
+                    className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors inline-flex items-center"
+                    data-testid="nav-workplan"
+                  >
+                    <CalendarDays className="h-4 w-4 mr-1" /> Workplan
+                  </Link>
+                )}
                 
                 {/* User info and logout */}
                 {isAuthenticated && employee && (
@@ -11281,6 +11295,14 @@ function AppContent() {
               element={
                 <AdminProtectedRoute>
                   <SharePointAdminComponent />
+                </AdminProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/workplan" 
+              element={
+                <AdminProtectedRoute>
+                  <WorkplanEditor />
                 </AdminProtectedRoute>
               } 
             />
