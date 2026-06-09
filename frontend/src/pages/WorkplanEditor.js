@@ -92,6 +92,7 @@ export default function WorkplanEditor() {
   const [managerFilter, setManagerFilter] = useState('');
   const [assetFilter, setAssetFilter] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set()); // row IDs selected for copy
+  const [selectedDay, setSelectedDay] = useState(null); // day index selected for day copy (0-6)
 
   // excel-like cell selection / clipboard / drag-fill
   const [selCells, setSelCells] = useState([]); // [{rowIdx, colIdx}]
@@ -273,6 +274,33 @@ export default function WorkplanEditor() {
     setRows((rs) => [...rs, ...copies]);
     setSelectedRows(new Set());
     toast.success(`Copied ${copies.length} row(s)`);
+  };
+
+  // ---------- day column copy ----------
+  const selectDayColumn = (dayIndex) => {
+    if (selectedDay === dayIndex) {
+      setSelectedDay(null); // deselect if clicking same day
+    } else {
+      setSelectedDay(dayIndex);
+    }
+  };
+  
+  const copyDayToDay = (targetDayIndex) => {
+    if (selectedDay === null || selectedDay === targetDayIndex) return;
+    
+    setRows((rs) => rs.map((r) => {
+      const sourceDay = r.days[selectedDay];
+      const newDays = [...r.days];
+      newDays[targetDayIndex] = {
+        am: { ...sourceDay.am },
+        pm: { ...sourceDay.pm },
+      };
+      return { ...r, days: newDays };
+    }));
+    
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    toast.success(`Copied ${dayNames[selectedDay]} → ${dayNames[targetDayIndex]} for all rows`);
+    setSelectedDay(null);
   };
 
   // ---------- excel-like cell ops ----------
@@ -612,8 +640,14 @@ export default function WorkplanEditor() {
             <Button size="sm" variant="ghost" className="h-7" onClick={clearSelection}>Deselect</Button>
             <span className="text-gray-400 hidden sm:inline">· Ctrl/⌘+click adds cells · drag the blue corner to copy the whole selection across · double-click to set job &amp; colour for all</span>
           </>
+        ) : selectedDay !== null ? (
+          <>
+            <span className="text-blue-700 font-medium">Day selected: {DAY_NAMES[selectedDay]}</span>
+            <span className="text-gray-500 ml-2">Click another day header to paste, or</span>
+            <Button size="sm" variant="ghost" className="h-7 text-gray-500" onClick={() => setSelectedDay(null)}>Cancel</Button>
+          </>
         ) : (
-          <span className="text-gray-500">Tip: click a cell to select. <b>Ctrl/⌘+click</b> picks several · <b>Shift+click</b> selects a block · <b>drag the blue corner</b> to copy the selection across · <b>double-click</b> to set job &amp; colour.</span>
+          <span className="text-gray-500">Tip: click a cell to select. <b>Ctrl/⌘+click</b> picks several · <b>Shift+click</b> selects a block · <b>drag the blue corner</b> to copy the selection across · <b>double-click</b> to set job &amp; colour. <b>Click a day header</b> to copy entire day.</span>
         )}
         {hiddenPast > 0 && <span className="ml-auto text-gray-400">{hiddenPast} past day{hiddenPast > 1 ? 's' : ''} hidden (kept for costing)</span>}
       </div>
@@ -640,8 +674,24 @@ export default function WorkplanEditor() {
               <th className="p-2 border" style={{ minWidth: 70 }}>Start</th>
               <th className="p-2 border text-left" style={{ minWidth: 200 }}>Field &amp; Notes</th>
               {visibleDays.map((i) => (
-                <th key={i} className="p-1 border text-center" colSpan={2} style={{ minWidth: 200 }}>
-                  {fmtDay(weekStart, i)}
+                <th 
+                  key={i} 
+                  className={`p-1 border text-center cursor-pointer transition-colors ${selectedDay === i ? 'bg-blue-200 ring-2 ring-blue-500' : 'hover:bg-blue-50'}`}
+                  colSpan={2} 
+                  style={{ minWidth: 200 }}
+                  onClick={() => selectedDay !== null && selectedDay !== i ? copyDayToDay(i) : selectDayColumn(i)}
+                  title={selectedDay === null ? 'Click to select this day for copying' : selectedDay === i ? 'Click to deselect' : `Click to paste ${DAY_NAMES[selectedDay]} here`}
+                  data-testid={`wp-day-header-${i}`}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    {fmtDay(weekStart, i)}
+                    {selectedDay !== null && selectedDay !== i && (
+                      <span className="text-blue-600 text-[10px] font-normal">← paste</span>
+                    )}
+                    {selectedDay === i && (
+                      <span className="text-blue-700 text-[10px] font-semibold">✓ selected</span>
+                    )}
+                  </div>
                 </th>
               ))}
               <th className="p-1 border w-8"></th>
