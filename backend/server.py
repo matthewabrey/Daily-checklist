@@ -446,21 +446,26 @@ async def initialize_workplan_data():
     """Seed default jobs and colour categories for the Daily Workplan feature."""
     if await db.workplan_jobs.count_documents({}) == 0:
         default_jobs = [
-            "Band Spraying", "Bed Tilling", "Bed Cracker", "Bed Mixing", "Bed Chopping",
-            "Box Sorting", "Bowser", "Carting Crop", "Carting Manure", "Chitting Seed",
+            "AD", "Accommodation", "Band Spraying", "Bed Tilling", "Bed Cracker",
+            "Bed Mixing", "Bed Chopping", "Box Sorting", "Due Back IN", "Bowser",
+            "Carting Crop", "Carting Manure", "Chitting Seed", "Chickens", "Course",
             "Dam Diking", "De Bagging", "Deep Cultivation", "Destoning", "Digging",
             "Drain Jetting", "Drilling", "Estate Work", "Flailing", "Fencing", "360 Work",
-            "Fertiliser Spreading", "Night Destoning", "Fleecing", "Forklift", "Grading",
-            "Harvest", "Hedge Cutting", "Headland Cultivation", "Hoeing", "Holiday",
-            "Irrigation Moving", "Irrigation Overground", "Irrigation Service",
-            "Irrigation Underground", "Loadall", "Keeble", "Loading - JCB", "Off",
-            "Muck Spreading", "Office Work", "Rolling", "Planting", "Ploughing",
-            "Poly Laying", "Poly Lifting", "Packing", "On Call", "Re-Ridging", "Rotavating",
-            "Ridging", "Sample Digging", "Service Cultivation", "Service Harvest",
-            "Service Other", "Service Planting/Drill", "Shallow Cultivation", "Sickness",
+            "Fertiliser Spreading", "Night Destoning", "Fleecing", "Forklift", "Finished",
+            "Grading", "Harvest", "Hedge Cutting", "Headland Cultivation", "Hoeing",
+            "Holiday", "MOTHERS DAY", "Irrigation Moving", "Irrigation Overground",
+            "Irrigation Service", "Irrigation Underground", "Loadall", "Keeble",
+            "Loading - JCB", "Off", "Muck Spreading", "Office Work", "Rolling", "PARTY",
+            "Planting", "Ploughing", "Poly Laying", "Poly Lifting", "Packing", "On Call",
+            "re-ridging", "Rotavating", "Ridging", "Sample Digging", "Seed",
+            "Service Cultivation", "Service Harvest", "Service Other",
+            "Service Planting/Drill", "Shallow Cultivation", "Shooting", "Sickness",
             "Spraying", "Storage", "Stone Burying", "Tractor Shed", "Tractor Only Broken",
-            "Training", "Wind Rowing", "Wheel Change", "Weeding", "Topping",
-            "Tractor Only Spare", "Fert Bowser"
+            "Training", "TWB", "Wind rowing", "Wheel Change", "Weeding", "Topping",
+            "Tractor Only Spare", "Fert bowser", "QC", "Irrigation",
+            "Wet Day Jobs", "Webb Repair", "Shelfs To Sort In Workshop",
+            "Clean Work Vans", "Paint Rest Room / Toitlets", "Sort Camp Pad Out",
+            "Thorpe Farm Tidy", "Poly / Fleece Sort out", "Trees over larkshall fence"
         ]
         for i, name in enumerate(default_jobs):
             await db.workplan_jobs.insert_one({"id": str(uuid.uuid4()), "name": name, "order": i})
@@ -3226,6 +3231,153 @@ async def update_workplan_color(color_id: str, item: ColorItem):
 async def delete_workplan_color(color_id: str):
     await db.workplan_colors.delete_one({"id": color_id})
     return {"success": True}
+
+@app.post("/api/admin/workplan/import-staff")
+async def import_workplan_staff():
+    """Import staff rows from the uploaded original Excel workplan into the current week's workplan."""
+    import openpyxl, re
+    from io import BytesIO
+    
+    # Download the Excel file from the known URL
+    excel_url = "https://customer-assets.emergentagent.com/job_3e1cee5c-63e2-4d27-9a1e-16878b2e56b8/artifacts/ls1wpmcs_Daily%2520Workplan%25202024%20%28version%201%29.xlsb.xlsx"
+    
+    import httpx
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(excel_url)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=500, detail="Failed to download Excel file")
+        wb = openpyxl.load_workbook(BytesIO(resp.content), data_only=True)
+    
+    rows = []
+    
+    # Parse Main Sheet
+    ws_main = wb['Main Sheet']
+    for r in range(3, ws_main.max_row + 1):
+        vehicle = ws_main.cell(r, 1).value
+        employee = ws_main.cell(r, 2).value
+        manager = ws_main.cell(r, 3).value
+        start_time = ws_main.cell(r, 4).value
+        field_notes = ws_main.cell(r, 6).value
+        
+        if not employee and not vehicle:
+            continue
+        
+        emp = str(employee).strip() if employee else ''
+        veh = str(vehicle).strip() if vehicle else ''
+        mgr = str(manager).strip() if manager else ''
+        if mgr.startswith('zzzz'):
+            mgr = ''
+        
+        st = ''
+        if start_time:
+            st_str = str(start_time)
+            if ':' in st_str:
+                parts = st_str.split(':')
+                st = f"{parts[0]}:{parts[1]}"
+        
+        fn = str(field_notes).strip() if field_notes else ''
+        
+        rows.append({
+            'id': str(uuid.uuid4()),
+            'employee_name': emp,
+            'vehicle': veh,
+            'implement': '',
+            'manager': mgr,
+            'start_time': st,
+            'notes': fn,
+            'groupColor': '',
+            'days': {str(d): {'am': {'job': '', 'color': '', 'color_id': ''}, 'pm': {'job': '', 'color': '', 'color_id': ''}} for d in range(7)}
+        })
+    
+    # Parse Harvest Staff
+    if 'Harvest Staff' in wb.sheetnames:
+        ws_harvest = wb['Harvest Staff']
+        for r in range(3, ws_harvest.max_row + 1):
+            role = ws_harvest.cell(r, 2).value
+            name = ws_harvest.cell(r, 3).value
+            manager = ws_harvest.cell(r, 4).value
+            at_workshop = ws_harvest.cell(r, 5).value
+            
+            if not name:
+                continue
+            
+            emp = str(name).strip()
+            mgr = str(manager).strip() if manager else ''
+            role_str = str(role).strip() if role else ''
+            at_ws = str(at_workshop).strip() if at_workshop else ''
+            
+            st = ''
+            if at_ws:
+                m = re.match(r'(\d+[:.]\d+\s*[AaPp][Mm]?)', at_ws)
+                if m:
+                    st = m.group(1).replace('.', ':')
+            
+            rows.append({
+                'id': str(uuid.uuid4()),
+                'employee_name': emp,
+                'vehicle': role_str,
+                'implement': '',
+                'manager': mgr,
+                'start_time': st,
+                'notes': at_ws,
+                'groupColor': '',
+                'days': {str(d): {'am': {'job': '', 'color': '', 'color_id': ''}, 'pm': {'job': '', 'color': '', 'color_id': ''}} for d in range(7)}
+            })
+    
+    # Also update jobs from the Jobs sheet
+    if 'Jobs' in wb.sheetnames:
+        ws_jobs = wb['Jobs']
+        jobs_from_excel = []
+        for r in range(1, ws_jobs.max_row + 1):
+            v = ws_jobs.cell(r, 1).value
+            if v and str(v).strip():
+                jobs_from_excel.append(str(v).strip())
+        
+        if 'Wet Day Jobs' in wb.sheetnames:
+            ws_wet = wb['Wet Day Jobs']
+            for r in range(1, ws_wet.max_row + 1):
+                v = ws_wet.cell(r, 1).value
+                if v and str(v).strip():
+                    jobs_from_excel.append(str(v).strip())
+        
+        # Deduplicate
+        seen = set()
+        unique_jobs = []
+        for j in jobs_from_excel:
+            if j not in seen:
+                seen.add(j)
+                unique_jobs.append(j)
+        
+        # Replace all jobs
+        await db.workplan_jobs.delete_many({})
+        for i, name in enumerate(unique_jobs):
+            await db.workplan_jobs.insert_one({"id": str(uuid.uuid4()), "name": name, "order": i})
+    
+    # Save as current week's workplan draft
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc)
+    # Calculate Monday of this week
+    monday = today - timedelta(days=today.weekday())
+    week_start = monday.strftime('%Y-%m-%d')
+    
+    await db.workplan.update_one(
+        {"key": "current"},
+        {"$set": {
+            "key": "current",
+            "week_start": week_start,
+            "draft_rows": rows,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    return {
+        "success": True,
+        "main_sheet_rows": sum(1 for r in rows if r.get('notes', '') and 'Workshop' not in r.get('notes', '')),
+        "harvest_rows": sum(1 for r in rows if 'Workshop' in r.get('notes', '')),
+        "total_rows": len(rows),
+        "jobs_updated": True
+    }
 
 if __name__ == "__main__":
     import uvicorn
