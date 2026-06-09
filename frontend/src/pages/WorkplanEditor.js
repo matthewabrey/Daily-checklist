@@ -884,14 +884,19 @@ export default function WorkplanEditor() {
           <DialogHeader><DialogTitle>Workplan Costing Breakdown</DialogTitle></DialogHeader>
           {costingData && (
             <div className="space-y-6">
-              {/* Active staff - By Crop/Area */}
+              {/* Active staff - Combined Area + Job breakdown */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Active Staff — Time by Area / Crop</h3>
-                {costingData.color_breakdown?.length > 0 ? (
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Active Staff — Time by Area / Crop + Job</h3>
+                <p className="text-xs text-gray-400 mb-3">Total: {costingData.total_cells} half-day cells</p>
+                {costingData.combined_breakdown?.length > 0 ? (
                   <div className="space-y-1.5">
-                    {costingData.color_breakdown.map((c) => (
+                    {costingData.combined_breakdown.map((c) => (
                       <div key={c.name} className="flex items-center gap-2">
-                        <span className="text-xs w-24 truncate font-medium">{c.name}</span>
+                        <span className="text-xs w-48 truncate font-medium" title={c.name}>
+                          <span className="text-green-700">{c.area}</span>
+                          <span className="text-gray-400 mx-1">·</span>
+                          <span className="text-gray-700">{c.job}</span>
+                        </span>
                         <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
                           <div className="h-full rounded-full bg-green-500 flex items-center pl-2" style={{ width: `${Math.max(c.percent, 3)}%` }}>
                             <span className="text-[10px] font-bold text-white">{c.percent}%</span>
@@ -901,59 +906,26 @@ export default function WorkplanEditor() {
                       </div>
                     ))}
                   </div>
-                ) : <p className="text-xs text-gray-400">No colour-coded cells yet</p>}
-                <p className="text-xs text-gray-400 mt-1">Total active cells: {costingData.total_cells}</p>
-              </div>
-
-              {/* Active staff - By Job */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Active Staff — Time by Job</h3>
-                {costingData.job_breakdown?.length > 0 ? (
-                  <div className="space-y-1">
-                    {costingData.job_breakdown.slice(0, 20).map((j) => (
-                      <div key={j.name} className="flex items-center gap-2">
-                        <span className="text-xs w-36 truncate">{j.name}</span>
-                        <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
-                          <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.max(j.percent, 2)}%` }} />
-                        </div>
-                        <span className="text-xs text-gray-500 w-20 text-right">{j.percent}% ({j.count})</span>
-                      </div>
-                    ))}
-                    {costingData.job_breakdown.length > 20 && (
-                      <p className="text-xs text-gray-400">+ {costingData.job_breakdown.length - 20} more jobs</p>
-                    )}
-                  </div>
-                ) : <p className="text-xs text-gray-400">No jobs assigned yet</p>}
+                ) : <p className="text-xs text-gray-400">No assigned cells yet</p>}
               </div>
 
               {/* Leavers costing (if any) */}
               {costingData.left_total_cells > 0 && (
                 <div className="border-t pt-4">
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Leavers — Historic Cost Data ({costingData.left_total_cells} cells)</h3>
-                  {costingData.left_color_breakdown?.length > 0 && (
-                    <div className="space-y-1 mb-3">
-                      <p className="text-xs font-medium text-gray-500">By Area / Crop:</p>
-                      {costingData.left_color_breakdown.map((c) => (
+                  {costingData.left_combined_breakdown?.length > 0 && (
+                    <div className="space-y-1">
+                      {costingData.left_combined_breakdown.map((c) => (
                         <div key={c.name} className="flex items-center gap-2">
-                          <span className="text-xs w-24 truncate">{c.name}</span>
+                          <span className="text-xs w-48 truncate">
+                            <span className="text-orange-600">{c.area}</span>
+                            <span className="text-gray-400 mx-1">·</span>
+                            <span className="text-gray-600">{c.job}</span>
+                          </span>
                           <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
                             <div className="h-full rounded-full bg-orange-400" style={{ width: `${Math.max(c.percent, 2)}%` }} />
                           </div>
-                          <span className="text-xs text-gray-500 w-16 text-right">{c.percent}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {costingData.left_job_breakdown?.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-gray-500">By Job:</p>
-                      {costingData.left_job_breakdown.slice(0, 10).map((j) => (
-                        <div key={j.name} className="flex items-center gap-2">
-                          <span className="text-xs w-36 truncate">{j.name}</span>
-                          <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
-                            <div className="h-full rounded-full bg-orange-400" style={{ width: `${Math.max(j.percent, 2)}%` }} />
-                          </div>
-                          <span className="text-xs text-gray-500 w-20 text-right">{j.percent}% ({j.count})</span>
+                          <span className="text-xs text-gray-500 w-20 text-right">{c.percent}% ({c.count})</span>
                         </div>
                       ))}
                     </div>

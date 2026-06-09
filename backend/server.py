@@ -3495,10 +3495,10 @@ async def import_workplan_staff():
 
 @app.get("/api/workplan/costing")
 async def get_workplan_costing():
-    """Calculate % breakdown of time spent per job and per colour/crop area."""
+    """Calculate % breakdown of time by (area/crop + job) combination."""
     doc = await db.workplan.find_one({"key": "current"}, {"_id": 0})
     if not doc:
-        return {"job_breakdown": [], "color_breakdown": [], "total_cells": 0}
+        return {"combined_breakdown": [], "total_cells": 0, "left_combined_breakdown": [], "left_total_cells": 0}
     
     rows = doc.get("draft_rows", []) or doc.get("published_rows", [])
     
@@ -3506,17 +3506,14 @@ async def get_workplan_costing():
     color_lookup = {c["id"]: c for c in all_colors}
     color_by_hex = {c["color"]: c for c in all_colors}
     
-    job_counts = {}
-    color_counts = {}
+    combined = {}       # (area, job) -> count
+    left_combined = {}
     total_cells = 0
-    left_job_counts = {}
-    left_color_counts = {}
     left_total = 0
     
     for row in rows:
         is_left = row.get('left', False)
         days = row.get('days', {})
-        # Handle both array and dict format
         if isinstance(days, list):
             day_items = enumerate(days)
         else:
@@ -3525,45 +3522,36 @@ async def get_workplan_costing():
             for period in ['am', 'pm']:
                 cell = day_data.get(period, {})
                 job = cell.get('job', '').strip()
-                color = cell.get('color', '')
-                color_id = cell.get('color_id', '')
-                
                 if not job:
                     continue
                 
+                color = cell.get('color', '')
+                color_id = cell.get('color_id', '')
+                area = 'Unassigned'
+                if color_id and color_id in color_lookup:
+                    area = color_lookup[color_id]['name']
+                elif color and color in color_by_hex:
+                    area = color_by_hex[color]['name']
+                
+                key = f"{area}, {job}"
                 if is_left:
                     left_total += 1
-                    left_job_counts[job] = left_job_counts.get(job, 0) + 1
-                    c_name = ''
-                    if color_id and color_id in color_lookup:
-                        c_name = color_lookup[color_id]['name']
-                    elif color and color in color_by_hex:
-                        c_name = color_by_hex[color]['name']
-                    if c_name:
-                        left_color_counts[c_name] = left_color_counts.get(c_name, 0) + 1
+                    left_combined[key] = left_combined.get(key, 0) + 1
                 else:
                     total_cells += 1
-                    job_counts[job] = job_counts.get(job, 0) + 1
-                    c_name = ''
-                    if color_id and color_id in color_lookup:
-                        c_name = color_lookup[color_id]['name']
-                    elif color and color in color_by_hex:
-                        c_name = color_by_hex[color]['name']
-                    if c_name:
-                        color_counts[c_name] = color_counts.get(c_name, 0) + 1
+                    combined[key] = combined.get(key, 0) + 1
     
     def to_breakdown(counts, total):
         return sorted([
-            {"name": k, "count": v, "percent": round(v / total * 100, 1) if total > 0 else 0}
+            {"name": k, "area": k.split(", ", 1)[0], "job": k.split(", ", 1)[1] if ", " in k else k,
+             "count": v, "percent": round(v / total * 100, 1) if total > 0 else 0}
             for k, v in counts.items()
         ], key=lambda x: -x["count"])
     
     return {
-        "job_breakdown": to_breakdown(job_counts, total_cells),
-        "color_breakdown": to_breakdown(color_counts, total_cells),
+        "combined_breakdown": to_breakdown(combined, total_cells),
         "total_cells": total_cells,
-        "left_job_breakdown": to_breakdown(left_job_counts, left_total),
-        "left_color_breakdown": to_breakdown(left_color_counts, left_total),
+        "left_combined_breakdown": to_breakdown(left_combined, left_total),
         "left_total_cells": left_total
     }
 
