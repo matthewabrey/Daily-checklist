@@ -86,6 +86,8 @@ export default function WorkplanEditor() {
   const [showLeavers, setShowLeavers] = useState(false);
   const [showCosting, setShowCosting] = useState(false);
   const [costingData, setCostingData] = useState(null);
+  const [costingFrom, setCostingFrom] = useState('');
+  const [costingUntil, setCostingUntil] = useState('');
   const [staffFilter, setStaffFilter] = useState('');
   const [assetFilter, setAssetFilter] = useState('');
 
@@ -467,9 +469,14 @@ export default function WorkplanEditor() {
   const leftRows = rows.filter(r => r.left);
   const displayRows = showLeavers ? rows : activeRows;
 
-  const fetchCosting = async () => {
+  const fetchCosting = async (from, until) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/workplan/costing`);
+      let url = `${API_BASE_URL}/api/workplan/costing`;
+      const params = [];
+      if (from) params.push(`from_date=${from}`);
+      if (until) params.push(`until_date=${until}`);
+      if (params.length) url += `?${params.join('&')}`;
+      const res = await fetch(url);
       setCostingData(await res.json());
       setShowCosting(true);
     } catch { toast.error('Failed to load costing'); }
@@ -508,7 +515,7 @@ export default function WorkplanEditor() {
           <Button variant="outline" size="sm" onClick={() => setShowLeavers(!showLeavers)} data-testid="toggle-leavers-btn">
             {showLeavers ? 'Hide' : 'Show'} Leavers ({leftRows.length})
           </Button>
-          <Button variant="outline" size="sm" onClick={fetchCosting} data-testid="costing-btn">
+          <Button variant="outline" size="sm" onClick={() => fetchCosting(costingFrom, costingUntil)} data-testid="costing-btn">
             <BarChart3 className="h-4 w-4 mr-1" /> Costing
           </Button>
           <Button onClick={publish} className="bg-green-600 hover:bg-green-700" size="sm" data-testid="publish-btn">
@@ -617,15 +624,25 @@ export default function WorkplanEditor() {
                 </td>
                 {/* employee */}
                 <td className="border p-0.5 sticky left-0 z-10" style={{ background: tint || '#ffffff' }}>
-                  <input
-                    list="wp-staff"
-                    value={row.employee_name}
-                    onChange={(e) => { setStaffFilter(e.target.value); updateRow(row.id, { employee_name: e.target.value }); }}
-                    onFocus={(e) => setStaffFilter(e.target.value)}
-                    placeholder="Name"
-                    className="w-full px-1 py-1 text-xs outline-none bg-transparent"
-                    data-testid={`wp-employee-${rIdx}`}
-                  />
+                  <div className="flex items-center gap-0.5">
+                    <input
+                      list="wp-staff"
+                      value={row.employee_name}
+                      onChange={(e) => { setStaffFilter(e.target.value); updateRow(row.id, { employee_name: e.target.value }); }}
+                      onFocus={(e) => setStaffFilter(e.target.value)}
+                      placeholder="Name"
+                      className="flex-1 min-w-0 px-1 py-1 text-xs outline-none bg-transparent"
+                      data-testid={`wp-employee-${rIdx}`}
+                    />
+                    <button
+                      onClick={() => updateRow(row.id, { left: !row.left })}
+                      className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-semibold leading-none ${row.left ? "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300" : "bg-orange-50 text-orange-500 hover:bg-orange-100 border border-orange-200"}`}
+                      title={row.left ? "Mark as active" : "Mark as left"}
+                      data-testid={`wp-left-${rIdx}`}
+                    >
+                      {row.left ? '↩ Active' : '✕ Left'}
+                    </button>
+                  </div>
                 </td>
                 {/* vehicle */}
                 <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
@@ -760,14 +777,6 @@ export default function WorkplanEditor() {
                     <button onClick={() => deleteRow(row.id)} className="text-red-400 hover:text-red-700" title="Delete row" data-testid={`wp-delete-${rIdx}`}>
                       <Trash2 className="h-3 w-3" />
                     </button>
-                    <button
-                      onClick={() => updateRow(row.id, { left: !row.left })}
-                      className={`flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-medium ${row.left ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-orange-100 text-orange-700 hover:bg-orange-200"}`}
-                      title={row.left ? "Mark as active" : "Mark as left"}
-                      data-testid={`wp-left-${rIdx}`}
-                    >
-                      {row.left ? <><UserCheck className="h-3.5 w-3.5" /> Active</> : <><UserX className="h-3.5 w-3.5" /> Left</>}
-                    </button>
                     <button onClick={() => moveRow(row.id, 1)} className="text-gray-400 hover:text-gray-700" title="Move down">
                       <ChevronDown className="h-3 w-3" />
                     </button>
@@ -900,6 +909,39 @@ export default function WorkplanEditor() {
       <Dialog open={showCosting} onOpenChange={(o) => !o && setShowCosting(false)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby={undefined}>
           <DialogHeader><DialogTitle>Workplan Costing Breakdown</DialogTitle></DialogHeader>
+          
+          {/* Date range selector */}
+          <div className="flex items-center gap-3 pb-3 border-b">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-600">From:</label>
+              <input
+                type="date"
+                value={costingFrom}
+                onChange={(e) => setCostingFrom(e.target.value)}
+                className="text-xs border rounded px-2 py-1.5"
+                data-testid="costing-from-date"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-600">Until:</label>
+              <input
+                type="date"
+                value={costingUntil}
+                onChange={(e) => setCostingUntil(e.target.value)}
+                className="text-xs border rounded px-2 py-1.5"
+                data-testid="costing-until-date"
+              />
+            </div>
+            <Button size="sm" variant="outline" onClick={() => fetchCosting(costingFrom, costingUntil)} data-testid="costing-refresh-btn">
+              Refresh
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setCostingFrom(''); setCostingUntil(''); fetchCosting('', ''); }} className="text-xs text-gray-500">
+              Clear dates
+            </Button>
+            {costingData?.weeks_included && (
+              <span className="text-xs text-gray-400 ml-auto">{costingData.weeks_included} week(s)</span>
+            )}
+          </div>
           {costingData && (
             <div className="space-y-6">
               {/* Active staff - Combined Area + Job breakdown */}

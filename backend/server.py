@@ -3144,7 +3144,21 @@ async def get_workplan():
 
 @app.put("/api/workplan")
 async def save_workplan(req: WorkplanSaveRequest):
-    """Save the draft workplan."""
+    """Save the draft workplan. Auto-archives previous week if week_start changed."""
+    # Check if week changed — archive the old one
+    existing = await db.workplan.find_one({"key": "current"}, {"_id": 0})
+    if existing and existing.get("week_start") and existing.get("week_start") != req.week_start:
+        old_rows = existing.get("draft_rows", [])
+        if old_rows:
+            await db.workplan_archive.update_one(
+                {"week_start": existing["week_start"]},
+                {"$set": {
+                    "week_start": existing["week_start"],
+                    "rows": old_rows,
+                    "archived_at": datetime.now(timezone.utc).isoformat()
+                }},
+                upsert=True
+            )
     await db.workplan.update_one(
         {"key": "current"},
         {"$set": {
@@ -3494,52 +3508,80 @@ async def import_workplan_staff():
     }
 
 @app.get("/api/workplan/costing")
-async def get_workplan_costing():
-    """Calculate % breakdown of time by (area/crop + job) combination."""
-    doc = await db.workplan.find_one({"key": "current"}, {"_id": 0})
-    if not doc:
-        return {"combined_breakdown": [], "total_cells": 0, "left_combined_breakdown": [], "left_total_cells": 0}
-    
-    rows = doc.get("draft_rows", []) or doc.get("published_rows", [])
+async def get_workplan_costing(from_date: str = None, until_date: str = None):
+    """Calculate % breakdown by (area/crop + job). Aggregates current + archived weeks.
+    Optional from_date/until_date (YYYY-MM-DD) filter which days to include."""
     
     all_colors = await db.workplan_colors.find({}, {"_id": 0}).to_list(length=None)
     color_lookup = {c["id"]: c for c in all_colors}
     color_by_hex = {c["color"]: c for c in all_colors}
     
-    combined = {}       # (area, job) -> count
+    # Collect all week documents (current + archives)
+    week_docs = []
+    current = await db.workplan.find_one({"key": "current"}, {"_id": 0})
+    if current and current.get("draft_rows"):
+        week_docs.append({"week_start": current.get("week_start"), "rows": current.get("draft_rows", [])})
+    archives = await db.workplan_archive.find({}, {"_id": 0}).to_list(length=None)
+    for a in archives:
+        week_docs.append({"week_start": a.get("week_start"), "rows": a.get("rows", [])})
+    
+    combined = {}
     left_combined = {}
     total_cells = 0
     left_total = 0
     
-    for row in rows:
-        is_left = row.get('left', False)
-        days = row.get('days', {})
-        if isinstance(days, list):
-            day_items = enumerate(days)
-        else:
-            day_items = days.items()
-        for day_idx, day_data in day_items:
-            for period in ['am', 'pm']:
-                cell = day_data.get(period, {})
-                job = cell.get('job', '').strip()
-                if not job:
+    fd = None
+    ud = None
+    if from_date:
+        try: fd = datetime.strptime(from_date, "%Y-%m-%d").date()
+        except ValueError: pass
+    if until_date:
+        try: ud = datetime.strptime(until_date, "%Y-%m-%d").date()
+        except ValueError: pass
+    
+    for week_doc in week_docs:
+        ws = week_doc.get("week_start")
+        if not ws:
+            continue
+        try:
+            week_monday = datetime.strptime(ws, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        
+        for row in week_doc.get("rows", []):
+            is_left = row.get('left', False)
+            days = row.get('days', {})
+            if isinstance(days, list):
+                day_items = list(enumerate(days))
+            else:
+                day_items = [(int(k), v) for k, v in days.items()]
+            
+            for day_idx, day_data in day_items:
+                day_date = week_monday + timedelta(days=int(day_idx))
+                if fd and day_date < fd:
+                    continue
+                if ud and day_date > ud:
                     continue
                 
-                color = cell.get('color', '')
-                color_id = cell.get('color_id', '')
-                area = 'Unassigned'
-                if color_id and color_id in color_lookup:
-                    area = color_lookup[color_id]['name']
-                elif color and color in color_by_hex:
-                    area = color_by_hex[color]['name']
-                
-                key = f"{area}, {job}"
-                if is_left:
-                    left_total += 1
-                    left_combined[key] = left_combined.get(key, 0) + 1
-                else:
-                    total_cells += 1
-                    combined[key] = combined.get(key, 0) + 1
+                for period in ['am', 'pm']:
+                    cell = day_data.get(period, {})
+                    job = cell.get('job', '').strip()
+                    if not job:
+                        continue
+                    color = cell.get('color', '')
+                    color_id = cell.get('color_id', '')
+                    area = 'Unassigned'
+                    if color_id and color_id in color_lookup:
+                        area = color_lookup[color_id]['name']
+                    elif color and color in color_by_hex:
+                        area = color_by_hex[color]['name']
+                    key = f"{area}, {job}"
+                    if is_left:
+                        left_total += 1
+                        left_combined[key] = left_combined.get(key, 0) + 1
+                    else:
+                        total_cells += 1
+                        combined[key] = combined.get(key, 0) + 1
     
     def to_breakdown(counts, total):
         return sorted([
@@ -3552,7 +3594,8 @@ async def get_workplan_costing():
         "combined_breakdown": to_breakdown(combined, total_cells),
         "total_cells": total_cells,
         "left_combined_breakdown": to_breakdown(left_combined, left_total),
-        "left_total_cells": left_total
+        "left_total_cells": left_total,
+        "weeks_included": len(week_docs)
     }
 
 if __name__ == "__main__":
