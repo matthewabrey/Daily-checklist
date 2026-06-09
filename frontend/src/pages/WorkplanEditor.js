@@ -6,8 +6,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Save, Send, Trash2, Copy, Palette, ListPlus,
-  ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine, BarChart3, UserX, UserCheck
+  ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine, BarChart3, UserX, UserCheck, User
 } from 'lucide-react';
+import { useAuth } from '../App';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -69,6 +70,9 @@ const newRow = () => ({
 
 export default function WorkplanEditor() {
   const navigate = useNavigate();
+  const { employee } = useAuth();
+  const currentUserName = employee?.name || '';
+  
   const [weekStart, setWeekStart] = useState(toISO(mondayOf(new Date())));
   const [rows, setRows] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -528,10 +532,34 @@ export default function WorkplanEditor() {
     ? assetOptions.filter(a => a.toLowerCase().includes(assetFilter.toLowerCase())).slice(0, 30)
     : assetOptions.slice(0, 30);
 
-  // Separate active vs left rows
+  // Separate active vs left rows, with current user's rows first
   const activeRows = rows.filter(r => !r.left);
   const leftRows = rows.filter(r => r.left);
-  const displayRows = showLeavers ? rows : activeRows;
+  
+  // Sort function to put current user's rows first (as employee or manager)
+  const sortWithUserFirst = (rowList) => {
+    if (!currentUserName) return rowList;
+    const normalize = (s) => (s || '').toLowerCase().trim();
+    const userName = normalize(currentUserName);
+    
+    return [...rowList].sort((a, b) => {
+      const aIsUser = normalize(a.employee_name).includes(userName) || normalize(a.manager).includes(userName);
+      const bIsUser = normalize(b.employee_name).includes(userName) || normalize(b.manager).includes(userName);
+      
+      if (aIsUser && !bIsUser) return -1;
+      if (!aIsUser && bIsUser) return 1;
+      return 0; // keep original order for non-user rows
+    });
+  };
+  
+  const displayRows = sortWithUserFirst(showLeavers ? rows : activeRows);
+  
+  // Check if current user has any rows
+  const userRows = currentUserName ? displayRows.filter(r => {
+    const normalize = (s) => (s || '').toLowerCase().trim();
+    const userName = normalize(currentUserName);
+    return normalize(r.employee_name).includes(userName) || normalize(r.manager).includes(userName);
+  }) : [];
 
   const fetchCosting = async (from, until) => {
     try {
@@ -552,6 +580,29 @@ export default function WorkplanEditor() {
       <datalist id="wp-staff">{filteredStaff.map((s) => <option key={s} value={s} />)}</datalist>
       <datalist id="wp-managers">{filteredManagers.map((s) => <option key={s} value={s} />)}</datalist>
       <datalist id="wp-assets">{filteredAssets.map((a) => <option key={a} value={a} />)}</datalist>
+
+      {/* Welcome banner for logged-in user */}
+      {currentUserName && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 flex items-center gap-3" data-testid="user-welcome-banner">
+          <div className="bg-blue-100 rounded-full p-2">
+            <User className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-gray-800">Welcome, {currentUserName}</p>
+            {userRows.length > 0 ? (
+              <p className="text-sm text-gray-600">
+                You have <span className="font-medium text-blue-700">{userRows.length}</span> assignment{userRows.length !== 1 ? 's' : ''} this week 
+                {userRows.some(r => r.employee_name?.toLowerCase().includes(currentUserName.toLowerCase())) && 
+                  <span className="text-green-600 ml-1">(as employee)</span>}
+                {userRows.some(r => r.manager?.toLowerCase().includes(currentUserName.toLowerCase())) && 
+                  <span className="text-purple-600 ml-1">(as manager)</span>}
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500">No assignments found for you this week</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
