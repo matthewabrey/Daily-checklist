@@ -1,271 +1,92 @@
-# Machine Checklist Application - Product Requirements Document
+# Machine Checklist & Work Management App — PRD
 
 ## Original Problem Statement
-Build a machine checklist application for managing equipment startup inspections and safety checks. The app allows employees to complete daily checks on machinery, track repairs, and manage work progress.
+QR code-based machine checklist application with health, safety, and work management features.
 
-## Core Features
+## Core Features (Production)
+1. **QR Code Machine Checks** — Scan QR to access checklists (Daily, Workshop Service, Fuel & Mileage)
+2. **Breakdown/Repair Reporting** — Report and track equipment repairs
+3. **Work Progress Tracking** — Track hectare-based work progress jobs
+4. **Staff Management** — Upload staff list via Excel, login by employee number
+5. **Asset Management** — Upload asset list with check types and templates
+6. **Manager Dashboard** — View checks, repairs, acknowledge issues
+7. **Admin Panel** — Staff upload, asset upload, QR label printing, SharePoint sync
 
-### Authentication & Roles
-- Employee login via employee number
-- Admin role: Full access to all features
-- Manager role: Access to Work Progress and Historic Data
-- Workshop role: Access to workshop-related features
+## Hidden Features (HIDDEN FOR DEPLOYMENT)
+- Near Misses, Suggestions, Accidents, Whistleblowing, Training — commented out in `App.js` with `HIDDEN FOR DEPLOYMENT` markers
 
-### Equipment Checklist System
-- Daily startup checks for tractors and machinery
-- Grader startup checks with specific safety requirements
-- Workshop service records
-- Photo capture for documenting issues
-- QR code scanning for quick machine selection
+## Daily Workplan Feature (NEW — June 2026)
+- **Manager Editor** at `/workplan` (admin only): 7-day grid with AM/PM cells per day
+- Excel-like editing: click select, multi-select, copy/paste, drag-fill handle
+- Vehicle/Implement from Asset list, Employee/Manager from Staff list via datalist
+- Colour categories (crop/area) for cost tracking
+- Past days hidden in editor (kept in DB for costing)
+- Rows tinted by manager, manual group colour bands, Sort by Manager
+- **Publish to Home** pushes snapshot to dashboard
+- **Staff dashboard board**: published plan with day tabs, grouped by manager
 
-### Admin Features
-- Upload staff list from Excel (with Manager/Admin/Workshop columns)
-- Upload asset list from Excel
-- QR code generation and printing for assets
-- Dashboard with statistics
+## SharePoint Auto-Sync
+- Daily 9 AM sync via Microsoft Graph API (Client Credentials flow)
+- Syncs Staff (`Name List.xlsx`) and Assets (`AssetList.xlsx`) from OneDrive
+- Admin UI for connection testing, manual sync, and status monitoring
 
-### Manager Features (New - Added Jan 2026)
-- Work Progress Tracking
-  - Create jobs (e.g., "Carrot Drilling" with total area)
-  - Log daily progress (hectares completed)
-  - View statistics (area completed, area left, daily average)
-- Historic Data viewing
+## Tech Stack
+- **Backend**: FastAPI, Motor (MongoDB async), APScheduler, Microsoft Graph API
+- **Frontend**: React, TailwindCSS, Shadcn/UI, Recharts
+- **Database**: MongoDB
 
-### Compulsory Checks Feature (New - Added Jan 2026)
-- Checklist items can be marked as "compulsory" in uploaded Excel templates
-- Compulsory items are visually distinguished (red asterisk, "COMPULSORY" label, red border)
-- If a compulsory item is marked as failed/unsatisfactory, the user CANNOT sign off on the checklist
-- Backend validation rejects checklists with failed compulsory items
-- Frontend disables submit button when compulsory items fail
+## Data Model
+- `staff`: {employee_number, name, active, admin_control, workshop_control}
+- `assets`: {id, check_type, name, make, model}
+- `checklists`: {id, check_type, machine_make, machine_name, completed_at, ...}
+- `workplan`: {key:'current', week_start, draft_rows, published_rows, published_week_start, published_at}
+- `workplan_jobs`: {id, name, order}
+- `workplan_colors`: {id, name, color, order}
 
-## Technical Stack
-- Frontend: React with TailwindCSS, Shadcn/UI components
-- Backend: FastAPI (Python)
-- Database: MongoDB
-- Additional: QR code generation (qrcode + Pillow)
-
-## Data Models
-
-### Staff
+## Architecture
 ```
-{
-  id: string,
-  employee_number: string,
-  name: string,
-  active: boolean,
-  admin_control: "yes" | "no" | null,
-  manager_control: "yes" | "no" | null,
-  workshop_control: "yes" | "no" | null
-}
-```
-
-### Asset
-```
-{
-  id: string,
-  check_type: string,
-  name: string,
-  make: string,
-  qr_printed: boolean,
-  qr_printed_at: string | null
-}
+/app/
+├── backend/
+│   ├── server.py                 # FastAPI app (endpoints, scheduler, workplan)
+│   ├── cached_stats.py           # Dashboard stats cache
+│   ├── sharepoint_auto_sync.py   # MS Graph API sync logic
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── App.js                # Main React app (~11,300 lines)
+│   │   ├── pages/WorkplanEditor.js   # NEW: Workplan editor page
+│   │   ├── components/WorkplanBoard.js # NEW: Dashboard workplan board
+│   │   ├── components/common/
+│   │   ├── contexts/
+│   │   ├── pages/
+│   │   └── services/
+│   └── package.json
+└── memory/
+    └── PRD.md
 ```
 
-### ChecklistTemplateItem
-```
-{
-  item: string,
-  compulsory: boolean
-}
-```
+## Completed Work
+- [x] QR Code Machine Checks
+- [x] Breakdown/Repair Reporting
+- [x] Work Progress Tracking
+- [x] Staff Management
+- [x] Asset Management with Templates
+- [x] Manager Dashboard
+- [x] Admin Panel
+- [x] SharePoint Auto-Sync (Staff + Assets)
+- [x] Near Miss Investigation (hidden)
+- [x] Export Timeout Fix
+- [x] Template Diagnostics Panel
+- [x] Daily Workplan Feature (June 2026)
+- [x] SharePoint sync template matching bug fix (June 2026)
 
-### ChecklistItem (in submitted checklist)
-```
-{
-  item: string,
-  status: "unchecked" | "satisfactory" | "unsatisfactory" | "n/a",
-  notes: string | null,
-  photos: array,
-  compulsory: boolean
-}
-```
+## Pending / Backlog
+- [ ] P0: Frontend Refactoring (`App.js` ~11,300 lines → break into components)
+- [ ] P1: Fix lint errors in `App.js`
+- [ ] P1: Restore hidden features when ready for full rollout
+- [ ] P2: Date range filter for "All Checks Overview"
+- [ ] P2: Enhance mobile-friendliness
 
-### Job
-```
-{
-  id: string,
-  name: string,
-  total_area: float,
-  created_at: string,
-  status: "active" | "complete"
-}
-```
-
-### WorkEntry
-```
-{
-  id: string,
-  job_id: string,
-  hectares_completed: float,
-  date_completed: string,
-  entered_by: string,
-  entered_at: string
-}
-```
-
-### NearMiss (Updated Feb 2026)
-```
-{
-  id: string,
-  description: string,
-  location: string | null,
-  photos: array,
-  is_anonymous: boolean,
-  submitted_by: string | null,
-  employee_number: string | null,
-  created_at: string,
-  acknowledged: boolean,
-  acknowledged_at: string | null,
-  acknowledged_by: string | null,
-  // Investigation fields
-  severity: "red" | "orange" | "green" | null,
-  action_required: string | null,
-  progress: "not_started" | "in_progress" | "completed" | null,
-  investigation_notes: string | null,
-  no_swp_or_not_covered: boolean,
-  swp_training_not_received: boolean,
-  trained_but_not_following: boolean,
-  investigated_by: string | null,
-  investigated_at: string | null
-}
-```
-
-### Suggestion
-```
-{
-  id: string,
-  title: string,
-  description: string,
-  category: "safety" | "efficiency" | "equipment" | "other" | null,
-  is_anonymous: boolean,
-  submitted_by: string | null,
-  employee_number: string | null,
-  created_at: string,
-  status: "new" | "reviewed" | "implemented" | "declined",
-  reviewed_at: string | null,
-  reviewed_by: string | null,
-  review_notes: string | null
-}
-```
-
-## API Endpoints
-
-### Authentication
-- POST /api/auth/employee-login - Login with employee number
-
-### Assets
-- GET /api/assets - Get all assets
-- GET /api/assets/makes - Get unique makes
-- GET /api/assets/names/{make} - Get names for a make
-- POST /api/admin/upload-assets-file - Upload asset list Excel
-
-### Checklists
-- GET /api/checklist-templates/{check_type} - Get template with compulsory flags
-- POST /api/checklists - Submit checklist (validates compulsory items)
-- GET /api/checklists - Get submitted checklists
-
-### Jobs (Work Progress)
-- GET /api/jobs - Get all jobs with stats
-- POST /api/admin/jobs - Create new job
-- DELETE /api/admin/jobs/{job_id} - Delete job
-- POST /api/admin/jobs/{job_id}/work-entry - Add work entry
-- PUT /api/admin/jobs/{job_id}/reopen - Reopen completed job
-
-### Near Misses
-- POST /api/near-misses - Submit near miss report
-- GET /api/near-misses - Get list of near misses
-- GET /api/near-misses/count - Get counts (new, total)
-- POST /api/near-misses/{id}/acknowledge - Acknowledge a near miss (admin)
-- PUT /api/near-misses/{id}/investigate - Add/update investigation details (admin/manager)
-
-### Suggestions
-- POST /api/suggestions - Submit suggestion
-- GET /api/suggestions - Get list of suggestions
-- GET /api/suggestions/count - Get counts (new, total)
-- PUT /api/suggestions/{id}/review - Review suggestion (set status, add notes)
-
-## What's Been Implemented
-
-### January 15, 2026
-- **Near Misses & Suggestions Feature** (COMPLETE)
-  - Backend: NearMiss and Suggestion models with anonymous submission support
-  - Backend: POST/GET /api/near-misses endpoints with acknowledge action
-  - Backend: POST/GET/PUT /api/suggestions endpoints with review actions (reviewed, implemented, declined)
-  - Backend: Dashboard stats include near_misses_new, near_misses_total, suggestions_new, suggestions_total
-  - Frontend: Dashboard cards showing Near Misses and Suggestions counts
-  - Frontend: "Report Near Miss" button with modal (name, location, description, photo upload, anonymous option)
-  - Frontend: "Submit Suggestion" button with modal (name, title, category, description, anonymous option)
-  - Frontend: /near-misses page with filter and detail modal (admin can acknowledge)
-  - Frontend: /suggestions page with filter and detail modal (admin can review)
-  - Testing: 18/18 backend tests passed, all frontend features verified
-
-### February 6, 2026
-- **Near Miss Investigation Feature** (COMPLETE)
-  - Backend: Added investigation fields to NearMiss model (severity, progress, action_required, investigation_notes, SWP checkboxes)
-  - Backend: PUT /api/near-misses/{id}/investigate endpoint to update investigation details
-  - Frontend: Investigation section in near miss detail modal
-  - Frontend: Admin/Manager can add/edit investigation with:
-    - Severity buttons (Red=High, Orange=Medium, Green=Low) with color coding
-    - Progress dropdown (Not Started, In Progress, Completed)
-    - Action to be Taken textarea
-    - Investigation Notes textarea
-    - 3 SWP checkboxes (No SWP in place, Training not received, Not following SWP)
-  - Frontend: List view shows severity color dot and progress badge
-  - Frontend: Regular users can view but not edit investigations
-  - Testing: 100% backend and frontend tests passed
-
-- **Frontend Refactoring Progress** (IN PROGRESS)
-  - Created directory structure: /pages, /components/common, /contexts, /services
-  - Extracted AuthContext to /contexts/AuthContext.js
-  - Extracted API service to /services/api.js
-  - Extracted QRScanner component to /components/common/QRScanner.jsx
-  - Extracted NearMissesPage to /pages/NearMissesPage.jsx
-  - Main App.js still needs further extraction (11,000+ lines)
-
-### January 13, 2026
-- **Compulsory Checks Feature** (COMPLETE)
-  - Backend: Added `compulsory` field to ChecklistTemplateItem and ChecklistItem models
-  - Backend: Updated asset file upload to parse "Compulsory" column
-  - Backend: Added validation to reject checklists with failed compulsory items
-  - Frontend: Visual indicators (red asterisk, COMPULSORY label, red border)
-  - Frontend: Submit button disabled when compulsory items fail
-  - Frontend: Error messages when trying to submit with failed compulsory items
-  - Default templates (daily_check, grader_startup) have compulsory items
-  - Testing: 16/16 backend tests passed
-
-- **Delete Job Fix** (VERIFIED)
-  - DELETE /api/admin/jobs/{job_id} working correctly
-  - Frontend delete button on Manager page working
-
-- **Manager Role Access** (VERIFIED)
-  - Staff upload recognizes "Manager" column
-  - Manager page accessible to managers and admins
-
-## Upcoming Tasks
-1. **Frontend Refactoring (P1 - CRITICAL)** - App.js is 11,000+ lines and needs to be broken into:
-   - Pages: Dashboard, EmployeeLogin, NewChecklist, WorkProgressAdmin, Records, etc.
-   - Components: Header, Modals, Cards, Forms
-   - Use the new /pages, /components, /contexts, /services structure
-2. Fix pre-existing lint errors in frontend (P2)
-3. Add date range filter to "All Checks Overview" modal (P2)
-4. Enhance mobile-friendliness of the UI (P2)
-
-## How to Use Compulsory Feature
-1. In your AssetList.xlsx, add a "Compulsory" column to the checklist sheets
-2. Mark items as compulsory with values: yes, y, true, 1, or x
-3. Upload the file via Admin Panel > Upload Asset List
-4. When employees complete checklists, compulsory items will show visual indicators
-5. Users cannot sign off if any compulsory item is marked as failed
-
-## Test Credentials
-- Admin/Manager: Employee Number `4444`
+## Credentials
+- Admin: Employee Number `4444`
+- Regular: `1447` (Abbie Nixon), `1234` (Matthew Abrey)
