@@ -91,6 +91,7 @@ export default function WorkplanEditor() {
   const [staffFilter, setStaffFilter] = useState('');
   const [managerFilter, setManagerFilter] = useState('');
   const [assetFilter, setAssetFilter] = useState('');
+  const [selectedRows, setSelectedRows] = useState(new Set()); // row IDs selected for copy
 
   // excel-like cell selection / clipboard / drag-fill
   const [selCells, setSelCells] = useState([]); // [{rowIdx, colIdx}]
@@ -242,6 +243,36 @@ export default function WorkplanEditor() {
   const sortByManager = () => {
     clearSelection();
     setRows((rs) => [...rs].sort((a, b) => (a.manager || 'zzz').localeCompare(b.manager || 'zzz')));
+  };
+
+  // ---------- row selection & copy ----------
+  const toggleRowSelection = (rowId) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  };
+  const selectAllRows = () => {
+    const allIds = new Set(displayRows.map((r) => r.id));
+    setSelectedRows(allIds);
+  };
+  const clearRowSelection = () => setSelectedRows(new Set());
+  const copySelectedRows = () => {
+    if (selectedRows.size === 0) {
+      toast.error('No rows selected');
+      return;
+    }
+    const toCopy = rows.filter((r) => selectedRows.has(r.id));
+    const copies = toCopy.map((r) => ({
+      ...r,
+      id: crypto.randomUUID(),
+      employee_name: r.employee_name ? `${r.employee_name} (copy)` : '',
+    }));
+    setRows((rs) => [...rs, ...copies]);
+    setSelectedRows(new Set());
+    toast.success(`Copied ${copies.length} row(s)`);
   };
 
   // ---------- excel-like cell ops ----------
@@ -518,6 +549,16 @@ export default function WorkplanEditor() {
           <Button variant="outline" size="sm" onClick={sortByManager} data-testid="sort-manager-btn">
             Sort by Manager
           </Button>
+          {selectedRows.size > 0 && (
+            <Button variant="outline" size="sm" onClick={copySelectedRows} data-testid="copy-rows-btn" className="border-blue-400 text-blue-600">
+              <Copy className="h-4 w-4 mr-1" /> Copy {selectedRows.size} Row{selectedRows.size > 1 ? 's' : ''}
+            </Button>
+          )}
+          {selectedRows.size > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearRowSelection} data-testid="clear-selection-btn">
+              Clear Selection
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setShowLeavers(!showLeavers)} data-testid="toggle-leavers-btn">
             {showLeavers ? 'Hide' : 'Show'} Leavers ({leftRows.length})
           </Button>
@@ -582,7 +623,16 @@ export default function WorkplanEditor() {
         <table className="text-xs border-collapse" style={{ minWidth: 1100 }}>
           <thead>
             <tr className="bg-gray-100 text-gray-700">
-              <th className="p-1 border w-6"></th>
+              <th className="p-1 border w-8">
+                <input
+                  type="checkbox"
+                  checked={selectedRows.size > 0 && displayRows.every((r) => selectedRows.has(r.id))}
+                  onChange={(e) => e.target.checked ? selectAllRows() : clearRowSelection()}
+                  className="w-4 h-4 cursor-pointer"
+                  title="Select all rows"
+                  data-testid="select-all-rows"
+                />
+              </th>
               <th className="p-2 border text-left sticky left-0 bg-gray-100 z-10" style={{ minWidth: 130 }}>Employee</th>
               <th className="p-2 border text-left" style={{ minWidth: 120 }}>Vehicle</th>
               <th className="p-2 border text-left" style={{ minWidth: 120 }}>Implement</th>
@@ -618,15 +668,15 @@ export default function WorkplanEditor() {
               const tint = row.left ? '#fef2f2' : managerTint(row.manager);
               return (
               <tr key={row.id} className={row.left ? 'opacity-50' : 'hover:bg-yellow-50'} data-testid={`wp-row-${rIdx}`}>
-                {/* band colour */}
-                <td
-                  className="border p-0 cursor-pointer text-center align-middle"
-                  style={{ background: row.group_color || 'transparent', width: 18 }}
-                  onClick={() => setBandPickerRow(row.id)}
-                  title="Click to colour-band this person (group)"
-                  data-testid={`wp-band-${rIdx}`}
-                >
-                  <span className="text-gray-300 text-[9px]">{row.left ? '✕' : '⋮'}</span>
+                {/* row selection checkbox */}
+                <td className="border p-1 text-center align-middle" style={{ background: tint || 'transparent' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedRows.has(row.id)}
+                    onChange={() => toggleRowSelection(row.id)}
+                    className="w-4 h-4 cursor-pointer"
+                    data-testid={`wp-select-row-${rIdx}`}
+                  />
                 </td>
                 {/* employee */}
                 <td className="border p-0.5 sticky left-0 z-10" style={{ background: tint || '#ffffff' }}>
