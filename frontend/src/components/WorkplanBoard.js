@@ -125,6 +125,7 @@ export default function WorkplanBoard() {
   const isUserEmployee = userAssignments.some(r => normalize(r.employee_name).includes(userName));
   const isUserManager = userAssignments.some(r => normalize(r.manager).includes(userName));
 
+  // Full label for desktop, short for mobile
   const dayLabel = (iso, idx) => {
     const d = new Date(iso + 'T00:00:00');
     const isToday = iso === todayISO;
@@ -132,31 +133,39 @@ export default function WorkplanBoard() {
     const prefix = isToday ? 'Today · ' : isTomorrow ? 'Tomorrow · ' : '';
     return `${prefix}${DAY_NAMES[idx]} ${d.getDate()}`;
   };
+  
+  // Short label for mobile
+  const dayLabelShort = (iso, idx) => {
+    const d = new Date(iso + 'T00:00:00');
+    const isToday = iso === todayISO;
+    return isToday ? 'Today' : `${DAY_NAMES[idx]} ${d.getDate()}`;
+  };
 
   return (
     <div className="bg-white border border-green-200 rounded-lg shadow-sm overflow-hidden" data-testid="workplan-board">
-      <div className="bg-green-600 text-white px-4 py-2.5 flex items-center justify-between">
+      <div className="bg-green-600 text-white px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4" />
           <span className="font-semibold text-sm">Work Plan</span>
         </div>
-        <span className="text-[10px] opacity-80">
+        <span className="text-[10px] opacity-80 hidden sm:inline">
           {data.published_at ? `Updated ${new Date(data.published_at).toLocaleDateString()}` : ''}
         </span>
       </div>
 
-      {/* day tabs */}
-      <div className="flex gap-1.5 overflow-x-auto px-3 py-2 border-b bg-green-50">
+      {/* day tabs - scrollable on mobile */}
+      <div className="flex gap-1 sm:gap-1.5 overflow-x-auto px-2 sm:px-3 py-1.5 sm:py-2 border-b bg-green-50 scrollbar-hide">
         {dayList.map((d) => (
           <button
             key={d.iso}
             onClick={() => setActiveDay(d.iso)}
-            className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            className={`whitespace-nowrap px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-colors flex-shrink-0 ${
               d.iso === selected ? 'bg-green-600 text-white' : 'bg-white text-green-700 border border-green-200'
             }`}
             data-testid={`wp-day-tab-${d.index}`}
           >
-            {dayLabel(d.iso, d.index)}
+            <span className="hidden sm:inline">{dayLabel(d.iso, d.index)}</span>
+            <span className="sm:hidden">{dayLabelShort(d.iso, d.index)}</span>
           </button>
         ))}
       </div>
