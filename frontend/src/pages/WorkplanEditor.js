@@ -89,6 +89,7 @@ export default function WorkplanEditor() {
   const [costingFrom, setCostingFrom] = useState('');
   const [costingUntil, setCostingUntil] = useState('');
   const [staffFilter, setStaffFilter] = useState('');
+  const [managerFilter, setManagerFilter] = useState('');
   const [assetFilter, setAssetFilter] = useState('');
 
   // excel-like cell selection / clipboard / drag-fill
@@ -460,6 +461,10 @@ export default function WorkplanEditor() {
     ? staffOptions.filter(s => s.toLowerCase().includes(staffFilter.toLowerCase())).slice(0, 30)
     : staffOptions.slice(0, 30);
 
+  const filteredManagers = managerFilter
+    ? staffOptions.filter(s => s.toLowerCase().includes(managerFilter.toLowerCase())).slice(0, 30)
+    : staffOptions.slice(0, 30);
+
   const filteredAssets = assetFilter
     ? assetOptions.filter(a => a.toLowerCase().includes(assetFilter.toLowerCase())).slice(0, 30)
     : assetOptions.slice(0, 30);
@@ -486,6 +491,7 @@ export default function WorkplanEditor() {
     <div className="space-y-4">
       {/* datalists — filtered for performance */}
       <datalist id="wp-staff">{filteredStaff.map((s) => <option key={s} value={s} />)}</datalist>
+      <datalist id="wp-managers">{filteredManagers.map((s) => <option key={s} value={s} />)}</datalist>
       <datalist id="wp-assets">{filteredAssets.map((a) => <option key={a} value={a} />)}</datalist>
 
       {/* header */}
@@ -670,9 +676,10 @@ export default function WorkplanEditor() {
                 {/* manager */}
                 <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
                   <input
-                    list="wp-staff"
+                    list="wp-managers"
                     value={row.manager}
-                    onChange={(e) => updateRow(row.id, { manager: e.target.value })}
+                    onChange={(e) => { setManagerFilter(e.target.value); updateRow(row.id, { manager: e.target.value }); }}
+                    onFocus={(e) => setManagerFilter(e.target.value)}
                     placeholder="Manager"
                     className="w-full px-1 py-1 text-xs outline-none bg-transparent font-medium"
                     data-testid={`wp-manager-${rIdx}`}
