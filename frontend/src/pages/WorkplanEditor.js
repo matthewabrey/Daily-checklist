@@ -667,7 +667,8 @@ export default function WorkplanEditor() {
                   <input
                     list="wp-assets"
                     value={row.implement}
-                    onChange={(e) => updateRow(row.id, { implement: e.target.value })}
+                    onChange={(e) => { setAssetFilter(e.target.value); updateRow(row.id, { implement: e.target.value }); }}
+                    onFocus={(e) => setAssetFilter(e.target.value)}
                     placeholder="Implement"
                     className="w-full px-1 py-1 text-xs outline-none bg-transparent"
                     data-testid={`wp-implement-${rIdx}`}
