@@ -11174,7 +11174,7 @@ function AppContent() {
                     Admin
                   </Link>
                 )}
-                {hasAdminAccess && (
+                {hasManagerAccess && (
                   <Link 
                     to="/workplan" 
                     className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors inline-flex items-center"
@@ -11301,9 +11301,9 @@ function AppContent() {
             <Route 
               path="/workplan" 
               element={
-                <AdminProtectedRoute>
+                <ManagerProtectedRoute>
                   <WorkplanEditor />
-                </AdminProtectedRoute>
+                </ManagerProtectedRoute>
               } 
             />
             <Route 
