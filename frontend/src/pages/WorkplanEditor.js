@@ -97,6 +97,12 @@ export default function WorkplanEditor() {
   const [assetFilter, setAssetFilter] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set()); // row IDs selected for copy
   const [selectedDay, setSelectedDay] = useState(null); // day index selected for day copy (0-6)
+  const [hiddenDays, setHiddenDays] = useState(new Set()); // day indices to hide (0-6)
+
+  // refs for synchronized scrolling
+  const leftTableRef = useRef(null);
+  const rightTableRef = useRef(null);
+  const isSyncing = useRef(false);
 
   // excel-like cell selection / clipboard / drag-fill
   const [selCells, setSelCells] = useState([]); // [{rowIdx, colIdx}]
@@ -513,9 +519,21 @@ export default function WorkplanEditor() {
 
   // hide days that have already passed (kept in data for costing, just not shown)
   const todayISO = toISO(new Date());
-  let visibleDays = [0, 1, 2, 3, 4, 5, 6].filter((i) => toISO(addDays(weekStart, i)) >= todayISO);
-  if (visibleDays.length === 0) visibleDays = [0, 1, 2, 3, 4, 5, 6];
-  const hiddenPast = 7 - visibleDays.length;
+  let availableDays = [0, 1, 2, 3, 4, 5, 6].filter((i) => toISO(addDays(weekStart, i)) >= todayISO);
+  if (availableDays.length === 0) availableDays = [0, 1, 2, 3, 4, 5, 6];
+  const hiddenPast = 7 - availableDays.length;
+  
+  // Filter out manually hidden days
+  const visibleDays = availableDays.filter(i => !hiddenDays.has(i));
+  
+  const toggleDayVisibility = (dayIndex) => {
+    setHiddenDays(prev => {
+      const next = new Set(prev);
+      if (next.has(dayIndex)) next.delete(dayIndex);
+      else next.add(dayIndex);
+      return next;
+    });
+  };
 
   const inRect = (ri, ci) => dragRect && ri >= dragRect.r0 && ri <= dragRect.r1 && ci >= dragRect.c0 && ci <= dragRect.c1;
 
@@ -531,6 +549,25 @@ export default function WorkplanEditor() {
   const filteredAssets = assetFilter
     ? assetOptions.filter(a => a.toLowerCase().includes(assetFilter.toLowerCase())).slice(0, 30)
     : assetOptions.slice(0, 30);
+
+  // Synchronized scrolling handlers
+  const handleLeftScroll = (e) => {
+    if (isSyncing.current) return;
+    isSyncing.current = true;
+    if (rightTableRef.current) {
+      rightTableRef.current.scrollTop = e.target.scrollTop;
+    }
+    requestAnimationFrame(() => { isSyncing.current = false; });
+  };
+  
+  const handleRightScroll = (e) => {
+    if (isSyncing.current) return;
+    isSyncing.current = true;
+    if (leftTableRef.current) {
+      leftTableRef.current.scrollTop = e.target.scrollTop;
+    }
+    requestAnimationFrame(() => { isSyncing.current = false; });
+  };
 
   // Separate active vs left rows, with current user's rows first
   const activeRows = rows.filter(r => !r.left);
@@ -628,7 +665,7 @@ export default function WorkplanEditor() {
       </div>
 
       {/* week controls */}
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
         <Button variant="outline" size="sm" onClick={() => setWeekStart(toISO(addDays(weekStart, -7)))}>
           ← Prev week
         </Button>
@@ -638,6 +675,34 @@ export default function WorkplanEditor() {
         <Button variant="outline" size="sm" onClick={() => setWeekStart(toISO(addDays(weekStart, 7)))}>
           Next week →
         </Button>
+        
+        {/* Day visibility toggles */}
+        <div className="flex items-center gap-1 ml-4 border-l pl-4">
+          <span className="text-xs text-gray-500 mr-1">Show days:</span>
+          {availableDays.map((i) => (
+            <button
+              key={i}
+              onClick={() => toggleDayVisibility(i)}
+              className={`px-2 py-1 text-xs rounded border transition-colors ${
+                hiddenDays.has(i) 
+                  ? 'bg-gray-100 text-gray-400 border-gray-200' 
+                  : 'bg-green-100 text-green-700 border-green-300'
+              }`}
+              title={hiddenDays.has(i) ? `Show ${DAY_NAMES[i]}` : `Hide ${DAY_NAMES[i]}`}
+              data-testid={`toggle-day-${i}`}
+            >
+              {DAY_NAMES[i]}
+            </button>
+          ))}
+          {hiddenDays.size > 0 && (
+            <button
+              onClick={() => setHiddenDays(new Set())}
+              className="text-xs text-blue-600 hover:underline ml-1"
+            >
+              Show all
+            </button>
+          )}
+        </div>
       </div>
 
       {/* legend */}
@@ -680,249 +745,255 @@ export default function WorkplanEditor() {
         {hiddenPast > 0 && <span className="ml-auto text-gray-400">{hiddenPast} past day{hiddenPast > 1 ? 's' : ''} hidden (kept for costing)</span>}
       </div>
 
-      {/* grid */}
-      <div className="overflow-auto border rounded-lg bg-white" style={{ maxHeight: 'calc(100vh - 280px)' }} data-testid="workplan-grid">
-        <table className="text-xs border-collapse" style={{ minWidth: 1100 }}>
-          <thead className="sticky top-0 z-20">
-            <tr className="bg-gray-100 text-gray-700">
-              <th className="p-1 border w-8 bg-gray-100">
-                <input
-                  type="checkbox"
-                  checked={selectedRows.size > 0 && displayRows.every((r) => selectedRows.has(r.id))}
-                  onChange={(e) => e.target.checked ? selectAllRows() : clearRowSelection()}
-                  className="w-4 h-4 cursor-pointer"
-                  title="Select all rows"
-                  data-testid="select-all-rows"
-                />
-              </th>
-              <th className="p-2 border text-left sticky left-0 bg-gray-100 z-30" style={{ minWidth: 130 }}>Employee</th>
-              <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 120 }}>Vehicle</th>
-              <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 120 }}>Implement</th>
-              <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 110 }}>Manager</th>
-              <th className="p-2 border bg-gray-100" style={{ minWidth: 70 }}>Start</th>
-              <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 200 }}>Field &amp; Notes</th>
-              {visibleDays.map((i) => (
-                <th 
-                  key={i} 
-                  className={`p-1 border text-center cursor-pointer transition-colors ${selectedDay === i ? 'bg-blue-200 ring-2 ring-blue-500' : 'bg-gray-100 hover:bg-blue-50'}`}
-                  colSpan={2} 
-                  style={{ minWidth: 200 }}
-                  onClick={() => selectedDay !== null && selectedDay !== i ? copyDayToDay(i) : selectDayColumn(i)}
-                  title={selectedDay === null ? 'Click to select this day for copying' : selectedDay === i ? 'Click to deselect' : `Click to paste ${DAY_NAMES[selectedDay]} here`}
-                  data-testid={`wp-day-header-${i}`}
-                >
-                  <div className="flex items-center justify-center gap-1">
-                    {fmtDay(weekStart, i)}
-                    {selectedDay !== null && selectedDay !== i && (
-                      <span className="text-blue-600 text-[10px] font-normal">← paste</span>
-                    )}
-                    {selectedDay === i && (
-                      <span className="text-blue-700 text-[10px] font-semibold">✓ selected</span>
-                    )}
-                  </div>
-                </th>
-              ))}
-              <th className="p-1 border w-8 bg-gray-100"></th>
-            </tr>
-            <tr className="bg-gray-50 text-[10px] text-gray-500">
-              <th className="border bg-gray-50"></th>
-              <th className="border sticky left-0 bg-gray-50 z-30"></th>
-              <th className="border bg-gray-50"></th>
-              <th className="border bg-gray-50"></th>
-              <th className="border bg-gray-50"></th>
-              <th className="border bg-gray-50"></th>
-              <th className="border bg-gray-50"></th>
-              {visibleDays.map((i) => (
-                <React.Fragment key={i}>
-                  <th className="border p-0.5 bg-gray-50">AM</th>
-                  <th className="border p-0.5 bg-gray-50">PM</th>
-                </React.Fragment>
-              ))}
-              <th className="border bg-gray-50"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayRows.map((row, rIdx) => {
-              const tint = row.left ? '#fef2f2' : managerTint(row.manager);
-              return (
-              <tr key={row.id} className={row.left ? 'opacity-50' : 'hover:bg-yellow-50'} data-testid={`wp-row-${rIdx}`}>
-                {/* row selection checkbox */}
-                <td className="border p-1 text-center align-middle" style={{ background: tint || 'transparent' }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedRows.has(row.id)}
-                    onChange={() => toggleRowSelection(row.id)}
-                    className="w-4 h-4 cursor-pointer"
-                    data-testid={`wp-select-row-${rIdx}`}
-                  />
-                </td>
-                {/* employee */}
-                <td className="border p-0.5 sticky left-0 z-10" style={{ background: tint || '#ffffff' }}>
-                  <div className="flex items-center gap-0.5">
+      {/* grid - split layout for fixed left columns and scrollable days */}
+      <div className="border rounded-lg bg-white overflow-hidden" data-testid="workplan-grid">
+        <div className="flex" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+          {/* Fixed left columns */}
+          <div 
+            ref={leftTableRef}
+            onScroll={handleLeftScroll}
+            className="flex-shrink-0 overflow-y-auto border-r-2 border-gray-300 scrollbar-hide" 
+            style={{ maxWidth: '700px' }}
+          >
+            <table className="text-xs border-collapse">
+              <thead className="sticky top-0 z-20">
+                <tr className="bg-gray-100 text-gray-700">
+                  <th className="p-1 border w-8 bg-gray-100">
                     <input
-                      list="wp-staff"
-                      value={row.employee_name}
-                      onChange={(e) => { setStaffFilter(e.target.value); updateRow(row.id, { employee_name: e.target.value }); }}
-                      onFocus={(e) => setStaffFilter(e.target.value)}
-                      placeholder="Name"
-                      className="flex-1 min-w-0 px-1 py-1 text-xs outline-none bg-transparent"
-                      data-testid={`wp-employee-${rIdx}`}
+                      type="checkbox"
+                      checked={selectedRows.size > 0 && displayRows.every((r) => selectedRows.has(r.id))}
+                      onChange={(e) => e.target.checked ? selectAllRows() : clearRowSelection()}
+                      className="w-4 h-4 cursor-pointer"
+                      title="Select all rows"
+                      data-testid="select-all-rows"
                     />
-                    <button
-                      onClick={() => updateRow(row.id, { left: !row.left })}
-                      className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-semibold leading-none ${row.left ? "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300" : "bg-orange-50 text-orange-500 hover:bg-orange-100 border border-orange-200"}`}
-                      title={row.left ? "Mark as active" : "Mark as left"}
-                      data-testid={`wp-left-${rIdx}`}
+                  </th>
+                  <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 140 }}>Employee</th>
+                  <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 100 }}>Vehicle</th>
+                  <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 100 }}>Implement</th>
+                  <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 90 }}>Manager</th>
+                  <th className="p-2 border bg-gray-100" style={{ minWidth: 65 }}>Start</th>
+                  <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 160 }}>Field &amp; Notes</th>
+                </tr>
+                <tr className="bg-gray-50 text-[10px] text-gray-500">
+                  <th className="border bg-gray-50"></th>
+                  <th className="border bg-gray-50"></th>
+                  <th className="border bg-gray-50"></th>
+                  <th className="border bg-gray-50"></th>
+                  <th className="border bg-gray-50"></th>
+                  <th className="border bg-gray-50"></th>
+                  <th className="border bg-gray-50"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayRows.map((row, rIdx) => {
+                  const tint = row.left ? '#fef2f2' : managerTint(row.manager);
+                  return (
+                    <tr key={row.id} className={row.left ? 'opacity-50' : 'hover:bg-yellow-50'} data-testid={`wp-row-left-${rIdx}`}>
+                      <td className="border p-1 text-center align-middle" style={{ background: tint || 'transparent', height: 44 }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedRows.has(row.id)}
+                          onChange={() => toggleRowSelection(row.id)}
+                          className="w-4 h-4 cursor-pointer"
+                          data-testid={`wp-select-row-${rIdx}`}
+                        />
+                      </td>
+                      <td className="border p-0.5" style={{ background: tint || '#ffffff' }}>
+                        <div className="flex items-center gap-0.5">
+                          <input
+                            list="wp-staff"
+                            value={row.employee_name}
+                            onChange={(e) => { setStaffFilter(e.target.value); updateRow(row.id, { employee_name: e.target.value }); }}
+                            onFocus={(e) => setStaffFilter(e.target.value)}
+                            placeholder="Name"
+                            className="flex-1 min-w-0 px-1 py-1 text-xs outline-none bg-transparent"
+                            data-testid={`wp-employee-${rIdx}`}
+                          />
+                          <button
+                            onClick={() => updateRow(row.id, { left: !row.left })}
+                            className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-semibold leading-none ${row.left ? "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300" : "bg-orange-50 text-orange-500 hover:bg-orange-100 border border-orange-200"}`}
+                            title={row.left ? "Mark as active" : "Mark as left"}
+                            data-testid={`wp-left-${rIdx}`}
+                          >
+                            {row.left ? '↩' : '✕'}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
+                        <input
+                          list="wp-assets"
+                          value={row.vehicle}
+                          onChange={(e) => { setAssetFilter(e.target.value); updateRow(row.id, { vehicle: e.target.value }); }}
+                          onFocus={(e) => setAssetFilter(e.target.value)}
+                          placeholder="Vehicle"
+                          className="w-full px-1 py-1 text-xs outline-none bg-transparent"
+                          data-testid={`wp-vehicle-${rIdx}`}
+                        />
+                      </td>
+                      <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
+                        <input
+                          list="wp-assets"
+                          value={row.implement}
+                          onChange={(e) => { setAssetFilter(e.target.value); updateRow(row.id, { implement: e.target.value }); }}
+                          onFocus={(e) => setAssetFilter(e.target.value)}
+                          placeholder="Implement"
+                          className="w-full px-1 py-1 text-xs outline-none bg-transparent"
+                          data-testid={`wp-implement-${rIdx}`}
+                        />
+                      </td>
+                      <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
+                        <input
+                          list="wp-managers"
+                          value={row.manager}
+                          onChange={(e) => { setManagerFilter(e.target.value); updateRow(row.id, { manager: e.target.value }); }}
+                          onFocus={(e) => setManagerFilter(e.target.value)}
+                          placeholder="Mgr"
+                          className="w-full px-1 py-1 text-xs outline-none bg-transparent font-medium"
+                          data-testid={`wp-manager-${rIdx}`}
+                        />
+                      </td>
+                      <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
+                        <input
+                          type="time"
+                          value={row.start_time}
+                          onChange={(e) => updateRow(row.id, { start_time: e.target.value })}
+                          className="w-full px-1 py-1 text-xs outline-none bg-transparent"
+                          data-testid={`wp-start-${rIdx}`}
+                        />
+                      </td>
+                      <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
+                        <input
+                          value={row.notes}
+                          onChange={(e) => updateRow(row.id, { notes: e.target.value })}
+                          placeholder="Notes"
+                          className="w-full px-1 py-1 text-xs outline-none bg-transparent"
+                          data-testid={`wp-notes-${rIdx}`}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Scrollable days columns */}
+          <div 
+            ref={rightTableRef}
+            onScroll={handleRightScroll}
+            className="flex-1 overflow-auto"
+          >
+            <table className="text-xs border-collapse w-full">
+              <thead className="sticky top-0 z-20">
+                <tr className="bg-gray-100 text-gray-700">
+                  {visibleDays.map((i) => (
+                    <th 
+                      key={i} 
+                      className={`p-1 border text-center cursor-pointer transition-colors ${selectedDay === i ? 'bg-blue-200 ring-2 ring-blue-500' : 'bg-gray-100 hover:bg-blue-50'}`}
+                      colSpan={2} 
+                      style={{ minWidth: 180 }}
+                      onClick={() => selectedDay !== null && selectedDay !== i ? copyDayToDay(i) : selectDayColumn(i)}
+                      title={selectedDay === null ? 'Click to select this day for copying' : selectedDay === i ? 'Click to deselect' : `Click to paste ${DAY_NAMES[selectedDay]} here`}
+                      data-testid={`wp-day-header-${i}`}
                     >
-                      {row.left ? '↩ Active' : '✕ Left'}
-                    </button>
-                  </div>
-                </td>
-                {/* vehicle */}
-                <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
-                  <input
-                    list="wp-assets"
-                    value={row.vehicle}
-                    onChange={(e) => { setAssetFilter(e.target.value); updateRow(row.id, { vehicle: e.target.value }); }}
-                    onFocus={(e) => setAssetFilter(e.target.value)}
-                    placeholder="Vehicle"
-                    className="w-full px-1 py-1 text-xs outline-none bg-transparent"
-                    data-testid={`wp-vehicle-${rIdx}`}
-                  />
-                </td>
-                {/* implement */}
-                <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
-                  <input
-                    list="wp-assets"
-                    value={row.implement}
-                    onChange={(e) => { setAssetFilter(e.target.value); updateRow(row.id, { implement: e.target.value }); }}
-                    onFocus={(e) => setAssetFilter(e.target.value)}
-                    placeholder="Implement"
-                    className="w-full px-1 py-1 text-xs outline-none bg-transparent"
-                    data-testid={`wp-implement-${rIdx}`}
-                  />
-                </td>
-                {/* manager */}
-                <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
-                  <input
-                    list="wp-managers"
-                    value={row.manager}
-                    onChange={(e) => { setManagerFilter(e.target.value); updateRow(row.id, { manager: e.target.value }); }}
-                    onFocus={(e) => setManagerFilter(e.target.value)}
-                    placeholder="Manager"
-                    className="w-full px-1 py-1 text-xs outline-none bg-transparent font-medium"
-                    data-testid={`wp-manager-${rIdx}`}
-                  />
-                </td>
-                {/* start time with copy-down */}
-                <td className="border p-0.5 relative group/time" style={{ background: tint || 'transparent' }}>
-                  <div className="flex items-center">
-                    <input
-                      type="time"
-                      value={row.start_time}
-                      onChange={(e) => updateRow(row.id, { start_time: e.target.value })}
-                      className="w-full px-1 py-1 text-xs outline-none bg-transparent"
-                      data-testid={`wp-start-${rIdx}`}
-                    />
-                    {row.start_time && (
-                      <button
-                        onClick={() => {
-                          const idx = displayRows.findIndex(r => r.id === row.id);
-                          if (idx < 0) return;
-                          const below = displayRows.slice(idx + 1);
-                          below.forEach(r => updateRow(r.id, { start_time: row.start_time }));
-                          toast.success(`Copied ${row.start_time} to ${below.length} rows below`);
-                        }}
-                        className="opacity-0 group-hover/time:opacity-100 text-blue-400 hover:text-blue-700 ml-0.5 shrink-0 transition-opacity"
-                        title={`Copy ${row.start_time} to all rows below`}
-                        data-testid={`wp-time-copy-down-${rIdx}`}
-                      >
-                        <ChevronDown className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                </td>
-                {/* notes - expandable, always shows full text */}
-                <td className="border p-0.5 align-top" style={{ background: tint || 'transparent' }}>
-                  <textarea
-                    value={row.notes}
-                    onChange={(e) => updateRow(row.id, { notes: e.target.value })}
-                    rows={1}
-                    placeholder="Field / detail"
-                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
-                    className="w-full px-1 py-1 text-xs outline-none bg-transparent resize-none overflow-hidden leading-snug whitespace-pre-wrap break-words"
-                    style={{ minHeight: 28 }}
-                    data-testid={`wp-notes-${rIdx}`}
-                  />
-                </td>
-                {/* day cells */}
-                {visibleDays.map((dIdx) => (
-                  <React.Fragment key={dIdx}>
-                    {['am', 'pm'].map((period) => {
-                      const colIdx = dIdx * 2 + (period === 'pm' ? 1 : 0);
-                      const cell = row.days[dIdx][period];
-                      const col = cell.color_id ? colorsById[cell.color_id] : null;
-                      const cellBg = col ? col.color : (cell.color || 'transparent');
-                      const cellFg = (col || cell.color) ? textOn(col ? col.color : cell.color) : '#374151';
-                      const isSel = isCellSelected(rIdx, colIdx);
-                      const isHandleCell = selBox && rIdx === selBox.r1 && colIdx === selBox.c1;
-                      const inFill = inRect(rIdx, colIdx);
-                      return (
-                        <td
-                          key={period}
-                          className="border p-0 cursor-pointer text-center relative select-none"
-                          style={{
-                            background: cellBg,
-                            color: cellFg,
-                            minWidth: 100,
-                            outline: isSel ? '2px solid #2563eb' : inFill ? '2px solid #93c5fd' : 'none',
-                            outlineOffset: '-2px',
-                            boxShadow: isSel ? 'inset 0 0 0 100px rgba(37,99,235,0.10)' : 'none',
-                          }}
-                          onClick={(e) => handleCellClick(rIdx, colIdx, e)}
-                          onDoubleClick={() => openEditorAt(rIdx, colIdx)}
-                          onPointerEnter={() => dragEnter(rIdx, colIdx)}
-                          data-testid={`wp-cell-${rIdx}-${dIdx}-${period}`}
-                        >
-                          <div className="px-1 py-2 leading-tight text-xs" style={{ minWidth: 90 }}>
-                            {cell.job || ''}
-                          </div>
-                          {isHandleCell && (
-                            <span
-                              onPointerDown={startDragFromSelection}
-                              className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-600 border border-white cursor-crosshair"
-                              style={{ transform: 'translate(1px,1px)' }}
-                              title="Drag to fill / copy across"
-                              data-testid={`wp-fill-handle-${rIdx}-${dIdx}-${period}`}
-                            />
-                          )}
-                        </td>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
-                {/* row actions */}
-                <td className="border p-0.5">
-                  <div className="flex flex-col items-center gap-0.5">
-                    <button onClick={() => moveRow(row.id, -1)} className="text-gray-400 hover:text-gray-700" title="Move up">
-                      <ChevronUp className="h-3 w-3" />
-                    </button>
-                    <button onClick={() => duplicateRow(row.id)} className="text-blue-400 hover:text-blue-700" title="Duplicate row">
-                      <Copy className="h-3 w-3" />
-                    </button>
-                    <button onClick={() => deleteRow(row.id)} className="text-red-400 hover:text-red-700" title="Delete row" data-testid={`wp-delete-${rIdx}`}>
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                    <button onClick={() => moveRow(row.id, 1)} className="text-gray-400 hover:text-gray-700" title="Move down">
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      <div className="flex items-center justify-center gap-1">
+                        {fmtDay(weekStart, i)}
+                        {selectedDay !== null && selectedDay !== i && (
+                          <span className="text-blue-600 text-[10px] font-normal">← paste</span>
+                        )}
+                        {selectedDay === i && (
+                          <span className="text-blue-700 text-[10px] font-semibold">✓ selected</span>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                  <th className="p-1 border w-12 bg-gray-100">Actions</th>
+                </tr>
+                <tr className="bg-gray-50 text-[10px] text-gray-500">
+                  {visibleDays.map((i) => (
+                    <React.Fragment key={i}>
+                      <th className="border p-0.5 bg-gray-50">AM</th>
+                      <th className="border p-0.5 bg-gray-50">PM</th>
+                    </React.Fragment>
+                  ))}
+                  <th className="border bg-gray-50"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayRows.map((row, rIdx) => {
+                  const tint = row.left ? '#fef2f2' : managerTint(row.manager);
+                  return (
+                    <tr key={row.id} className={row.left ? 'opacity-50' : ''} data-testid={`wp-row-${rIdx}`}>
+                      {visibleDays.map((dIdx) => {
+                        const day = row.days?.[dIdx] || { am: { job: '', color_id: null }, pm: { job: '', color_id: null } };
+                        return (
+                          <React.Fragment key={dIdx}>
+                            {['am', 'pm'].map((period) => {
+                              const cell = day[period] || { job: '', color_id: null };
+                              const colIdx = dIdx * 2 + (period === 'pm' ? 1 : 0);
+                              const col = cell.color_id ? colors.find((c) => c.id === cell.color_id) : null;
+                              const cellBg = col ? col.color : (tint || 'transparent');
+                              const cellFg = col ? (textOn(col.color)) : '#111827';
+                              const isSel = isCellSelected(rIdx, colIdx);
+                              const isHandleCell = selBox && rIdx === selBox.r1 && colIdx === selBox.c1;
+                              const inFill = inRect(rIdx, colIdx);
+                              return (
+                                <td
+                                  key={period}
+                                  className="border p-0 cursor-pointer text-center relative select-none"
+                                  style={{
+                                    background: cellBg,
+                                    color: cellFg,
+                                    minWidth: 90,
+                                    height: 44,
+                                    outline: isSel ? '2px solid #2563eb' : inFill ? '2px solid #93c5fd' : 'none',
+                                    outlineOffset: '-2px',
+                                    boxShadow: isSel ? 'inset 0 0 0 100px rgba(37,99,235,0.10)' : 'none',
+                                  }}
+                                  onClick={(e) => handleCellClick(rIdx, colIdx, e)}
+                                  onDoubleClick={() => openEditorAt(rIdx, colIdx)}
+                                  onPointerEnter={() => dragEnter(rIdx, colIdx)}
+                                  data-testid={`wp-cell-${rIdx}-${dIdx}-${period}`}
+                                >
+                                  <div className="px-1 py-2 leading-tight text-xs" style={{ minWidth: 80 }}>
+                                    {cell.job || ''}
+                                  </div>
+                                  {isHandleCell && (
+                                    <span
+                                      onPointerDown={startDragFromSelection}
+                                      className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-600 border border-white cursor-crosshair"
+                                      style={{ transform: 'translate(1px,1px)' }}
+                                      title="Drag to fill / copy across"
+                                      data-testid={`wp-fill-handle-${rIdx}-${dIdx}-${period}`}
+                                    />
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </React.Fragment>
+                        );
+                      })}
+                      <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
+                        <div className="flex flex-col items-center gap-0.5">
+                          <button onClick={() => moveRow(row.id, -1)} className="text-gray-400 hover:text-gray-700" title="Move up">
+                            <ChevronUp className="h-3 w-3" />
+                          </button>
+                          <button onClick={() => moveRow(row.id, 1)} className="text-gray-400 hover:text-gray-700" title="Move down">
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                          <button onClick={() => deleteRow(row.id)} className="text-red-300 hover:text-red-600" title="Delete row">
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <Button onClick={addRow} variant="outline" className="w-full" data-testid="add-row-btn">
