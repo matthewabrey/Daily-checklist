@@ -13,87 +13,45 @@ QR code-based machine checklist application with health, safety, and work manage
 7. **Admin Panel** — Staff upload, asset upload, QR label printing, SharePoint sync
 
 ## Hidden Features (HIDDEN FOR DEPLOYMENT)
-- Near Misses, Suggestions, Accidents, Whistleblowing, Training — commented out in `App.js` with `HIDDEN FOR DEPLOYMENT` markers
+- Near Misses, Suggestions, Accidents, Whistleblowing, Training — commented out in `App.js`
 
-## Daily Workplan Feature (June 2026)
+## Daily Workplan Feature
 - **Manager Editor** at `/workplan` (admin only): 7-day grid with AM/PM cells per day
 - Excel-like editing: click select, multi-select, copy/paste, drag-fill handle
-- Vehicle/Implement from Asset list, Employee/Manager from Staff list via datalist
 - 90 job types from original Excel (includes Wet Day Jobs)
 - 7 colour categories (Onions, Carrots, Potatoes, Larkshall, Snetterton, Off/Holiday, Servicing)
-- Past days hidden in editor (kept in DB for costing)
-- Rows tinted by manager, manual group colour bands, Sort by Manager
+- **Excel Import**: `/api/admin/workplan/import-staff` imports 259 staff from original Excel
+- **Leavers**: People below JCBs marked as `left:true`, hidden by default, toggle to show
+- **Costing**: % breakdown by job and area/crop, separate active vs leaver data
 - **Publish to Home** pushes snapshot to dashboard
-- **Staff dashboard board**: published plan with day tabs, grouped by manager
-- **Excel Import** at `/api/admin/workplan/import-staff`: Seeds 259 staff rows from original Excel (Main Sheet + Harvest Staff merged)
-- **Template Diagnostics** in Admin panel to verify check_type-to-template mappings
+- **Fast datalist**: Filtered to max 30 options for performance
 
 ## SharePoint Auto-Sync
 - Daily 9 AM sync via Microsoft Graph API (Client Credentials flow)
-- Syncs Staff (`Name List.xlsx`) and Assets (`AssetList.xlsx`) from OneDrive
-- Template matching bug FIXED (stale variable in fuzzy match)
-- Templates now cleared and rebuilt on each sync
-- Compulsory field support added to sync
-- Admin UI for connection testing, manual sync, and status monitoring
-
-## Tech Stack
-- **Backend**: FastAPI, Motor (MongoDB async), APScheduler, Microsoft Graph API
-- **Frontend**: React, TailwindCSS, Shadcn/UI, Recharts
-- **Database**: MongoDB
+- Template matching bug FIXED
+- Compulsory field support added
 
 ## Data Model
-- `staff`: {employee_number, name, active, admin_control, workshop_control}
-- `assets`: {id, check_type, name, make, model}
-- `checklists`: {id, check_type, machine_make, machine_name, completed_at, ...}
 - `workplan`: {key:'current', week_start, draft_rows, published_rows, published_week_start, published_at}
-- `workplan_jobs`: {id, name, order} — 90 jobs from Excel
+- `workplan_jobs`: {id, name, order} — 90 jobs
 - `workplan_colors`: {id, name, color, order} — 7 categories
 
-## Architecture
-```
-/app/
-├── backend/
-│   ├── server.py                 # FastAPI app (endpoints, scheduler, workplan)
-│   ├── cached_stats.py           # Dashboard stats cache
-│   ├── sharepoint_auto_sync.py   # MS Graph API sync logic (fuzzy match bug fixed)
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── App.js                # Main React app (~11,400 lines)
-│   │   ├── pages/WorkplanEditor.js   # Workplan editor page (913 lines)
-│   │   ├── components/WorkplanBoard.js # Dashboard workplan board (210 lines)
-│   │   ├── components/common/
-│   │   ├── contexts/
-│   │   ├── pages/
-│   │   └── services/
-│   └── package.json
-└── memory/
-    └── PRD.md
-```
-
 ## Completed Work
-- [x] QR Code Machine Checks
-- [x] Breakdown/Repair Reporting
-- [x] Work Progress Tracking
-- [x] Staff Management
-- [x] Asset Management with Templates
-- [x] Manager Dashboard
-- [x] Admin Panel
-- [x] SharePoint Auto-Sync (Staff + Assets)
-- [x] Near Miss Investigation (hidden)
-- [x] Export Timeout Fix
+- [x] QR Code Machine Checks, Repairs, Work Progress, Staff/Asset Management
+- [x] SharePoint Auto-Sync (Staff + Assets) + template matching fix
+- [x] Daily Workplan Feature (editor, board, publish)
+- [x] Workplan Excel import (259 staff, daily assignments, fuzzy job matching)
+- [x] Leavers management (mark left, show/hide toggle, dimmed display)
+- [x] Costing section (% by job, % by area/crop, active vs leavers)
+- [x] Performance fix (datalist filtered to 30 max)
 - [x] Template Diagnostics Panel
-- [x] Daily Workplan Feature
-- [x] SharePoint sync template matching bug fix
-- [x] Workplan Excel import (259 staff from original Excel)
-- [x] Jobs list updated (90 jobs from Excel including Wet Day Jobs)
 
 ## Pending / Backlog
-- [ ] P0: Frontend Refactoring (`App.js` ~11,400 lines → break into components)
+- [ ] P0: Frontend Refactoring (`App.js` ~11,400 lines)
 - [ ] P1: Fix lint errors in `App.js`
-- [ ] P1: Restore hidden features when ready for full rollout
+- [ ] P1: Restore hidden features when ready
 - [ ] P2: Date range filter for "All Checks Overview"
-- [ ] P2: Enhance mobile-friendliness
+- [ ] P2: Mobile-friendliness improvements
 
 ## Credentials
 - Admin: Employee Number `4444`
