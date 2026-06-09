@@ -590,7 +590,7 @@ export default function WorkplanEditor() {
               <th className="p-2 border" style={{ minWidth: 70 }}>Start</th>
               <th className="p-2 border text-left" style={{ minWidth: 200 }}>Field &amp; Notes</th>
               {visibleDays.map((i) => (
-                <th key={i} className="p-1 border text-center" colSpan={2} style={{ minWidth: 130 }}>
+                <th key={i} className="p-1 border text-center" colSpan={2} style={{ minWidth: 200 }}>
                   {fmtDay(weekStart, i)}
                 </th>
               ))}
@@ -746,7 +746,7 @@ export default function WorkplanEditor() {
                           style={{
                             background: cellBg,
                             color: cellFg,
-                            minWidth: 64,
+                            minWidth: 100,
                             outline: isSel ? '2px solid #2563eb' : inFill ? '2px solid #93c5fd' : 'none',
                             outlineOffset: '-2px',
                             boxShadow: isSel ? 'inset 0 0 0 100px rgba(37,99,235,0.10)' : 'none',
@@ -756,7 +756,7 @@ export default function WorkplanEditor() {
                           onPointerEnter={() => dragEnter(rIdx, colIdx)}
                           data-testid={`wp-cell-${rIdx}-${dIdx}-${period}`}
                         >
-                          <div className="px-1 py-2 leading-tight truncate" style={{ maxWidth: 64 }}>
+                          <div className="px-1 py-2 leading-tight text-xs" style={{ minWidth: 90 }}>
                             {cell.job || ''}
                           </div>
                           {isHandleCell && (
