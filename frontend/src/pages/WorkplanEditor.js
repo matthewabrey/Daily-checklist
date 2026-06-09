@@ -581,29 +581,6 @@ export default function WorkplanEditor() {
       <datalist id="wp-managers">{filteredManagers.map((s) => <option key={s} value={s} />)}</datalist>
       <datalist id="wp-assets">{filteredAssets.map((a) => <option key={a} value={a} />)}</datalist>
 
-      {/* Welcome banner for logged-in user */}
-      {currentUserName && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 flex items-center gap-3" data-testid="user-welcome-banner">
-          <div className="bg-blue-100 rounded-full p-2">
-            <User className="h-5 w-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="font-semibold text-gray-800">Welcome, {currentUserName}</p>
-            {userRows.length > 0 ? (
-              <p className="text-sm text-gray-600">
-                You have <span className="font-medium text-blue-700">{userRows.length}</span> assignment{userRows.length !== 1 ? 's' : ''} this week 
-                {userRows.some(r => r.employee_name?.toLowerCase().includes(currentUserName.toLowerCase())) && 
-                  <span className="text-green-600 ml-1">(as employee)</span>}
-                {userRows.some(r => r.manager?.toLowerCase().includes(currentUserName.toLowerCase())) && 
-                  <span className="text-purple-600 ml-1">(as manager)</span>}
-              </p>
-            ) : (
-              <p className="text-sm text-gray-500">No assignments found for you this week</p>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -704,11 +681,11 @@ export default function WorkplanEditor() {
       </div>
 
       {/* grid */}
-      <div className="overflow-x-auto border rounded-lg bg-white" data-testid="workplan-grid">
+      <div className="overflow-auto border rounded-lg bg-white" style={{ maxHeight: 'calc(100vh - 280px)' }} data-testid="workplan-grid">
         <table className="text-xs border-collapse" style={{ minWidth: 1100 }}>
-          <thead>
+          <thead className="sticky top-0 z-20">
             <tr className="bg-gray-100 text-gray-700">
-              <th className="p-1 border w-8">
+              <th className="p-1 border w-8 bg-gray-100">
                 <input
                   type="checkbox"
                   checked={selectedRows.size > 0 && displayRows.every((r) => selectedRows.has(r.id))}
@@ -718,16 +695,16 @@ export default function WorkplanEditor() {
                   data-testid="select-all-rows"
                 />
               </th>
-              <th className="p-2 border text-left sticky left-0 bg-gray-100 z-10" style={{ minWidth: 130 }}>Employee</th>
-              <th className="p-2 border text-left" style={{ minWidth: 120 }}>Vehicle</th>
-              <th className="p-2 border text-left" style={{ minWidth: 120 }}>Implement</th>
-              <th className="p-2 border text-left" style={{ minWidth: 110 }}>Manager</th>
-              <th className="p-2 border" style={{ minWidth: 70 }}>Start</th>
-              <th className="p-2 border text-left" style={{ minWidth: 200 }}>Field &amp; Notes</th>
+              <th className="p-2 border text-left sticky left-0 bg-gray-100 z-30" style={{ minWidth: 130 }}>Employee</th>
+              <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 120 }}>Vehicle</th>
+              <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 120 }}>Implement</th>
+              <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 110 }}>Manager</th>
+              <th className="p-2 border bg-gray-100" style={{ minWidth: 70 }}>Start</th>
+              <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 200 }}>Field &amp; Notes</th>
               {visibleDays.map((i) => (
                 <th 
                   key={i} 
-                  className={`p-1 border text-center cursor-pointer transition-colors ${selectedDay === i ? 'bg-blue-200 ring-2 ring-blue-500' : 'hover:bg-blue-50'}`}
+                  className={`p-1 border text-center cursor-pointer transition-colors ${selectedDay === i ? 'bg-blue-200 ring-2 ring-blue-500' : 'bg-gray-100 hover:bg-blue-50'}`}
                   colSpan={2} 
                   style={{ minWidth: 200 }}
                   onClick={() => selectedDay !== null && selectedDay !== i ? copyDayToDay(i) : selectDayColumn(i)}
@@ -745,23 +722,23 @@ export default function WorkplanEditor() {
                   </div>
                 </th>
               ))}
-              <th className="p-1 border w-8"></th>
+              <th className="p-1 border w-8 bg-gray-100"></th>
             </tr>
             <tr className="bg-gray-50 text-[10px] text-gray-500">
-              <th className="border"></th>
-              <th className="border sticky left-0 bg-gray-50"></th>
-              <th className="border"></th>
-              <th className="border"></th>
-              <th className="border"></th>
-              <th className="border"></th>
-              <th className="border"></th>
+              <th className="border bg-gray-50"></th>
+              <th className="border sticky left-0 bg-gray-50 z-30"></th>
+              <th className="border bg-gray-50"></th>
+              <th className="border bg-gray-50"></th>
+              <th className="border bg-gray-50"></th>
+              <th className="border bg-gray-50"></th>
+              <th className="border bg-gray-50"></th>
               {visibleDays.map((i) => (
                 <React.Fragment key={i}>
-                  <th className="border p-0.5">AM</th>
-                  <th className="border p-0.5">PM</th>
+                  <th className="border p-0.5 bg-gray-50">AM</th>
+                  <th className="border p-0.5 bg-gray-50">PM</th>
                 </React.Fragment>
               ))}
-              <th className="border"></th>
+              <th className="border bg-gray-50"></th>
             </tr>
           </thead>
           <tbody>

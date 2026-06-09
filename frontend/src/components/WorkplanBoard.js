@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Truck, Wrench } from 'lucide-react';
+import { Calendar, Clock, Truck, Wrench, User } from 'lucide-react';
+import { useAuth } from '../App';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -57,6 +58,9 @@ const Chip = ({ label, cell, colorsById }) => {
 };
 
 export default function WorkplanBoard() {
+  const { employee } = useAuth();
+  const currentUserName = employee?.name || '';
+  
   const [data, setData] = useState(null);
   const [colors, setColors] = useState([]);
   const [activeDay, setActiveDay] = useState(null); // ISO date
@@ -107,6 +111,20 @@ export default function WorkplanBoard() {
   });
   const groupNames = Object.keys(groups).sort();
 
+  // Find user's assignments (as employee or manager)
+  const normalize = (s) => (s || '').toLowerCase().trim();
+  const userName = normalize(currentUserName);
+  
+  const userAssignments = userName ? data.rows.filter((row) => {
+    const day = row.days?.[selectedIdx];
+    const hasWork = day && (day.am?.job || day.pm?.job);
+    if (!hasWork) return false;
+    return normalize(row.employee_name).includes(userName) || normalize(row.manager).includes(userName);
+  }) : [];
+
+  const isUserEmployee = userAssignments.some(r => normalize(r.employee_name).includes(userName));
+  const isUserManager = userAssignments.some(r => normalize(r.manager).includes(userName));
+
   const dayLabel = (iso, idx) => {
     const d = new Date(iso + 'T00:00:00');
     const isToday = iso === todayISO;
@@ -142,6 +160,44 @@ export default function WorkplanBoard() {
           </button>
         ))}
       </div>
+
+      {/* User's assignments banner */}
+      {currentUserName && userAssignments.length > 0 && (
+        <div className="mx-3 mt-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3" data-testid="user-assignments-banner">
+          <div className="flex items-center gap-2 mb-2">
+            <User className="h-4 w-4 text-blue-600" />
+            <span className="font-semibold text-gray-800 text-sm">Your Schedule for Today</span>
+            {isUserEmployee && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Employee</span>}
+            {isUserManager && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">Manager</span>}
+          </div>
+          <div className="space-y-2">
+            {userAssignments.map((row, i) => {
+              const day = row.days?.[selectedIdx];
+              const tint = managerTint(row.manager);
+              return (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 rounded-lg p-2 border"
+                  style={{ background: tint || '#f9fafb', borderColor: managerAccent(row.manager) || '#e5e7eb' }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm text-gray-900">{row.employee_name}</div>
+                    <div className="text-[11px] text-gray-500 flex items-center gap-2">
+                      {row.vehicle && <span className="flex items-center gap-0.5"><Truck className="h-3 w-3" />{row.vehicle}</span>}
+                      {row.start_time && <span className="flex items-center gap-0.5"><Clock className="h-3 w-3" />{row.start_time}</span>}
+                      {row.notes && <span className="truncate">{row.notes}</span>}
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <Chip label="AM" cell={day?.am} colorsById={colorsById} />
+                    <Chip label="PM" cell={day?.pm} colorsById={colorsById} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* groups */}
       <div className="p-3 space-y-4 max-h-[28rem] overflow-y-auto">
