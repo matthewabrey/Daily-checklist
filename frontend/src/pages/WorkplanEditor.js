@@ -612,7 +612,7 @@ export default function WorkplanEditor() {
   };
 
   return (
-    <div className="space-y-1 px-1">
+    <div className="h-full flex flex-col p-1">
       {/* datalists — filtered for performance */}
       <datalist id="wp-staff">{filteredStaff.map((s) => <option key={s} value={s} />)}</datalist>
       <datalist id="wp-managers">{filteredManagers.map((s) => <option key={s} value={s} />)}</datalist>
@@ -743,8 +743,8 @@ export default function WorkplanEditor() {
       </div>
 
       {/* grid - split layout for fixed left columns and scrollable days */}
-      <div className="border rounded bg-white overflow-hidden" data-testid="workplan-grid">
-        <div className="flex" style={{ height: 'calc(100vh - 160px)' }}>
+      <div className="flex-1 border rounded bg-white overflow-hidden" data-testid="workplan-grid">
+        <div className="flex h-full">
           {/* Fixed left columns */}
           <div 
             ref={leftTableRef}
