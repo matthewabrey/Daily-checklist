@@ -11302,7 +11302,9 @@ function AppContent() {
               path="/workplan" 
               element={
                 <ManagerProtectedRoute>
-                  <WorkplanEditor />
+                  <div className="-mx-2 sm:-mx-4 lg:-mx-8" style={{ width: 'calc(100% + 4rem)' }}>
+                    <WorkplanEditor />
+                  </div>
                 </ManagerProtectedRoute>
               } 
             />

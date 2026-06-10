@@ -612,7 +612,7 @@ export default function WorkplanEditor() {
   };
 
   return (
-    <div className="space-y-2 px-2">
+    <div className="space-y-1 px-1">
       {/* datalists — filtered for performance */}
       <datalist id="wp-staff">{filteredStaff.map((s) => <option key={s} value={s} />)}</datalist>
       <datalist id="wp-managers">{filteredManagers.map((s) => <option key={s} value={s} />)}</datalist>
@@ -744,13 +744,12 @@ export default function WorkplanEditor() {
 
       {/* grid - split layout for fixed left columns and scrollable days */}
       <div className="border rounded bg-white overflow-hidden" data-testid="workplan-grid">
-        <div className="flex" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+        <div className="flex" style={{ height: 'calc(100vh - 160px)' }}>
           {/* Fixed left columns */}
           <div 
             ref={leftTableRef}
             onScroll={handleLeftScroll}
             className="flex-shrink-0 overflow-y-auto border-r-2 border-gray-300 scrollbar-hide" 
-            style={{ maxWidth: '650px' }}
           >
             <table className="text-[11px] border-collapse">
               <thead className="sticky top-0 z-20">
@@ -970,8 +969,8 @@ export default function WorkplanEditor() {
         </div>
       </div>
 
-      <Button onClick={addRow} variant="outline" className="w-full" data-testid="add-row-btn">
-        <Plus className="h-4 w-4 mr-1" /> Add person / row
+      <Button onClick={addRow} variant="outline" className="w-full h-7 text-xs" data-testid="add-row-btn">
+        <Plus className="h-3 w-3 mr-1" /> Add row
       </Button>
 
       {/* cell editor */}
