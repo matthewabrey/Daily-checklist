@@ -612,78 +612,78 @@ export default function WorkplanEditor() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2 px-2">
       {/* datalists — filtered for performance */}
       <datalist id="wp-staff">{filteredStaff.map((s) => <option key={s} value={s} />)}</datalist>
       <datalist id="wp-managers">{filteredManagers.map((s) => <option key={s} value={s} />)}</datalist>
       <datalist id="wp-assets">{filteredAssets.map((a) => <option key={a} value={a} />)}</datalist>
 
-      {/* header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/')} data-testid="workplan-back-btn">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Home
+      {/* header - compact */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')} data-testid="workplan-back-btn" className="h-7 px-2">
+            <ArrowLeft className="h-3 w-3 mr-1" /> Home
           </Button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Daily Workplan</h1>
-            <p className="text-xs text-gray-500">
+            <h1 className="text-lg font-bold text-gray-900">Daily Workplan</h1>
+            <p className="text-[10px] text-gray-500">
               {saveState === 'saving' ? 'Saving…' : 'All changes saved'}
               {publishedAt && ` · Published ${new Date(publishedAt).toLocaleString()}`}
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowColors(true)} data-testid="manage-colors-btn">
-            <Palette className="h-4 w-4 mr-1" /> Colours
+        <div className="flex flex-wrap items-center gap-1">
+          <Button variant="outline" size="sm" onClick={() => setShowColors(true)} data-testid="manage-colors-btn" className="h-7 px-2 text-xs">
+            <Palette className="h-3 w-3 mr-1" /> Colours
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowJobs(true)} data-testid="manage-jobs-btn">
-            <ListPlus className="h-4 w-4 mr-1" /> Jobs
+          <Button variant="outline" size="sm" onClick={() => setShowJobs(true)} data-testid="manage-jobs-btn" className="h-7 px-2 text-xs">
+            <ListPlus className="h-3 w-3 mr-1" /> Jobs
           </Button>
-          <Button variant="outline" size="sm" onClick={sortByManager} data-testid="sort-manager-btn">
+          <Button variant="outline" size="sm" onClick={sortByManager} data-testid="sort-manager-btn" className="h-7 px-2 text-xs">
             Sort by Manager
           </Button>
           {selectedRows.size > 0 && (
-            <Button variant="outline" size="sm" onClick={copySelectedRows} data-testid="copy-rows-btn" className="border-blue-400 text-blue-600">
-              <Copy className="h-4 w-4 mr-1" /> Copy {selectedRows.size} Row{selectedRows.size > 1 ? 's' : ''}
+            <Button variant="outline" size="sm" onClick={copySelectedRows} data-testid="copy-rows-btn" className="h-7 px-2 text-xs border-blue-400 text-blue-600">
+              <Copy className="h-3 w-3 mr-1" /> Copy {selectedRows.size}
             </Button>
           )}
           {selectedRows.size > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearRowSelection} data-testid="clear-selection-btn">
-              Clear Selection
+            <Button variant="ghost" size="sm" onClick={clearRowSelection} data-testid="clear-selection-btn" className="h-7 px-2 text-xs">
+              Clear
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setShowLeavers(!showLeavers)} data-testid="toggle-leavers-btn">
+          <Button variant="outline" size="sm" onClick={() => setShowLeavers(!showLeavers)} data-testid="toggle-leavers-btn" className="h-7 px-2 text-xs">
             {showLeavers ? 'Hide' : 'Show'} Leavers ({leftRows.length})
           </Button>
-          <Button variant="outline" size="sm" onClick={() => fetchCosting(costingFrom, costingUntil)} data-testid="costing-btn">
-            <BarChart3 className="h-4 w-4 mr-1" /> Costing
+          <Button variant="outline" size="sm" onClick={() => fetchCosting(costingFrom, costingUntil)} data-testid="costing-btn" className="h-7 px-2 text-xs">
+            <BarChart3 className="h-3 w-3 mr-1" /> Costing
           </Button>
-          <Button onClick={publish} className="bg-green-600 hover:bg-green-700" size="sm" data-testid="publish-btn">
-            <Send className="h-4 w-4 mr-1" /> Publish to Home
+          <Button onClick={publish} className="bg-green-600 hover:bg-green-700 h-7 px-3 text-xs" size="sm" data-testid="publish-btn">
+            <Send className="h-3 w-3 mr-1" /> Publish
           </Button>
         </div>
       </div>
 
-      {/* week controls */}
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Button variant="outline" size="sm" onClick={() => setWeekStart(toISO(addDays(weekStart, -7)))}>
-          ← Prev week
+      {/* week controls - compact inline */}
+      <div className="flex flex-wrap items-center gap-1 text-xs">
+        <Button variant="outline" size="sm" onClick={() => setWeekStart(toISO(addDays(weekStart, -7)))} className="h-6 px-2 text-[11px]">
+          ← Prev
         </Button>
-        <span className="font-medium text-gray-700">
-          Week of {addDays(weekStart, 0).toLocaleDateString()} – {addDays(weekStart, 6).toLocaleDateString()}
+        <span className="font-medium text-gray-700 text-[11px]">
+          {addDays(weekStart, 0).toLocaleDateString()} – {addDays(weekStart, 6).toLocaleDateString()}
         </span>
-        <Button variant="outline" size="sm" onClick={() => setWeekStart(toISO(addDays(weekStart, 7)))}>
-          Next week →
+        <Button variant="outline" size="sm" onClick={() => setWeekStart(toISO(addDays(weekStart, 7)))} className="h-6 px-2 text-[11px]">
+          Next →
         </Button>
         
         {/* Day visibility toggles */}
-        <div className="flex items-center gap-1 ml-4 border-l pl-4">
-          <span className="text-xs text-gray-500 mr-1">Show days:</span>
+        <div className="flex items-center gap-0.5 ml-2 border-l pl-2">
+          <span className="text-[10px] text-gray-500 mr-1">Days:</span>
           {availableDays.map((i) => (
             <button
               key={i}
               onClick={() => toggleDayVisibility(i)}
-              className={`px-2 py-1 text-xs rounded border transition-colors ${
+              className={`px-1.5 py-0.5 text-[10px] rounded border transition-colors ${
                 hiddenDays.has(i) 
                   ? 'bg-gray-100 text-gray-400 border-gray-200' 
                   : 'bg-green-100 text-green-700 border-green-300'
@@ -697,92 +697,80 @@ export default function WorkplanEditor() {
           {hiddenDays.size > 0 && (
             <button
               onClick={() => setHiddenDays(new Set())}
-              className="text-xs text-blue-600 hover:underline ml-1"
+              className="text-[10px] text-blue-600 hover:underline ml-1"
             >
-              Show all
+              All
             </button>
           )}
         </div>
+
+        {/* Legend inline */}
+        {colors.length > 0 && (
+          <div className="flex items-center gap-1 ml-2 border-l pl-2">
+            {colors.slice(0, 6).map((c) => (
+              <span key={c.id} className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] border" title={c.name}>
+                <span className="w-2 h-2 rounded-full" style={{ background: c.color }} />
+                {c.name.length > 8 ? c.name.substring(0, 8) + '…' : c.name}
+              </span>
+            ))}
+            {colors.length > 6 && <span className="text-[9px] text-gray-400">+{colors.length - 6}</span>}
+          </div>
+        )}
+        <span className="text-[10px] text-gray-500 ml-2">{activeRows.length} active</span>
+        {leftRows.length > 0 && <span className="text-[10px] text-red-400">{leftRows.length} left</span>}
       </div>
 
-      {/* legend */}
-      {colors.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-gray-500">Areas / crops:</span>
-          {colors.map((c) => (
-            <span key={c.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border">
-              <span className="w-3 h-3 rounded-full" style={{ background: c.color }} />
-              {c.name}
-            </span>
-          ))}
-          <span className="text-gray-400 ml-2">|</span>
-          <span className="text-gray-500">{activeRows.length} active</span>
-          {leftRows.length > 0 && <span className="text-red-400">{leftRows.length} leavers</span>}
-        </div>
-      )}
-
-      {/* selection toolbar */}
-      <div className="flex flex-wrap items-center gap-2 text-xs bg-gray-50 border rounded-md px-3 py-1.5" data-testid="wp-cell-toolbar">
+      {/* selection toolbar - compact */}
+      <div className="flex flex-wrap items-center gap-1 text-[10px] bg-gray-50 border rounded px-2 py-1" data-testid="wp-cell-toolbar">
         {selCells.length > 0 ? (
           <>
-            <span className="font-medium text-gray-700">{selCells.length} cell{selCells.length > 1 ? 's' : ''} selected</span>
-            <Button size="sm" variant="default" className="h-7" onClick={() => anchor && openEditorAt(anchor.rowIdx, anchor.colIdx)} data-testid="cell-setjob-btn">Set job / colour</Button>
-            <Button size="sm" variant="outline" className="h-7" onClick={copySelected} data-testid="cell-copy-btn">Copy</Button>
-            <Button size="sm" variant="outline" className="h-7" onClick={pasteSelected} disabled={!clipboard} data-testid="cell-paste-btn">Paste</Button>
-            <Button size="sm" variant="ghost" className="h-7" onClick={clearSelected} data-testid="cell-clear-btn">Clear</Button>
-            <Button size="sm" variant="ghost" className="h-7" onClick={clearSelection}>Deselect</Button>
-            <span className="text-gray-400 hidden sm:inline">· Ctrl/⌘+click adds cells · drag the blue corner to copy the whole selection across · double-click to set job &amp; colour for all</span>
+            <span className="font-medium text-gray-700">{selCells.length} selected</span>
+            <Button size="sm" variant="default" className="h-5 px-2 text-[10px]" onClick={() => anchor && openEditorAt(anchor.rowIdx, anchor.colIdx)} data-testid="cell-setjob-btn">Set job</Button>
+            <Button size="sm" variant="outline" className="h-5 px-2 text-[10px]" onClick={copySelected} data-testid="cell-copy-btn">Copy</Button>
+            <Button size="sm" variant="outline" className="h-5 px-2 text-[10px]" onClick={pasteSelected} disabled={!clipboard} data-testid="cell-paste-btn">Paste</Button>
+            <Button size="sm" variant="ghost" className="h-5 px-2 text-[10px]" onClick={clearSelected} data-testid="cell-clear-btn">Clear</Button>
+            <Button size="sm" variant="ghost" className="h-5 px-2 text-[10px]" onClick={clearSelection}>Deselect</Button>
           </>
         ) : selectedDay !== null ? (
           <>
-            <span className="text-blue-700 font-medium">Day selected: {DAY_NAMES[selectedDay]}</span>
-            <span className="text-gray-500 ml-2">Click another day header to paste, or</span>
-            <Button size="sm" variant="ghost" className="h-7 text-gray-500" onClick={() => setSelectedDay(null)}>Cancel</Button>
+            <span className="text-blue-700 font-medium">Day: {DAY_NAMES[selectedDay]}</span>
+            <span className="text-gray-500">Click another day to paste</span>
+            <Button size="sm" variant="ghost" className="h-5 px-2 text-[10px]" onClick={() => setSelectedDay(null)}>Cancel</Button>
           </>
         ) : (
-          <span className="text-gray-500">Tip: click a cell to select. <b>Ctrl/⌘+click</b> picks several · <b>Shift+click</b> selects a block · <b>drag the blue corner</b> to copy the selection across · <b>double-click</b> to set job &amp; colour. <b>Click a day header</b> to copy entire day.</span>
+          <span className="text-gray-500">Click cell to select · Ctrl+click multi · Shift+click block · Double-click to edit · Day header to copy day</span>
         )}
-        {hiddenPast > 0 && <span className="ml-auto text-gray-400">{hiddenPast} past day{hiddenPast > 1 ? 's' : ''} hidden (kept for costing)</span>}
       </div>
 
       {/* grid - split layout for fixed left columns and scrollable days */}
-      <div className="border rounded-lg bg-white overflow-hidden" data-testid="workplan-grid">
-        <div className="flex" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+      <div className="border rounded bg-white overflow-hidden" data-testid="workplan-grid">
+        <div className="flex" style={{ maxHeight: 'calc(100vh - 180px)' }}>
           {/* Fixed left columns */}
           <div 
             ref={leftTableRef}
             onScroll={handleLeftScroll}
             className="flex-shrink-0 overflow-y-auto border-r-2 border-gray-300 scrollbar-hide" 
-            style={{ maxWidth: '700px' }}
+            style={{ maxWidth: '650px' }}
           >
-            <table className="text-xs border-collapse">
+            <table className="text-[11px] border-collapse">
               <thead className="sticky top-0 z-20">
-                <tr className="bg-gray-100 text-gray-700">
-                  <th className="p-1 border w-8 bg-gray-100">
+                <tr className="bg-gray-100 text-gray-700 text-[10px]">
+                  <th className="px-0.5 py-0.5 border w-6 bg-gray-100">
                     <input
                       type="checkbox"
                       checked={selectedRows.size > 0 && displayRows.every((r) => selectedRows.has(r.id))}
                       onChange={(e) => e.target.checked ? selectAllRows() : clearRowSelection()}
-                      className="w-4 h-4 cursor-pointer"
+                      className="w-3 h-3 cursor-pointer"
                       title="Select all rows"
                       data-testid="select-all-rows"
                     />
                   </th>
-                  <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 140 }}>Employee</th>
-                  <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 100 }}>Vehicle</th>
-                  <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 100 }}>Implement</th>
-                  <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 90 }}>Manager</th>
-                  <th className="p-2 border bg-gray-100" style={{ minWidth: 65 }}>Start</th>
-                  <th className="p-2 border text-left bg-gray-100" style={{ minWidth: 160 }}>Field &amp; Notes</th>
-                </tr>
-                <tr className="bg-gray-50 text-[10px] text-gray-500">
-                  <th className="border bg-gray-50"></th>
-                  <th className="border bg-gray-50"></th>
-                  <th className="border bg-gray-50"></th>
-                  <th className="border bg-gray-50"></th>
-                  <th className="border bg-gray-50"></th>
-                  <th className="border bg-gray-50"></th>
-                  <th className="border bg-gray-50"></th>
+                  <th className="px-1 py-0.5 border text-left bg-gray-100" style={{ minWidth: 120 }}>Employee</th>
+                  <th className="px-1 py-0.5 border text-left bg-gray-100" style={{ minWidth: 80 }}>Vehicle</th>
+                  <th className="px-1 py-0.5 border text-left bg-gray-100" style={{ minWidth: 80 }}>Implement</th>
+                  <th className="px-1 py-0.5 border text-left bg-gray-100" style={{ minWidth: 70 }}>Manager</th>
+                  <th className="px-1 py-0.5 border bg-gray-100" style={{ minWidth: 55 }}>Start</th>
+                  <th className="px-1 py-0.5 border text-left bg-gray-100" style={{ minWidth: 130 }}>Notes</th>
                 </tr>
               </thead>
               <tbody>
@@ -790,16 +778,16 @@ export default function WorkplanEditor() {
                   const tint = row.left ? '#fef2f2' : managerTint(row.manager);
                   return (
                     <tr key={row.id} className={row.left ? 'opacity-50' : 'hover:bg-yellow-50'} data-testid={`wp-row-left-${rIdx}`}>
-                      <td className="border p-1 text-center align-middle" style={{ background: tint || 'transparent', height: 44 }}>
+                      <td className="border px-0.5 text-center align-middle" style={{ background: tint || 'transparent', height: 28 }}>
                         <input
                           type="checkbox"
                           checked={selectedRows.has(row.id)}
                           onChange={() => toggleRowSelection(row.id)}
-                          className="w-4 h-4 cursor-pointer"
+                          className="w-3 h-3 cursor-pointer"
                           data-testid={`wp-select-row-${rIdx}`}
                         />
                       </td>
-                      <td className="border p-0.5" style={{ background: tint || '#ffffff' }}>
+                      <td className="border px-0.5" style={{ background: tint || '#ffffff' }}>
                         <div className="flex items-center gap-0.5">
                           <input
                             list="wp-staff"
@@ -807,12 +795,12 @@ export default function WorkplanEditor() {
                             onChange={(e) => { setStaffFilter(e.target.value); updateRow(row.id, { employee_name: e.target.value }); }}
                             onFocus={(e) => setStaffFilter(e.target.value)}
                             placeholder="Name"
-                            className="flex-1 min-w-0 px-1 py-1 text-xs outline-none bg-transparent"
+                            className="flex-1 min-w-0 px-0.5 py-0.5 text-[11px] outline-none bg-transparent"
                             data-testid={`wp-employee-${rIdx}`}
                           />
                           <button
                             onClick={() => updateRow(row.id, { left: !row.left })}
-                            className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-semibold leading-none ${row.left ? "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300" : "bg-orange-50 text-orange-500 hover:bg-orange-100 border border-orange-200"}`}
+                            className={`shrink-0 px-0.5 rounded text-[8px] font-semibold leading-none ${row.left ? "bg-green-100 text-green-700" : "bg-orange-50 text-orange-500"}`}
                             title={row.left ? "Mark as active" : "Mark as left"}
                             data-testid={`wp-left-${rIdx}`}
                           >
@@ -820,54 +808,54 @@ export default function WorkplanEditor() {
                           </button>
                         </div>
                       </td>
-                      <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
+                      <td className="border px-0.5" style={{ background: tint || 'transparent' }}>
                         <input
                           list="wp-assets"
                           value={row.vehicle}
                           onChange={(e) => { setAssetFilter(e.target.value); updateRow(row.id, { vehicle: e.target.value }); }}
                           onFocus={(e) => setAssetFilter(e.target.value)}
                           placeholder="Vehicle"
-                          className="w-full px-1 py-1 text-xs outline-none bg-transparent"
+                          className="w-full px-0.5 py-0.5 text-[11px] outline-none bg-transparent"
                           data-testid={`wp-vehicle-${rIdx}`}
                         />
                       </td>
-                      <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
+                      <td className="border px-0.5" style={{ background: tint || 'transparent' }}>
                         <input
                           list="wp-assets"
                           value={row.implement}
                           onChange={(e) => { setAssetFilter(e.target.value); updateRow(row.id, { implement: e.target.value }); }}
                           onFocus={(e) => setAssetFilter(e.target.value)}
                           placeholder="Implement"
-                          className="w-full px-1 py-1 text-xs outline-none bg-transparent"
+                          className="w-full px-0.5 py-0.5 text-[11px] outline-none bg-transparent"
                           data-testid={`wp-implement-${rIdx}`}
                         />
                       </td>
-                      <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
+                      <td className="border px-0.5" style={{ background: tint || 'transparent' }}>
                         <input
                           list="wp-managers"
                           value={row.manager}
                           onChange={(e) => { setManagerFilter(e.target.value); updateRow(row.id, { manager: e.target.value }); }}
                           onFocus={(e) => setManagerFilter(e.target.value)}
                           placeholder="Mgr"
-                          className="w-full px-1 py-1 text-xs outline-none bg-transparent font-medium"
+                          className="w-full px-0.5 py-0.5 text-[11px] outline-none bg-transparent font-medium"
                           data-testid={`wp-manager-${rIdx}`}
                         />
                       </td>
-                      <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
+                      <td className="border px-0.5" style={{ background: tint || 'transparent' }}>
                         <input
                           type="time"
                           value={row.start_time}
                           onChange={(e) => updateRow(row.id, { start_time: e.target.value })}
-                          className="w-full px-1 py-1 text-xs outline-none bg-transparent"
+                          className="w-full px-0.5 py-0.5 text-[11px] outline-none bg-transparent"
                           data-testid={`wp-start-${rIdx}`}
                         />
                       </td>
-                      <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
+                      <td className="border px-0.5" style={{ background: tint || 'transparent' }}>
                         <input
                           value={row.notes}
                           onChange={(e) => updateRow(row.id, { notes: e.target.value })}
                           placeholder="Notes"
-                          className="w-full px-1 py-1 text-xs outline-none bg-transparent"
+                          className="w-full px-0.5 py-0.5 text-[11px] outline-none bg-transparent"
                           data-testid={`wp-notes-${rIdx}`}
                         />
                       </td>
@@ -884,40 +872,26 @@ export default function WorkplanEditor() {
             onScroll={handleRightScroll}
             className="flex-1 overflow-auto"
           >
-            <table className="text-xs border-collapse w-full">
+            <table className="text-[11px] border-collapse w-full">
               <thead className="sticky top-0 z-20">
-                <tr className="bg-gray-100 text-gray-700">
+                <tr className="bg-gray-100 text-gray-700 text-[10px]">
                   {visibleDays.map((i) => (
                     <th 
                       key={i} 
-                      className={`p-1 border text-center cursor-pointer transition-colors ${selectedDay === i ? 'bg-blue-200 ring-2 ring-blue-500' : 'bg-gray-100 hover:bg-blue-50'}`}
+                      className={`px-0.5 py-0.5 border text-center cursor-pointer transition-colors ${selectedDay === i ? 'bg-blue-200 ring-2 ring-blue-500' : 'bg-gray-100 hover:bg-blue-50'}`}
                       colSpan={2} 
-                      style={{ minWidth: 180 }}
+                      style={{ minWidth: 140 }}
                       onClick={() => selectedDay !== null && selectedDay !== i ? copyDayToDay(i) : selectDayColumn(i)}
                       title={selectedDay === null ? 'Click to select this day for copying' : selectedDay === i ? 'Click to deselect' : `Click to paste ${DAY_NAMES[selectedDay]} here`}
                       data-testid={`wp-day-header-${i}`}
                     >
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-center gap-0.5">
                         {fmtDay(weekStart, i)}
-                        {selectedDay !== null && selectedDay !== i && (
-                          <span className="text-blue-600 text-[10px] font-normal">← paste</span>
-                        )}
-                        {selectedDay === i && (
-                          <span className="text-blue-700 text-[10px] font-semibold">✓ selected</span>
-                        )}
+                        {selectedDay === i && <span className="text-blue-700 text-[8px]">✓</span>}
                       </div>
                     </th>
                   ))}
-                  <th className="p-1 border w-12 bg-gray-100">Actions</th>
-                </tr>
-                <tr className="bg-gray-50 text-[10px] text-gray-500">
-                  {visibleDays.map((i) => (
-                    <React.Fragment key={i}>
-                      <th className="border p-0.5 bg-gray-50">AM</th>
-                      <th className="border p-0.5 bg-gray-50">PM</th>
-                    </React.Fragment>
-                  ))}
-                  <th className="border bg-gray-50"></th>
+                  <th className="px-0.5 py-0.5 border w-8 bg-gray-100 text-[9px]">Act</th>
                 </tr>
               </thead>
               <tbody>
@@ -945,8 +919,8 @@ export default function WorkplanEditor() {
                                   style={{
                                     background: cellBg,
                                     color: cellFg,
-                                    minWidth: 90,
-                                    height: 44,
+                                    minWidth: 70,
+                                    height: 28,
                                     outline: isSel ? '2px solid #2563eb' : inFill ? '2px solid #93c5fd' : 'none',
                                     outlineOffset: '-2px',
                                     boxShadow: isSel ? 'inset 0 0 0 100px rgba(37,99,235,0.10)' : 'none',
@@ -956,15 +930,15 @@ export default function WorkplanEditor() {
                                   onPointerEnter={() => dragEnter(rIdx, colIdx)}
                                   data-testid={`wp-cell-${rIdx}-${dIdx}-${period}`}
                                 >
-                                  <div className="px-1 py-2 leading-tight text-xs" style={{ minWidth: 80 }}>
+                                  <div className="px-0.5 py-0.5 leading-tight text-[10px] truncate" style={{ maxWidth: 65 }}>
                                     {cell.job || ''}
                                   </div>
                                   {isHandleCell && (
                                     <span
                                       onPointerDown={startDragFromSelection}
-                                      className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-600 border border-white cursor-crosshair"
+                                      className="absolute bottom-0 right-0 w-2 h-2 bg-blue-600 border border-white cursor-crosshair"
                                       style={{ transform: 'translate(1px,1px)' }}
-                                      title="Drag to fill / copy across"
+                                      title="Drag to fill"
                                       data-testid={`wp-fill-handle-${rIdx}-${dIdx}-${period}`}
                                     />
                                   )}
@@ -974,16 +948,16 @@ export default function WorkplanEditor() {
                           </React.Fragment>
                         );
                       })}
-                      <td className="border p-0.5" style={{ background: tint || 'transparent' }}>
-                        <div className="flex flex-col items-center gap-0.5">
+                      <td className="border px-0.5" style={{ background: tint || 'transparent' }}>
+                        <div className="flex items-center justify-center gap-0.5">
                           <button onClick={() => moveRow(row.id, -1)} className="text-gray-400 hover:text-gray-700" title="Move up">
-                            <ChevronUp className="h-3 w-3" />
-                          </button>
-                          <button onClick={() => moveRow(row.id, 1)} className="text-gray-400 hover:text-gray-700" title="Move down">
-                            <ChevronDown className="h-3 w-3" />
+                            <ChevronUp className="h-2.5 w-2.5" />
                           </button>
                           <button onClick={() => deleteRow(row.id)} className="text-red-300 hover:text-red-600" title="Delete row">
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-2.5 w-2.5" />
+                          </button>
+                          <button onClick={() => moveRow(row.id, 1)} className="text-gray-400 hover:text-gray-700" title="Move down">
+                            <ChevronDown className="h-2.5 w-2.5" />
                           </button>
                         </div>
                       </td>
