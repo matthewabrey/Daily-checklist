@@ -177,6 +177,49 @@ function Dashboard() {
   const [jobs, setJobs] = useState([]);
   const navigate = useNavigate();
 
+  // Dashboard rotation state
+  const [activeSection, setActiveSection] = useState(0); // 0=stats, 1=workplan, 2=progress
+  const [isPaused, setIsPaused] = useState(false);
+  const rotationInterval = useRef(null);
+  const ROTATION_DELAY = 20000; // 20 seconds
+  const SECTION_LABELS = ['Check Figures', 'Daily Work Plan', 'Work Progress'];
+
+  // Auto-rotation effect
+  useEffect(() => {
+    if (isPaused) {
+      if (rotationInterval.current) {
+        clearInterval(rotationInterval.current);
+        rotationInterval.current = null;
+      }
+      return;
+    }
+
+    rotationInterval.current = setInterval(() => {
+      setActiveSection(prev => (prev + 1) % 3);
+    }, ROTATION_DELAY);
+
+    return () => {
+      if (rotationInterval.current) {
+        clearInterval(rotationInterval.current);
+      }
+    };
+  }, [isPaused]);
+
+  // Handle section click - pause/resume
+  const handleSectionClick = (sectionIndex) => {
+    if (activeSection === sectionIndex && !isPaused) {
+      // Already on this section, pause
+      setIsPaused(true);
+    } else if (isPaused) {
+      // Currently paused, resume rotation
+      setIsPaused(false);
+    } else {
+      // Switch to clicked section and pause
+      setActiveSection(sectionIndex);
+      setIsPaused(true);
+    }
+  };
+
   // Near Miss / Suggestion / Accident / Whistleblowing Modal state
   const [showReportModal, setShowReportModal] = useState(null); // 'near-miss', 'suggestion', or 'accident'
   const [reportIsAnonymous, setReportIsAnonymous] = useState(false);
@@ -1748,8 +1791,30 @@ function Dashboard() {
         */}
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+      {/* Dashboard Rotation Controls */}
+      <div className="flex items-center justify-center gap-2 mb-4">
+        {SECTION_LABELS.map((label, idx) => (
+          <button
+            key={idx}
+            onClick={() => handleSectionClick(idx)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+              activeSection === idx
+                ? 'bg-green-600 text-white shadow-md'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+            data-testid={`section-btn-${idx}`}
+          >
+            {label}
+          </button>
+        ))}
+        <span className={`ml-2 text-xs px-2 py-1 rounded ${isPaused ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+          {isPaused ? '⏸ Paused' : '▶ Auto'}
+        </span>
+      </div>
+
+      {/* Section 0: Stats Cards */}
+      <div className={`transition-all duration-500 ${activeSection === 0 ? 'block opacity-100' : 'hidden opacity-0'}`} onClick={() => handleSectionClick(0)}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
         {/* 0. Total Checks Completed - First - Now clickable with button */}
         <Card 
           className="hover:shadow-lg transition-shadow border-purple-200 bg-purple-50" 
@@ -1910,7 +1975,11 @@ function Dashboard() {
             </Button>
           </div>
         </Card>
+        </div>
       </div>
+
+      {/* Section 1: WorkplanBoard */}
+      <div className={`transition-all duration-500 ${activeSection === 1 ? 'block opacity-100' : 'hidden opacity-0'}`} onClick={() => handleSectionClick(1)}>
 
       {/* HIDDEN FOR DEPLOYMENT - Second Row Stats - Near Misses, Suggestions & Accidents
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -2094,7 +2163,10 @@ function Dashboard() {
 
       {/* Published Work Plan */}
       <WorkplanBoard />
+      </div>
 
+      {/* Section 2: Work Progress Stats */}
+      <div className={`transition-all duration-500 ${activeSection === 2 ? 'block opacity-100' : 'hidden opacity-0'}`} onClick={() => handleSectionClick(2)}>
       {/* Work Progress Stats Section */}
       {jobs.length > 0 && (
         <div className="mt-6">
@@ -2230,6 +2302,14 @@ function Dashboard() {
           </div>
         </div>
       )}
+      
+      {/* Fallback message when no jobs exist for Work Progress section */}
+      {jobs.length === 0 && activeSection === 2 && (
+        <div className="flex items-center justify-center h-48 text-gray-500">
+          <p>No work progress jobs to display</p>
+        </div>
+      )}
+      </div>
     </div>
   );
 }
