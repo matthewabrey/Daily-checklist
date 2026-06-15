@@ -812,7 +812,7 @@ export default function WorkplanEditor() {
                   const tint = row.left ? '#fef2f2' : managerTint(row.manager);
                   return (
                     <tr key={row.id} className={row.left ? 'opacity-50' : 'hover:bg-yellow-50'} data-testid={`wp-row-left-${rIdx}`}>
-                      <td className="border px-0.5 text-center align-middle" style={{ background: tint || 'transparent', height: 28 }}>
+                      <td className="border px-0.5 text-center align-middle" style={{ background: tint || 'transparent', minHeight: 24 }}>
                         <input
                           type="checkbox"
                           checked={selectedRows.has(row.id)}
@@ -894,9 +894,9 @@ export default function WorkplanEditor() {
                           onChange={(e) => updateRow(row.id, { notes: e.target.value })}
                           placeholder="Notes"
                           rows={1}
-                          className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent resize-none overflow-hidden"
-                          style={{ minHeight: 22, minWidth: 160 }}
-                          onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+                          className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent resize-none leading-tight"
+                          style={{ minHeight: 20, minWidth: 180, whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
+                          onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = Math.max(20, e.target.scrollHeight) + 'px'; }}
                           data-testid={`wp-notes-${rIdx}`}
                         />
                       </td>
@@ -961,7 +961,7 @@ export default function WorkplanEditor() {
                                     background: cellBg,
                                     color: cellFg,
                                     minWidth: 70,
-                                    height: 28,
+                                    minHeight: 24,
                                     outline: isSel ? '2px solid #2563eb' : inFill ? '2px solid #93c5fd' : 'none',
                                     outlineOffset: '-2px',
                                     boxShadow: isSel ? 'inset 0 0 0 100px rgba(37,99,235,0.10)' : 'none',
@@ -971,7 +971,7 @@ export default function WorkplanEditor() {
                                   onPointerEnter={() => dragEnter(rIdx, colIdx)}
                                   data-testid={`wp-cell-${rIdx}-${dIdx}-${period}`}
                                 >
-                                  <div className="px-0.5 py-0.5 leading-tight text-[10px] truncate" style={{ maxWidth: 65 }}>
+                                  <div className="px-0.5 py-0.5 leading-tight text-[10px]" style={{ minWidth: 65 }}>
                                     {cell.job || ''}
                                   </div>
                                   {isHandleCell && (
