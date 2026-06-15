@@ -116,6 +116,60 @@ export default function WorkplanEditor() {
   const rightTableRef = useRef(null);
   const isSyncing = useRef(false);
 
+  // Sync row heights between left and right tables
+  useEffect(() => {
+    const syncRowHeights = () => {
+      if (!leftTableRef.current || !rightTableRef.current) return;
+      
+      const leftRows = leftTableRef.current.querySelectorAll('tbody tr');
+      const rightRows = rightTableRef.current.querySelectorAll('tbody tr');
+      
+      leftRows.forEach((leftRow, idx) => {
+        const rightRow = rightRows[idx];
+        if (!rightRow) return;
+        
+        // Reset heights first
+        leftRow.style.height = 'auto';
+        rightRow.style.height = 'auto';
+        
+        // Get natural heights
+        const leftHeight = leftRow.offsetHeight;
+        const rightHeight = rightRow.offsetHeight;
+        const maxHeight = Math.max(leftHeight, rightHeight);
+        
+        // Set both to max
+        leftRow.style.height = `${maxHeight}px`;
+        rightRow.style.height = `${maxHeight}px`;
+      });
+    };
+    
+    // Run after render and on row changes
+    const timer = setTimeout(syncRowHeights, 100);
+    return () => clearTimeout(timer);
+  }, [rows, showLeavers]);
+
+  // Function to trigger row height sync (called on note input)
+  const triggerRowSync = useCallback(() => {
+    if (!leftTableRef.current || !rightTableRef.current) return;
+    
+    setTimeout(() => {
+      const leftRows = leftTableRef.current.querySelectorAll('tbody tr');
+      const rightRows = rightTableRef.current.querySelectorAll('tbody tr');
+      
+      leftRows.forEach((leftRow, idx) => {
+        const rightRow = rightRows[idx];
+        if (!rightRow) return;
+        
+        leftRow.style.height = 'auto';
+        rightRow.style.height = 'auto';
+        
+        const maxHeight = Math.max(leftRow.offsetHeight, rightRow.offsetHeight);
+        leftRow.style.height = `${maxHeight}px`;
+        rightRow.style.height = `${maxHeight}px`;
+      });
+    }, 10);
+  }, []);
+
   // excel-like cell selection / clipboard / drag-fill
   const [selCells, setSelCells] = useState([]); // [{rowIdx, colIdx}]
   const [anchor, setAnchor] = useState(null); // {rowIdx, colIdx}
@@ -896,7 +950,11 @@ export default function WorkplanEditor() {
                           rows={1}
                           className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent resize-none leading-tight"
                           style={{ minHeight: 20, minWidth: 180, whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
-                          onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = Math.max(20, e.target.scrollHeight) + 'px'; }}
+                          onInput={(e) => { 
+                            e.target.style.height = 'auto'; 
+                            e.target.style.height = Math.max(20, e.target.scrollHeight) + 'px'; 
+                            triggerRowSync();
+                          }}
                           data-testid={`wp-notes-${rIdx}`}
                         />
                       </td>
