@@ -1792,14 +1792,17 @@ function Dashboard() {
       </div>
 
       {/* Dashboard Rotation Controls */}
-      <div className="flex items-center justify-center gap-2 mb-4">
+      <div className="flex items-center justify-center gap-2 mb-4 flex-wrap">
         {SECTION_LABELS.map((label, idx) => (
           <button
             key={idx}
-            onClick={() => handleSectionClick(idx)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+            onClick={() => {
+              setActiveSection(idx);
+              setIsPaused(true);
+            }}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
               activeSection === idx
-                ? 'bg-green-600 text-white shadow-md'
+                ? 'bg-green-600 text-white shadow-md scale-105'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
             data-testid={`section-btn-${idx}`}
@@ -1807,13 +1810,24 @@ function Dashboard() {
             {label}
           </button>
         ))}
-        <span className={`ml-2 text-xs px-2 py-1 rounded ${isPaused ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
-          {isPaused ? '⏸ Paused' : '▶ Auto'}
+        <button
+          onClick={() => setIsPaused(!isPaused)}
+          className={`ml-3 px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-1 ${
+            isPaused 
+              ? 'bg-green-500 text-white hover:bg-green-600' 
+              : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+          }`}
+          data-testid="rotation-toggle-btn"
+        >
+          {isPaused ? '▶ Play' : '⏸ Pause'}
+        </button>
+        <span className="text-xs text-gray-500 ml-2">
+          {isPaused ? 'Paused - tap Play to auto-rotate' : 'Auto-rotating every 20s'}
         </span>
       </div>
 
       {/* Section 0: Stats Cards */}
-      <div className={`transition-all duration-500 ${activeSection === 0 ? 'block opacity-100' : 'hidden opacity-0'}`} onClick={() => handleSectionClick(0)}>
+      <div className={`transition-all duration-500 ${activeSection === 0 ? 'block opacity-100' : 'hidden opacity-0'}`}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
         {/* 0. Total Checks Completed - First - Now clickable with button */}
         <Card 
@@ -1979,7 +1993,7 @@ function Dashboard() {
       </div>
 
       {/* Section 1: WorkplanBoard */}
-      <div className={`transition-all duration-500 ${activeSection === 1 ? 'block opacity-100' : 'hidden opacity-0'}`} onClick={() => handleSectionClick(1)}>
+      <div className={`transition-all duration-500 ${activeSection === 1 ? 'block opacity-100' : 'hidden opacity-0'}`}>
 
       {/* HIDDEN FOR DEPLOYMENT - Second Row Stats - Near Misses, Suggestions & Accidents
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -2166,7 +2180,7 @@ function Dashboard() {
       </div>
 
       {/* Section 2: Work Progress Stats */}
-      <div className={`transition-all duration-500 ${activeSection === 2 ? 'block opacity-100' : 'hidden opacity-0'}`} onClick={() => handleSectionClick(2)}>
+      <div className={`transition-all duration-500 ${activeSection === 2 ? 'block opacity-100' : 'hidden opacity-0'}`}>
       {/* Work Progress Stats Section */}
       {jobs.length > 0 && (
         <div className="mt-6">

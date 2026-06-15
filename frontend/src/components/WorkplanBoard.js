@@ -190,10 +190,16 @@ export default function WorkplanBoard() {
                   style={{ background: tint || '#f9fafb', borderColor: managerAccent(row.manager) || '#e5e7eb' }}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm text-gray-900">{row.employee_name}</div>
-                    <div className="text-[11px] text-gray-500 flex items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-gray-900">{row.employee_name}</span>
+                      {row.start_time && (
+                        <span className="inline-flex items-center text-sm font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded">
+                          <Clock className="h-3.5 w-3.5 mr-1" /> Start: {row.start_time}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-gray-500 flex items-center gap-2 mt-1">
                       {row.vehicle && <span className="flex items-center gap-0.5"><Truck className="h-3 w-3" />{row.vehicle}</span>}
-                      {row.start_time && <span className="flex items-center gap-0.5"><Clock className="h-3 w-3" />{row.start_time}</span>}
                       {row.notes && <span className="truncate">{row.notes}</span>}
                     </div>
                   </div>
@@ -236,12 +242,14 @@ export default function WorkplanBoard() {
                   data-testid={`wp-board-person-${i}`}
                 >
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-semibold text-sm text-gray-900">{row.employee_name}</span>
-                    {row.start_time && (
-                      <span className="inline-flex items-center text-[11px] text-gray-600">
-                        <Clock className="h-3 w-3 mr-0.5" /> {row.start_time}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-gray-900">{row.employee_name}</span>
+                      {row.start_time && (
+                        <span className="inline-flex items-center text-sm font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded">
+                          <Clock className="h-3.5 w-3.5 mr-1" /> Start: {row.start_time}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {mgr !== 'Unassigned' && (
                     <div className="text-[10px] text-gray-500 mb-1.5">Reporting to {mgr}</div>
