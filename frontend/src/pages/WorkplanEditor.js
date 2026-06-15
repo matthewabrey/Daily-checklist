@@ -947,9 +947,14 @@ export default function WorkplanEditor() {
                           value={row.notes}
                           onChange={(e) => updateRow(row.id, { notes: e.target.value })}
                           placeholder="Notes"
-                          rows={1}
-                          className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent resize-none leading-tight"
-                          style={{ minHeight: 20, minWidth: 180, whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
+                          className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent resize-none leading-tight overflow-visible"
+                          style={{ minHeight: 20, minWidth: 180, whiteSpace: 'pre-wrap', wordWrap: 'break-word', overflow: 'hidden', height: 'auto' }}
+                          ref={(el) => {
+                            if (el) {
+                              el.style.height = 'auto';
+                              el.style.height = Math.max(20, el.scrollHeight) + 'px';
+                            }
+                          }}
                           onInput={(e) => { 
                             e.target.style.height = 'auto'; 
                             e.target.style.height = Math.max(20, e.target.scrollHeight) + 'px'; 
