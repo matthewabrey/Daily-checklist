@@ -789,7 +789,7 @@ export default function WorkplanEditor() {
             <table className="text-[11px] border-collapse">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-gray-100 text-gray-700 text-[10px]">
-                  <th className="px-0.5 py-0.5 border w-6 bg-gray-100">
+                  <th className="px-0.5 py-0.5 border w-5 bg-gray-100">
                     <input
                       type="checkbox"
                       checked={selectedRows.size > 0 && displayRows.every((r) => selectedRows.has(r.id))}
@@ -799,12 +799,12 @@ export default function WorkplanEditor() {
                       data-testid="select-all-rows"
                     />
                   </th>
-                  <th className="px-1 py-0.5 border text-left bg-gray-100" style={{ minWidth: 120 }}>Employee</th>
-                  <th className="px-1 py-0.5 border text-left bg-gray-100" style={{ minWidth: 80 }}>Vehicle</th>
-                  <th className="px-1 py-0.5 border text-left bg-gray-100" style={{ minWidth: 80 }}>Implement</th>
-                  <th className="px-1 py-0.5 border text-left bg-gray-100" style={{ minWidth: 70 }}>Manager</th>
-                  <th className="px-1 py-0.5 border bg-gray-100" style={{ minWidth: 55 }}>Start</th>
-                  <th className="px-1 py-0.5 border text-left bg-gray-100" style={{ minWidth: 130 }}>Notes</th>
+                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 100 }}>Employee</th>
+                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 50 }}>Vehicle</th>
+                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 50 }}>Impl</th>
+                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 50 }}>Mgr</th>
+                  <th className="px-0.5 py-0.5 border bg-gray-100" style={{ minWidth: 45 }}>Start</th>
+                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 180 }}>Notes</th>
                 </tr>
               </thead>
               <tbody>
@@ -848,8 +848,9 @@ export default function WorkplanEditor() {
                           value={row.vehicle}
                           onChange={(e) => { setAssetFilter(e.target.value); updateRow(row.id, { vehicle: e.target.value }); }}
                           onFocus={(e) => setAssetFilter(e.target.value)}
-                          placeholder="Vehicle"
-                          className="w-full px-0.5 py-0.5 text-[11px] outline-none bg-transparent"
+                          placeholder=""
+                          className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent"
+                          style={{ maxWidth: 55 }}
                           data-testid={`wp-vehicle-${rIdx}`}
                         />
                       </td>
@@ -859,8 +860,9 @@ export default function WorkplanEditor() {
                           value={row.implement}
                           onChange={(e) => { setAssetFilter(e.target.value); updateRow(row.id, { implement: e.target.value }); }}
                           onFocus={(e) => setAssetFilter(e.target.value)}
-                          placeholder="Implement"
-                          className="w-full px-0.5 py-0.5 text-[11px] outline-none bg-transparent"
+                          placeholder=""
+                          className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent"
+                          style={{ maxWidth: 55 }}
                           data-testid={`wp-implement-${rIdx}`}
                         />
                       </td>
@@ -870,8 +872,9 @@ export default function WorkplanEditor() {
                           value={row.manager}
                           onChange={(e) => { setManagerFilter(e.target.value); updateRow(row.id, { manager: e.target.value }); }}
                           onFocus={(e) => setManagerFilter(e.target.value)}
-                          placeholder="Mgr"
-                          className="w-full px-0.5 py-0.5 text-[11px] outline-none bg-transparent font-medium"
+                          placeholder=""
+                          className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent font-medium"
+                          style={{ maxWidth: 55 }}
                           data-testid={`wp-manager-${rIdx}`}
                         />
                       </td>
@@ -880,16 +883,20 @@ export default function WorkplanEditor() {
                           type="time"
                           value={row.start_time}
                           onChange={(e) => updateRow(row.id, { start_time: e.target.value })}
-                          className="w-full px-0.5 py-0.5 text-[11px] outline-none bg-transparent"
+                          className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent"
+                          style={{ maxWidth: 50 }}
                           data-testid={`wp-start-${rIdx}`}
                         />
                       </td>
-                      <td className="border px-0.5" style={{ background: tint || 'transparent' }}>
-                        <input
+                      <td className="border px-0.5 align-top" style={{ background: tint || 'transparent' }}>
+                        <textarea
                           value={row.notes}
                           onChange={(e) => updateRow(row.id, { notes: e.target.value })}
                           placeholder="Notes"
-                          className="w-full px-0.5 py-0.5 text-[11px] outline-none bg-transparent"
+                          rows={1}
+                          className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent resize-none overflow-hidden"
+                          style={{ minHeight: 22, minWidth: 160 }}
+                          onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                           data-testid={`wp-notes-${rIdx}`}
                         />
                       </td>
