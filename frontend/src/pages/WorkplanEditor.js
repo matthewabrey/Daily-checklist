@@ -30,7 +30,19 @@ const addDays = (iso, n) => {
 };
 const fmtDay = (iso, i) => {
   const d = addDays(iso, i);
-  return `${DAY_NAMES[i]} ${d.getDate()}`;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dayDate = new Date(d);
+  dayDate.setHours(0, 0, 0, 0);
+  
+  const diffDays = Math.round((dayDate - today) / (1000 * 60 * 60 * 24));
+  
+  let prefix = '';
+  if (diffDays === -1) prefix = 'Yesterday · ';
+  else if (diffDays === 0) prefix = 'TODAY · ';
+  else if (diffDays === 1) prefix = 'Tomorrow · ';
+  
+  return `${prefix}${DAY_NAMES[i]} ${d.getDate()}`;
 };
 
 // ---------- contrast helper ----------
@@ -133,7 +145,17 @@ export default function WorkplanEditor() {
         setAssetOptions(
           [...new Set(assets.map((a) => `${a.make} ${a.name}`.trim()))].sort()
         );
-        if (wp.week_start) setWeekStart(wp.week_start);
+        if (wp.week_start) {
+          // Auto-advance to current week if saved week is entirely in the past
+          const savedWeekEnd = toISO(addDays(wp.week_start, 6));
+          const today = toISO(new Date());
+          if (savedWeekEnd < today) {
+            // Saved week is in the past, start with current week
+            setWeekStart(toISO(mondayOf(new Date())));
+          } else {
+            setWeekStart(wp.week_start);
+          }
+        }
         setRows((wp.rows && wp.rows.length ? wp.rows : [newRow()]).map(normalizeRow));
         setPublishedAt(wp.published_at);
       } catch (e) {
@@ -517,10 +539,23 @@ export default function WorkplanEditor() {
         }
       : null;
 
-  // hide days that have already passed (kept in data for costing, just not shown)
+  // Show relevant days: yesterday + today + 5 future days (within this week's data)
   const todayISO = toISO(new Date());
-  let availableDays = [0, 1, 2, 3, 4, 5, 6].filter((i) => toISO(addDays(weekStart, i)) >= todayISO);
+  const yesterdayISO = toISO(addDays(todayISO, -1));
+  
+  // Calculate which day indices to show based on today's position in the week
+  let availableDays = [];
+  for (let i = 0; i < 7; i++) {
+    const dayISO = toISO(addDays(weekStart, i));
+    // Show: yesterday, today, and up to 5 days in the future
+    if (dayISO >= yesterdayISO && dayISO <= toISO(addDays(todayISO, 5))) {
+      availableDays.push(i);
+    }
+  }
+  
+  // If no days match (viewing old/future weeks), show all days in that week
   if (availableDays.length === 0) availableDays = [0, 1, 2, 3, 4, 5, 6];
+  
   const hiddenPast = 7 - availableDays.length;
   
   // Filter out manually hidden days
