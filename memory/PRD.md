@@ -30,7 +30,7 @@ QR code-based machine checklist application with health, safety, and work manage
 
 ## Dashboard Features
 - **Auto-Rotating Carousel**: Stats, Work Plan, and Work Progress rotate every 20s with play/pause
-- **Cropping Map Modal**: "Map (26/27)" button opens external cropping sheet iframe
+- **Cropping Map Link**: "Map" button in navigation header opens external cropping sheet (users click Map tab)
 
 ## SharePoint Auto-Sync
 - Daily 9 AM sync via Microsoft Graph API (Client Credentials flow)
