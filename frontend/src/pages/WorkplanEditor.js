@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Save, Send, Trash2, Copy, Palette, ListPlus,
-  ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine, BarChart3, UserX, UserCheck, User
+  ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine, BarChart3, UserX, UserCheck, User, GripVertical
 } from 'lucide-react';
 import { useAuth } from '../App';
 
@@ -110,6 +110,8 @@ export default function WorkplanEditor() {
   const [selectedRows, setSelectedRows] = useState(new Set()); // row IDs selected for copy
   const [selectedDay, setSelectedDay] = useState(null); // day index selected for day copy (0-6)
   const [hiddenDays, setHiddenDays] = useState(new Set()); // day indices to hide (0-6)
+  const [activeUsers, setActiveUsers] = useState([]); // other users editing the workplan
+  const [draggedRowId, setDraggedRowId] = useState(null); // for drag & drop reordering
 
   // refs for synchronized scrolling
   const leftTableRef = useRef(null);
@@ -220,6 +222,55 @@ export default function WorkplanEditor() {
       }
     })();
   }, []);
+
+  // ---------- presence tracking ----------
+  useEffect(() => {
+    if (!employee?.employee_number) return;
+    
+    const userId = employee.employee_number;
+    const userName = employee.name || `Employee ${userId}`;
+    
+    const sendHeartbeat = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/workplan/presence/heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId, user_name: userName }),
+        });
+        const data = await res.json();
+        setActiveUsers(data.active_users || []);
+      } catch (e) {
+        console.error('Presence heartbeat failed:', e);
+      }
+    };
+    
+    // Send initial heartbeat
+    sendHeartbeat();
+    
+    // Send heartbeat every 15 seconds
+    const interval = setInterval(sendHeartbeat, 15000);
+    
+    // Notify server when leaving
+    const handleUnload = () => {
+      navigator.sendBeacon(
+        `${API_BASE_URL}/api/workplan/presence/leave`,
+        JSON.stringify({ user_id: userId, user_name: userName })
+      );
+    };
+    
+    window.addEventListener('beforeunload', handleUnload);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleUnload);
+      // Send leave signal on unmount
+      fetch(`${API_BASE_URL}/api/workplan/presence/leave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, user_name: userName }),
+      }).catch(() => {});
+    };
+  }, [employee]);
 
   const normalizeRow = (r) => {
     // days can be an array [7 items] OR dict {"0": ..., "1": ...} from the backend import
@@ -332,6 +383,46 @@ export default function WorkplanEditor() {
     setRows((rs) => [...rs].sort((a, b) => (a.manager || 'zzz').localeCompare(b.manager || 'zzz')));
   };
 
+  // ---------- drag & drop row reordering ----------
+  const handleDragStart = (e, rowId) => {
+    setDraggedRowId(rowId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', rowId);
+    // Add a slight delay to allow the drag image to be captured
+    setTimeout(() => {
+      e.target.style.opacity = '0.5';
+    }, 0);
+  };
+
+  const handleDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    setDraggedRowId(null);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, targetRowId) => {
+    e.preventDefault();
+    if (!draggedRowId || draggedRowId === targetRowId) return;
+    
+    setRows((rs) => {
+      const draggedIdx = rs.findIndex((r) => r.id === draggedRowId);
+      const targetIdx = rs.findIndex((r) => r.id === targetRowId);
+      if (draggedIdx === -1 || targetIdx === -1) return rs;
+      
+      const copy = [...rs];
+      const [draggedRow] = copy.splice(draggedIdx, 1);
+      copy.splice(targetIdx, 0, draggedRow);
+      return copy;
+    });
+    
+    setDraggedRowId(null);
+    toast.success('Row moved');
+  };
+
   // ---------- row selection & copy ----------
   const toggleRowSelection = (rowId) => {
     setSelectedRows((prev) => {
@@ -391,21 +482,33 @@ export default function WorkplanEditor() {
 
   // ---------- excel-like cell ops ----------
   const colToDay = (colIdx) => ({ dayIndex: Math.floor(colIdx / 2), period: colIdx % 2 === 0 ? 'am' : 'pm' });
-  const getCellByIdx = (rowIdx, colIdx) => {
+  
+  // IMPORTANT: Get cell by display index (index in displayRows, not rows)
+  // We need to look up the actual row by finding it in displayRows first
+  const getCellByIdx = (displayRowIdx, colIdx) => {
     const { dayIndex, period } = colToDay(colIdx);
-    return rows[rowIdx]?.days?.[dayIndex]?.[period] || null;
+    const row = displayRows[displayRowIdx];
+    return row?.days?.[dayIndex]?.[period] || null;
   };
   const isCellSelected = (rowIdx, colIdx) => selCells.some((c) => c.rowIdx === rowIdx && c.colIdx === colIdx);
   const clearSelection = () => { setSelCells([]); setAnchor(null); };
 
   // apply a full content {job,color_id} to a list of cells
+  // cells contains displayRowIdx values, need to map to actual row IDs
   const applyToCells = (cells, content) =>
     setRows((rs) => {
-      const map = {};
-      cells.forEach((c) => { (map[c.rowIdx] = map[c.rowIdx] || new Set()).add(c.colIdx); });
-      return rs.map((r, ri) => {
-        if (!map[ri]) return r;
-        const cols = map[ri];
+      // Build a map of row ID -> Set of column indices to update
+      const idToColsMap = {};
+      cells.forEach((c) => {
+        const actualRow = displayRows[c.rowIdx];
+        if (actualRow) {
+          if (!idToColsMap[actualRow.id]) idToColsMap[actualRow.id] = new Set();
+          idToColsMap[actualRow.id].add(c.colIdx);
+        }
+      });
+      return rs.map((r) => {
+        if (!idToColsMap[r.id]) return r;
+        const cols = idToColsMap[r.id];
         const days = r.days.map((d, di) => {
           const amCol = di * 2, pmCol = di * 2 + 1;
           let nd = d;
@@ -418,13 +521,21 @@ export default function WorkplanEditor() {
     });
 
   // merge a partial patch ({job} or {color_id}) into a list of cells
+  // cells contains displayRowIdx values, need to map to actual row IDs
   const patchCells = (cells, patch) =>
     setRows((rs) => {
-      const map = {};
-      cells.forEach((c) => { (map[c.rowIdx] = map[c.rowIdx] || new Set()).add(c.colIdx); });
-      return rs.map((r, ri) => {
-        if (!map[ri]) return r;
-        const cols = map[ri];
+      // Build a map of row ID -> Set of column indices to update
+      const idToColsMap = {};
+      cells.forEach((c) => {
+        const actualRow = displayRows[c.rowIdx];
+        if (actualRow) {
+          if (!idToColsMap[actualRow.id]) idToColsMap[actualRow.id] = new Set();
+          idToColsMap[actualRow.id].add(c.colIdx);
+        }
+      });
+      return rs.map((r) => {
+        if (!idToColsMap[r.id]) return r;
+        const cols = idToColsMap[r.id];
         const days = r.days.map((d, di) => {
           const amCol = di * 2, pmCol = di * 2 + 1;
           let nd = d;
@@ -437,23 +548,38 @@ export default function WorkplanEditor() {
     });
 
   // tile a source block (matrix of {job,color_id}) across a target rectangle
+  // r0, r1 are display row indices - need to convert to actual row IDs
   const fillTile = (r0, r1, c0, c1, srcBox, matrix) => {
     const H = srcBox.r1 - srcBox.r0 + 1;
     const W = srcBox.c1 - srcBox.c0 + 1;
-    const pick = (ri, ci) => {
-      const h = (((ri - srcBox.r0) % H) + H) % H;
+    
+    // Build a map of row ID -> { displayIdx, columns to fill }
+    const rowFillMap = {};
+    for (let dispIdx = r0; dispIdx <= r1; dispIdx++) {
+      const actualRow = displayRows[dispIdx];
+      if (actualRow) {
+        rowFillMap[actualRow.id] = { displayIdx: dispIdx };
+      }
+    }
+    
+    const pick = (displayRowIdx, ci) => {
+      const h = (((displayRowIdx - srcBox.r0) % H) + H) % H;
       const w = (((ci - srcBox.c0) % W) + W) % W;
       const cell = matrix[h][w];
       return { job: cell.job, color_id: cell.color_id ?? null };
     };
+    
     setRows((rs) =>
-      rs.map((r, ri) => {
-        if (ri < r0 || ri > r1) return r;
+      rs.map((r) => {
+        const fillInfo = rowFillMap[r.id];
+        if (!fillInfo) return r;
+        const displayIdx = fillInfo.displayIdx;
+        
         const days = r.days.map((d, di) => {
           const amCol = di * 2, pmCol = di * 2 + 1;
           let am = d.am, pm = d.pm;
-          if (amCol >= c0 && amCol <= c1) am = pick(ri, amCol);
-          if (pmCol >= c0 && pmCol <= c1) pm = pick(ri, pmCol);
+          if (amCol >= c0 && amCol <= c1) am = pick(displayIdx, amCol);
+          if (pmCol >= c0 && pmCol <= c1) pm = pick(displayIdx, pmCol);
           return { ...d, am, pm };
         });
         return { ...r, days };
@@ -493,11 +619,15 @@ export default function WorkplanEditor() {
       setAnchor({ rowIdx, colIdx });
     }
   };
-  const openEditorAt = (rowIdx, colIdx) => {
-    if (!isCellSelected(rowIdx, colIdx)) { setSelCells([{ rowIdx, colIdx }]); }
-    setAnchor({ rowIdx, colIdx });
+  const openEditorAt = (displayRowIdx, colIdx) => {
+    if (!isCellSelected(displayRowIdx, colIdx)) { setSelCells([{ rowIdx: displayRowIdx, colIdx }]); }
+    setAnchor({ rowIdx: displayRowIdx, colIdx });
     const { dayIndex, period } = colToDay(colIdx);
-    setEditingCell({ rowId: rows[rowIdx].id, dayIndex, period });
+    // IMPORTANT: Use displayRows to get the actual row, not rows array
+    const actualRow = displayRows[displayRowIdx];
+    if (actualRow) {
+      setEditingCell({ rowId: actualRow.id, dayIndex, period });
+    }
   };
   // from the cell editor: apply to all selected cells when >1 selected, else just the editing cell
   const applyEditorValue = (patch) => {
@@ -707,6 +837,19 @@ export default function WorkplanEditor() {
       <datalist id="wp-managers">{filteredManagers.map((s) => <option key={s} value={s} />)}</datalist>
       <datalist id="wp-assets">{filteredAssets.map((a) => <option key={a} value={a} />)}</datalist>
 
+      {/* Active users warning banner */}
+      {activeUsers.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-300 rounded-md px-3 py-2 mb-2 flex items-center gap-2" data-testid="active-users-warning">
+          <User className="h-4 w-4 text-yellow-600" />
+          <span className="text-sm text-yellow-800">
+            <strong>Warning:</strong> {activeUsers.length === 1 
+              ? `${activeUsers[0].name} is also editing this workplan` 
+              : `${activeUsers.map(u => u.name).join(', ')} are also editing this workplan`
+            }. Changes may conflict.
+          </span>
+        </div>
+      )}
+
       {/* header - compact */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -843,6 +986,7 @@ export default function WorkplanEditor() {
             <table className="text-[11px] border-collapse">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-gray-100 text-gray-700 text-[10px]">
+                  <th className="px-0.5 py-0.5 border w-5 bg-gray-100" title="Drag to reorder"></th>
                   <th className="px-0.5 py-0.5 border w-5 bg-gray-100">
                     <input
                       type="checkbox"
@@ -864,8 +1008,21 @@ export default function WorkplanEditor() {
               <tbody>
                 {displayRows.map((row, rIdx) => {
                   const tint = row.left ? '#fef2f2' : managerTint(row.manager);
+                  const isDragging = draggedRowId === row.id;
                   return (
-                    <tr key={row.id} className={row.left ? 'opacity-50' : 'hover:bg-yellow-50'} data-testid={`wp-row-left-${rIdx}`}>
+                    <tr 
+                      key={row.id} 
+                      className={`${row.left ? 'opacity-50' : 'hover:bg-yellow-50'} ${isDragging ? 'opacity-50 bg-blue-100' : ''}`} 
+                      data-testid={`wp-row-left-${rIdx}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, row.id)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, row.id)}
+                    >
+                      <td className="border px-0.5 text-center align-middle cursor-grab active:cursor-grabbing" style={{ background: tint || 'transparent', minHeight: 24 }}>
+                        <GripVertical className="h-3 w-3 text-gray-400 mx-auto" />
+                      </td>
                       <td className="border px-0.5 text-center align-middle" style={{ background: tint || 'transparent', minHeight: 24 }}>
                         <input
                           type="checkbox"
@@ -1001,8 +1158,15 @@ export default function WorkplanEditor() {
               <tbody>
                 {displayRows.map((row, rIdx) => {
                   const tint = row.left ? '#fef2f2' : managerTint(row.manager);
+                  const isDragging = draggedRowId === row.id;
                   return (
-                    <tr key={row.id} className={row.left ? 'opacity-50' : ''} data-testid={`wp-row-${rIdx}`}>
+                    <tr 
+                      key={row.id} 
+                      className={`${row.left ? 'opacity-50' : ''} ${isDragging ? 'opacity-50 bg-blue-100' : ''}`} 
+                      data-testid={`wp-row-${rIdx}`}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, row.id)}
+                    >
                       {visibleDays.map((dIdx) => {
                         const day = row.days?.[dIdx] || { am: { job: '', color_id: null }, pm: { job: '', color_id: null } };
                         return (

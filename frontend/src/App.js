@@ -7,10 +7,11 @@ import { Checkbox } from './components/ui/checkbox';
 import { Textarea } from './components/ui/textarea';
 import { Badge } from './components/ui/badge';
 import { Separator } from './components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 import { toast } from 'sonner';
 import { useTranslation } from './LanguageContext';
 import { languages } from './translations';
-import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock, FileCheck, CalendarDays } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock, FileCheck, CalendarDays, MapPin, ExternalLink } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
@@ -180,6 +181,7 @@ function Dashboard() {
   // Dashboard rotation state
   const [activeSection, setActiveSection] = useState(0); // 0=stats, 1=workplan, 2=progress
   const [isPaused, setIsPaused] = useState(false);
+  const [showCroppingMap, setShowCroppingMap] = useState(false); // Cropping map modal
   const rotationInterval = useRef(null);
   const ROTATION_DELAY = 20000; // 20 seconds
   const SECTION_LABELS = ['Check Figures', 'Daily Work Plan', 'Work Progress'];
@@ -2189,6 +2191,16 @@ function Dashboard() {
               <Target className="h-5 w-5 text-orange-600" />
               Work Progress
             </h2>
+            <Button
+              onClick={() => setShowCroppingMap(true)}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 border-green-400 text-green-700 hover:bg-green-50"
+              data-testid="cropping-map-btn"
+            >
+              <MapPin className="h-4 w-4" />
+              Map (26/27)
+            </Button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {jobs.filter(j => j.status === 'active').map(job => {
@@ -2324,6 +2336,36 @@ function Dashboard() {
         </div>
       )}
       </div>
+
+      {/* Cropping Map Modal */}
+      <Dialog open={showCroppingMap} onOpenChange={setShowCroppingMap}>
+        <DialogContent className="max-w-6xl h-[85vh] flex flex-col p-0" aria-describedby={undefined}>
+          <DialogHeader className="p-4 pb-2 border-b flex-shrink-0">
+            <DialogTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-green-600" />
+                Cropping Map (2026/2027)
+              </div>
+              <a
+                href="https://matthewabrey.github.io/Abrey-Cropping/FieldPlan.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 font-normal"
+              >
+                Open in new tab <ExternalLink className="h-3 w-3" />
+              </a>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            <iframe
+              src="https://matthewabrey.github.io/Abrey-Cropping/FieldPlan.html"
+              title="Cropping Map"
+              className="w-full h-full border-0"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -9574,9 +9616,26 @@ function QRLabelsPage() {
 
     setPrinting(true);
 
+    // HTML-escape helper to prevent XSS
+    const escapeHtml = (str) => {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
     // Create a print window with QR codes
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
+    if (!printWindow) {
+      toast.error('Pop-up blocked. Please allow pop-ups to print QR codes.');
+      setPrinting(false);
+      return;
+    }
+    
+    const htmlContent = `
       <html>
         <head>
           <title>QR Code Labels - Machine Checklist</title>
@@ -9617,23 +9676,27 @@ function QRLabelsPage() {
           <div class="label-grid">
             ${assetsToPrint.map(asset => `
               <div class="label">
-                <img src="${API_BASE_URL}${asset.qr_url}" alt="QR Code" />
-                <div class="label-make">${asset.make || ''}</div>
-                <div class="label-text">${asset.name || ''}</div>
+                <img src="${escapeHtml(API_BASE_URL)}${escapeHtml(asset.qr_url)}" alt="QR Code" />
+                <div class="label-make">${escapeHtml(asset.make)}</div>
+                <div class="label-text">${escapeHtml(asset.name)}</div>
               </div>
             `).join('')}
           </div>
-          <script>
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-              }, 1000);
-            }
-          </script>
         </body>
       </html>
-    `);
+    `;
+    
+    // Use safe DOM methods instead of document.write
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
     printWindow.document.close();
+    
+    // Trigger print after content loads
+    printWindow.onload = function() {
+      setTimeout(function() {
+        printWindow.print();
+      }, 1000);
+    };
 
     // Mark assets as printed
     const assetIds = assetsToPrint.map(a => a.id);

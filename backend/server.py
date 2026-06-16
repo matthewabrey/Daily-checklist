@@ -3188,6 +3188,46 @@ async def publish_workplan():
     )
     return {"success": True, "published_at": now}
 
+# Workplan presence tracking - in-memory for simplicity (resets on server restart)
+workplan_active_users = {}  # {user_id: {name: str, last_seen: datetime}}
+PRESENCE_TIMEOUT_SECONDS = 60  # Consider user gone after 60 seconds
+
+class PresenceRequest(BaseModel):
+    user_id: str
+    user_name: str
+
+@app.post("/api/workplan/presence/heartbeat")
+async def workplan_presence_heartbeat(req: PresenceRequest):
+    """Update user's presence in the workplan editor."""
+    now = datetime.now(timezone.utc)
+    workplan_active_users[req.user_id] = {
+        "name": req.user_name,
+        "last_seen": now
+    }
+    
+    # Clean up stale users
+    stale_cutoff = now - timedelta(seconds=PRESENCE_TIMEOUT_SECONDS)
+    stale_users = [uid for uid, data in workplan_active_users.items() 
+                   if data["last_seen"] < stale_cutoff]
+    for uid in stale_users:
+        del workplan_active_users[uid]
+    
+    # Return list of other active users
+    other_users = [
+        {"user_id": uid, "name": data["name"]}
+        for uid, data in workplan_active_users.items()
+        if uid != req.user_id
+    ]
+    
+    return {"active_users": other_users}
+
+@app.post("/api/workplan/presence/leave")
+async def workplan_presence_leave(req: PresenceRequest):
+    """Remove user from active users when they leave the page."""
+    if req.user_id in workplan_active_users:
+        del workplan_active_users[req.user_id]
+    return {"success": True}
+
 @app.get("/api/workplan/published")
 async def get_published_workplan():
     """Return the published workplan for the staff dashboard view."""
