@@ -11298,15 +11298,16 @@ function AppContent() {
                     <CalendarDays className="h-4 w-4 mr-1" /> Workplan
                   </Link>
                 )}
-                {/* Cropping Map button */}
+                {/* HIDDEN FOR DEPLOYMENT - Cropping Map button - enable when external site supports ?view=map
                 <button
-                  onClick={() => window.open('https://matthewabrey.github.io/Abrey-Cropping/FieldPlan.html', '_blank')}
+                  onClick={() => window.open('https://matthewabrey.github.io/Abrey-Cropping/FieldPlan.html?view=map', '_blank')}
                   className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors inline-flex items-center"
                   data-testid="nav-cropping-map"
                   title="Opens Cropping Sheet - click Map tab"
                 >
                   <MapPin className="h-4 w-4 mr-1" /> Map
                 </button>
+                */}
                 
                 {/* User info and logout */}
                 {isAuthenticated && employee && (
