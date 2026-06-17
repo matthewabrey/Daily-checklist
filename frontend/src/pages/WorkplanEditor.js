@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Save, Send, Trash2, Copy, Palette, ListPlus,
-  ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine, BarChart3, UserX, UserCheck, User, GripVertical
+  ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine, BarChart3, UserX, UserCheck, User, GripVertical, Printer
 } from 'lucide-react';
 import { useAuth } from '../App';
 
@@ -715,6 +715,118 @@ export default function WorkplanEditor() {
     }
   };
 
+  // Print the workplan as displayed on screen
+  const printWorkplan = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Pop-up blocked. Please allow pop-ups to print.');
+      return;
+    }
+
+    // HTML-escape helper
+    const esc = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Get color by ID
+    const getColor = (colorId) => colors.find(c => c.id === colorId)?.color || '#e5e7eb';
+
+    // Build table headers for visible days
+    const dayHeaders = visibleDays.map(i => `
+      <th colspan="2" style="background:#f3f4f6; padding:4px 8px; border:1px solid #d1d5db; text-align:center; min-width:120px;">
+        ${esc(fmtDay(weekStart, i))}
+      </th>
+    `).join('');
+
+    const amPmHeaders = visibleDays.map(() => `
+      <th style="background:#f9fafb; padding:2px 4px; border:1px solid #d1d5db; font-size:10px; min-width:60px;">AM</th>
+      <th style="background:#f9fafb; padding:2px 4px; border:1px solid #d1d5db; font-size:10px; min-width:60px;">PM</th>
+    `).join('');
+
+    // Build rows
+    const tableRows = displayRows.map(row => {
+      const tint = row.left ? '#fef2f2' : (row.manager ? managerTint(row.manager) : '#ffffff');
+      
+      const dayCells = visibleDays.map(i => {
+        const day = row.days?.[i] || {};
+        const amColor = day.am?.color_id ? getColor(day.am.color_id) : '#f3f4f6';
+        const pmColor = day.pm?.color_id ? getColor(day.pm.color_id) : '#f3f4f6';
+        return `
+          <td style="background:${amColor}; padding:4px; border:1px solid #d1d5db; font-size:11px; min-width:60px; word-wrap:break-word; max-width:100px;">
+            ${esc(day.am?.job || '—')}
+          </td>
+          <td style="background:${pmColor}; padding:4px; border:1px solid #d1d5db; font-size:11px; min-width:60px; word-wrap:break-word; max-width:100px;">
+            ${esc(day.pm?.job || '—')}
+          </td>
+        `;
+      }).join('');
+
+      return `
+        <tr style="background:${tint}; ${row.left ? 'opacity:0.6;' : ''}">
+          <td style="padding:4px 6px; border:1px solid #d1d5db; font-weight:600; font-size:12px; white-space:nowrap;">${esc(row.employee_name)}</td>
+          <td style="padding:4px 6px; border:1px solid #d1d5db; font-size:11px; white-space:nowrap;">${esc(row.vehicle)}</td>
+          <td style="padding:4px 6px; border:1px solid #d1d5db; font-size:11px; white-space:nowrap;">${esc(row.implement)}</td>
+          <td style="padding:4px 6px; border:1px solid #d1d5db; font-size:11px; white-space:nowrap;">${esc(row.manager)}</td>
+          <td style="padding:4px 6px; border:1px solid #d1d5db; font-size:11px; font-weight:600; white-space:nowrap;">${esc(row.start_time)}</td>
+          <td style="padding:4px 6px; border:1px solid #d1d5db; font-size:10px; max-width:150px; word-wrap:break-word;">${esc(row.notes)}</td>
+          ${dayCells}
+        </tr>
+      `;
+    }).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Workplan - ${addDays(weekStart, 0).toLocaleDateString()} to ${addDays(weekStart, 6).toLocaleDateString()}</title>
+          <style>
+            @page { size: landscape; margin: 10mm; }
+            body { font-family: Arial, sans-serif; margin: 0; padding: 10px; }
+            h1 { font-size: 16px; margin-bottom: 5px; }
+            p { font-size: 12px; color: #666; margin-bottom: 10px; }
+            table { border-collapse: collapse; width: 100%; font-size: 11px; }
+            th, td { border: 1px solid #d1d5db; padding: 4px 6px; }
+            th { background: #f3f4f6; font-weight: 600; }
+            @media print {
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Daily Workplan</h1>
+          <p>Week: ${addDays(weekStart, 0).toLocaleDateString()} – ${addDays(weekStart, 6).toLocaleDateString()} | Printed: ${new Date().toLocaleString()}</p>
+          <table>
+            <thead>
+              <tr>
+                <th rowspan="2" style="min-width:100px;">Employee</th>
+                <th rowspan="2" style="min-width:60px;">Vehicle</th>
+                <th rowspan="2" style="min-width:60px;">Impl</th>
+                <th rowspan="2" style="min-width:80px;">Manager</th>
+                <th rowspan="2" style="min-width:50px;">Start</th>
+                <th rowspan="2" style="min-width:120px;">Notes</th>
+                ${dayHeaders}
+              </tr>
+              <tr>
+                ${amPmHeaders}
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    printWindow.onload = function() {
+      setTimeout(function() {
+        printWindow.print();
+      }, 500);
+    };
+  };
+
   const editing =
     editingCell && rows.find((r) => r.id === editingCell.rowId)
       ? {
@@ -889,6 +1001,9 @@ export default function WorkplanEditor() {
           </Button>
           <Button variant="outline" size="sm" onClick={() => fetchCosting(costingFrom, costingUntil)} data-testid="costing-btn" className="h-7 px-2 text-xs">
             <BarChart3 className="h-3 w-3 mr-1" /> Costing
+          </Button>
+          <Button variant="outline" size="sm" onClick={printWorkplan} data-testid="print-btn" className="h-7 px-2 text-xs">
+            <Printer className="h-3 w-3 mr-1" /> Print
           </Button>
           <Button onClick={publish} className="bg-green-600 hover:bg-green-700 h-7 px-3 text-xs" size="sm" data-testid="publish-btn">
             <Send className="h-3 w-3 mr-1" /> Publish
@@ -1141,7 +1256,7 @@ export default function WorkplanEditor() {
                       key={i} 
                       className={`px-0.5 py-0.5 border text-center cursor-pointer transition-colors ${selectedDay === i ? 'bg-blue-200 ring-2 ring-blue-500' : 'bg-gray-100 hover:bg-blue-50'}`}
                       colSpan={2} 
-                      style={{ minWidth: 140 }}
+                      style={{ minWidth: 170 }}
                       onClick={() => selectedDay !== null && selectedDay !== i ? copyDayToDay(i) : selectDayColumn(i)}
                       title={selectedDay === null ? 'Click to select this day for copying' : selectedDay === i ? 'Click to deselect' : `Click to paste ${DAY_NAMES[selectedDay]} here`}
                       data-testid={`wp-day-header-${i}`}
@@ -1187,7 +1302,8 @@ export default function WorkplanEditor() {
                                   style={{
                                     background: cellBg,
                                     color: cellFg,
-                                    minWidth: 70,
+                                    minWidth: 80,
+                                    maxWidth: 120,
                                     minHeight: 24,
                                     outline: isSel ? '2px solid #2563eb' : inFill ? '2px solid #93c5fd' : 'none',
                                     outlineOffset: '-2px',
@@ -1198,7 +1314,7 @@ export default function WorkplanEditor() {
                                   onPointerEnter={() => dragEnter(rIdx, colIdx)}
                                   data-testid={`wp-cell-${rIdx}-${dIdx}-${period}`}
                                 >
-                                  <div className="px-0.5 py-0.5 leading-tight text-[10px]" style={{ minWidth: 65 }}>
+                                  <div className="px-1 py-0.5 leading-tight text-[10px] whitespace-normal break-words" style={{ minWidth: 75 }}>
                                     {cell.job || ''}
                                   </div>
                                   {isHandleCell && (
