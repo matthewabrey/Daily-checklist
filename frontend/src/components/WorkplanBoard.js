@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Truck, Wrench, User } from 'lucide-react';
+import { Calendar, Clock, Truck, Wrench, User, Users } from 'lucide-react';
 import { useAuth } from '../App';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
@@ -36,23 +36,63 @@ const managerAccent = (name) => {
   return `hsl(${h}, 55%, 65%)`;
 };
 
-// colored job chip
-const Chip = ({ label, cell, colorsById }) => {
+// colored job chip - Mobile optimized
+const Chip = ({ label, cell, colorsById, mobile = false }) => {
   const col = cell?.color_id ? colorsById[cell.color_id] : null;
   if (!cell?.job) {
     return (
-      <div className="flex-1 rounded-md bg-gray-100 text-gray-400 text-[11px] px-2 py-1 text-center">
-        <span className="block font-semibold text-[9px] text-gray-400">{label}</span>—
+      <div className={`flex-1 rounded-md bg-gray-100 text-gray-400 ${mobile ? 'text-xs px-2 py-2' : 'text-[11px] px-2 py-1'} text-center`}>
+        <span className={`block font-semibold ${mobile ? 'text-[10px]' : 'text-[9px]'} text-gray-400`}>{label}</span>—
       </div>
     );
   }
   return (
     <div
-      className="flex-1 rounded-md text-[11px] px-2 py-1 text-center font-medium"
+      className={`flex-1 rounded-md ${mobile ? 'text-xs px-2 py-2' : 'text-[11px] px-2 py-1'} text-center font-medium`}
       style={{ background: col ? col.color : '#e5e7eb', color: col ? textOn(col.color) : '#111827' }}
     >
-      <span className="block font-semibold text-[9px] opacity-80">{label}</span>
+      <span className={`block font-semibold ${mobile ? 'text-[10px]' : 'text-[9px]'} opacity-80`}>{label}</span>
       {cell.job}
+    </div>
+  );
+};
+
+// Mobile-optimized teammate card
+const TeammateCard = ({ row, day, colorsById, accent }) => {
+  return (
+    <div
+      className="rounded-lg p-3 bg-white border"
+      style={{ borderColor: accent || '#e5e7eb' }}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-semibold text-sm text-gray-900">{row.employee_name}</span>
+        {row.start_time && (
+          <span className="inline-flex items-center text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded">
+            <Clock className="h-3 w-3 mr-1" /> {row.start_time}
+          </span>
+        )}
+      </div>
+      {(row.vehicle || row.implement) && (
+        <div className="flex flex-wrap gap-2 text-xs text-gray-600 mb-2">
+          {row.vehicle && (
+            <span className="inline-flex items-center bg-gray-100 px-2 py-0.5 rounded">
+              <Truck className="h-3 w-3 mr-1 text-gray-500" />{row.vehicle}
+            </span>
+          )}
+          {row.implement && (
+            <span className="inline-flex items-center bg-gray-100 px-2 py-0.5 rounded">
+              <Wrench className="h-3 w-3 mr-1 text-gray-500" />{row.implement}
+            </span>
+          )}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Chip label="AM" cell={day?.am} colorsById={colorsById} mobile={true} />
+        <Chip label="PM" cell={day?.pm} colorsById={colorsById} mobile={true} />
+      </div>
+      {row.notes && (
+        <p className="text-xs text-gray-600 italic mt-2 whitespace-pre-wrap break-words bg-gray-50 p-2 rounded">{row.notes}</p>
+      )}
     </div>
   );
 };
@@ -99,31 +139,91 @@ export default function WorkplanBoard() {
   const selected = activeDay && dayList.find((d) => d.iso === activeDay) ? activeDay : dayList[0].iso;
   const selectedIdx = dayList.find((d) => d.iso === selected).index;
 
-  // rows that have something for the selected day, grouped by manager
+  // Normalize function for name matching - remove spaces for flexible matching
+  const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '').trim();
+  const userName = normalize(currentUserName);
+
+  // Find user's own row (preserve original order from master plan)
+  // Use a scoring system to find the best match
+  const userRow = userName ? (() => {
+    let bestMatch = null;
+    let bestScore = 0;
+    
+    for (const row of data.rows) {
+      const day = row.days?.[selectedIdx];
+      const hasWork = day && (day.am?.job || day.pm?.job);
+      if (!hasWork) continue;
+      
+      const rowName = normalize(row.employee_name);
+      
+      // Exact match is best
+      if (rowName === userName) {
+        return row;
+      }
+      
+      // Score based on how much of the name matches
+      let score = 0;
+      if (rowName.includes(userName)) {
+        score = userName.length / rowName.length; // Prefer when user name is most of row name
+      } else if (userName.includes(rowName)) {
+        score = rowName.length / userName.length * 0.9; // Slightly lower if row name is partial
+      }
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = row;
+      }
+    }
+    
+    // Only return match if score is reasonable (at least 50% match)
+    return bestScore >= 0.5 ? bestMatch : null;
+  })() : null;
+
+  // Get the user's manager
+  const userManager = userRow?.manager?.trim() || null;
+
+  // Find teammates (same manager, same day, has work) - preserve original order from master plan
+  const isCurrentUser = (rowName) => {
+    const normalized = normalize(rowName);
+    if (normalized === userName) return true;
+    // Check if names are substantially similar (>50% overlap)
+    if (normalized.includes(userName)) {
+      return userName.length / normalized.length >= 0.5;
+    }
+    if (userName.includes(normalized)) {
+      return normalized.length / userName.length >= 0.5;
+    }
+    return false;
+  };
+
+  const teammates = userManager ? data.rows.filter((row) => {
+    if (isCurrentUser(row.employee_name)) return false; // exclude self
+    const day = row.days?.[selectedIdx];
+    const hasWork = day && (day.am?.job || day.pm?.job);
+    if (!hasWork) return false;
+    return (row.manager?.trim() || 'Unassigned') === userManager;
+  }) : [];
+
+  // For non-personal users (admin viewing), build groups - preserve original order
   const groups = {};
-  data.rows.forEach((row) => {
+  const rowOrder = {}; // track original order
+  data.rows.forEach((row, originalIndex) => {
     if (!row.employee_name) return;
     const day = row.days?.[selectedIdx];
     const hasWork = day && (day.am?.job || day.pm?.job);
     if (!hasWork) return;
     const mgr = (row.manager || 'Unassigned').trim() || 'Unassigned';
-    (groups[mgr] = groups[mgr] || []).push({ row, day });
+    if (!groups[mgr]) groups[mgr] = [];
+    groups[mgr].push({ row, day, originalIndex });
+    rowOrder[row.employee_name] = originalIndex;
   });
-  const groupNames = Object.keys(groups).sort();
-
-  // Find user's assignments (as employee or manager)
-  const normalize = (s) => (s || '').toLowerCase().trim();
-  const userName = normalize(currentUserName);
   
-  const userAssignments = userName ? data.rows.filter((row) => {
-    const day = row.days?.[selectedIdx];
-    const hasWork = day && (day.am?.job || day.pm?.job);
-    if (!hasWork) return false;
-    return normalize(row.employee_name).includes(userName) || normalize(row.manager).includes(userName);
-  }) : [];
-
-  const isUserEmployee = userAssignments.some(r => normalize(r.employee_name).includes(userName));
-  const isUserManager = userAssignments.some(r => normalize(r.manager).includes(userName));
+  // Sort groups by first member's original index to preserve manager group order
+  const groupNames = Object.keys(groups).sort((a, b) => {
+    const firstA = groups[a][0]?.originalIndex ?? 999;
+    const firstB = groups[b][0]?.originalIndex ?? 999;
+    return firstA - firstB;
+  });
 
   // Full label for desktop, short for mobile
   const dayLabel = (iso, idx) => {
@@ -140,6 +240,10 @@ export default function WorkplanBoard() {
     const isToday = iso === todayISO;
     return isToday ? 'Today' : `${DAY_NAMES[idx]} ${d.getDate()}`;
   };
+
+  const userDay = userRow?.days?.[selectedIdx];
+  const accent = managerAccent(userManager);
+  const tint = managerTint(userManager);
 
   return (
     <div className="bg-white border border-green-200 rounded-lg shadow-sm overflow-hidden" data-testid="workplan-board">
@@ -170,114 +274,169 @@ export default function WorkplanBoard() {
         ))}
       </div>
 
-      {/* User's assignments banner */}
-      {currentUserName && userAssignments.length > 0 && (
-        <div className="mx-3 mt-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3" data-testid="user-assignments-banner">
-          <div className="flex items-center gap-2 mb-2">
-            <User className="h-4 w-4 text-blue-600" />
-            <span className="font-semibold text-gray-800 text-sm">Your Schedule for Today</span>
-            {isUserEmployee && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Employee</span>}
-            {isUserManager && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">Manager</span>}
+      {/* MOBILE: User's personal schedule (prominent display) */}
+      {userRow && (
+        <div className="p-3 sm:p-4" data-testid="user-schedule-mobile">
+          {/* Your Schedule Header */}
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-blue-100 p-1.5 rounded-full">
+              <User className="h-4 w-4 text-blue-600" />
+            </div>
+            <div>
+              <span className="font-bold text-gray-900 text-base sm:text-lg">Your Schedule</span>
+              <p className="text-xs text-gray-500">{dayLabel(selected, selectedIdx)}</p>
+            </div>
           </div>
-          <div className="space-y-2">
-            {userAssignments.map((row, i) => {
-              const day = row.days?.[selectedIdx];
-              const tint = managerTint(row.manager);
-              return (
-                <div
-                  key={i}
-                  className="flex items-start gap-3 rounded-lg p-2 border"
-                  style={{ background: tint || '#f9fafb', borderColor: managerAccent(row.manager) || '#e5e7eb' }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-gray-900">{row.employee_name}</span>
-                      {row.start_time && (
-                        <span className="inline-flex items-center text-sm font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded">
-                          <Clock className="h-3.5 w-3.5 mr-1" /> Start: {row.start_time}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-gray-500 flex items-center gap-2 mt-1">
-                      {row.vehicle && <span className="flex items-center gap-0.5"><Truck className="h-3 w-3" />{row.vehicle}</span>}
-                      {row.notes && <span className="truncate">{row.notes}</span>}
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Chip label="AM" cell={day?.am} colorsById={colorsById} />
-                    <Chip label="PM" cell={day?.pm} colorsById={colorsById} />
-                  </div>
+
+          {/* User's own card - prominent */}
+          <div 
+            className="rounded-xl p-4 mb-4 border-2"
+            style={{ 
+              background: `linear-gradient(135deg, ${tint || '#f0fdf4'} 0%, #ffffff 100%)`,
+              borderColor: accent || '#22c55e'
+            }}
+            data-testid="user-own-schedule"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+              <span className="font-bold text-lg text-gray-900">{userRow.employee_name}</span>
+              {userRow.start_time && (
+                <span className="inline-flex items-center text-base font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-lg w-fit">
+                  <Clock className="h-4 w-4 mr-1.5" /> Start: {userRow.start_time}
+                </span>
+              )}
+            </div>
+
+            {/* Vehicle/Implement info */}
+            {(userRow.vehicle || userRow.implement) && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {userRow.vehicle && (
+                  <span className="inline-flex items-center text-sm bg-white px-3 py-1.5 rounded-lg border">
+                    <Truck className="h-4 w-4 mr-1.5 text-gray-500" />{userRow.vehicle}
+                  </span>
+                )}
+                {userRow.implement && (
+                  <span className="inline-flex items-center text-sm bg-white px-3 py-1.5 rounded-lg border">
+                    <Wrench className="h-4 w-4 mr-1.5 text-gray-500" />{userRow.implement}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* AM/PM Jobs - larger on mobile */}
+            <div className="flex gap-3">
+              <Chip label="AM" cell={userDay?.am} colorsById={colorsById} mobile={true} />
+              <Chip label="PM" cell={userDay?.pm} colorsById={colorsById} mobile={true} />
+            </div>
+
+            {/* Notes */}
+            {userRow.notes && (
+              <p className="text-sm text-gray-700 mt-3 bg-white/70 p-3 rounded-lg whitespace-pre-wrap break-words">
+                {userRow.notes}
+              </p>
+            )}
+
+            {/* Manager info */}
+            {userManager && userManager !== 'Unassigned' && (
+              <p className="text-xs text-gray-500 mt-3 pt-2 border-t border-gray-200">
+                Reporting to <span className="font-medium">{userManager}</span>
+              </p>
+            )}
+          </div>
+
+          {/* Teammates section */}
+          {teammates.length > 0 && (
+            <div className="mt-4" data-testid="teammates-section">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="bg-purple-100 p-1.5 rounded-full">
+                  <Users className="h-4 w-4 text-purple-600" />
                 </div>
-              );
-            })}
-          </div>
+                <div>
+                  <span className="font-semibold text-gray-800 text-sm">Working With You</span>
+                  <p className="text-xs text-gray-500">Under {userManager}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {teammates.map((row, i) => (
+                  <TeammateCard 
+                    key={i} 
+                    row={row} 
+                    day={row.days?.[selectedIdx]} 
+                    colorsById={colorsById}
+                    accent={accent}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* groups */}
-      <div className="p-3 space-y-4 max-h-[28rem] overflow-y-auto">
-        {groupNames.length === 0 && (
-          <p className="text-sm text-gray-500 text-center py-4">No jobs assigned for this day.</p>
-        )}
-        {groupNames.map((mgr) => {
-          const tint = managerTint(mgr);
-          const accent = managerAccent(mgr);
-          return (
-          <div key={mgr}>
-            <div className="text-xs font-bold uppercase tracking-wide mb-1.5 border-b pb-1 flex items-center gap-1.5" style={{ color: managerAccent(mgr) }}>
-              <span className="w-2.5 h-2.5 rounded-full" style={{ background: accent }} />
-              {mgr === 'Unassigned' ? 'Unassigned' : `Reporting to ${mgr}`}
-            </div>
-            <div className="space-y-2">
-              {groups[mgr].map(({ row, day }, i) => (
-                <div
-                  key={i}
-                  className="rounded-lg p-2.5"
-                  style={{
-                    background: tint || '#ffffff',
-                    border: '1px solid rgba(0,0,0,0.06)',
-                    borderLeftWidth: 4,
-                    borderLeftColor: row.group_color || accent,
-                  }}
-                  data-testid={`wp-board-person-${i}`}
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-gray-900">{row.employee_name}</span>
-                      {row.start_time && (
-                        <span className="inline-flex items-center text-sm font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded">
-                          <Clock className="h-3.5 w-3.5 mr-1" /> Start: {row.start_time}
-                        </span>
-                      )}
+      {/* DESKTOP/ADMIN: Full groups view (when no personal schedule or scrolled down) */}
+      {!userRow && (
+        <div className="p-3 space-y-4 max-h-[28rem] overflow-y-auto">
+          {groupNames.length === 0 && (
+            <p className="text-sm text-gray-500 text-center py-4">No jobs assigned for this day.</p>
+          )}
+          {groupNames.map((mgr) => {
+            const groupTint = managerTint(mgr);
+            const groupAccent = managerAccent(mgr);
+            return (
+            <div key={mgr}>
+              <div className="text-xs font-bold uppercase tracking-wide mb-1.5 border-b pb-1 flex items-center gap-1.5" style={{ color: managerAccent(mgr) }}>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: groupAccent }} />
+                {mgr === 'Unassigned' ? 'Unassigned' : `Reporting to ${mgr}`}
+              </div>
+              <div className="space-y-2">
+                {groups[mgr].map(({ row, day }, i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg p-2.5"
+                    style={{
+                      background: groupTint || '#ffffff',
+                      border: '1px solid rgba(0,0,0,0.06)',
+                      borderLeftWidth: 4,
+                      borderLeftColor: row.group_color || groupAccent,
+                    }}
+                    data-testid={`wp-board-person-${i}`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-gray-900">{row.employee_name}</span>
+                        {row.start_time && (
+                          <span className="inline-flex items-center text-sm font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded">
+                            <Clock className="h-3.5 w-3.5 mr-1" /> Start: {row.start_time}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  {mgr !== 'Unassigned' && (
-                    <div className="text-[10px] text-gray-500 mb-1.5">Reporting to {mgr}</div>
-                  )}
-                  {(row.vehicle || row.implement) && (
-                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-600 mb-1.5">
-                      {row.vehicle && (
-                        <span className="inline-flex items-center"><Truck className="h-3 w-3 mr-1 text-gray-500" />{row.vehicle}</span>
-                      )}
-                      {row.implement && (
-                        <span className="inline-flex items-center"><Wrench className="h-3 w-3 mr-1 text-gray-500" />{row.implement}</span>
-                      )}
+                    {mgr !== 'Unassigned' && (
+                      <div className="text-[10px] text-gray-500 mb-1.5">Reporting to {mgr}</div>
+                    )}
+                    {(row.vehicle || row.implement) && (
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-600 mb-1.5">
+                        {row.vehicle && (
+                          <span className="inline-flex items-center"><Truck className="h-3 w-3 mr-1 text-gray-500" />{row.vehicle}</span>
+                        )}
+                        {row.implement && (
+                          <span className="inline-flex items-center"><Wrench className="h-3 w-3 mr-1 text-gray-500" />{row.implement}</span>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex gap-1.5">
+                      <Chip label="AM" cell={day.am} colorsById={colorsById} />
+                      <Chip label="PM" cell={day.pm} colorsById={colorsById} />
                     </div>
-                  )}
-                  <div className="flex gap-1.5">
-                    <Chip label="AM" cell={day.am} colorsById={colorsById} />
-                    <Chip label="PM" cell={day.pm} colorsById={colorsById} />
+                    {row.notes && (
+                      <p className="text-[11px] text-gray-600 italic mt-1.5 whitespace-pre-wrap break-words">{row.notes}</p>
+                    )}
                   </div>
-                  {row.notes && (
-                    <p className="text-[11px] text-gray-600 italic mt-1.5 whitespace-pre-wrap break-words">{row.notes}</p>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
