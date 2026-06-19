@@ -1113,11 +1113,11 @@ export default function WorkplanEditor() {
                     />
                   </th>
                   <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 100 }}>Employee</th>
-                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 50 }}>Vehicle</th>
-                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 50 }}>Impl</th>
-                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 50 }}>Mgr</th>
+                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 70 }}>Vehicle</th>
+                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 60 }}>Impl</th>
+                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 90 }}>Mgr</th>
                   <th className="px-0.5 py-0.5 border bg-gray-100" style={{ minWidth: 45 }}>Start</th>
-                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 180 }}>Notes</th>
+                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 150 }}>Notes</th>
                 </tr>
               </thead>
               <tbody>
@@ -1176,7 +1176,7 @@ export default function WorkplanEditor() {
                           onFocus={(e) => setAssetFilter(e.target.value)}
                           placeholder=""
                           className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent"
-                          style={{ maxWidth: 55 }}
+                          style={{ minWidth: 65 }}
                           data-testid={`wp-vehicle-${rIdx}`}
                         />
                       </td>
@@ -1188,7 +1188,7 @@ export default function WorkplanEditor() {
                           onFocus={(e) => setAssetFilter(e.target.value)}
                           placeholder=""
                           className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent"
-                          style={{ maxWidth: 55 }}
+                          style={{ minWidth: 55 }}
                           data-testid={`wp-implement-${rIdx}`}
                         />
                       </td>
@@ -1200,7 +1200,7 @@ export default function WorkplanEditor() {
                           onFocus={(e) => setManagerFilter(e.target.value)}
                           placeholder=""
                           className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent font-medium"
-                          style={{ maxWidth: 55 }}
+                          style={{ minWidth: 85 }}
                           data-testid={`wp-manager-${rIdx}`}
                         />
                       </td>
