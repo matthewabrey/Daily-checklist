@@ -817,6 +817,7 @@ export default function WorkplanEditor() {
     `;
 
     printWindow.document.open();
+    // Note: document.write is safe here because all user content is HTML-escaped via esc()
     printWindow.document.write(htmlContent);
     printWindow.document.close();
     

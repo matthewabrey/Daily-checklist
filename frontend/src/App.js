@@ -655,7 +655,6 @@ function Dashboard() {
 
   useEffect(() => {
     // Fetch data whenever dashboard is visited
-    console.log('Dashboard visited, fetching data from:', API_BASE_URL);
     fetchRecentChecklists();
     
     // Auto-refresh every 10 seconds
@@ -667,19 +666,16 @@ function Dashboard() {
   }, [location.pathname]); // Re-run when path changes (navigation)
 
   const fetchRecentChecklists = async () => {
-    console.log('fetchRecentChecklists called');
     setIsLoading(true);
     try {
       // Fetch dashboard stats first (faster with caching)
       const statsResponse = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
-      console.log('Stats response status:', statsResponse.status);
       
       if (!statsResponse.ok) {
         throw new Error(`Stats API error: ${statsResponse.status}`);
       }
       
       const statsData = await statsResponse.json();
-      console.log('Stats data received:', statsData);
       
       setStats({ 
         total: statsData.total_completed || 0,
@@ -2669,12 +2665,10 @@ function NewChecklist() {
 
   // Photo functionality
   const takePhoto = async (itemIndex = -1) => {
-    console.log('takePhoto called with itemIndex:', itemIndex);
     
     // Check if camera is available
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try {
-        console.log('Requesting camera access...');
         setCurrentPhotoIndex(itemIndex);
         setShowCamera(true);  // Show modal first
         
@@ -2686,16 +2680,13 @@ function NewChecklist() {
           } 
         });
         
-        console.log('Camera access granted, setting up video...');
         
         // Create video element for camera preview
         setTimeout(() => {
           const video = document.getElementById('camera-video');
           if (video) {
             video.srcObject = stream;
-            console.log('Video stream set up successfully');
           } else {
-            console.log('Video element not found');
           }
         }, 200);
         
@@ -2707,7 +2698,6 @@ function NewChecklist() {
       }
     } else {
       // Fallback to file upload if camera not available
-      console.log('Camera not available, using file upload fallback');
       triggerFileUpload(itemIndex);
     }
   };
@@ -5672,7 +5662,6 @@ function AllChecksCompleted() {
           }
         } catch (e) {
           clearTimeout(timeoutId);
-          console.log('Today endpoint failed, trying fallback:', e.message);
         }
         
         // Fallback: fetch recent 50 and filter client-side (smaller = faster)
@@ -5756,10 +5745,7 @@ function AllChecksCompleted() {
     // Filter for today's checks if specified
     if (filterToday) {
       const today = new Date().toISOString().split('T')[0];
-      console.log('Filtering for today:', today);
-      console.log('Checklists before filter:', checklists.length);
       filtered = filtered.filter(c => c.completed_at && c.completed_at.startsWith(today));
-      console.log('Checklists after filter:', filtered.length);
     }
     
     if (selectedMake) {
@@ -9195,7 +9181,6 @@ function GeneralRepairRecord() {
 
     setIsSubmitting(true);
     try {
-      console.log('Submitting repair record...', { selectedMake, selectedName, problemDescription });
       
       const repairRecord = {
         employee_number: employee.employee_number,
@@ -9208,8 +9193,6 @@ function GeneralRepairRecord() {
         workshop_photos: repairPhotos
       };
 
-      console.log('Repair record payload:', repairRecord);
-      console.log('API URL:', `${API_BASE_URL}/api/checklists`);
 
       const response = await fetch(`${API_BASE_URL}/api/checklists`, {
         method: 'POST',

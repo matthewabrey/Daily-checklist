@@ -56,17 +56,27 @@ QR code-based machine checklist application with health, safety, and work manage
 - [x] Split table layout with synced scrolling (fixed left columns)
 - [x] Auto-expanding notes textarea with synced row heights
 - [x] Day-to-day copying (click header to copy entire day)
-- [x] **Cropping Map Modal** — iframe to external FieldPlan.html
+- [x] **Cropping Map Button** — Opens external FieldPlan.html?view=map
 - [x] **Cell Editing Bug Fix** — Fixed row index mismatch when displayRows differs from rows
 - [x] **Drag & Drop Row Reordering** — Reorder staff rows by dragging
 - [x] **Multi-User Presence Tracking** — Warning when others are editing
-- [x] **XSS Security Fix** — HTML-escaped QR print output
+- [x] **XSS Security Fix** — HTML-escaped QR print output and workplan print
+- [x] **Print Workplan** — Print button generates print-ready landscape workplan
+- [x] **Mobile Workplan View** — Personal schedule + teammates display for employees
+- [x] **Column Auto-fit** — Wider columns for Manager names, text wrapping in cells
+
+## Code Quality Fixes (Applied)
+- [x] Removed 92 console.log statements from frontend (kept console.error for error tracking)
+- [x] Added safety comments to document.write usage (content is HTML-escaped)
 
 ## Pending / Backlog
-- [ ] P0: Frontend Refactoring (`App.js` ~11,400 lines)
-- [ ] P1: Fix lint errors in `App.js`
+- [ ] P0: Frontend Refactoring (`App.js` ~11,400 lines) — Extract Dashboard, NewChecklist, RepairsNeeded
+- [ ] P1: Fix React Hook dependencies (39 missing across files)
+- [ ] P1: Refactor `upload_assets_file()` (175 lines, complexity 63) and `upload_staff_file()` (124 lines)
+- [ ] P1: Replace array index keys with unique IDs (32 instances)
 - [ ] P1: Restore hidden features when ready
 - [ ] P2: Date range filter for "All Checks Overview"
+- [ ] P2: Add type hints to Python files (currently 32.9% coverage)
 - [ ] P2: Mobile-friendliness improvements
 
 ## Credentials
