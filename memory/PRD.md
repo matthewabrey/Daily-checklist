@@ -69,6 +69,14 @@ QR code-based machine checklist application with health, safety, and work manage
 - [x] Removed 92 console.log statements from frontend (kept console.error for error tracking)
 - [x] Added safety comments to document.write usage (content is HTML-escaped)
 
+## Workplan Editor Stability Fix (June 2026)
+- [x] Removed live "user rows first" auto-sort that re-sorted rows on every keystroke (caused jumping while typing)
+- [x] Manual "Sort by Manager" only: toolbar button + new sort icon in Mgr column header (data-testid="sort-manager-header-btn")
+- [x] Row-height sync now scroll-preserving and only runs on row count/visibility changes, not every keystroke
+- [x] Deduped staff datalist options (fixed duplicate React key warnings from 4x 'ADMIN' staff names)
+- [x] Normalized legacy '6:30 Am' start times to 'HH:mm' for <input type="time">
+- Verified by testing agent: 8/8 frontend tests passed (/app/test_reports/iteration_7.json)
+
 ## Pending / Backlog
 - [ ] P0: Frontend Refactoring (`App.js` ~11,400 lines) — Extract Dashboard, NewChecklist, RepairsNeeded
 - [ ] P1: Fix React Hook dependencies (39 missing across files)

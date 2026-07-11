@@ -182,7 +182,7 @@ export default function WorkplanEditor() {
         setJobs(await jobsRes.json());
         setColors(await colorsRes.json());
         const staff = await staffRes.json();
-        setStaffOptions(staff.map((s) => s.name).filter(Boolean).sort());
+        setStaffOptions([...new Set(staff.map((s) => s.name).filter(Boolean))].sort());
         const assets = await assetsRes.json();
         setAssetOptions(
           [...new Set(assets.map((a) => `${a.make} ${a.name}`.trim()))].sort()
@@ -258,6 +258,18 @@ export default function WorkplanEditor() {
     };
   }, [employee]);
 
+  // Normalize times like '6:30 Am' to 'HH:mm' for <input type="time">
+  const normalizeTime = (t) => {
+    if (!t) return '';
+    const m = String(t).trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+    if (!m) return t;
+    let h = parseInt(m[1], 10);
+    const ampm = (m[3] || '').toLowerCase();
+    if (ampm === 'pm' && h < 12) h += 12;
+    if (ampm === 'am' && h === 12) h = 0;
+    return `${String(h).padStart(2, '0')}:${m[2]}`;
+  };
+
   const normalizeRow = (r) => {
     // days can be an array [7 items] OR dict {"0": ..., "1": ...} from the backend import
     let normalizedDays;
@@ -277,7 +289,7 @@ export default function WorkplanEditor() {
     } else {
       normalizedDays = emptyDays();
     }
-    return { ...newRow(), ...r, days: normalizedDays };
+    return { ...newRow(), ...r, start_time: normalizeTime(r.start_time), days: normalizedDays };
   };
 
   // ---------- autosave ----------
