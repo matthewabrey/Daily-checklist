@@ -69,6 +69,18 @@ QR code-based machine checklist application with health, safety, and work manage
 - [x] Removed 92 console.log statements from frontend (kept console.error for error tracking)
 - [x] Added safety comments to document.write usage (content is HTML-escaped)
 
+## Refactor + Self-Hosted Field Map (June 2026)
+- [x] MAJOR REFACTOR: App.js reduced 11,444 → 6,442 lines. Extracted:
+  - `src/pages/Dashboard.js`, `src/pages/NewChecklist.js`, `src/pages/RepairsNeeded.js`
+  - `src/components/QRScanner.js`, `src/components/FieldMapBoard.js`
+  - `src/context/AuthContext.js` (AuthProvider/useAuth — WorkplanEditor/WorkplanBoard imports updated)
+  - `src/lib/api.js` (API_BASE_URL)
+- [x] Self-hosted cropping map: backend downloads FieldPlan.html from matthewabrey.github.io daily (5AM UK cron + startup if missing), injects CSS to permanently hide the "changes pending review" banner + `?estate=` param support (`backend/fieldplan_sync.py`). NOTE: injection must go before the LAST `</body>` (page JS contains `</body>` in strings).
+- [x] Endpoints: GET `/api/fieldplan` (serves map), POST `/api/fieldplan/refresh` (manual re-download)
+- [x] Header "Map" button now opens our self-hosted copy (`/api/fieldplan?view=map`) — banner-free
+- [x] Dashboard: new 4th rotating section "Field Maps" with 8 estate tabs (Wretham, Beard, Rackham Farms, Pickenham, Gooderham, Euston, Chandler, Blakeney); estate switches inside iframe without reload; auto-cycles estates every 15s while rotation active
+- Verified by testing agent: 100% backend + frontend incl. full regression (/app/test_reports/iteration_9.json)
+
 ## Dashboard Refresh/Rotation Stability Fix (June 2026)
 - [x] Section auto-rotation slowed 20s → 60s; rotation tick skipped while user is scrolled down (>150px) so screen never jumps mid-reading
 - [x] Background data refresh 10s → 30s and made silent (Loading pill only on initial load)
@@ -84,11 +96,12 @@ QR code-based machine checklist application with health, safety, and work manage
 - Verified by testing agent: 8/8 frontend tests passed (/app/test_reports/iteration_7.json)
 
 ## Pending / Backlog
-- [ ] P0: Frontend Refactoring (`App.js` ~11,400 lines) — Extract Dashboard, NewChecklist, RepairsNeeded
-- [ ] P1: Fix React Hook dependencies (39 missing across files)
+- [ ] P1: Continue App.js modularization (~6,442 lines remain: Records, AllChecksCompleted, Training, Accidents, etc.)
+- [ ] P1: Fix React Hook dependencies (remaining missing deps across files)
 - [ ] P1: Refactor `upload_assets_file()` (175 lines, complexity 63) and `upload_staff_file()` (124 lines)
-- [ ] P1: Replace array index keys with unique IDs (32 instances)
+- [ ] P1: Replace array index keys with unique IDs (remaining instances)
 - [ ] P1: Restore hidden features when ready
+- [ ] P2: Trace background HTTP 422 seen in console (non-blocking)
 - [ ] P2: Date range filter for "All Checks Overview"
 - [ ] P2: Add type hints to Python files (currently 32.9% coverage)
 - [ ] P2: Mobile-friendliness improvements
