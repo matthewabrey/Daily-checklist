@@ -8,7 +8,7 @@ import {
   ArrowLeft, Plus, Save, Send, Trash2, Copy, Palette, ListPlus,
   ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine, BarChart3, UserX, UserCheck, User, GripVertical, Printer, ArrowDownAZ
 } from 'lucide-react';
-import { useAuth } from '../App';
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

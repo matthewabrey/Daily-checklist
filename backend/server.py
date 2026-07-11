@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from sharepoint_integration import sharepoint_integration
 from sharepoint_auto_sync import sharepoint_auto_sync
 from cached_stats import get_cached_stats, invalidate_cache
+from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH
 import qrcode
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -92,6 +93,15 @@ async def scheduled_sharepoint_sync():
             'assets_count': 0
         })
 
+# Scheduled FieldPlan (cropping map) download
+async def scheduled_fieldplan_sync():
+    """Scheduled task to re-download the external cropping FieldPlan daily"""
+    try:
+        size = await download_fieldplan()
+        logger.info(f"Scheduled FieldPlan sync completed ({size} chars)")
+    except Exception as e:
+        logger.error(f"Scheduled FieldPlan sync error: {str(e)}")
+
 # Setup scheduler on startup
 @app.on_event("startup")
 async def startup_event():
@@ -104,14 +114,44 @@ async def startup_event():
         name="Daily SharePoint Staff Sync",
         replace_existing=True
     )
+    # Schedule daily FieldPlan download at 5:00 AM UK time
+    scheduler.add_job(
+        scheduled_fieldplan_sync,
+        CronTrigger(hour=5, minute=0, timezone="Europe/London"),
+        id="daily_fieldplan_sync",
+        name="Daily FieldPlan Map Download",
+        replace_existing=True
+    )
     scheduler.start()
     logger.info("Scheduler started - Daily staff sync scheduled for 9:00 AM UK time")
+    # Download the FieldPlan immediately if we don't have a copy yet
+    if not os.path.exists(FIELDPLAN_PATH):
+        asyncio.create_task(scheduled_fieldplan_sync())
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Stop the scheduler when the app shuts down"""
     scheduler.shutdown()
     logger.info("Scheduler stopped")
+
+@app.get("/api/fieldplan")
+async def get_fieldplan():
+    """Serve the self-hosted copy of the external cropping FieldPlan map"""
+    if not os.path.exists(FIELDPLAN_PATH):
+        try:
+            await download_fieldplan()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Failed to fetch field plan: {str(e)}")
+    return FileResponse(FIELDPLAN_PATH, media_type="text/html")
+
+@app.post("/api/fieldplan/refresh")
+async def refresh_fieldplan():
+    """Manually re-download the latest FieldPlan from the external site"""
+    try:
+        size = await download_fieldplan()
+        return {"success": True, "size": size}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to refresh field plan: {str(e)}")
 
 # Pydantic models
 class Asset(BaseModel):
