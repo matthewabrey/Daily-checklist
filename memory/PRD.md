@@ -69,6 +69,12 @@ QR code-based machine checklist application with health, safety, and work manage
 - [x] Removed 92 console.log statements from frontend (kept console.error for error tracking)
 - [x] Added safety comments to document.write usage (content is HTML-escaped)
 
+## Dashboard Refresh/Rotation Stability Fix (June 2026)
+- [x] Section auto-rotation slowed 20s → 60s; rotation tick skipped while user is scrolled down (>150px) so screen never jumps mid-reading
+- [x] Background data refresh 10s → 30s and made silent (Loading pill only on initial load)
+- [x] Updated labels: "Auto-rotating every 60s", "Auto-updates every 30sec"
+- Verified by testing agent on desktop + mobile: 0px scroll drift across refresh (/app/test_reports/iteration_8.json)
+
 ## Workplan Editor Stability Fix (June 2026)
 - [x] Removed live "user rows first" auto-sort that re-sorted rows on every keystroke (caused jumping while typing)
 - [x] Manual "Sort by Manager" only: toolbar button + new sort icon in Mgr column header (data-testid="sort-manager-header-btn")
