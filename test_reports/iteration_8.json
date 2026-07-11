@@ -1,0 +1,27 @@
+{
+  "summary": "Frontend-only regression test for the Dashboard rotation/refresh 'screen jumps on refresh' bug fix. All the applied fixes (60s rotation, scrollY>150 guard, silent background refresh at 30s, Loading pill only on initial load, updated label 'Auto-rotating every 60s') were verified working end-to-end at https://core-checks-only.preview.emergentagent.com using admin employee 4444. Tested on both desktop (1920x1080) and mobile (390x844) viewports.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Dashboard header meta line", "issue": "Header still displays 'Auto-updates every 10sec' but the actual background refresh interval was changed to 30s in this fix. Text is now stale/misleading (App.js line 1702). Suggest updating to 'Auto-updates every 30sec' for consistency with the 60s rotation label update.", "selector": "text=Auto-updates every 10sec", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Update Dashboard header meta text in /app/frontend/src/App.js line 1702 from 'Auto-updates every 10sec' to 'Auto-updates every 30sec' to match the new refreshInterval (30000ms) at line 665."
+  ],
+  "critical_code_review_comments": [
+    "Fixes at App.js lines 184 (ROTATION_DELAY=60000), ~197-201 (scrollY>150 guard), 663-665 (30s silent refresh interval), 670-671 (silent flag skips setIsLoading), and 1824 ('Auto-rotating every 60s' label) are correctly implemented and behave as intended.",
+    "Minor consistency miss: label 'Auto-updates every 10sec' at line 1702 wasn't updated when the interval changed from 10s to 30s."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not tested)", "frontend": "100% for the bug-fix acceptance criteria (1 minor label inconsistency)"},
+  "test_credentials": "Admin employee #4444 (per /app/memory/test_credentials.md)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Dashboard rotation/refresh 'jump' fix verified. Verifications performed: (a) All required data-testids present (section-btn-0/1/2, rotation-toggle-btn). (b) Label reads 'Auto-rotating every 60s' when not paused. (c) Loading pill did NOT reappear during 40s of background refresh in desktop and 35s in mobile - only initial load shows it. (d) On mobile (page scrollable, scrollHeight=1645), scrolled to Y=300, waited 35s across a background refresh: scrollY stayed at 300 (0px delta), no screen jump. (e) 'Last updated' timestamp advanced from 12:34:44 -> 12:35:14 confirming silent refresh actually ran without moving the viewport. (f) While scrolled (y=300 > 150), the active section did NOT change during the wait window (rotation correctly skipped due to scrollY guard). (g) Manual section switch (section-btn-1) works, shows 'Paused - tap Play to auto-rotate', and rotation-toggle-btn resumes with 'Auto-rotating every 60s'. (h) View All Checks button opens the modal. (i) Navigating /workplan -> / reloads the dashboard cleanly. Only issue: stale label 'Auto-updates every 10sec' at App.js:1702 should read '30sec'.",
+  "rca of the issue": "Original bug: dashboard jumped/moved on refresh. Root cause was two-fold: (1) the 20s auto-rotation tick fired regardless of scroll position, snapping the carousel section and shifting the viewport while the user was reading below the fold; (2) the 10s background data refetch called fetchRecentChecklists() which unconditionally set isLoading=true, mounting the fixed 'Loading...' pill and, in some layouts, causing brief content re-render/scroll shift. Mitigation (already applied by main agent and verified here): slow rotation to 60s and gate the tick behind window.scrollY <= 150; slow background refresh to 30s and add silent=true flag so isLoading (and thus the Loading pill) is not toggled during background refreshes."
+}

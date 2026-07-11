@@ -181,7 +181,7 @@ function Dashboard() {
   const [activeSection, setActiveSection] = useState(0); // 0=stats, 1=workplan, 2=progress
   const [isPaused, setIsPaused] = useState(false);
   const rotationInterval = useRef(null);
-  const ROTATION_DELAY = 20000; // 20 seconds
+  const ROTATION_DELAY = 60000; // 60 seconds
   const SECTION_LABELS = ['Check Figures', 'Daily Work Plan', 'Work Progress'];
 
   // Auto-rotation effect
@@ -195,6 +195,8 @@ function Dashboard() {
     }
 
     rotationInterval.current = setInterval(() => {
+      // Don't rotate while the user is scrolled down reading — it would jump the screen
+      if (window.scrollY > 150) return;
       setActiveSection(prev => (prev + 1) % 3);
     }, ROTATION_DELAY);
 
@@ -657,16 +659,16 @@ function Dashboard() {
     // Fetch data whenever dashboard is visited
     fetchRecentChecklists();
     
-    // Auto-refresh every 10 seconds
+    // Silent background refresh every 30 seconds (no loading indicator, no screen movement)
     const refreshInterval = setInterval(() => {
-      fetchRecentChecklists();
-    }, 10000);
+      fetchRecentChecklists(true);
+    }, 30000);
     
     return () => clearInterval(refreshInterval);
   }, [location.pathname]); // Re-run when path changes (navigation)
 
-  const fetchRecentChecklists = async () => {
-    setIsLoading(true);
+  const fetchRecentChecklists = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       // Fetch dashboard stats first (faster with caching)
       const statsResponse = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
@@ -1818,7 +1820,7 @@ function Dashboard() {
           {isPaused ? '▶ Play' : '⏸ Pause'}
         </button>
         <span className="text-xs text-gray-500 ml-2">
-          {isPaused ? 'Paused - tap Play to auto-rotate' : 'Auto-rotating every 20s'}
+          {isPaused ? 'Paused - tap Play to auto-rotate' : 'Auto-rotating every 60s'}
         </span>
       </div>
 
