@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend-only verification of Daily Workplan editor stability fixes. All 8 targeted tests PASSED: (1) typing in wp-employee-0 keeps focus and row stays in place — no jump; (2) typing in wp-manager-1 does NOT trigger auto-sort — row order unchanged; (3) new sort-manager-header-btn in Mgr column header is present, clickable, and correctly groups/sorts rows by manager on click only; (3b) toolbar sort-manager-btn still works; (4) scroll position is stable while typing in a Notes textarea (0px drift); (5) autosave indicator shows 'All changes saved'; (6) cell click selection works (toolbar '1 selected · Set job · Copy · Paste · Clear · Deselect' appears); (7) double-click on a day cell opens the job editor dialog; (8) add-row-btn is visible. All test edits were reverted (Audrius, Chris M mgr, and notes restored to original values). Publish was NOT clicked.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "critical_code_review_comments": [
+    "React console spam: 'Encountered two children with the same key' warning fires repeatedly on WorkplanEditor render (dozens of occurrences per re-render). Likely a non-unique key in a .map() inside the grid — could cause subtle re-render/identity bugs and hurts performance on a 100+ row grid. Investigate keys used on displayRows or the day-column mapping in /app/frontend/src/pages/WorkplanEditor.js.",
+    "Multiple '<input type=\"time\"> value does not conform to HH:mm format' warnings for values like '6:30 Am' / '5:30 Am'. The Start column is populating time inputs with human-readable strings ('6:30 Am') that browsers reject silently. Either normalize to 'HH:mm' before binding, or use a text input with masking.",
+    "The presence banner 'Warning: Matthew Abrey is also editing this workplan. Changes may conflict.' is styled as a full-width yellow bar with no dismiss control — could be made collapsible."
+  ],
+  "test_report_links": [],
+  "action_items": [
+    "Fix duplicate React key warnings in WorkplanEditor.js (non-blocking, but should be resolved for stability/perf).",
+    "Normalize time values stored as '6:30 Am' to 'HH:mm' before feeding to <input type=\"time\"> to remove console noise and ensure the picker displays them."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100% (8/8 targeted tests)"},
+  "seed_data_creation": "None. All edits reverted to original values.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Bug fix for row-jump/jolty grid on WorkplanEditor is verified working: no auto-sort on keystroke, focus preserved, scroll preserved (0px drift), manual sort via new sort-manager-header-btn in Mgr column header works and groups by manager. Toolbar sort-manager-btn also works. Autosave, cell selection, double-click job editor dialog, and add-row-btn all functional. Remaining code-quality issues (unrelated to this bug): duplicate React keys warning and invalid time input format warnings — surfaced in critical_code_review_comments."
+}

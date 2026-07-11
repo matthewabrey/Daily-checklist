@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Save, Send, Trash2, Copy, Palette, ListPlus,
-  ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine, BarChart3, UserX, UserCheck, User, GripVertical, Printer
+  ChevronUp, ChevronDown, X, CheckCircle2, ArrowRightToLine, BarChart3, UserX, UserCheck, User, GripVertical, Printer, ArrowDownAZ
 } from 'lucide-react';
 import { useAuth } from '../App';
 
@@ -83,7 +83,6 @@ const newRow = () => ({
 export default function WorkplanEditor() {
   const navigate = useNavigate();
   const { employee } = useAuth();
-  const currentUserName = employee?.name || '';
   
   const [weekStart, setWeekStart] = useState(toISO(mondayOf(new Date())));
   const [rows, setRows] = useState([]);
@@ -118,59 +117,46 @@ export default function WorkplanEditor() {
   const rightTableRef = useRef(null);
   const isSyncing = useRef(false);
 
-  // Sync row heights between left and right tables
+  // Sync row heights between left and right tables (scroll-preserving, no-jolt)
+  const syncRowHeights = useCallback(() => {
+    const left = leftTableRef.current;
+    const right = rightTableRef.current;
+    if (!left || !right) return;
+
+    // Preserve scroll positions — resetting heights can clamp scrollTop and cause jumps
+    const leftScroll = left.scrollTop;
+    const rightScroll = right.scrollTop;
+
+    const leftRows = left.querySelectorAll('tbody tr');
+    const rightRows = right.querySelectorAll('tbody tr');
+
+    leftRows.forEach((leftRow, idx) => {
+      const rightRow = rightRows[idx];
+      if (!rightRow) return;
+
+      leftRow.style.height = 'auto';
+      rightRow.style.height = 'auto';
+
+      const maxHeight = Math.max(leftRow.offsetHeight, rightRow.offsetHeight);
+      leftRow.style.height = `${maxHeight}px`;
+      rightRow.style.height = `${maxHeight}px`;
+    });
+
+    // Restore scroll positions before the browser paints
+    left.scrollTop = leftScroll;
+    right.scrollTop = rightScroll;
+  }, []);
+
+  // Run height sync only when row count / visibility changes — not on every keystroke
   useEffect(() => {
-    const syncRowHeights = () => {
-      if (!leftTableRef.current || !rightTableRef.current) return;
-      
-      const leftRows = leftTableRef.current.querySelectorAll('tbody tr');
-      const rightRows = rightTableRef.current.querySelectorAll('tbody tr');
-      
-      leftRows.forEach((leftRow, idx) => {
-        const rightRow = rightRows[idx];
-        if (!rightRow) return;
-        
-        // Reset heights first
-        leftRow.style.height = 'auto';
-        rightRow.style.height = 'auto';
-        
-        // Get natural heights
-        const leftHeight = leftRow.offsetHeight;
-        const rightHeight = rightRow.offsetHeight;
-        const maxHeight = Math.max(leftHeight, rightHeight);
-        
-        // Set both to max
-        leftRow.style.height = `${maxHeight}px`;
-        rightRow.style.height = `${maxHeight}px`;
-      });
-    };
-    
-    // Run after render and on row changes
     const timer = setTimeout(syncRowHeights, 100);
     return () => clearTimeout(timer);
-  }, [rows, showLeavers]);
+  }, [rows.length, showLeavers, hiddenDays, loaded, syncRowHeights]);
 
   // Function to trigger row height sync (called on note input)
   const triggerRowSync = useCallback(() => {
-    if (!leftTableRef.current || !rightTableRef.current) return;
-    
-    setTimeout(() => {
-      const leftRows = leftTableRef.current.querySelectorAll('tbody tr');
-      const rightRows = rightTableRef.current.querySelectorAll('tbody tr');
-      
-      leftRows.forEach((leftRow, idx) => {
-        const rightRow = rightRows[idx];
-        if (!rightRow) return;
-        
-        leftRow.style.height = 'auto';
-        rightRow.style.height = 'auto';
-        
-        const maxHeight = Math.max(leftRow.offsetHeight, rightRow.offsetHeight);
-        leftRow.style.height = `${maxHeight}px`;
-        rightRow.style.height = `${maxHeight}px`;
-      });
-    }, 10);
-  }, []);
+    setTimeout(syncRowHeights, 10);
+  }, [syncRowHeights]);
 
   // excel-like cell selection / clipboard / drag-fill
   const [selCells, setSelCells] = useState([]); // [{rowIdx, colIdx}]
@@ -901,34 +887,10 @@ export default function WorkplanEditor() {
     requestAnimationFrame(() => { isSyncing.current = false; });
   };
 
-  // Separate active vs left rows, with current user's rows first
+  // Separate active vs left rows — keep stored order stable (no auto-sorting while editing)
   const activeRows = rows.filter(r => !r.left);
   const leftRows = rows.filter(r => r.left);
-  
-  // Sort function to put current user's rows first (as employee or manager)
-  const sortWithUserFirst = (rowList) => {
-    if (!currentUserName) return rowList;
-    const normalize = (s) => (s || '').toLowerCase().trim();
-    const userName = normalize(currentUserName);
-    
-    return [...rowList].sort((a, b) => {
-      const aIsUser = normalize(a.employee_name).includes(userName) || normalize(a.manager).includes(userName);
-      const bIsUser = normalize(b.employee_name).includes(userName) || normalize(b.manager).includes(userName);
-      
-      if (aIsUser && !bIsUser) return -1;
-      if (!aIsUser && bIsUser) return 1;
-      return 0; // keep original order for non-user rows
-    });
-  };
-  
-  const displayRows = sortWithUserFirst(showLeavers ? rows : activeRows);
-  
-  // Check if current user has any rows
-  const userRows = currentUserName ? displayRows.filter(r => {
-    const normalize = (s) => (s || '').toLowerCase().trim();
-    const userName = normalize(currentUserName);
-    return normalize(r.employee_name).includes(userName) || normalize(r.manager).includes(userName);
-  }) : [];
+  const displayRows = showLeavers ? rows : activeRows;
 
   const fetchCosting = async (from, until) => {
     try {
@@ -1116,7 +1078,19 @@ export default function WorkplanEditor() {
                   <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 100 }}>Employee</th>
                   <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 70 }}>Vehicle</th>
                   <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 60 }}>Impl</th>
-                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 90 }}>Mgr</th>
+                  <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 90 }}>
+                    <div className="flex items-center gap-1">
+                      Mgr
+                      <button
+                        onClick={sortByManager}
+                        className="text-gray-400 hover:text-blue-600"
+                        title="Sort rows by manager"
+                        data-testid="sort-manager-header-btn"
+                      >
+                        <ArrowDownAZ className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </th>
                   <th className="px-0.5 py-0.5 border bg-gray-100" style={{ minWidth: 45 }}>Start</th>
                   <th className="px-0.5 py-0.5 border text-left bg-gray-100" style={{ minWidth: 150 }}>Notes</th>
                 </tr>
@@ -1223,7 +1197,7 @@ export default function WorkplanEditor() {
                           className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent resize-none leading-tight overflow-visible"
                           style={{ minHeight: 20, minWidth: 180, whiteSpace: 'pre-wrap', wordWrap: 'break-word', overflow: 'hidden', height: 'auto' }}
                           ref={(el) => {
-                            if (el) {
+                            if (el && !el.style.height) {
                               el.style.height = 'auto';
                               el.style.height = Math.max(20, el.scrollHeight) + 'px';
                             }
