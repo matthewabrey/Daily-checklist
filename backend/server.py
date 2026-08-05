@@ -1398,6 +1398,26 @@ async def add_progress_note(repair_id: str, note_text: str, author: str):
     )
     return {"success": True, "message": "Progress note added", "note": note}
 
+# --- Serve the React frontend build (single-service deployment) ---
+# When the frontend has been built (frontend/build exists), the backend serves it
+# directly, so the whole app runs as ONE service. During local development with
+# the React dev server this block is skipped automatically.
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+FRONTEND_BUILD = Path(__file__).resolve().parent.parent / "frontend" / "build"
+if FRONTEND_BUILD.is_dir():
+    app.mount("/static", StaticFiles(directory=FRONTEND_BUILD / "static"), name="static")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        candidate = FRONTEND_BUILD / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(FRONTEND_BUILD / "index.html")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
