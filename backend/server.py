@@ -752,12 +752,20 @@ async def upload_staff_file(file: UploadFile = File(...)):
         for i, header in enumerate(headers):
             if 'name' in header and 'employee' not in header:
                 name_col = i
-            elif 'number' in header or 'employee' in header or 'emp' in header:
+            elif ('employee' in header or 'emp' in header) and number_col is None:
+                # Prefer the dedicated Employee Number column (first match wins)
                 number_col = i
             elif 'workshop' in header and 'control' in header:
                 workshop_col = i
             elif 'admin' in header and 'control' in header:
                 admin_col = i
+
+        # Fallback: a generic "number" column, but never phone/mobile columns
+        if number_col is None:
+            for i, header in enumerate(headers):
+                if 'number' in header and not any(w in header for w in ('phone', 'mobile', 'tel', 'fax')):
+                    number_col = i
+                    break
         
         # Fallback: assume first column is names, second is numbers
         if name_col is None:
