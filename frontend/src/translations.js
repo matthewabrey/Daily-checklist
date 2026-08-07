@@ -5,7 +5,7 @@
 export const translations = {
   en: {
     // Login Page
-    loginTitle: "Abreys Health & Safety, Well-being and Work App",
+    loginTitle: "Abreys Day to Day Work App",
     loginSubtitle: "Enter your employee number to continue",
     employeeNumber: "Employee Number",
     employeeNumberPlaceholder: "Enter employee number",
@@ -18,7 +18,7 @@ export const translations = {
     
     // Dashboard
     dashboardTitle: "Dashboard",
-    dashboardSubtitle: "Health & Safety, Well-being and Work Management",
+    dashboardSubtitle: "Abreys Day to Day Work App",
     checksAndServicing: "Checks and Servicing",
     breakdownRepairReporting: "Breakdown and repair reporting",
     
@@ -158,7 +158,7 @@ export const translations = {
   
   pl: {
     // Polish translations
-    loginTitle: "Lista kontrolna maszyn",
+    loginTitle: "Abreys Day to Day Work App",
     loginSubtitle: "Wprowadź numer pracownika, aby kontynuować",
     employeeNumber: "Numer pracownika",
     employeeNumberPlaceholder: "Wprowadź numer pracownika",
@@ -169,7 +169,7 @@ export const translations = {
     logout: "Wyloguj",
     
     dashboardTitle: "Panel listy kontrolnej maszyn",
-    dashboardSubtitle: "Zarządzaj listami kontrolnymi uruchamiania sprzętu i kontrolami bezpieczeństwa",
+    dashboardSubtitle: "Abreys Day to Day Work App",
     checksAndServicing: "Kontrole i serwis",
     breakdownRepairReporting: "Zgłaszanie awarii i napraw",
     
@@ -296,7 +296,7 @@ export const translations = {
   
   bg: {
     // Bulgarian translations
-    loginTitle: "Контролен списък на машините",
+    loginTitle: "Abreys Day to Day Work App",
     loginSubtitle: "Въведете номер на служител, за да продължите",
     employeeNumber: "Номер на служител",
     employeeNumberPlaceholder: "Въведете номер на служител",
@@ -307,7 +307,7 @@ export const translations = {
     logout: "Изход",
     
     dashboardTitle: "Табло за контролен списък на машините",
-    dashboardSubtitle: "Управление на контролни списъци за стартиране на оборудване и проверки за безопасност",
+    dashboardSubtitle: "Abreys Day to Day Work App",
     checksAndServicing: "Проверки и обслужване",
     breakdownRepairReporting: "Докладване на повреди и ремонти",
     
@@ -433,7 +433,7 @@ export const translations = {
   
   ru: {
     // Russian translations
-    loginTitle: "Контрольный список машин",
+    loginTitle: "Abreys Day to Day Work App",
     loginSubtitle: "Введите номер сотрудника, чтобы продолжить",
     employeeNumber: "Номер сотрудника",
     employeeNumberPlaceholder: "Введите номер сотрудника",
@@ -444,7 +444,7 @@ export const translations = {
     logout: "Выход",
     
     dashboardTitle: "Панель контрольных списков машин",
-    dashboardSubtitle: "Управление контрольными списками запуска оборудования и проверками безопасности",
+    dashboardSubtitle: "Abreys Day to Day Work App",
     checksAndServicing: "Проверки и обслуживание",
     breakdownRepairReporting: "Отчетность о поломках и ремонтах",
     
@@ -570,7 +570,7 @@ export const translations = {
   
   lt: {
     // Lithuanian translations
-    loginTitle: "Mašinų kontrolinis sąrašas",
+    loginTitle: "Abreys Day to Day Work App",
     loginSubtitle: "Įveskite darbuotojo numerį, kad tęstumėte",
     employeeNumber: "Darbuotojo numeris",
     employeeNumberPlaceholder: "Įveskite darbuotojo numerį",
@@ -581,7 +581,7 @@ export const translations = {
     logout: "Atsijungti",
     
     dashboardTitle: "Mašinų kontrolinio sąrašo skydelis",
-    dashboardSubtitle: "Valdyti įrangos paleidimo kontrolinius sąrašus ir saugos patikrinimus",
+    dashboardSubtitle: "Abreys Day to Day Work App",
     checksAndServicing: "Patikrinimai ir aptarnavimas",
     breakdownRepairReporting: "Gedimų ir remontų ataskaitos",
     
@@ -707,7 +707,7 @@ export const translations = {
   
   uk: {
     // Ukrainian translations
-    loginTitle: "Контрольний список машин",
+    loginTitle: "Abreys Day to Day Work App",
     loginSubtitle: "Введіть номер співробітника, щоб продовжити",
     employeeNumber: "Номер співробітника",
     employeeNumberPlaceholder: "Введіть номер співробітника",
@@ -718,7 +718,7 @@ export const translations = {
     logout: "Вихід",
     
     dashboardTitle: "Панель контрольних списків машин",
-    dashboardSubtitle: "Керування контрольними списками запуску обладнання та перевірками безпеки",
+    dashboardSubtitle: "Abreys Day to Day Work App",
     checksAndServicing: "Перевірки та обслуговування",
     breakdownRepairReporting: "Звітність про поломки та ремонти",
     
