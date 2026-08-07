@@ -1,462 +1,24 @@
-import React, { useState, useEffect, createContext, useContext, lazy, Suspense, memo, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef, lazy } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
+import { Select } from './components/ui/select';
 import { Checkbox } from './components/ui/checkbox';
 import { Textarea } from './components/ui/textarea';
 import { Badge } from './components/ui/badge';
-import { Separator } from './components/ui/separator';
 import { toast } from 'sonner';
 import { useTranslation } from './LanguageContext';
-import { languages } from './translations';
-import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, Calendar, User, Wrench, RefreshCw, Link2, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, User, Wrench, RefreshCw, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock, FileCheck, CalendarDays, MapPin } from 'lucide-react';
+import WorkplanEditor from './pages/WorkplanEditor';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { API_BASE_URL } from './lib/api';
+import Dashboard from './pages/Dashboard';
+import NewChecklist from './pages/NewChecklist';
+import RepairsNeeded from './pages/RepairsNeeded';
 import './App.css';
 
 // Use SharePointAdminComponent directly for now
 
-// Authentication Context
-const AuthContext = createContext();
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
-};
-
-// QR Code Scanner Component
-function QRScanner({ onScan, onClose }) {
-  const scannerRef = useRef(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const scanner = new Html5QrcodeScanner(
-      "qr-reader",
-      { 
-        fps: 10, 
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
-      },
-      false
-    );
-
-    scanner.render(
-      (decodedText) => {
-        // Success - QR code scanned
-        scanner.clear();
-        onScan(decodedText);
-      },
-      (errorMessage) => {
-        // Error or no QR code found - this is normal during scanning
-        // Only show error if it's a critical error
-        if (errorMessage.includes('NotAllowedError')) {
-          setError('Camera access denied. Please allow camera access.');
-        }
-      }
-    );
-
-    scannerRef.current = scanner;
-
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch(() => {});
-      }
-    };
-  }, [onScan]);
-
-  return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg max-w-md w-full p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <ScanLine className="h-5 w-5" />
-            Scan Machine QR Code
-          </h3>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-        
-        {error && (
-          <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 text-sm">
-            {error}
-          </div>
-        )}
-        
-        <div id="qr-reader" className="w-full"></div>
-        
-        <p className="text-sm text-gray-500 mt-4 text-center">
-          Point your camera at the QR code on the machine
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function AuthProvider({ children }) {
-  const [employee, setEmployee] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Check if user was previously authenticated (session storage for now)
-    const storedEmployee = sessionStorage.getItem('authenticated_employee');
-    if (storedEmployee) {
-      try {
-        const empData = JSON.parse(storedEmployee);
-        setEmployee(empData);
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.error('Error parsing stored employee data:', error);
-        sessionStorage.removeItem('authenticated_employee');
-      }
-    }
-    setLoading(false);
-  }, []);
-
-  const login = (employeeData) => {
-    setEmployee(employeeData);
-    setIsAuthenticated(true);
-    sessionStorage.setItem('authenticated_employee', JSON.stringify(employeeData));
-  };
-
-  const logout = () => {
-    setEmployee(null);
-    setIsAuthenticated(false);
-    sessionStorage.removeItem('authenticated_employee');
-  };
-
-  return (
-    <AuthContext.Provider value={{ 
-      employee, 
-      isAuthenticated, 
-      login, 
-      logout, 
-      loading 
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
-
-// Dashboard Component
-function Dashboard() {
-  const { t } = useTranslation();
-  const [recentChecklists, setRecentChecklists] = useState([]);
-  const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0 });
-  const [showRepairWarning, setShowRepairWarning] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
-
-  // Use location to trigger refresh on navigation
-  const location = useLocation();
-
-  useEffect(() => {
-    // Fetch data whenever dashboard is visited
-    console.log('Dashboard visited, fetching data from:', API_BASE_URL);
-    fetchRecentChecklists();
-    
-    // Auto-refresh every 10 seconds
-    const refreshInterval = setInterval(() => {
-      fetchRecentChecklists();
-    }, 10000);
-    
-    return () => clearInterval(refreshInterval);
-  }, [location.pathname]); // Re-run when path changes (navigation)
-
-  const fetchRecentChecklists = async () => {
-    console.log('fetchRecentChecklists called');
-    setIsLoading(true);
-    try {
-      // Fetch dashboard stats first (faster with caching)
-      const statsResponse = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
-      console.log('Stats response status:', statsResponse.status);
-      
-      if (!statsResponse.ok) {
-        throw new Error(`Stats API error: ${statsResponse.status}`);
-      }
-      
-      const statsData = await statsResponse.json();
-      console.log('Stats data received:', statsData);
-      
-      setStats({ 
-        total: statsData.total_completed || 0,
-        todayByType: statsData.today_by_type || {},
-        todayTotal: statsData.today_total || 0,
-        repairsDue: statsData.repairs_due || 0,
-        nonAcknowledgedRepairs: statsData.new_repairs || 0,
-        repairsCompletedLast7Days: statsData.repairs_completed || 0,
-        pendingMachineAdditions: statsData.machine_additions_count || 0
-      });
-      
-      // Fetch recent checklists
-      const recentResponse = await fetch(`${API_BASE_URL}/api/checklists?limit=5`);
-      const recentChecklistsData = await recentResponse.json();
-      const filteredRecentChecklists = recentChecklistsData.filter(c => c.check_type !== 'GENERAL REPAIR');
-      setRecentChecklists(filteredRecentChecklists);
-      
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Loading indicator */}
-      {isLoading && (
-        <div className="flex items-center justify-center p-4 bg-blue-50 rounded-lg">
-          <RefreshCw className="h-5 w-5 animate-spin text-blue-600 mr-2" />
-          <span className="text-blue-700">Loading dashboard data...</span>
-        </div>
-      )}
-      
-      {/* General Repair Warning Modal */}
-      {showRepairWarning && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-        >
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-[10000]">
-            <div className="flex items-center mb-4">
-              <AlertCircle className="h-6 w-6 text-orange-600 mr-3" />
-              <h3 className="text-lg font-semibold text-orange-800">Important Notice</h3>
-            </div>
-            
-            <div className="mb-6">
-              <p className="text-gray-700 leading-relaxed">
-                This is for general repair reporting. If this repair is <strong>urgent</strong> or is a <strong>health and safety issue</strong>, please report directly to your manager immediately.
-              </p>
-              <div className="mt-4 p-3 bg-orange-50 border-l-4 border-orange-400 rounded">
-                <p className="text-sm text-orange-800">
-                  <strong>⚠ Remember:</strong> Critical safety issues require immediate supervisor notification.
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex justify-end">
-              <Button 
-                onClick={() => {
-                  setShowRepairWarning(false);
-                  navigate('/general-repair-record');
-                }}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                I Understand - Continue
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <div className="text-center sm:text-left">
-        <div>
-          <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">{t('dashboardSubtitle')}</p>
-          <div className="flex items-center space-x-2 mt-1">
-            <p className="text-xs text-gray-400">v3.0-nav-buttons</p>
-            <span className="text-gray-300">•</span>
-            <p className="text-xs text-gray-400">
-              <RefreshCw className="h-3 w-3 inline mr-1" />
-              Auto-updates every 10sec
-            </p>
-            <span className="text-gray-300">•</span>
-            <p className="text-xs text-gray-400">
-              Last updated: {lastUpdated.toLocaleTimeString()}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-6 w-full">
-          <Button 
-            onClick={() => navigate('/new-checklist')} 
-            className="bg-green-600 hover:bg-green-700 flex-1 text-sm sm:text-base py-4 sm:py-6"
-            data-testid="daily-check-btn"
-          >
-            <ClipboardList className="mr-2 h-4 w-4" />
-            Checks and Servicing
-          </Button>
-          <Button 
-            onClick={() => setShowRepairWarning(true)}
-            className="bg-orange-600 hover:bg-orange-700 text-white flex-1 text-sm sm:text-base py-4 sm:py-6"
-            data-testid="breakdown-repair-btn"
-          >
-            <Wrench className="mr-2 h-4 w-4" />
-            Breakdown and repair reporting
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-        {/* 0. Total Checks Completed - First */}
-        <Card className="hover:shadow-lg transition-shadow border-purple-200 bg-purple-50" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-900">Total Checks</CardTitle>
-            <ClipboardList className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
-            <div style={{flex: 1}}>
-              <div className="text-2xl font-bold text-purple-600">{stats.total}</div>
-              <p className="text-xs text-purple-700">All time completed</p>
-            </div>
-            <Button 
-              onClick={() => navigate('/all-checks')}
-              variant="outline"
-              size="sm"
-              className="w-full border-purple-300 text-purple-700 hover:bg-purple-100"
-              style={{marginTop: 'auto'}}
-            >
-              View All Checks
-            </Button>
-          </div>
-        </Card>
-
-        {/* 1. New Repairs - Second */}
-        <Card className="hover:shadow-lg transition-shadow" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New Repairs</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
-            <div style={{flex: 1}}>
-              <div className="text-2xl font-bold text-orange-600">{stats.nonAcknowledgedRepairs}</div>
-              <p className="text-xs text-gray-600">Need acknowledgment</p>
-            </div>
-            <Button 
-              onClick={() => navigate('/repairs-needed?view=new')}
-              variant="outline"
-              size="sm"
-              className="w-full"
-              style={{marginTop: 'auto'}}
-            >
-              View New Repairs
-            </Button>
-          </div>
-        </Card>
-
-        {/* 2. New Machines Added - Second */}
-        <Card className="hover:shadow-lg transition-shadow border-blue-200 bg-blue-50" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-900">New Machines Added</CardTitle>
-            <Truck className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
-            <div style={{flex: 1}}>
-              <div className="text-2xl font-bold text-blue-600">{stats.pendingMachineAdditions}</div>
-              <p className="text-xs text-blue-700">Pending review</p>
-            </div>
-            <Button 
-              onClick={() => navigate('/machine-additions')}
-              variant="outline"
-              size="sm"
-              className="w-full border-blue-300 text-blue-700 hover:bg-blue-100"
-              style={{marginTop: 'auto'}}
-            >
-              View Machine Requests
-            </Button>
-          </div>
-        </Card>
-
-        {/* 3. Repairs Due - Third */}
-        <Card className="hover:shadow-lg transition-shadow" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Repairs Due</CardTitle>
-            <AlertCircle className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
-            <div style={{flex: 1}}>
-              <div className="text-2xl font-bold text-red-600">{stats.repairsDue}</div>
-              <p className="text-xs text-gray-600">Acknowledged repairs</p>
-            </div>
-            <Button 
-              onClick={() => navigate('/repairs-needed?view=acknowledged')}
-              variant="outline"
-              size="sm"
-              className="w-full"
-              style={{marginTop: 'auto'}}
-            >
-              View Repairs Due
-            </Button>
-          </div>
-        </Card>
-
-        {/* 4. Today's Checks - Fourth */}
-        <Card className="hover:shadow-lg transition-shadow" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Checks</CardTitle>
-            <Calendar className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
-            <div style={{flex: 1}}>
-              <div className="text-2xl font-bold text-green-600">{stats.todayTotal}</div>
-              {Object.keys(stats.todayByType).length > 0 ? (
-                <div className="mt-1 space-y-0.5">
-                  {(() => {
-                    const order = ['Vehicles', 'Mounted machines', 'Other equipment', 'Machine add', 'Repairs completed', 'Workshop service'];
-                    const sortedEntries = Object.entries(stats.todayByType).sort(([typeA], [typeB]) => {
-                      const indexA = order.indexOf(typeA);
-                      const indexB = order.indexOf(typeB);
-                      if (indexA === -1 && indexB === -1) return 0;
-                      if (indexA === -1) return 1;
-                      if (indexB === -1) return -1;
-                      return indexA - indexB;
-                    });
-                    return sortedEntries.map(([type, count]) => (
-                      <p key={type} className="text-xs text-gray-600">{type}: {count}</p>
-                    ));
-                  })()}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-600">No checks completed today</p>
-              )}
-            </div>
-            <Button 
-              onClick={() => navigate('/all-checks?filter=today')}
-              variant="outline"
-              size="sm"
-              className="w-full"
-              style={{marginTop: 'auto'}}
-            >
-              View Today's Checks
-            </Button>
-          </div>
-        </Card>
-        
-        {/* 5. Repairs Completed - Fifth */}
-        <Card className="hover:shadow-lg transition-shadow" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Repairs Completed</CardTitle>
-            <Wrench className="h-4 w-4 text-emerald-600" />
-          </CardHeader>
-          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
-            <div style={{flex: 1}}>
-              <div className="text-2xl font-bold text-emerald-600">{stats.repairsCompletedLast7Days}</div>
-              <p className="text-xs text-gray-600">All time</p>
-            </div>
-            <Button 
-              onClick={() => navigate('/repairs-completed')}
-              variant="outline"
-              size="sm"
-              className="w-full"
-              style={{marginTop: 'auto'}}
-            >
-              View Completed Repairs
-            </Button>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
 
 // Employee Login Component
 function EmployeeLogin() {
@@ -552,1351 +114,764 @@ function EmployeeLogin() {
     </div>
   );
 }
-
-// New Checklist Component
-function NewChecklist() {
-  const { employee, isAuthenticated } = useAuth();
-  const { t, tItem } = useTranslation();
-  const [step, setStep] = useState(1);
-  const [selectedMake, setSelectedMake] = useState('');
-  const [selectedName, setSelectedName] = useState('');
-  const [machineCheckType, setMachineCheckType] = useState('');
-  const [selectedCheckType, setSelectedCheckType] = useState(''); // daily or workshop
-  const [checklistItems, setChecklistItems] = useState([]);
-  const [workshopNotes, setWorkshopNotes] = useState('');
-  const [workshopPhotos, setWorkshopPhotos] = useState([]);
-  const [makes, setMakes] = useState([]);
-  const [names, setNames] = useState([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
-  const [showQRScanner, setShowQRScanner] = useState(false);
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(-1); // -1 for workshop photos
-  const [showFaultModal, setShowFaultModal] = useState(false);
-  const [currentFaultIndex, setCurrentFaultIndex] = useState(-1);
-  const [faultExplanation, setFaultExplanation] = useState('');
-  const [showAddMachineModal, setShowAddMachineModal] = useState(false);
-  const [newMachine, setNewMachine] = useState({
-    make: '',
-    name: '',
-    yearMade: '',
-    serialNumber: ''
-  });
-  const [safetyConfirmed, setSafetyConfirmed] = useState(false);
-  const navigate = useNavigate();
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/');
-    }
-  }, [isAuthenticated, navigate]);
-
-  const defaultChecklistItems = [
-    { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
-    { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
-    { item: "Hydraulic fluid level - Within acceptable range", status: "unchecked", notes: "" },
-    { item: "Battery condition - Terminals clean, voltage adequate", status: "unchecked", notes: "" },
-    { item: "Tire/track condition - No visible damage or excessive wear", status: "unchecked", notes: "" },
-    { item: "Safety guards in place - All protective covers secured", status: "unchecked", notes: "" },
-    { item: "Emergency stop function - Test emergency stop button", status: "unchecked", notes: "" },
-    { item: "Warning lights operational - All safety lights working", status: "unchecked", notes: "" },
-    { item: "Operator seat condition - Seat belt and controls functional", status: "unchecked", notes: "" },
-    { item: "Air filter condition - Clean and properly sealed", status: "unchecked", notes: "" },
-    { item: "Cooling system - Radiator clear, coolant level adequate", status: "unchecked", notes: "" },
-    { item: "Brake system function - Service and parking brakes operational", status: "unchecked", notes: "" },
-    { item: "Steering operation - Smooth operation, no excessive play", status: "unchecked", notes: "" },
-    { item: "Lights and signals - All operational lights working", status: "unchecked", notes: "" },
-    { item: "Fire extinguisher - Present and within service date", status: "unchecked", notes: "" }
-  ];
-
-  const graderStartupChecklistItems = [
-    { item: "Emergency stops working and present - Test all emergency stop buttons", status: "unchecked", notes: "" },
-    { item: "Walkways clear of debris and gates closed - All access areas safe", status: "unchecked", notes: "" },
-    { item: "Guards are all in place - All safety guards properly secured", status: "unchecked", notes: "" },
-    { item: "All personnel accounted for and out of reach of dangers - Safety zone clear", status: "unchecked", notes: "" },
-    { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
-    { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
-    { item: "Hydraulic fluid level - Within acceptable range", status: "unchecked", notes: "" },
-    { item: "Battery condition - Terminals clean, voltage adequate", status: "unchecked", notes: "" },
-    { item: "Track/blade condition - No visible damage or excessive wear", status: "unchecked", notes: "" },
-    { item: "Blade operation - Hydraulic lift and angle functions working", status: "unchecked", notes: "" },
-    { item: "Warning beacon - Rotating warning light operational", status: "unchecked", notes: "" },
-    { item: "Backup alarm - Reverse warning signal functional", status: "unchecked", notes: "" }
-  ];
-
-  // Handle QR code scan
-  const handleQRScan = async (scannedData) => {
-    setShowQRScanner(false);
-    try {
-      // Parse the QR code data - format: "MACHINE:{make}:{name}" or just asset ID
-      let make, name;
-      
-      if (scannedData.startsWith('MACHINE:')) {
-        const parts = scannedData.split(':');
-        make = parts[1];
-        name = parts[2];
-      } else if (scannedData.startsWith('http')) {
-        // URL format: .../check?make=XXX&name=YYY
-        const url = new URL(scannedData);
-        make = url.searchParams.get('make');
-        name = url.searchParams.get('name');
-      } else {
-        // Try to look up by asset ID
-        const response = await fetch(`${API_BASE_URL}/api/assets/${scannedData}`);
-        if (response.ok) {
-          const asset = await response.json();
-          make = asset.make;
-          name = asset.name;
-        }
-      }
-      
-      if (make && name) {
-        setSelectedMake(make);
-        // Wait for names to load, then set the name
-        setTimeout(() => {
-          setSelectedName(name);
-          toast.success(`Machine selected: ${make} - ${name}`);
-        }, 500);
-      } else {
-        toast.error('Could not find machine from QR code');
-      }
-    } catch (error) {
-      console.error('Error processing QR code:', error);
-      toast.error('Invalid QR code format');
-    }
-  };
+// Work Progress Admin Component
+function WorkProgressAdmin() {
+  const { employee } = useAuth();
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddJobModal, setShowAddJobModal] = useState(false);
+  const [showEditJobModal, setShowEditJobModal] = useState(false);
+  const [showAddEntryModal, setShowAddEntryModal] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [editingJob, setEditingJob] = useState(null);
+  const [newJob, setNewJob] = useState({ name: '', total_area: '', target_date: '' });
+  const [newEntry, setNewEntry] = useState({ hectares_completed: '', date_completed: '' });
 
   useEffect(() => {
-    fetchMakes();
+    fetchJobs();
   }, []);
 
-  useEffect(() => {
-    if (selectedMake) {
-      fetchNames(selectedMake);
-      setSelectedName(''); // Reset name when make changes
-      setMachineCheckType(''); // Reset check type
-    }
-  }, [selectedMake]);
-
-  useEffect(() => {
-    if (selectedMake && selectedName) {
-      fetchCheckType(selectedMake, selectedName);
-    }
-  }, [selectedMake, selectedName]);
-
-  useEffect(() => {
-    if (step === 3 && selectedCheckType === 'daily_check' && machineCheckType) {
-      loadChecklistTemplate(machineCheckType);
-    }
-  }, [step, selectedCheckType, machineCheckType]);
-
-  const loadChecklistTemplate = async (type) => {
+  const fetchJobs = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklist-templates/${encodeURIComponent(type)}`);
-      const template = await response.json();
-      
-      if (response.ok && template.items) {
-        const items = template.items.map(templateItem => ({
-          item: typeof templateItem === 'string' ? templateItem : templateItem.item,
-          status: "unchecked",
-          notes: ""
-        }));
-        setChecklistItems(items);
-      } else {
-        // Fallback to default items if template not found
-        const fallbackItems = type === 'daily_check' ? defaultChecklistItems : graderStartupChecklistItems;
-        setChecklistItems(fallbackItems);
-      }
-    } catch (error) {
-      console.error('Error loading checklist template:', error);
-      // Fallback to default items on error
-      const fallbackItems = type === 'daily_check' ? defaultChecklistItems : graderStartupChecklistItems;
-      setChecklistItems(fallbackItems);
-    }
-  };
-
-  // fetchStaff function removed - no longer needed since staff selection was replaced with employee authentication
-
-  const fetchMakes = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/assets/makes`);
-      const data = await response.json();
-      setMakes(data);
-    } catch (error) {
-      console.error('Error fetching makes:', error);
-      toast.error('Failed to load machine makes');
-    }
-  };
-
-  const fetchNames = async (make) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/assets/names/${encodeURIComponent(make)}`);
-      const data = await response.json();
-      setNames(data);
-    } catch (error) {
-      console.error('Error fetching machine names:', error);
-      toast.error('Failed to load machine names');
-    }
-  };
-
-  const fetchCheckType = async (make, name) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/assets/checktype/${encodeURIComponent(make)}/${encodeURIComponent(name)}`);
-      const data = await response.json();
-      setMachineCheckType(data.check_type);
-    } catch (error) {
-      console.error('Error fetching check type:', error);
-      toast.error('Failed to load check type');
-    }
-  };
-
-  // Photo functionality
-  const takePhoto = async (itemIndex = -1) => {
-    console.log('takePhoto called with itemIndex:', itemIndex);
-    
-    // Check if camera is available
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try {
-        console.log('Requesting camera access...');
-        setCurrentPhotoIndex(itemIndex);
-        setShowCamera(true);  // Show modal first
-        
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: { ideal: 'environment' },  // Prefer back camera but allow front
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          } 
-        });
-        
-        console.log('Camera access granted, setting up video...');
-        
-        // Create video element for camera preview
-        setTimeout(() => {
-          const video = document.getElementById('camera-video');
-          if (video) {
-            video.srcObject = stream;
-            console.log('Video stream set up successfully');
-          } else {
-            console.log('Video element not found');
-          }
-        }, 200);
-        
-      } catch (error) {
-        console.error('Error accessing camera:', error);
-        setShowCamera(false);  // Hide modal on error
-        // Fallback to file upload
-        triggerFileUpload(itemIndex);
-      }
-    } else {
-      // Fallback to file upload if camera not available
-      console.log('Camera not available, using file upload fallback');
-      triggerFileUpload(itemIndex);
-    }
-  };
-
-  const triggerFileUpload = (itemIndex) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment'; // Prefer back camera on mobile
-    input.onchange = (e) => handleFileSelect(e, itemIndex);
-    input.click();
-  };
-
-  const handleFileSelect = (event, itemIndex) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const photoData = e.target.result;
-        
-        if (itemIndex === -1) {
-          // Workshop photo
-          setWorkshopPhotos(prev => [...prev, {
-            id: Date.now(),
-            data: photoData,
-            timestamp: new Date().toISOString()
-          }]);
-          toast.success('Workshop photo added!');
-        } else {
-          // Checklist item photo
-          const updatedItems = [...checklistItems];
-          if (!updatedItems[itemIndex].photos) {
-            updatedItems[itemIndex].photos = [];
-          }
-          updatedItems[itemIndex].photos.push({
-            id: Date.now(),
-            data: photoData,
-            timestamp: new Date().toISOString()
-          });
-          setChecklistItems(updatedItems);
-          toast.success('Photo added to checklist item!');
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const capturePhoto = () => {
-    const video = document.getElementById('camera-video');
-    const canvas = document.createElement('canvas');
-    
-    if (video) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      
-      // Convert to base64
-      const photoData = canvas.toDataURL('image/jpeg', 0.8);
-      
-      if (currentPhotoIndex === -1) {
-        // Workshop photo
-        setWorkshopPhotos(prev => [...prev, {
-          id: Date.now(),
-          data: photoData,
-          timestamp: new Date().toISOString()
-        }]);
-        toast.success('Workshop photo captured!');
-      } else {
-        // Checklist item photo
-        const updatedItems = [...checklistItems];
-        if (!updatedItems[currentPhotoIndex].photos) {
-          updatedItems[currentPhotoIndex].photos = [];
-        }
-        updatedItems[currentPhotoIndex].photos.push({
-          id: Date.now(),
-          data: photoData,
-          timestamp: new Date().toISOString()
-        });
-        setChecklistItems(updatedItems);
-        toast.success('Photo captured for checklist item!');
-      }
-    }
-    
-    closeCamera();
-  };
-
-  const closeCamera = () => {
-    const video = document.getElementById('camera-video');
-    if (video && video.srcObject) {
-      const tracks = video.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
-    }
-    setShowCamera(false);
-    setCurrentPhotoIndex(-1);
-  };
-
-  const deletePhoto = (itemIndex, photoId) => {
-    if (itemIndex === -1) {
-      // Workshop photo
-      setWorkshopPhotos(prev => prev.filter(photo => photo.id !== photoId));
-    } else {
-      // Checklist item photo
-      const updatedItems = [...checklistItems];
-      updatedItems[itemIndex].photos = updatedItems[itemIndex].photos.filter(photo => photo.id !== photoId);
-      setChecklistItems(updatedItems);
-    }
-  };
-
-  const uploadPhoto = (itemIndex) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.multiple = false;
-    
-    input.onchange = (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        // Check file size (limit to 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error('File size must be less than 5MB');
-          return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const photoData = {
-            id: Date.now(),
-            data: e.target.result,
-            timestamp: new Date().toISOString()
-          };
-
-          if (itemIndex === -1) {
-            // Workshop photo
-            setWorkshopPhotos(prev => [...prev, photoData]);
-            toast.success('Photo uploaded for workshop notes!');
-          } else {
-            // Checklist item photo
-            const updatedItems = [...checklistItems];
-            if (!updatedItems[itemIndex].photos) {
-              updatedItems[itemIndex].photos = [];
-            }
-            updatedItems[itemIndex].photos.push(photoData);
-            setChecklistItems(updatedItems);
-            toast.success('Photo uploaded for checklist item!');
-          }
-        };
-        
-        reader.onerror = () => {
-          toast.error('Error reading file. Please try again.');
-        };
-        
-        reader.readAsDataURL(file);
-      }
-    };
-    
-    input.click();
-  };
-
-  const handleItemChange = (index, field, value) => {
-    const updatedItems = [...checklistItems];
-    
-    // Special handling for unsatisfactory status
-    if (field === 'status' && value === 'unsatisfactory') {
-      // Show fault explanation modal
-      setCurrentFaultIndex(index);
-      setFaultExplanation(updatedItems[index].notes || '');
-      setShowFaultModal(true);
-      
-      // Set status to unsatisfactory
-      updatedItems[index] = { ...updatedItems[index], [field]: value };
-      setChecklistItems(updatedItems);
-    } else {
-      // Normal handling for other changes
-      updatedItems[index] = { ...updatedItems[index], [field]: value };
-      setChecklistItems(updatedItems);
-    }
-  };
-
-  const handleFaultExplanation = () => {
-    if (!faultExplanation.trim()) {
-      toast.error('Please provide an explanation for the fault');
-      return;
-    }
-    
-    // Update the notes for the current item
-    const updatedItems = [...checklistItems];
-    updatedItems[currentFaultIndex].notes = faultExplanation.trim();
-    setChecklistItems(updatedItems);
-    
-    // Close modal and reset state
-    setShowFaultModal(false);
-    setCurrentFaultIndex(-1);
-    setFaultExplanation('');
-    
-    toast.success('Fault explanation recorded');
-  };
-
-  const closeFaultModal = () => {
-    // If closing without explanation, revert the status back to unchecked
-    if (!faultExplanation.trim() && currentFaultIndex >= 0) {
-      const updatedItems = [...checklistItems];
-      updatedItems[currentFaultIndex].status = 'unchecked';
-      setChecklistItems(updatedItems);
-    }
-    
-    setShowFaultModal(false);
-    setCurrentFaultIndex(-1);
-    setFaultExplanation('');
-  };
-
-  const handleAddMachine = async () => {
-    // Validate all fields
-    if (!newMachine.make.trim() || !newMachine.name.trim() || 
-        !newMachine.yearMade.trim() || !newMachine.serialNumber.trim()) {
-      toast.error('Please fill in all machine details');
-      return;
-    }
-
-    // Validate safety confirmation
-    if (!safetyConfirmed) {
-      toast.error('Please confirm that you have checked similar machine safety procedures');
-      return;
-    }
-
-    // Create a MACHINE ADD record
-    try {
-      const machineAddRecord = {
-        employee_number: employee.employee_number,
-        staff_name: employee.name,
-        machine_make: newMachine.make.trim(),
-        machine_model: newMachine.name.trim(),
-        check_type: 'NEW MACHINE',
-        checklist_items: [],
-        workshop_notes: `New machine added:\nMake: ${newMachine.make.trim()}\nName/Model: ${newMachine.name.trim()}\nYear Made: ${newMachine.yearMade.trim()}\nSerial Number: ${newMachine.serialNumber.trim()}`,
-        workshop_photos: []
-      };
-
-      const response = await fetch(`${API_BASE_URL}/api/checklists`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(machineAddRecord)
-      });
-
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/jobs`);
       if (response.ok) {
-        toast.success('Machine addition request recorded successfully!');
-        setShowAddMachineModal(false);
-        setNewMachine({ make: '', name: '', yearMade: '', serialNumber: '' });
-        setSafetyConfirmed(false);
-        navigate('/');
-      } else {
-        throw new Error('Failed to record machine addition');
+        const data = await response.json();
+        setJobs(data);
       }
     } catch (error) {
-      console.error('Error recording machine addition:', error);
-      toast.error('Failed to record machine addition. Please try again.');
-    }
-  };
-
-  const closeAddMachineModal = () => {
-    setShowAddMachineModal(false);
-    setNewMachine({ make: '', name: '', yearMade: '', serialNumber: '' });
-    setSafetyConfirmed(false);
-  };
-
-  const handleSubmit = async () => {
-    // Check for unsatisfactory items without explanations
-    if (selectedCheckType === 'daily_check') {
-      const unsatisfactoryWithoutNotes = checklistItems.find(item => 
-        item.status === 'unsatisfactory' && (!item.notes || item.notes.trim() === '')
-      );
-      
-      if (unsatisfactoryWithoutNotes) {
-        toast.error('Do not carry on with this check or until this issue is recorded and sorted.');
-        return;
-      }
-    }
-
-    setIsSubmitting(true);
-    try {
-      const checklist = {
-        employee_number: employee.employee_number,
-        staff_name: employee.name,
-        machine_make: selectedMake,
-        machine_model: selectedName,
-        check_type: selectedCheckType,
-        checklist_items: selectedCheckType === 'daily_check' ? checklistItems : [],
-        workshop_notes: selectedCheckType === 'workshop_service' ? workshopNotes : null,
-        workshop_photos: selectedCheckType === 'workshop_service' ? workshopPhotos : []
-      };
-
-      const response = await fetch(`${API_BASE_URL}/api/checklists`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(checklist)
-      });
-
-      if (response.ok) {
-        toast.success('Checklist completed successfully!');
-        navigate('/');
-      } else {
-        throw new Error('Failed to save checklist');
-      }
-    } catch (error) {
-      console.error('Error saving checklist:', error);
-      toast.error('Failed to save checklist. Please try again.');
+      console.error('Error fetching jobs:', error);
+      toast.error('Failed to load jobs');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
-  const canProceedToStep2 = selectedCheckType !== '';
-  
-  // Check if all items have been addressed (status selected + notes if unsatisfactory + photos if required)
-  const allItemsAddressed = selectedCheckType === 'workshop_service' 
-    ? workshopNotes.trim() !== '' 
-    : checklistItems.every(item => {
-        // Must have a status (not unchecked)
-        const hasStatus = item.status === 'satisfactory' || item.status === 'n/a' || item.status === 'unsatisfactory';
-        
-        // If unsatisfactory, must have notes
-        const hasNotesIfNeeded = item.status !== 'unsatisfactory' || (item.notes && item.notes.trim() !== '');
-        
-        // If photo_required is true for this item, must have at least one photo
-        const hasPhotoIfRequired = !item.photo_required || (item.photos && item.photos.length > 0);
-        
-        return hasStatus && hasNotesIfNeeded && hasPhotoIfRequired;
+  const handleCreateJob = async () => {
+    if (!newJob.name.trim() || !newJob.total_area) {
+      toast.error('Please enter job name and total area');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newJob.name.trim(),
+          total_area: parseFloat(newJob.total_area),
+          target_date: newJob.target_date || null
+        })
       });
+
+      if (response.ok) {
+        toast.success('Job created successfully');
+        setShowAddJobModal(false);
+        setNewJob({ name: '', total_area: '', target_date: '' });
+        fetchJobs();
+      } else {
+        toast.error('Failed to create job');
+      }
+    } catch (error) {
+      console.error('Error creating job:', error);
+      toast.error('Failed to create job');
+    }
+  };
+
+  const openEditJobModal = (job) => {
+    setEditingJob({
+      id: job.id,
+      name: job.name,
+      total_area: job.total_area,
+      target_date: job.target_date || ''
+    });
+    setShowEditJobModal(true);
+  };
+
+  const handleUpdateJob = async () => {
+    if (!editingJob.name.trim() || !editingJob.total_area) {
+      toast.error('Please enter job name and total area');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${editingJob.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingJob.name.trim(),
+          total_area: parseFloat(editingJob.total_area),
+          target_date: editingJob.target_date || null
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Job updated successfully');
+        setShowEditJobModal(false);
+        setEditingJob(null);
+        fetchJobs();
+      } else {
+        toast.error('Failed to update job');
+      }
+    } catch (error) {
+      console.error('Error updating job:', error);
+      toast.error('Failed to update job');
+    }
+  };
+
+  const handleAddEntry = async () => {
+    if (!newEntry.hectares_completed || !selectedJob) {
+      toast.error('Please enter hectares completed');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${selectedJob.id}/work-entry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hectares_completed: parseFloat(newEntry.hectares_completed),
+          date_completed: newEntry.date_completed || new Date().toISOString().split('T')[0],
+          entered_by: employee?.name || 'Admin'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(data.message);
+        setShowAddEntryModal(false);
+        setNewEntry({ hectares_completed: '', date_completed: '' });
+        setSelectedJob(null);
+        fetchJobs();
+      } else {
+        toast.error('Failed to add work entry');
+      }
+    } catch (error) {
+      console.error('Error adding work entry:', error);
+      toast.error('Failed to add work entry');
+    }
+  };
+
+  const handleDeleteJob = async (jobId, jobName) => {
+    if (!window.confirm(`Are you sure you want to delete "${jobName}"? This will also delete all work entries.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${jobId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        toast.success('Job deleted');
+        fetchJobs();
+      } else {
+        toast.error('Failed to delete job');
+      }
+    } catch (error) {
+      console.error('Error deleting job:', error);
+      toast.error('Failed to delete job');
+    }
+  };
+
+  const handleReopenJob = async (jobId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${jobId}/reopen`, {
+        method: 'PUT'
+      });
+
+      if (response.ok) {
+        toast.success('Job reopened');
+        fetchJobs();
+      } else {
+        toast.error('Failed to reopen job');
+      }
+    } catch (error) {
+      console.error('Error reopening job:', error);
+      toast.error('Failed to reopen job');
+    }
+  };
+
+  const activeJobs = jobs.filter(j => j.status === 'active');
+  const completedJobs = jobs.filter(j => j.status === 'complete');
 
   return (
-    <div className="space-y-6">
-      {/* Camera Modal */}
-      {showCamera && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-        >
-          <div className="bg-white rounded-lg p-4 max-w-md w-full mx-4 relative z-[10000]">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Take Photo</h3>
-              <Button variant="ghost" size="sm" onClick={closeCamera}>
+    <>
+      {/* Add Job Modal */}
+      {showAddJobModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Add New Job</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowAddJobModal(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            
-            <div className="relative mb-4">
-              <video
-                id="camera-video"
-                autoPlay
-                playsInline
-                muted
-                className="w-full rounded-lg bg-gray-200"
-                style={{ maxHeight: '300px' }}
-              />
-            </div>
-            
-            <div className="flex justify-center space-x-4">
-              <Button variant="outline" onClick={closeCamera}>
-                Cancel
-              </Button>
-              <Button onClick={capturePhoto} className="bg-green-600 hover:bg-green-700">
-                <Camera className="h-4 w-4 mr-2" />
-                Capture Photo
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Fault Explanation Modal */}
-      {showFaultModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-        >
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-[10000]">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-red-600">⚠ Fault Explanation Required</h3>
-              <Button variant="ghost" size="sm" onClick={closeFaultModal}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="mb-4">
-              <p className="text-sm text-gray-700 mb-3">
-                {currentFaultIndex >= 0 && checklistItems[currentFaultIndex] && (
-                  <span className="font-medium">Item: {checklistItems[currentFaultIndex].item}</span>
-                )}
-              </p>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                <p className="text-red-700 font-medium text-sm">
-                  Do not carry on with this check or until this issue is recorded and sorted.
-                </p>
-                <p className="text-red-600 text-xs mt-2 italic">
-                  Example: "Low tread on tyres, Have notified [manager name] to order a new tyre" or "Fixed issue with lights"
-                </p>
-              </div>
-              <label className="block text-sm font-medium mb-2">
-                Please explain the fault:
-              </label>
-              <Textarea
-                value={faultExplanation}
-                onChange={(e) => setFaultExplanation(e.target.value)}
-                placeholder="Describe the issue and any immediate actions taken..."
-                className="min-h-[100px] border-red-300 focus:border-red-500"
-                autoFocus
-              />
-            </div>
-            
-            <div className="flex justify-end space-x-3">
-              <Button variant="outline" onClick={closeFaultModal}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleFaultExplanation}
-                className="bg-red-600 hover:bg-red-700 text-white"
-                disabled={!faultExplanation.trim()}
-              >
-                Record Fault
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Machine Modal */}
-      {showAddMachineModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999] p-4"
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-        >
-          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto relative z-[10000]">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-green-600">
-                <Database className="h-5 w-5 inline mr-2" />
-                Add New Machine
-              </h3>
-              <Button variant="ghost" size="sm" onClick={closeAddMachineModal}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
             <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-blue-700 text-sm">
-                  This will create a "NEW MACHINE" record for review by administrators.
-                </p>
-              </div>
-              
               <div>
-                <label className="block text-sm font-medium mb-2">Machine Make *</label>
+                <label className="block text-sm font-medium mb-1">Job Name</label>
                 <input
                   type="text"
-                  value={newMachine.make}
-                  onChange={(e) => setNewMachine(prev => ({...prev, make: e.target.value}))}
-                  placeholder="e.g., John Deere, Caterpillar, JCB"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  value={newJob.name}
+                  onChange={(e) => setNewJob(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Carrot Drilling"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
-              
               <div>
-                <label className="block text-sm font-medium mb-2">Machine Name/Model *</label>
+                <label className="block text-sm font-medium mb-1">Total Area (Ha)</label>
                 <input
-                  type="text"
-                  value={newMachine.name}
-                  onChange={(e) => setNewMachine(prev => ({...prev, name: e.target.value}))}
-                  placeholder="e.g., 6145R, DP30NTD, 320E"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  type="number"
+                  value={newJob.total_area}
+                  onChange={(e) => setNewJob(prev => ({ ...prev, total_area: e.target.value }))}
+                  placeholder="e.g., 345"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
-              
               <div>
-                <label className="block text-sm font-medium mb-2">Year Made *</label>
+                <label className="block text-sm font-medium mb-1">Target Completion Date</label>
                 <input
-                  type="text"
-                  value={newMachine.yearMade}
-                  onChange={(e) => setNewMachine(prev => ({...prev, yearMade: e.target.value}))}
-                  placeholder="e.g., 2020, 2023"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  type="date"
+                  value={newJob.target_date}
+                  onChange={(e) => setNewJob(prev => ({ ...prev, target_date: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">Optional - Set a deadline for this job</p>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Serial Number / Machine Number *</label>
-                <input
-                  type="text"
-                  value={newMachine.serialNumber}
-                  onChange={(e) => setNewMachine(prev => ({...prev, serialNumber: e.target.value}))}
-                  placeholder="e.g., CT14F04465, ABC123456"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
+              <div className="flex justify-end space-x-3">
+                <Button variant="outline" onClick={() => setShowAddJobModal(false)}>Cancel</Button>
+                <Button onClick={handleCreateJob} className="bg-orange-600 hover:bg-orange-700">
+                  Create Job
+                </Button>
               </div>
-            </div>
-            
-            {/* Safety Confirmation */}
-            <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  id="safety-confirmation"
-                  checked={safetyConfirmed}
-                  onCheckedChange={setSafetyConfirmed}
-                  className="mt-1"
-                />
-                <label 
-                  htmlFor="safety-confirmation" 
-                  className="text-sm text-orange-800 cursor-pointer"
-                >
-                  I have checked along similar machine checks and confirm it is safe to take out.
-                </label>
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3 mt-6">
-              <Button variant="outline" onClick={closeAddMachineModal}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleAddMachine}
-                className="bg-green-600 hover:bg-green-700 text-white"
-                disabled={!newMachine.make.trim() || !newMachine.name.trim() || 
-                         !newMachine.yearMade.trim() || !newMachine.serialNumber.trim() || 
-                         !safetyConfirmed}
-              >
-                Submit Request
-              </Button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate('/')}
-            data-testid="back-to-dashboard-btn"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">New Equipment Checklist</h1>
-            <p className="text-gray-600 mt-2">Complete startup safety inspection</p>
+      {/* Edit Job Modal */}
+      {showEditJobModal && editingJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Edit Job</h3>
+              <Button variant="ghost" size="sm" onClick={() => { setShowEditJobModal(false); setEditingJob(null); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Job Name</label>
+                <input
+                  type="text"
+                  value={editingJob.name}
+                  onChange={(e) => setEditingJob(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Total Area (Ha)</label>
+                <input
+                  type="number"
+                  value={editingJob.total_area}
+                  onChange={(e) => setEditingJob(prev => ({ ...prev, total_area: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Target Completion Date</label>
+                <input
+                  type="date"
+                  value={editingJob.target_date}
+                  onChange={(e) => setEditingJob(prev => ({ ...prev, target_date: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Set a deadline - shows required daily Ha on dashboard</p>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <Button variant="outline" onClick={() => { setShowEditJobModal(false); setEditingJob(null); }}>Cancel</Button>
+                <Button onClick={handleUpdateJob} className="bg-orange-600 hover:bg-orange-700">
+                  Save Changes
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Employee Info */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex items-center space-x-3">
-            <User className="h-5 w-5 text-green-600" />
+      {/* Add Work Entry Modal */}
+      {showAddEntryModal && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Add Completed Work</h3>
+              <Button variant="ghost" size="sm" onClick={() => { setShowAddEntryModal(false); setSelectedJob(null); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="mb-4 p-3 bg-orange-50 rounded-lg">
+              <p className="font-medium text-orange-900">{selectedJob.name}</p>
+              <p className="text-sm text-orange-700">
+                {selectedJob.area_left} Ha remaining of {selectedJob.total_area} Ha
+              </p>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Hectares Completed</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={newEntry.hectares_completed}
+                  onChange={(e) => setNewEntry(prev => ({ ...prev, hectares_completed: e.target.value }))}
+                  placeholder="e.g., 50"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Date (optional, defaults to today)</label>
+                <input
+                  type="date"
+                  value={newEntry.date_completed}
+                  onChange={(e) => setNewEntry(prev => ({ ...prev, date_completed: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <Button variant="outline" onClick={() => { setShowAddEntryModal(false); setSelectedJob(null); }}>Cancel</Button>
+                <Button onClick={handleAddEntry} className="bg-green-600 hover:bg-green-700">
+                  Add Entry
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200">
+        <CardHeader>
+          <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">Logged in as: {employee.name}</p>
-              <p className="text-sm text-gray-600">Employee #{employee.employee_number}</p>
+              <CardTitle className="flex items-center space-x-2">
+                <Target className="h-5 w-5 text-orange-600" />
+                <span>Work Progress Tracking</span>
+              </CardTitle>
+              <CardDescription>
+                Track field work progress - jobs, areas, and completion rates
+              </CardDescription>
             </div>
+            <Button onClick={() => setShowAddJobModal(true)} className="bg-orange-600 hover:bg-orange-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Job
+            </Button>
           </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center p-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-orange-600" />
+            </div>
+          ) : jobs.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Target className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p>No jobs created yet</p>
+              <p className="text-sm">Click "Add Job" to create your first work tracking job</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Active Jobs */}
+              {activeJobs.length > 0 && (
+                <div>
+                  <h4 className="font-semibold text-orange-900 mb-3 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Active Jobs ({activeJobs.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {activeJobs.map(job => (
+                      <Card key={job.id} className="border-orange-200">
+                        <CardContent className="pt-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h5 className="font-semibold text-lg">{job.name}</h5>
+                              <p className="text-sm text-gray-600">
+                                Total: {job.total_area} Ha
+                                {job.target_date && (
+                                  <span className="ml-2 text-purple-600">| Target: {new Date(job.target_date).toLocaleDateString()}</span>
+                                )}
+                              </p>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => openEditJobModal(job)}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDeleteJob(job.id, job.name);
+                                }}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {/* Progress Bar */}
+                          <div className="mb-3">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-green-600 font-medium">{job.total_completed} Ha done</span>
+                              <span className="text-orange-600 font-medium">{job.area_left} Ha left</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-3">
+                              <div 
+                                className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-500"
+                                style={{ width: `${Math.min(100, (job.total_completed / job.total_area) * 100)}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {Math.round((job.total_completed / job.total_area) * 100)}% complete
+                            </p>
+                          </div>
+
+                          {/* Stats */}
+                          <div className="flex items-center justify-between text-sm bg-gray-50 rounded-lg p-2 mb-3">
+                            <div>
+                              <span className="text-gray-600">Avg: </span>
+                              <span className="font-semibold text-blue-600">{job.ha_per_day} Ha/day</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Entries: </span>
+                              <span className="font-semibold">{job.entries_count}</span>
+                            </div>
+                          </div>
+
+                          <Button 
+                            onClick={() => { setSelectedJob(job); setShowAddEntryModal(true); }}
+                            className="w-full bg-green-600 hover:bg-green-700"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Completed Ha
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Completed Jobs */}
+              {completedJobs.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    Completed Jobs ({completedJobs.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {completedJobs.map(job => (
+                      <Card key={job.id} className="border-green-200 bg-green-50/50">
+                        <CardContent className="pt-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h5 className="font-semibold text-lg flex items-center gap-2">
+                                {job.name}
+                                <Badge className="bg-green-600">Complete</Badge>
+                              </h5>
+                              <p className="text-sm text-gray-600">
+                                {job.total_completed} Ha completed
+                              </p>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleReopenJob(job.id);
+                                }}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+                                title="Reopen job"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDeleteJob(job.id, job.name);
+                                }}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-500">
+                            Avg rate: {job.ha_per_day} Ha/day over {job.entries_count} entries
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
+    </>
+  );
+}
 
-      {/* Progress Steps - Machine → Check Type → Checklist */}
-      <div className="flex items-center justify-center space-x-2 sm:space-x-4 mb-4 sm:mb-8 overflow-x-auto">
-        <div className={`flex items-center space-x-1 sm:space-x-2 ${step >= 1 ? 'text-green-600' : 'text-gray-400'} whitespace-nowrap`}>
-          <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm ${step >= 1 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>1</div>
-          <span className="text-xs sm:text-sm">Machine</span>
+// SharePoint Sync Status Component
+function SharePointSyncStatus() {
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(null); // null, 'staff', 'assets', 'all'
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    fetchSyncStatus();
+  }, []);
+
+  const fetchSyncStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/sync-status`);
+      const data = await response.json();
+      setSyncStatus(data);
+    } catch (error) {
+      console.error('Error fetching sync status:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const triggerSync = async (type) => {
+    setSyncing(type);
+    const endpoint = type === 'all' ? 'sync-all' : type === 'assets' ? 'sync-assets' : 'sync-now';
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/${endpoint}`, {
+        method: 'POST'
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        if (type === 'all') {
+          toast.success(`Synced ${data.staff?.count || 0} staff and ${data.assets?.assets_count || 0} assets`);
+        } else if (type === 'assets') {
+          toast.success(`Synced ${data.assets_count} assets and ${data.templates_count} checklist templates`);
+        } else {
+          toast.success(`Synced ${data.count} staff members`);
+        }
+        fetchSyncStatus();
+      } else {
+        toast.error(data.detail || 'Sync failed');
+      }
+    } catch (error) {
+      toast.error('Failed to sync from SharePoint');
+      console.error('Sync error:', error);
+    } finally {
+      setSyncing(null);
+    }
+  };
+
+  const testConnection = async () => {
+    setTesting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sharepoint/test-connection`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const staffInfo = data.files?.staff;
+        const assetsInfo = data.files?.assets;
+        toast.success(`Connected! Staff: ${staffInfo?.file_name} (${Math.round(staffInfo?.file_size / 1024)}KB), Assets: ${assetsInfo?.file_name} (${Math.round(assetsInfo?.file_size / 1024)}KB)`);
+      } else {
+        toast.error(data.message || 'Connection failed');
+      }
+    } catch (error) {
+      toast.error('Connection test failed');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center gap-2 text-purple-600"><RefreshCw className="h-4 w-4 animate-spin" /> Loading status...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Connection Status */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <div className={`w-3 h-3 rounded-full ${syncStatus?.scheduler_running ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className="text-sm font-medium">
+            {syncStatus?.scheduler_running ? 'Auto-sync active (9AM daily)' : 'Auto-sync inactive'}
+          </span>
         </div>
-        <div className={`w-6 sm:w-12 h-1 ${step >= 2 ? 'bg-green-600' : 'bg-gray-200'}`}></div>
-        <div className={`flex items-center space-x-1 sm:space-x-2 ${step >= 2 ? 'text-green-600' : 'text-gray-400'} whitespace-nowrap`}>
-          <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm ${step >= 2 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>2</div>
-          <span className="text-xs sm:text-sm">Check Type</span>
-        </div>
-        <div className={`w-6 sm:w-12 h-1 ${step >= 3 ? 'bg-green-600' : 'bg-gray-200'}`}></div>
-        <div className={`flex items-center space-x-1 sm:space-x-2 ${step >= 3 ? 'text-green-600' : 'text-gray-400'} whitespace-nowrap`}>
-          <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm ${step >= 3 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>3</div>
-          <span className="text-xs sm:text-sm">Checklist</span>
-        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={testConnection}
+          disabled={testing}
+          className="text-purple-700 border-purple-300"
+        >
+          {testing ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Test Connection'}
+        </Button>
       </div>
 
-      {/* QR Scanner Modal */}
-      {showQRScanner && (
-        <QRScanner 
-          onScan={handleQRScan} 
-          onClose={() => setShowQRScanner(false)} 
-        />
+      {/* Sync Buttons */}
+      <div className="flex gap-2 flex-wrap">
+        <Button
+          size="sm"
+          onClick={() => triggerSync('staff')}
+          disabled={syncing !== null}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          {syncing === 'staff' ? <><RefreshCw className="h-4 w-4 animate-spin mr-1" /> Syncing...</> : 'Sync Staff'}
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => triggerSync('assets')}
+          disabled={syncing !== null}
+          className="bg-green-600 hover:bg-green-700"
+        >
+          {syncing === 'assets' ? <><RefreshCw className="h-4 w-4 animate-spin mr-1" /> Syncing...</> : 'Sync Assets'}
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => triggerSync('all')}
+          disabled={syncing !== null}
+          className="bg-purple-600 hover:bg-purple-700"
+        >
+          {syncing === 'all' ? <><RefreshCw className="h-4 w-4 animate-spin mr-1" /> Syncing...</> : 'Sync All'}
+        </Button>
+      </div>
+
+      {/* Last Sync Info */}
+      {syncStatus?.last_sync && (
+        <div className="bg-white p-3 rounded-lg border border-purple-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Last Sync</p>
+              <p className="text-xs text-gray-500">
+                {new Date(syncStatus.last_sync.timestamp).toLocaleString()} ({syncStatus.last_sync.type})
+              </p>
+            </div>
+            <div className="text-right">
+              {syncStatus.last_sync.success ? (
+                <span className="text-green-600 text-sm font-medium flex items-center gap-1">
+                  <CheckCircle className="h-4 w-4" /> Success
+                </span>
+              ) : (
+                <span className="text-red-600 text-sm font-medium flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" /> Failed
+                </span>
+              )}
+            </div>
+          </div>
+          {syncStatus.last_sync.message && (
+            <p className="text-xs text-gray-600 mt-1">{syncStatus.last_sync.message}</p>
+          )}
+        </div>
       )}
 
-      <Card data-testid="checklist-form-card">
-        <CardContent className="pt-6">
-          {step === 1 && (
-            <div className="space-y-6">
-              {/* Quick Scan Option */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 p-2 rounded-full">
-                      <QrCode className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-blue-900">Quick Select with QR Code</h3>
-                      <p className="text-sm text-blue-700">Scan the QR code on the machine</p>
-                    </div>
-                  </div>
-                  <Button 
-                    onClick={() => setShowQRScanner(true)}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    <ScanLine className="h-4 w-4 mr-2" />
-                    Scan Code
-                  </Button>
-                </div>
-              </div>
+      {/* Next Scheduled Sync */}
+      {syncStatus?.next_scheduled_sync && (
+        <div className="text-sm text-purple-700">
+          <Clock className="h-4 w-4 inline mr-1" />
+          Next sync: {new Date(syncStatus.next_scheduled_sync).toLocaleString()}
+        </div>
+      )}
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-gray-500">Or select manually</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Select Machine Make</h3>
-                  <Select value={selectedMake} onValueChange={(value) => { setSelectedMake(value); setSelectedName(''); }} data-testid="make-select">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose machine manufacturer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {makes.map((make) => (
-                        <SelectItem key={make} value={make}>
-                          {make}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Select Machine Name</h3>
-                  <Select value={selectedName} onValueChange={setSelectedName} disabled={!selectedMake} data-testid="name-select">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose machine name" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {names.map((name) => (
-                        <SelectItem key={name} value={name}>
-                          {name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              {/* Add Machine Section */}
-              <div className="border-t pt-6">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold mb-2 text-gray-800">Machine Not Listed?</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    If your machine is not available in the list above, you can request it to be added to the system.
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowAddMachineModal(true)}
-                    className="border-green-300 text-green-700 hover:bg-green-50"
-                    data-testid="add-machine-btn"
-                  >
-                    <Database className="h-4 w-4 mr-2" />
-                    Add New Machine
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Next: Check Type Button - moved to left side below Add New Machine */}
-              <div className="mt-4">
-                <Button 
-                  onClick={() => setStep(2)} 
-                  disabled={!selectedMake || !selectedName}
-                  className="bg-green-600 hover:bg-green-700"
-                  data-testid="proceed-to-check-type-btn"
-                >
-                  Next: Check Type
-                </Button>
-              </div>
-              
-              {machineCheckType && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm font-medium text-blue-900">
-                    Checklist Type: <span className="text-blue-700">{machineCheckType}</span>
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-6">
-              <div className="flex items-center space-x-2 mb-4">
-                <Wrench className="h-5 w-5 text-green-600" />
-                <span className="font-medium">Machine: {selectedMake} - {selectedName}</span>
-              </div>
-              
-              <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                <p className="text-blue-900 font-medium">Checklist Type: {machineCheckType}</p>
-                <p className="text-blue-700 text-sm mt-1">This machine uses the "{machineCheckType}" checklist template</p>
-              </div>
-              
-              <div className="mb-4">
-                <p className="text-gray-600">Select the type of check you want to perform:</p>
-              </div>
-              
-              <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                <Card 
-                  className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-green-400 border-2 ${selectedCheckType === 'daily_check' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
-                  onClick={() => {
-                    setSelectedCheckType('daily_check');
-                    setStep(3);
-                  }}
-                  data-testid="daily-check-option"
-                >
-                  <div className="flex items-center space-x-3 sm:space-x-4">
-                    <div className="p-3 bg-green-100 rounded-lg">
-                      <CheckCircle2 className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg sm:text-xl">Daily Check</h3>
-                      <p className="text-gray-600 text-sm sm:text-base">Complete {machineCheckType} checklist inspection</p>
-                      <p className="text-xs sm:text-sm text-gray-500 mt-1">Uses "{machineCheckType}" specific checklist</p>
-                      <p className="text-sm text-green-600 font-medium mt-2">Tap to start →</p>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card 
-                  className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-orange-400 border-2 ${selectedCheckType === 'workshop_service' ? 'border-orange-500 bg-orange-50' : 'border-gray-200'}`}
-                  onClick={() => {
-                    setSelectedCheckType('workshop_service');
-                    setStep(3);
-                  }}
-                  data-testid="workshop-service-option"
-                >
-                  <div className="flex items-center space-x-3 sm:space-x-4">
-                    <div className="p-3 bg-orange-100 rounded-lg">
-                      <Settings className="h-6 w-6 text-orange-600" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg sm:text-xl">Workshop Service</h3>
-                      <p className="text-gray-600 text-sm sm:text-base">Record maintenance or repair work</p>
-                      <p className="text-xs sm:text-sm text-gray-500 mt-1">Document work completed on machine</p>
-                      <p className="text-sm text-orange-600 font-medium mt-2">Tap to start →</p>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-              
-              <div className="flex justify-start pt-6">
-                <Button variant="outline" onClick={() => setStep(1)} data-testid="back-to-machine-btn">
-                  Back: Machine Selection
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <User className="h-5 w-5 text-green-600" />
-                    <span className="font-medium">Staff: {employee.name}</span>
-                  </div>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Wrench className="h-5 w-5 text-green-600" />
-                    <span className="font-medium">Machine: {selectedMake} - {selectedName}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <ClipboardList className="h-5 w-5 text-green-600" />
-                    <span className="font-medium">Check Type: {selectedCheckType === 'daily_check' ? `Daily Check (${machineCheckType})` : 'Workshop Service'}</span>
-                  </div>
-                </div>
-                {selectedCheckType === 'daily_check' && (
-                  <Badge variant={allItemsAddressed ? "default" : "secondary"} className="px-3 py-1">
-                    {checklistItems.filter(item => item.status !== 'unchecked').length} / {checklistItems.length} Complete
-                  </Badge>
-                )}
-              </div>
-              
-              <Separator />
-              
-              {selectedCheckType === 'daily_check' ? (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Pre-Startup Safety Checklist</h3>
-                  <p className="text-sm text-gray-600">Mark each item as satisfactory (✓) or unsatisfactory (✗). You can submit even with unsatisfactory items.</p>
-                  {checklistItems.map((item, index) => (
-                    <Card key={index} className="p-4" data-testid={`checklist-item-${index}`}>
-                      <div className="flex items-start space-x-3">
-                        <div className="flex flex-col space-y-2 mt-1">
-                          <Button
-                            variant={item.status === 'satisfactory' ? 'default' : 'outline'}
-                            size="sm"
-                            className={`w-8 h-8 p-0 ${item.status === 'satisfactory' ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-green-50'}`}
-                            onClick={() => handleItemChange(index, 'status', item.status === 'satisfactory' ? 'unchecked' : 'satisfactory')}
-                            data-testid={`checklist-satisfactory-${index}`}
-                          >
-                            ✓
-                          </Button>
-                          <Button
-                            variant={item.status === 'unsatisfactory' ? 'default' : 'outline'}
-                            size="sm"
-                            className={`w-8 h-8 p-0 ${item.status === 'unsatisfactory' ? 'bg-red-600 hover:bg-red-700 text-white' : 'hover:bg-red-50 text-red-600'}`}
-                            onClick={() => handleItemChange(index, 'status', item.status === 'unsatisfactory' ? 'unchecked' : 'unsatisfactory')}
-                            data-testid={`checklist-unsatisfactory-${index}`}
-                          >
-                            ✗
-                          </Button>
-                          <Button
-                            variant={item.status === 'n/a' ? 'default' : 'outline'}
-                            size="sm"
-                            className={`w-8 h-8 p-0 text-xs ${item.status === 'n/a' ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'hover:bg-gray-50 text-gray-600'}`}
-                            onClick={() => handleItemChange(index, 'status', item.status === 'n/a' ? 'unchecked' : 'n/a')}
-                            data-testid={`checklist-na-${index}`}
-                          >
-                            N/A
-                          </Button>
-                        </div>
-                        <div className="flex-1">
-                          <label className={`text-sm font-medium cursor-pointer ${
-                            item.status === 'unsatisfactory' ? 'text-red-700' : 
-                            item.status === 'n/a' ? 'text-gray-500' : ''
-                          }`}>
-                            {tItem(item.item)}
-                          </label>
-                          {item.status === 'unsatisfactory' && (
-                            <div className="mt-1 text-xs text-red-600 font-medium">⚠ Unsatisfactory - Requires attention</div>
-                          )}
-                          {item.status === 'n/a' && (
-                            <div className="mt-1 text-xs text-gray-500 font-medium">ℹ Not Applicable</div>
-                          )}
-                          
-                          {/* Photo section */}
-                          <div className="mt-2 space-y-2">
-                            <div className="flex items-center space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => takePhoto(index)}
-                                className="text-xs"
-                              >
-                                <Camera className="h-3 w-3 mr-1" />
-                                Take Photo
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => uploadPhoto(index)}
-                                className="text-xs"
-                              >
-                                <Upload className="h-3 w-3 mr-1" />
-                                Upload Photo
-                              </Button>
-                              {item.photos && item.photos.length > 0 && (
-                                <span className="text-xs text-green-600 font-medium">
-                                  ✓ {item.photos.length} photo{item.photos.length > 1 ? 's' : ''}
-                                </span>
-                              )}
-                              {item.photo_required && (
-                                <span className="text-xs text-orange-600 font-medium">
-                                  📸 Required
-                                </span>
-                              )}
-                            </div>
-                            
-                            {/* Photo required warning */}
-                            {item.photo_required && (!item.photos || item.photos.length === 0) && (
-                              <div className="text-xs text-orange-600 font-medium bg-orange-50 p-2 rounded flex items-center">
-                                <Camera className="h-3 w-3 mr-1" />
-                                Photo required for this item
-                              </div>
-                            )}
-                            
-                            {/* Photo thumbnails */}
-                            {item.photos && item.photos.length > 0 && (
-                              <div className="flex flex-wrap gap-2">
-                                {item.photos.map((photo) => (
-                                  <div key={photo.id} className="relative">
-                                    <img
-                                      src={photo.data}
-                                      alt="Checklist item photo"
-                                      className="w-16 h-16 object-cover rounded border"
-                                    />
-                                    <Button
-                                      variant="destructive"
-                                      size="sm"
-                                      className="absolute -top-1 -right-1 w-5 h-5 p-0 rounded-full"
-                                      onClick={() => deletePhoto(index, photo.id)}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          
-                          <Textarea
-                            placeholder={item.status === 'unsatisfactory' ? "REQUIRED: Please explain the fault" : "Add notes (optional)"}
-                            value={item.notes}
-                            onChange={(e) => handleItemChange(index, 'notes', e.target.value)}
-                            className={`mt-2 text-sm ${item.status === 'unsatisfactory' ? 'border-red-300 bg-red-50' : ''}`}
-                            rows={2}
-                            data-testid={`checklist-notes-${index}`}
-                            required={item.status === 'unsatisfactory'}
-                          />
-                          {item.status === 'unsatisfactory' && !item.notes?.trim() && (
-                            <div className="mt-1 text-xs text-red-600 font-medium">
-                              ⚠ Fault explanation is required
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              ) : selectedCheckType === 'workshop_service' ? (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Workshop Service Record</h3>
-                  <p className="text-sm text-gray-600">Document the maintenance or repair work completed on this machine.</p>
-                  <Card className="p-4">
-                    <label className="text-sm font-medium mb-2 block">Work Completed</label>
-                    <Textarea
-                      placeholder="Describe the service, maintenance, or repairs performed on this machine..."
-                      value={workshopNotes}
-                      onChange={(e) => setWorkshopNotes(e.target.value)}
-                      className="min-h-[120px]"
-                      data-testid="workshop-notes-input"
-                    />
-                  </Card>
-                  
-                  {/* Workshop Photos Section */}
-                  <Card className="p-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium">Photos</label>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => takePhoto(-1)}
-                            className="text-sm"
-                          >
-                            <Camera className="h-4 w-4 mr-2" />
-                            Take Photo
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => uploadPhoto(-1)}
-                            className="text-sm"
-                          >
-                            <Upload className="h-4 w-4 mr-2" />
-                            Upload Photo
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      <p className="text-sm text-orange-600 font-medium bg-orange-50 p-2 rounded">
-                        📸 Please take photos before leaving the workshop
-                      </p>
-                      
-                      {/* Workshop Photo Thumbnails */}
-                      {workshopPhotos.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-xs text-gray-600">{workshopPhotos.length} photo{workshopPhotos.length > 1 ? 's' : ''} captured</p>
-                          <div className="grid grid-cols-3 gap-2">
-                            {workshopPhotos.map((photo) => (
-                              <div key={photo.id} className="relative">
-                                <img
-                                  src={photo.data}
-                                  alt="Workshop photo"
-                                  className="w-full h-20 object-cover rounded border"
-                                />
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  className="absolute -top-1 -right-1 w-5 h-5 p-0 rounded-full"
-                                  onClick={() => deletePhoto(-1, photo.id)}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Mandatory photo notice */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center space-x-2">
-                      <Camera className="h-5 w-5 text-blue-600" />
-                      <h4 className="font-semibold text-blue-900">Photo Required for Each Item</h4>
-                    </div>
-                    <p className="text-sm text-blue-700 mt-2">
-                      📸 You must take at least one photo for every checklist item before you can submit. This provides visual documentation of the equipment condition.
-                    </p>
-                  </div>
-                  
-                  <h3 className="text-lg font-semibold">Grader Start Up Safety Checklist</h3>
-                  <p className="text-sm text-gray-600">Complete all safety checks before operating grader. Mark each item as satisfactory (✓) or unsatisfactory (✗).</p>
-                  {checklistItems.map((item, index) => (
-                    <Card key={index} className={`p-4 ${index < 4 && machineCheckType === 'grader_startup' ? 'border-orange-200 bg-orange-50' : ''}`} data-testid={`checklist-item-${index}`}>
-                      <div className="flex items-start space-x-3">
-                        <div className="flex flex-col space-y-2 mt-1">
-                          <Button
-                            variant={item.status === 'satisfactory' ? 'default' : 'outline'}
-                            size="sm"
-                            className={`w-10 h-10 sm:w-8 sm:h-8 p-0 text-lg sm:text-base ${item.status === 'satisfactory' ? (machineCheckType === 'grader_startup' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700') : (machineCheckType === 'grader_startup' ? 'hover:bg-orange-50' : 'hover:bg-green-50')}`}
-                            onClick={() => handleItemChange(index, 'status', item.status === 'satisfactory' ? 'unchecked' : 'satisfactory')}
-                            data-testid={`checklist-satisfactory-${index}`}
-                          >
-                            ✓
-                          </Button>
-                          <Button
-                            variant={item.status === 'unsatisfactory' ? 'default' : 'outline'}
-                            size="sm"
-                            className={`w-10 h-10 sm:w-8 sm:h-8 p-0 text-lg sm:text-base ${item.status === 'unsatisfactory' ? 'bg-red-600 hover:bg-red-700 text-white' : 'hover:bg-red-50 text-red-600'}`}
-                            onClick={() => handleItemChange(index, 'status', item.status === 'unsatisfactory' ? 'unchecked' : 'unsatisfactory')}
-                            data-testid={`checklist-unsatisfactory-${index}`}
-                          >
-                            ✗
-                          </Button>
-                          <Button
-                            variant={item.status === 'n/a' ? 'default' : 'outline'}
-                            size="sm"
-                            className={`w-10 h-10 sm:w-8 sm:h-8 p-0 text-xs sm:text-xs ${item.status === 'n/a' ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'hover:bg-gray-50 text-gray-600'}`}
-                            onClick={() => handleItemChange(index, 'status', item.status === 'n/a' ? 'unchecked' : 'n/a')}
-                            data-testid={`checklist-na-${index}`}
-                          >
-                            N/A
-                          </Button>
-                        </div>
-                        <div className="flex-1">
-                          <label className={`text-sm font-medium cursor-pointer ${
-                            item.status === 'unsatisfactory' ? 'text-red-700' : 
-                            item.status === 'n/a' ? 'text-gray-500' : ''
-                          } ${index < 4 && machineCheckType === 'grader_startup' ? 'text-orange-800' : ''}`}>
-                            {tItem(item.item)}
-                          </label>
-                          {item.status === 'unsatisfactory' && (
-                            <div className="mt-1 text-xs text-red-600 font-medium">⚠ Unsatisfactory - Requires attention</div>
-                          )}
-                          {item.status === 'n/a' && (
-                            <div className="mt-1 text-xs text-gray-500 font-medium">ℹ Not Applicable</div>
-                          )}
-                          {index < 4 && machineCheckType === 'grader_startup' && (
-                            <div className="mt-1 text-xs text-orange-600 font-medium">🚨 Critical Safety Check</div>
-                          )}
-                          <Textarea
-                            placeholder={item.status === 'unsatisfactory' ? "REQUIRED: Please explain the fault" : "Add notes (optional)"}
-                            value={item.notes}
-                            onChange={(e) => handleItemChange(index, 'notes', e.target.value)}
-                            className={`mt-2 text-sm ${item.status === 'unsatisfactory' ? 'border-red-300 bg-red-50' : ''}`}
-                            rows={2}
-                            data-testid={`checklist-notes-${index}`}
-                            required={item.status === 'unsatisfactory'}
-                          />
-                          {item.status === 'unsatisfactory' && !item.notes?.trim() && (
-                            <div className="mt-1 text-xs text-red-600 font-medium">
-                              ⚠ Fault explanation is required
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-              
-              <div className="flex justify-between pt-6">
-                <Button variant="outline" onClick={() => setStep(2)} data-testid="back-to-check-type-btn">
-                  Back: Check Type
-                </Button>
-                <Button 
-                  onClick={handleSubmit} 
-                  disabled={!allItemsAddressed || isSubmitting}
-                  className={machineCheckType === 'grader_startup' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'}
-                  data-testid="submit-checklist-btn"
-                >
-                  {isSubmitting ? 'Saving...' : `Complete ${
-                    selectedCheckType === 'daily_check' ? 'Checklist' : 
-                    'Service Record'
-                  }`}
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <p className="text-xs text-gray-500">
+        Files: SharePoint → Crops → General → Apps → Checklist App → (Name List.xlsx, AssetList.xlsx)
+      </p>
     </div>
+  );
+}
+
+// Template Diagnostics Component - verify check_type to template mappings
+function TemplateDiagnostics() {
+  const [diagnostics, setDiagnostics] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const fetchDiagnostics = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/template-diagnostics`);
+      const data = await response.json();
+      setDiagnostics(data);
+      setExpanded(true);
+    } catch (error) {
+      toast.error('Failed to load diagnostics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card data-testid="template-diagnostics-card" className="border-blue-200 bg-blue-50">
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <FileCheck className="h-5 w-5 text-blue-600" />
+          <span>Template Diagnostics</span>
+        </CardTitle>
+        <CardDescription>
+          Verify which checklist template is assigned to each check type
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Button onClick={fetchDiagnostics} disabled={loading} className="bg-blue-600 hover:bg-blue-700" data-testid="run-diagnostics-btn">
+          {loading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+          {loading ? 'Loading...' : 'Check Template Mappings'}
+        </Button>
+
+        {diagnostics && expanded && (
+          <div className="space-y-3 mt-4">
+            <p className="text-sm font-medium text-gray-700">Total Assets: {diagnostics.total_assets}</p>
+            
+            {diagnostics.missing_templates?.length > 0 && (
+              <div className="p-3 bg-red-100 border border-red-300 rounded-lg">
+                <p className="text-red-800 font-medium text-sm">Missing templates for: {diagnostics.missing_templates.join(', ')}</p>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              {diagnostics.templates?.map((t, i) => (
+                <div key={i} className="p-3 bg-white rounded-lg border shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-sm">{t.check_type}</span>
+                      <span className="text-xs text-gray-500 ml-2">(sheet: "{t.sheet_name}")</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{t.item_count} items</span>
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">{t.assets_using_this} assets</span>
+                    </div>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {t.first_3_items?.map((item, j) => (
+                      <span key={j} className="block truncate">• {item}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1972,7 +947,7 @@ function SharePointAdminComponent() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
-            <p className="text-gray-600 mt-2">Upload Excel files, print QR labels, and view historical data</p>
+            <p className="text-gray-600 mt-2">Upload Excel files and print QR labels</p>
           </div>
         </div>
       </div>
@@ -2038,57 +1013,24 @@ function SharePointAdminComponent() {
         </CardContent>
       </Card>
 
-      {/* Historical Data Section */}
-      <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
+      {/* SharePoint Auto-Sync */}
+      <Card data-testid="sharepoint-sync-card" className="border-purple-200 bg-purple-50">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <FileText className="h-5 w-5 text-green-600" />
-            <span>Historical Data & Reports</span>
+            <RefreshCw className="h-5 w-5 text-purple-600" />
+            <span>SharePoint Auto-Sync</span>
           </CardTitle>
           <CardDescription>
-            Access complete historical records for review and reporting
+            Staff list and asset list sync automatically from SharePoint every day at 9:00 AM
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="border-green-200 hover:shadow-lg transition-shadow">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold text-lg">All Checks Completed</h3>
-                    <p className="text-sm text-gray-600">Complete historical record</p>
-                  </div>
-                  <ClipboardList className="h-8 w-8 text-green-600" />
-                </div>
-                <Button 
-                  onClick={() => navigate('/all-checks')}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  View All Checks
-                </Button>
-              </CardContent>
-            </Card>
-            
-            <Card className="border-blue-200 hover:shadow-lg transition-shadow">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold text-lg">Full Records History</h3>
-                    <p className="text-sm text-gray-600">Detailed records with filters</p>
-                  </div>
-                  <FileText className="h-8 w-8 text-blue-600" />
-                </div>
-                <Button 
-                  onClick={() => navigate('/records')}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  View All Records
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+        <CardContent className="space-y-4">
+          <SharePointSyncStatus />
         </CardContent>
       </Card>
+
+      {/* Template Diagnostics */}
+      <TemplateDiagnostics />
 
       {/* Staff Upload */}
       <Card data-testid="staff-upload-card">
@@ -2106,7 +1048,10 @@ function SharePointAdminComponent() {
             <h4 className="font-semibold text-green-900 mb-2">Excel Format Required:</h4>
             <ul className="text-sm text-green-800 space-y-1">
               <li>• Column A: Employee Number (e.g., 101, 102, 103)</li>
-              <li>• Column B: Name (e.g., "John Smith", "Jane Doe")</li>
+              <li>• Column B: Name (e.g., John Smith, Jane Doe)</li>
+              <li>• Column C: Workshop Control (yes/no) - optional</li>
+              <li>• Column D: Admin Control (yes/no) - optional</li>
+              <li>• Column E: Manager (yes/no) - optional</li>
             </ul>
           </div>
           <div className="flex items-center space-x-4">
@@ -2446,6 +1391,38 @@ function Records() {
                   <h3 className="text-lg font-semibold mb-2">Notes</h3>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-gray-700 whitespace-pre-wrap">{selectedChecklist.workshop_notes}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Fuel and Mileage Record */}
+              {(selectedChecklist.check_type === 'fuel_mileage' || selectedChecklist.fuel_mileage || selectedChecklist.fuel_added || selectedChecklist.adblue_added) && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Fuel and Mileage Record</h3>
+                  <div className="bg-blue-50 p-4 rounded-lg space-y-3">
+                    {selectedChecklist.fuel_mileage && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-700 font-medium">Mileage / Hours:</span>
+                        <span className="font-bold text-blue-700 text-lg">{selectedChecklist.fuel_mileage}</span>
+                      </div>
+                    )}
+                    {selectedChecklist.fuel_added && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-700 font-medium">Fuel Added:</span>
+                        <span className="font-bold text-green-700 text-lg">{selectedChecklist.fuel_added} Litres</span>
+                      </div>
+                    )}
+                    {selectedChecklist.adblue_added && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-700 font-medium">AdBlue Added:</span>
+                        <span className="font-bold text-purple-700 text-lg">{selectedChecklist.adblue_added} Litres</span>
+                      </div>
+                    )}
+                    {selectedChecklist.fuel_notes && (
+                      <div className="mt-3 pt-3 border-t border-blue-200">
+                        <p className="text-sm text-gray-600"><strong>Notes:</strong> {selectedChecklist.fuel_notes}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2831,7 +1808,6 @@ function AllChecksCompleted() {
           }
         } catch (e) {
           clearTimeout(timeoutId);
-          console.log('Today endpoint failed, trying fallback:', e.message);
         }
         
         // Fallback: fetch recent 50 and filter client-side (smaller = faster)
@@ -2915,10 +1891,7 @@ function AllChecksCompleted() {
     // Filter for today's checks if specified
     if (filterToday) {
       const today = new Date().toISOString().split('T')[0];
-      console.log('Filtering for today:', today);
-      console.log('Checklists before filter:', checklists.length);
       filtered = filtered.filter(c => c.completed_at && c.completed_at.startsWith(today));
-      console.log('Checklists after filter:', filtered.length);
     }
     
     if (selectedMake) {
@@ -2956,7 +1929,17 @@ function AllChecksCompleted() {
 
   const handleExport = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel`);
+      toast.info('Generating Excel export... This may take a moment for large datasets.');
+      
+      // Use a longer timeout for large exports
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      
+      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
       if (!response.ok) {
         throw new Error('Export failed');
       }
@@ -2970,6 +1953,33 @@ function AllChecksCompleted() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       toast.success('Checks exported successfully to Excel');
+    } catch (error) {
+      console.error('Export error:', error);
+      if (error.name === 'AbortError') {
+        toast.error('Export timed out. Try the faster CSV format instead.');
+      } else {
+        toast.error('Failed to export checks. Try CSV format for large datasets.');
+      }
+    }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      toast.info('Generating CSV export...');
+      const response = await fetch(`${API_BASE_URL}/api/checklists/export/csv`);
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `all_checks_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Checks exported successfully to CSV');
     } catch (error) {
       console.error('Export error:', error);
       toast.error('Failed to export checks');
@@ -3108,14 +2118,35 @@ function AllChecksCompleted() {
             </p>
           </div>
         </div>
-        <Button 
-          onClick={handleExport} 
-          variant="outline"
-          className="bg-green-600 hover:bg-green-700 text-white"
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Export to Excel
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button 
+            onClick={handleExport} 
+            variant="outline"
+            className="bg-green-600 hover:bg-green-700 text-white"
+            title="Download as Excel file"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Excel
+          </Button>
+          <Button 
+            onClick={handleExportCSV} 
+            variant="outline"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            title="Faster for large datasets"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            CSV (Fast)
+          </Button>
+          <Button 
+            onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel`, '_blank')}
+            variant="outline"
+            className="text-gray-600"
+            title="Opens in new tab - use if other exports timeout"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Direct Link
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -3548,6 +2579,2356 @@ function RepairsCompletedPage() {
   );
 }
 
+// Near Misses Page Component
+function NearMissesPage() {
+  const [nearMisses, setNearMisses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [filter, setFilter] = useState('all'); // all, new, acknowledged
+  const [locationFilter, setLocationFilter] = useState('all'); // all, Farm, Field, Storage, Grading
+  const [newComment, setNewComment] = useState('');
+  const navigate = useNavigate();
+  const { employee } = useAuth();
+  const isAdmin = employee?.admin_control === 'yes';
+  const isManager = employee?.manager_control === 'yes';
+  const canInvestigate = isAdmin || isManager;
+  
+  // Investigation form state
+  const [investigationMode, setInvestigationMode] = useState(false);
+  const [investigationData, setInvestigationData] = useState({
+    severity: '',
+    action_required: '',
+    progress: 'not_started',
+    investigation_notes: '',
+    no_swp_or_not_covered: false,
+    swp_training_not_received: false,
+    trained_but_not_following: false
+  });
+  const [savingInvestigation, setSavingInvestigation] = useState(false);
+
+  useEffect(() => {
+    fetchNearMisses();
+  }, []);
+
+  const fetchNearMisses = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/near-misses?limit=200`);
+      const data = await response.json();
+      setNearMisses(data);
+    } catch (error) {
+      console.error('Error fetching near misses:', error);
+      toast.error('Failed to load near misses');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const acknowledgeNearMiss = async (id) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/near-misses/${id}/acknowledge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acknowledged_by: employee?.name || 'Admin' })
+      });
+      
+      if (response.ok) {
+        toast.success('Near miss acknowledged');
+        fetchNearMisses();
+        setSelectedItem(null);
+      }
+    } catch (error) {
+      console.error('Error acknowledging near miss:', error);
+      toast.error('Failed to acknowledge');
+    }
+  };
+
+  const addComment = async (id) => {
+    if (!newComment.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/near-misses/${id}/comment?comment=${encodeURIComponent(newComment)}&commented_by=${encodeURIComponent(employee?.name || 'Admin')}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        toast.success('Comment added');
+        setNewComment('');
+        fetchNearMisses();
+        const updatedItems = await (await fetch(`${API_BASE_URL}/api/near-misses?limit=200`)).json();
+        const updated = updatedItems.find(a => a.id === id);
+        if (updated) setSelectedItem(updated);
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment');
+    }
+  };
+
+  // Open investigation mode with existing data
+  const openInvestigation = (item) => {
+    setInvestigationData({
+      severity: item.severity || '',
+      action_required: item.action_required || '',
+      progress: item.progress || 'not_started',
+      investigation_notes: item.investigation_notes || '',
+      no_swp_or_not_covered: item.no_swp_or_not_covered || false,
+      swp_training_not_received: item.swp_training_not_received || false,
+      trained_but_not_following: item.trained_but_not_following || false
+    });
+    setInvestigationMode(true);
+  };
+
+  // Save investigation data
+  const saveInvestigation = async () => {
+    if (!selectedItem) return;
+    setSavingInvestigation(true);
+    try {
+      const params = new URLSearchParams({
+        severity: investigationData.severity,
+        action_required: investigationData.action_required,
+        progress: investigationData.progress,
+        investigation_notes: investigationData.investigation_notes,
+        no_swp_or_not_covered: investigationData.no_swp_or_not_covered,
+        swp_training_not_received: investigationData.swp_training_not_received,
+        trained_but_not_following: investigationData.trained_but_not_following,
+        investigated_by: employee?.name || 'Admin'
+      });
+      
+      const response = await fetch(`${API_BASE_URL}/api/near-misses/${selectedItem.id}/investigate?${params}`, {
+        method: 'PUT'
+      });
+      
+      if (response.ok) {
+        toast.success('Investigation saved successfully');
+        setInvestigationMode(false);
+        fetchNearMisses();
+        // Refresh the selected item
+        const updatedItems = await (await fetch(`${API_BASE_URL}/api/near-misses?limit=200`)).json();
+        const updated = updatedItems.find(a => a.id === selectedItem.id);
+        if (updated) setSelectedItem(updated);
+      } else {
+        toast.error('Failed to save investigation');
+      }
+    } catch (error) {
+      console.error('Error saving investigation:', error);
+      toast.error('Failed to save investigation');
+    } finally {
+      setSavingInvestigation(false);
+    }
+  };
+
+  // Helper to get severity color
+  const getSeverityColor = (severity) => {
+    switch (severity) {
+      case 'red': return 'bg-red-500';
+      case 'orange': return 'bg-orange-500';
+      case 'green': return 'bg-green-500';
+      default: return 'bg-gray-300';
+    }
+  };
+
+  // Helper to get progress label
+  const getProgressLabel = (progress) => {
+    switch (progress) {
+      case 'not_started': return 'Not Started';
+      case 'in_progress': return 'In Progress';
+      case 'completed': return 'Completed';
+      default: return 'Not Started';
+    }
+  };
+
+  const filteredItems = nearMisses.filter(item => {
+    // Status filter
+    if (filter === 'new' && item.acknowledged) return false;
+    if (filter === 'acknowledged' && !item.acknowledged) return false;
+    // Location filter
+    if (locationFilter !== 'all' && item.location !== locationFilter) return false;
+    return true;
+  });
+
+  // Get unique locations for filter dropdown
+  const locations = [...new Set(nearMisses.map(item => item.location).filter(Boolean))];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="h-8 w-8 animate-spin text-red-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-red-100 rounded-lg">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Near Misses</h1>
+              <p className="text-sm text-gray-600">{filteredItems.length} reports</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Filters */}
+        <div className="flex gap-2 flex-wrap">
+          {/* Location Filter */}
+          <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+            data-testid="near-miss-location-filter"
+          >
+            <option value="all">All Locations</option>
+            <option value="Farm">Farm</option>
+            <option value="Field">Field</option>
+            <option value="Storage">Storage</option>
+            <option value="Grading">Grading</option>
+          </select>
+          
+          {/* Status Filter */}
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+            data-testid="near-miss-filter"
+          >
+            <option value="all">All Reports</option>
+            <option value="new">New (Unacknowledged)</option>
+            <option value="acknowledged">Acknowledged</option>
+          </select>
+          
+          {/* Export Button */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.open(`${API_BASE_URL}/api/near-misses/export/excel`, '_blank')}
+            className="flex items-center gap-1"
+            data-testid="near-miss-export-btn"
+          >
+            <Download className="h-4 w-4" />
+            Export Excel
+          </Button>
+        </div>
+      </div>
+
+      {filteredItems.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <AlertTriangle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No near misses reported yet</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filteredItems.map((item) => (
+            <Card 
+              key={item.id} 
+              className={`hover:shadow-md transition-shadow cursor-pointer ${
+                !item.acknowledged ? 'border-red-200 bg-red-50' : ''
+              }`}
+              onClick={() => { setSelectedItem(item); setInvestigationMode(false); }}
+              data-testid={`near-miss-item-${item.id}`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      {/* Severity indicator */}
+                      {item.severity && (
+                        <div className={`w-3 h-3 rounded-full ${getSeverityColor(item.severity)}`} title={`Severity: ${item.severity}`} />
+                      )}
+                      {!item.acknowledged && (
+                        <Badge className="bg-red-500 text-white">New</Badge>
+                      )}
+                      {item.location && (
+                        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">{item.location}</Badge>
+                      )}
+                      {/* Progress indicator */}
+                      {item.progress && item.progress !== 'not_started' && (
+                        <Badge 
+                          variant="outline" 
+                          className={item.progress === 'completed' ? 'bg-green-50 text-green-700 border-green-300' : 'bg-blue-50 text-blue-700 border-blue-300'}
+                        >
+                          {getProgressLabel(item.progress)}
+                        </Badge>
+                      )}
+                      {item.is_anonymous ? (
+                        <Badge variant="outline" className="text-gray-500">Anonymous</Badge>
+                      ) : (
+                        <span className="text-sm font-medium text-gray-700">{item.submitted_by}</span>
+                      )}
+                    </div>
+                    <p className="text-gray-800 line-clamp-2">{item.description}</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {new Date(item.created_at).toLocaleString()}
+                    </p>
+                    {/* Display actual comments/notes */}
+                    {item.comments && item.comments.length > 0 && (
+                      <div className="mt-2 space-y-1 border-t pt-2">
+                        <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                          <MessageSquare className="h-3 w-3" /> Notes ({item.comments.length})
+                        </p>
+                        {item.comments.slice(-2).map((comment, idx) => (
+                          <div key={idx} className="text-xs bg-blue-50 p-2 rounded border-l-2 border-blue-400">
+                            <p className="text-gray-700">{comment.text}</p>
+                            <p className="text-gray-400 mt-1">{comment.by || comment.commented_by} • {comment.at || comment.commented_at ? new Date(comment.at || comment.commented_at).toLocaleDateString() : ''}</p>
+                          </div>
+                        ))}
+                        {item.comments.length > 2 && (
+                          <p className="text-xs text-blue-600">+{item.comments.length - 2} more note{item.comments.length - 2 !== 1 ? 's' : ''}...</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {item.photos && item.photos.length > 0 && (
+                    <div className="ml-4 flex items-center gap-1">
+                      <Camera className="h-5 w-5 text-gray-400" />
+                      <span className="text-xs text-gray-400">{item.photos.length}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {selectedItem && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-auto relative z-[10000]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Near Miss Report</h3>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedItem(null)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                {!selectedItem.acknowledged ? (
+                  <Badge className="bg-red-500 text-white">Unacknowledged</Badge>
+                ) : (
+                  <Badge className="bg-green-500 text-white">Acknowledged</Badge>
+                )}
+                {selectedItem.is_anonymous ? (
+                  <Badge variant="outline">Anonymous</Badge>
+                ) : (
+                  <span className="text-sm text-gray-600">By: {selectedItem.submitted_by}</span>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Description</p>
+                <p className="text-gray-800">{selectedItem.description}</p>
+              </div>
+
+              {selectedItem.location && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Location</p>
+                  <p className="text-gray-800">{selectedItem.location}</p>
+                </div>
+              )}
+
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Reported</p>
+                <p className="text-gray-800">{new Date(selectedItem.created_at).toLocaleString()}</p>
+              </div>
+
+              {selectedItem.acknowledged && selectedItem.acknowledged_by && (
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-green-700">
+                    Acknowledged by {selectedItem.acknowledged_by} on {new Date(selectedItem.acknowledged_at).toLocaleString()}
+                  </p>
+                </div>
+              )}
+
+              {/* Photos */}
+              {selectedItem.photos && selectedItem.photos.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Photos ({selectedItem.photos.length})</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedItem.photos.map((photo, idx) => (
+                      <img 
+                        key={idx}
+                        src={photo}
+                        alt={`Photo ${idx + 1}`}
+                        className="w-full h-32 object-cover rounded-lg border"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Investigation Section */}
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <FileText className="h-4 w-4" /> Investigation
+                  </h4>
+                  {canInvestigate && !investigationMode && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => openInvestigation(selectedItem)}
+                      data-testid="edit-investigation-btn"
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      {selectedItem.severity ? 'Edit' : 'Add Investigation'}
+                    </Button>
+                  )}
+                </div>
+
+                {investigationMode ? (
+                  /* Investigation Edit Form */
+                  <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
+                    {/* Severity */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Severity *</label>
+                      <div className="flex gap-2">
+                        {[
+                          { value: 'red', label: 'High (Red)', color: 'bg-red-500 hover:bg-red-600' },
+                          { value: 'orange', label: 'Medium (Orange)', color: 'bg-orange-500 hover:bg-orange-600' },
+                          { value: 'green', label: 'Low (Green)', color: 'bg-green-500 hover:bg-green-600' }
+                        ].map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setInvestigationData({...investigationData, severity: opt.value})}
+                            className={`flex-1 px-3 py-2 rounded-md text-white text-sm font-medium transition-all ${opt.color} ${
+                              investigationData.severity === opt.value ? 'ring-2 ring-offset-2 ring-gray-800' : 'opacity-60'
+                            }`}
+                            data-testid={`severity-${opt.value}-btn`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Progress */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Progress</label>
+                      <select
+                        value={investigationData.progress}
+                        onChange={(e) => setInvestigationData({...investigationData, progress: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        data-testid="investigation-progress-select"
+                      >
+                        <option value="not_started">Not Started</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                    </div>
+
+                    {/* Action Required */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Action to be Taken</label>
+                      <textarea
+                        value={investigationData.action_required}
+                        onChange={(e) => setInvestigationData({...investigationData, action_required: e.target.value})}
+                        placeholder="Describe the action to be taken..."
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        data-testid="investigation-action-textarea"
+                      />
+                    </div>
+
+                    {/* Investigation Notes */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Investigation Notes</label>
+                      <textarea
+                        value={investigationData.investigation_notes}
+                        onChange={(e) => setInvestigationData({...investigationData, investigation_notes: e.target.value})}
+                        placeholder="Additional notes..."
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        data-testid="investigation-notes-textarea"
+                      />
+                    </div>
+
+                    {/* SWP Checkboxes */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-600">Safe Working Procedure (SWP) Assessment</p>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={investigationData.no_swp_or_not_covered}
+                          onChange={(e) => setInvestigationData({...investigationData, no_swp_or_not_covered: e.target.checked})}
+                          className="mt-1"
+                          data-testid="swp-not-covered-checkbox"
+                        />
+                        <span className="text-sm text-gray-700">No SWP in place or existing SWP doesn't cover this</span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={investigationData.swp_training_not_received}
+                          onChange={(e) => setInvestigationData({...investigationData, swp_training_not_received: e.target.checked})}
+                          className="mt-1"
+                          data-testid="swp-training-checkbox"
+                        />
+                        <span className="text-sm text-gray-700">Training on SWP not received by person</span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={investigationData.trained_but_not_following}
+                          onChange={(e) => setInvestigationData({...investigationData, trained_but_not_following: e.target.checked})}
+                          className="mt-1"
+                          data-testid="swp-not-following-checkbox"
+                        />
+                        <span className="text-sm text-gray-700">Trained but individual not following SWP</span>
+                      </label>
+                    </div>
+
+                    {/* Save/Cancel Buttons */}
+                    <div className="flex gap-2 pt-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setInvestigationMode(false)}
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        onClick={saveInvestigation}
+                        disabled={savingInvestigation || !investigationData.severity}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700"
+                        data-testid="save-investigation-btn"
+                      >
+                        {savingInvestigation ? 'Saving...' : 'Save Investigation'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Investigation Display */
+                  selectedItem.severity ? (
+                    <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">Severity:</span>
+                          <div className={`px-3 py-1 rounded-full text-white text-xs font-medium ${getSeverityColor(selectedItem.severity)}`}>
+                            {selectedItem.severity.charAt(0).toUpperCase() + selectedItem.severity.slice(1)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">Progress:</span>
+                          <Badge variant="outline" className={
+                            selectedItem.progress === 'completed' ? 'bg-green-50 text-green-700' :
+                            selectedItem.progress === 'in_progress' ? 'bg-blue-50 text-blue-700' :
+                            'bg-gray-100 text-gray-600'
+                          }>
+                            {getProgressLabel(selectedItem.progress)}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {selectedItem.action_required && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Action to be Taken</p>
+                          <p className="text-sm text-gray-800">{selectedItem.action_required}</p>
+                        </div>
+                      )}
+
+                      {selectedItem.investigation_notes && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Investigation Notes</p>
+                          <p className="text-sm text-gray-800">{selectedItem.investigation_notes}</p>
+                        </div>
+                      )}
+
+                      {/* SWP Assessment Display */}
+                      {(selectedItem.no_swp_or_not_covered || selectedItem.swp_training_not_received || selectedItem.trained_but_not_following) && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-2">SWP Assessment</p>
+                          <div className="space-y-1">
+                            {selectedItem.no_swp_or_not_covered && (
+                              <div className="flex items-center gap-2 text-sm text-amber-700">
+                                <AlertCircle className="h-4 w-4" />
+                                <span>No SWP in place or doesn't cover this</span>
+                              </div>
+                            )}
+                            {selectedItem.swp_training_not_received && (
+                              <div className="flex items-center gap-2 text-sm text-amber-700">
+                                <AlertCircle className="h-4 w-4" />
+                                <span>Training on SWP not received</span>
+                              </div>
+                            )}
+                            {selectedItem.trained_but_not_following && (
+                              <div className="flex items-center gap-2 text-sm text-amber-700">
+                                <AlertCircle className="h-4 w-4" />
+                                <span>Trained but not following SWP</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedItem.investigated_by && (
+                        <p className="text-xs text-gray-400 pt-2 border-t">
+                          Investigated by {selectedItem.investigated_by} on {new Date(selectedItem.investigated_at).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">No investigation recorded yet</p>
+                  )
+                )}
+              </div>
+
+              {/* Comments Section */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" /> Comments
+                </h4>
+                {selectedItem.comments?.length > 0 ? (
+                  <div className="space-y-2 mb-3">
+                    {selectedItem.comments.map((comment, idx) => (
+                      <div key={idx} className="p-2 bg-gray-50 rounded text-sm">
+                        <p className="text-gray-800">{comment.text}</p>
+                        <p className="text-xs text-gray-500 mt-1">{comment.by} - {new Date(comment.at).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 mb-3">No comments yet</p>
+                )}
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={newComment} 
+                    onChange={(e) => setNewComment(e.target.value)} 
+                    placeholder="Add a comment..." 
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" 
+                  />
+                  <Button size="sm" onClick={() => addComment(selectedItem.id)} disabled={!newComment.trim()}>Add</Button>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 mt-6">
+                <Button variant="outline" onClick={() => { setSelectedItem(null); setNewComment(''); setInvestigationMode(false); }} className="flex-1">
+                  Close
+                </Button>
+                {isAdmin && !selectedItem.acknowledged && (
+                  <Button 
+                    onClick={() => acknowledgeNearMiss(selectedItem.id)}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    data-testid="acknowledge-near-miss-btn"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Acknowledge
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Suggestions Page Component
+function SuggestionsPage() {
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [filter, setFilter] = useState('all'); // all, new, reviewed, implemented, declined
+  const [locationFilter, setLocationFilter] = useState('all'); // all, Farm, Field, Storage, Grading
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [newComment, setNewComment] = useState('');
+  const navigate = useNavigate();
+  const { employee } = useAuth();
+  const isAdmin = employee?.admin_control === 'yes';
+
+  useEffect(() => {
+    fetchSuggestions();
+  }, []);
+
+  const fetchSuggestions = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/suggestions?limit=200`);
+      const data = await response.json();
+      setSuggestions(data);
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      toast.error('Failed to load suggestions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const reviewSuggestion = async (id, status) => {
+    try {
+      const params = new URLSearchParams({
+        status,
+        reviewed_by: employee?.name || 'Admin',
+        ...(reviewNotes && { review_notes: reviewNotes })
+      });
+      
+      const response = await fetch(`${API_BASE_URL}/api/suggestions/${id}/review?${params}`, {
+        method: 'PUT'
+      });
+      
+      if (response.ok) {
+        toast.success(`Suggestion marked as ${status}`);
+        fetchSuggestions();
+        setSelectedItem(null);
+        setReviewNotes('');
+      }
+    } catch (error) {
+      console.error('Error reviewing suggestion:', error);
+      toast.error('Failed to review suggestion');
+    }
+  };
+
+  const addComment = async (id) => {
+    if (!newComment.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/suggestions/${id}/comment?comment=${encodeURIComponent(newComment)}&commented_by=${encodeURIComponent(employee?.name || 'Admin')}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        toast.success('Comment added');
+        setNewComment('');
+        fetchSuggestions();
+        const updatedItems = await (await fetch(`${API_BASE_URL}/api/suggestions?limit=200`)).json();
+        const updated = updatedItems.find(a => a.id === id);
+        if (updated) setSelectedItem(updated);
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment');
+    }
+  };
+
+  const filteredItems = suggestions.filter(item => {
+    // Status filter
+    if (filter === 'new' && item.status !== 'new') return false;
+    if (filter === 'reviewed' && item.status !== 'reviewed') return false;
+    if (filter === 'implemented' && item.status !== 'implemented') return false;
+    if (filter === 'declined' && item.status !== 'declined') return false;
+    // Location filter
+    if (locationFilter !== 'all' && item.location !== locationFilter) return false;
+    return true;
+  });
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'new': return <Badge className="bg-blue-500 text-white">New</Badge>;
+      case 'reviewed': return <Badge className="bg-yellow-500 text-white">Reviewed</Badge>;
+      case 'implemented': return <Badge className="bg-green-500 text-white">Implemented</Badge>;
+      case 'declined': return <Badge className="bg-gray-500 text-white">Declined</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getCategoryBadge = (category) => {
+    if (!category) return null;
+    const colors = {
+      'Financial': 'bg-green-100 text-green-700',
+      'Well Being': 'bg-blue-100 text-blue-700',
+      'Health and Safety': 'bg-red-100 text-red-700',
+      safety: 'bg-red-100 text-red-700',
+      efficiency: 'bg-blue-100 text-blue-700',
+      equipment: 'bg-orange-100 text-orange-700',
+      other: 'bg-gray-100 text-gray-700'
+    };
+    return <Badge variant="outline" className={colors[category] || colors.other}>{category}</Badge>;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <FileText className="h-6 w-6 text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Suggestions</h1>
+              <p className="text-sm text-gray-600">{filteredItems.length} suggestions</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Filters */}
+        <div className="flex gap-2 flex-wrap">
+          {/* Location Filter */}
+          <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            data-testid="suggestion-location-filter"
+          >
+            <option value="all">All Locations</option>
+            <option value="Farm">Farm</option>
+            <option value="Field">Field</option>
+            <option value="Storage">Storage</option>
+            <option value="Grading">Grading</option>
+          </select>
+          
+          {/* Status Filter */}
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            data-testid="suggestion-filter"
+          >
+            <option value="all">All Suggestions</option>
+            <option value="new">New</option>
+            <option value="reviewed">Reviewed</option>
+            <option value="implemented">Implemented</option>
+            <option value="declined">Declined</option>
+          </select>
+          
+          {/* Export Button */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.open(`${API_BASE_URL}/api/suggestions/export/excel`, '_blank')}
+            className="flex items-center gap-1"
+            data-testid="suggestion-export-btn"
+          >
+            <Download className="h-4 w-4" />
+            Export Excel
+          </Button>
+        </div>
+      </div>
+
+      {filteredItems.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No suggestions submitted yet</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filteredItems.map((item) => (
+            <Card 
+              key={item.id} 
+              className={`hover:shadow-md transition-shadow cursor-pointer ${
+                item.status === 'new' ? 'border-indigo-200 bg-indigo-50' : ''
+              }`}
+              onClick={() => setSelectedItem(item)}
+              data-testid={`suggestion-item-${item.id}`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      {getStatusBadge(item.status)}
+                      {getCategoryBadge(item.category)}
+                      {item.location && (
+                        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">{item.location}</Badge>
+                      )}
+                      {item.is_anonymous ? (
+                        <Badge variant="outline" className="text-gray-500">Anonymous</Badge>
+                      ) : (
+                        <span className="text-sm font-medium text-gray-700">{item.submitted_by}</span>
+                      )}
+                    </div>
+                    <h3 className="font-medium text-gray-900">{item.title}</h3>
+                    <p className="text-gray-600 text-sm line-clamp-2 mt-1">{item.description}</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {new Date(item.created_at).toLocaleString()}
+                    </p>
+                    {/* Display actual comments/notes */}
+                    {item.comments && item.comments.length > 0 && (
+                      <div className="mt-2 space-y-1 border-t pt-2">
+                        <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                          <MessageSquare className="h-3 w-3" /> Notes ({item.comments.length})
+                        </p>
+                        {item.comments.slice(-2).map((comment, idx) => (
+                          <div key={idx} className="text-xs bg-indigo-50 p-2 rounded border-l-2 border-indigo-400">
+                            <p className="text-gray-700">{comment.text}</p>
+                            <p className="text-gray-400 mt-1">{comment.by || comment.commented_by} • {comment.at || comment.commented_at ? new Date(comment.at || comment.commented_at).toLocaleDateString() : ''}</p>
+                          </div>
+                        ))}
+                        {item.comments.length > 2 && (
+                          <p className="text-xs text-indigo-600">+{item.comments.length - 2} more note{item.comments.length - 2 !== 1 ? 's' : ''}...</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {selectedItem && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-auto relative z-[10000]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Suggestion Details</h3>
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(null); setReviewNotes(''); }}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                {getStatusBadge(selectedItem.status)}
+                {getCategoryBadge(selectedItem.category)}
+                {selectedItem.is_anonymous ? (
+                  <Badge variant="outline">Anonymous</Badge>
+                ) : (
+                  <span className="text-sm text-gray-600">By: {selectedItem.submitted_by}</span>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Title</p>
+                <p className="text-gray-900 font-medium">{selectedItem.title}</p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Description</p>
+                <p className="text-gray-800">{selectedItem.description}</p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Submitted</p>
+                <p className="text-gray-800">{new Date(selectedItem.created_at).toLocaleString()}</p>
+              </div>
+
+              {selectedItem.reviewed_at && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">
+                    Reviewed by {selectedItem.reviewed_by} on {new Date(selectedItem.reviewed_at).toLocaleString()}
+                  </p>
+                  {selectedItem.review_notes && (
+                    <p className="text-sm text-gray-700 mt-1">Notes: {selectedItem.review_notes}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Admin Actions */}
+              {/* Comments Section */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" /> Comments
+                </h4>
+                {selectedItem.comments?.length > 0 ? (
+                  <div className="space-y-2 mb-3">
+                    {selectedItem.comments.map((comment, idx) => (
+                      <div key={idx} className="p-2 bg-gray-50 rounded text-sm">
+                        <p className="text-gray-800">{comment.text}</p>
+                        <p className="text-xs text-gray-500 mt-1">{comment.by} - {new Date(comment.at).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 mb-3">No comments yet</p>
+                )}
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={newComment} 
+                    onChange={(e) => setNewComment(e.target.value)} 
+                    placeholder="Add a comment..." 
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" 
+                  />
+                  <Button size="sm" onClick={() => addComment(selectedItem.id)} disabled={!newComment.trim()}>Add</Button>
+                </div>
+              </div>
+
+              {/* Admin Actions */}
+              {isAdmin && selectedItem.status === 'new' && (
+                <div className="border-t pt-4 mt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Review this suggestion</p>
+                  <Textarea
+                    value={reviewNotes}
+                    onChange={(e) => setReviewNotes(e.target.value)}
+                    placeholder="Add review notes (optional)"
+                    rows={2}
+                    className="mb-3"
+                  />
+                  <div className="flex gap-2 flex-wrap">
+                    <Button 
+                      onClick={() => reviewSuggestion(selectedItem.id, 'reviewed')}
+                      variant="outline"
+                      size="sm"
+                      className="border-yellow-500 text-yellow-700"
+                    >
+                      Mark Reviewed
+                    </Button>
+                    <Button 
+                      onClick={() => reviewSuggestion(selectedItem.id, 'implemented')}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      Mark Implemented
+                    </Button>
+                    <Button 
+                      onClick={() => reviewSuggestion(selectedItem.id, 'declined')}
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-400 text-gray-600"
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Close button for non-new or non-admin */}
+              {(!isAdmin || selectedItem.status !== 'new') && (
+                <div className="flex justify-end mt-6">
+                  <Button onClick={() => { setSelectedItem(null); setReviewNotes(''); setNewComment(''); }}>
+                    Close
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Accidents Page Component
+function AccidentsPage() {
+  const [accidents, setAccidents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [newComment, setNewComment] = useState('');
+  const [investigationNotes, setInvestigationNotes] = useState('');
+  // RIDDOR Section 5 state
+  const [riddorReportable, setRiddorReportable] = useState(false);
+  const [riddorHowReported, setRiddorHowReported] = useState('');
+  const [riddorDateReported, setRiddorDateReported] = useState('');
+  const navigate = useNavigate();
+  const { employee } = useAuth();
+  const isAdmin = employee?.admin_control === 'yes';
+
+  useEffect(() => {
+    fetchAccidents();
+  }, []);
+
+  const fetchAccidents = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/accidents?limit=200`);
+      const data = await response.json();
+      setAccidents(data);
+    } catch (error) {
+      console.error('Error fetching accidents:', error);
+      toast.error('Failed to load accidents');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update RIDDOR details
+  const updateRiddor = async (id) => {
+    try {
+      const params = new URLSearchParams({
+        riddor_reportable: riddorReportable.toString(),
+        ...(riddorHowReported && { how_reported: riddorHowReported }),
+        ...(riddorDateReported && { date_reported: riddorDateReported })
+      });
+      
+      const response = await fetch(`${API_BASE_URL}/api/accidents/${id}/riddor?${params}`, {
+        method: 'PUT'
+      });
+      
+      if (response.ok) {
+        toast.success('RIDDOR details updated');
+        fetchAccidents();
+        // Refresh selected item
+        const updatedAccidents = await (await fetch(`${API_BASE_URL}/api/accidents?limit=200`)).json();
+        const updated = updatedAccidents.find(a => a.id === id);
+        if (updated) setSelectedItem(updated);
+      }
+    } catch (error) {
+      console.error('Error updating RIDDOR:', error);
+      toast.error('Failed to update RIDDOR details');
+    }
+  };
+
+  const investigateAccident = async (id, status) => {
+    try {
+      const params = new URLSearchParams({
+        status,
+        investigated_by: employee?.name || 'Admin',
+        ...(investigationNotes && { investigation_notes: investigationNotes })
+      });
+      
+      const response = await fetch(`${API_BASE_URL}/api/accidents/${id}/investigate?${params}`, {
+        method: 'PUT'
+      });
+      
+      if (response.ok) {
+        toast.success(`Accident marked as ${status}`);
+        fetchAccidents();
+        setSelectedItem(null);
+        setInvestigationNotes('');
+      }
+    } catch (error) {
+      console.error('Error updating accident:', error);
+      toast.error('Failed to update accident');
+    }
+  };
+
+  const addComment = async (id) => {
+    if (!newComment.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/accidents/${id}/comment?comment=${encodeURIComponent(newComment)}&commented_by=${encodeURIComponent(employee?.name || 'Admin')}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        toast.success('Comment added');
+        setNewComment('');
+        fetchAccidents();
+        // Refresh selected item
+        const updatedAccidents = await (await fetch(`${API_BASE_URL}/api/accidents?limit=200`)).json();
+        const updated = updatedAccidents.find(a => a.id === id);
+        if (updated) setSelectedItem(updated);
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment');
+    }
+  };
+
+  const filteredItems = accidents.filter(item => {
+    if (filter === 'new') return item.status === 'new';
+    if (filter === 'investigating') return item.status === 'investigating';
+    if (filter === 'closed') return item.status === 'closed';
+    return true;
+  });
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'new': return <Badge className="bg-red-500 text-white">New</Badge>;
+      case 'investigating': return <Badge className="bg-yellow-500 text-white">Investigating</Badge>;
+      case 'closed': return <Badge className="bg-green-500 text-white">Closed</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <ShieldAlert className="h-6 w-6 text-purple-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Accidents</h1>
+              <p className="text-sm text-gray-600">{filteredItems.length} reports</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex gap-2">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+            data-testid="accident-filter"
+          >
+            <option value="all">All Reports</option>
+            <option value="new">New</option>
+            <option value="investigating">Investigating</option>
+            <option value="closed">Closed</option>
+          </select>
+          
+          {/* Export Button */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.open(`${API_BASE_URL}/api/accidents/export/excel`, '_blank')}
+            className="flex items-center gap-1"
+            data-testid="accident-export-btn"
+          >
+            <Download className="h-4 w-4" />
+            Export Excel
+          </Button>
+        </div>
+      </div>
+
+      {filteredItems.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <ShieldAlert className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No accidents reported</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filteredItems.map((item) => (
+            <Card 
+              key={item.id} 
+              className={`hover:shadow-md transition-shadow cursor-pointer ${
+                item.status === 'new' ? 'border-red-200 bg-red-50' : item.status === 'investigating' ? 'border-yellow-200 bg-yellow-50' : ''
+              }`}
+              onClick={() => setSelectedItem(item)}
+              data-testid={`accident-item-${item.id}`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      {getStatusBadge(item.status)}
+                      {item.report_number && <Badge variant="outline" className="text-gray-600">#{item.report_number}</Badge>}
+                      {item.accident_location && <Badge variant="outline" className="bg-orange-50 text-orange-700">{item.accident_location}</Badge>}
+                      {item.riddor_reportable && <Badge className="bg-orange-600 text-white text-xs">RIDDOR</Badge>}
+                    </div>
+                    <p className="font-medium text-gray-900">{item.injured_name || 'Unknown'}</p>
+                    <p className="text-gray-600 text-sm line-clamp-2 mt-1">{item.accident_description || item.description}</p>
+                    {item.injury_details && (
+                      <p className="text-sm text-red-600 mt-1">Injury: {item.injury_details}</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-2">
+                      {item.accident_date} {item.accident_time} | Reported by: {item.reporter_name || item.reported_by}
+                    </p>
+                    {/* Display actual comments/notes */}
+                    {item.comments && item.comments.length > 0 && (
+                      <div className="mt-2 space-y-1 border-t pt-2">
+                        <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                          <MessageSquare className="h-3 w-3" /> Notes ({item.comments.length})
+                        </p>
+                        {item.comments.slice(-2).map((comment, idx) => (
+                          <div key={idx} className="text-xs bg-purple-50 p-2 rounded border-l-2 border-purple-400">
+                            <p className="text-gray-700">{comment.text}</p>
+                            <p className="text-gray-400 mt-1">{comment.by || comment.commented_by} • {comment.at || comment.commented_at ? new Date(comment.at || comment.commented_at).toLocaleDateString() : ''}</p>
+                          </div>
+                        ))}
+                        {item.comments.length > 2 && (
+                          <p className="text-xs text-purple-600">+{item.comments.length - 2} more note{item.comments.length - 2 !== 1 ? 's' : ''}...</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {item.photos && item.photos.length > 0 && (
+                    <div className="ml-4 flex items-center gap-1">
+                      <Camera className="h-5 w-5 text-gray-400" />
+                      <span className="text-xs text-gray-400">{item.photos.length}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-auto relative z-[10000]">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Accident Report</h3>
+                {selectedItem.report_number && <p className="text-sm text-gray-500">Report #{selectedItem.report_number}</p>}
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(null); setInvestigationNotes(''); setRiddorReportable(false); setRiddorHowReported(''); setRiddorDateReported(''); }}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                {getStatusBadge(selectedItem.status)}
+                {selectedItem.riddor_reportable && <Badge className="bg-orange-600 text-white">RIDDOR Reported</Badge>}
+              </div>
+
+              {/* Section 1: About the person who had the accident */}
+              <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                <h4 className="font-semibold text-purple-900 mb-2 text-sm">Section 1: Person who had the accident</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><p className="text-xs text-gray-500">Name</p><p className="text-gray-800">{selectedItem.injured_name || '-'}</p></div>
+                  <div><p className="text-xs text-gray-500">Occupation</p><p className="text-gray-800">{selectedItem.injured_occupation || '-'}</p></div>
+                  <div className="col-span-2"><p className="text-xs text-gray-500">Address</p><p className="text-gray-800">{selectedItem.injured_address || '-'} {selectedItem.injured_postcode}</p></div>
+                </div>
+              </div>
+
+              {/* Section 2: About the person filling in this record */}
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-blue-900 mb-2 text-sm">Section 2: Person filling in this record</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><p className="text-xs text-gray-500">Name</p><p className="text-gray-800">{selectedItem.reporter_name || '-'}</p></div>
+                  <div><p className="text-xs text-gray-500">Occupation</p><p className="text-gray-800">{selectedItem.reporter_occupation || '-'}</p></div>
+                  <div className="col-span-2"><p className="text-xs text-gray-500">Address</p><p className="text-gray-800">{selectedItem.reporter_address || '-'} {selectedItem.reporter_postcode}</p></div>
+                </div>
+              </div>
+
+              {/* Section 3: About the accident */}
+              <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                <h4 className="font-semibold text-red-900 mb-2 text-sm">Section 3: About the accident</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm mb-2">
+                  <div><p className="text-xs text-gray-500">Date</p><p className="text-gray-800">{selectedItem.accident_date || '-'}</p></div>
+                  <div><p className="text-xs text-gray-500">Time</p><p className="text-gray-800">{selectedItem.accident_time || '-'}</p></div>
+                </div>
+                <div className="mb-2"><p className="text-xs text-gray-500">Where did the accident happen?</p><p className="text-gray-800">{selectedItem.accident_location || '-'}</p></div>
+                <div className="mb-2"><p className="text-xs text-gray-500">How did the accident happen?</p><p className="text-gray-800">{selectedItem.accident_description || '-'}</p></div>
+                {selectedItem.injury_details && <div><p className="text-xs text-gray-500">Injury suffered</p><p className="text-gray-800">{selectedItem.injury_details}</p></div>}
+              </div>
+
+              {/* Section 4: Employee consent */}
+              <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                <h4 className="font-semibold text-yellow-900 mb-2 text-sm">Section 4: Employee Consent</h4>
+                <p className="text-sm text-gray-700">
+                  {selectedItem.employee_consent 
+                    ? '✓ Employee consented to disclosure of information to health and safety representatives'
+                    : '✗ Employee did not consent to disclosure'}
+                </p>
+              </div>
+
+              {/* Section 5: For the employer only - RIDDOR */}
+              <div className="p-3 bg-gray-100 rounded-lg border border-gray-300">
+                <h4 className="font-semibold text-gray-900 mb-2 text-sm">Section 5: For the employer only (RIDDOR)</h4>
+                {selectedItem.riddor_reportable ? (
+                  <div className="text-sm space-y-1">
+                    <p><span className="text-gray-500">Reportable under RIDDOR:</span> <span className="text-green-700 font-medium">Yes</span></p>
+                    {selectedItem.riddor_how_reported && <p><span className="text-gray-500">How reported:</span> {selectedItem.riddor_how_reported}</p>}
+                    {selectedItem.riddor_date_reported && <p><span className="text-gray-500">Date reported:</span> {selectedItem.riddor_date_reported}</p>}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">Not yet marked as RIDDOR reportable</p>
+                )}
+                
+                {isAdmin && (
+                  <div className="mt-3 pt-3 border-t border-gray-300">
+                    <p className="text-xs text-gray-500 mb-2">Update RIDDOR details (Admin only)</p>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={riddorReportable || selectedItem.riddor_reportable}
+                          onChange={(e) => setRiddorReportable(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300"
+                        />
+                        <span className="text-sm">Reportable under RIDDOR</span>
+                      </label>
+                      <div>
+                        <label className="text-xs text-gray-500">How was it reported?</label>
+                        <select
+                          value={riddorHowReported || selectedItem.riddor_how_reported || ''}
+                          onChange={(e) => setRiddorHowReported(e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm mt-1"
+                        >
+                          <option value="">Select method...</option>
+                          <option value="Online">Online</option>
+                          <option value="Telephone">Telephone</option>
+                          <option value="Written">Written</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Date reported to RIDDOR</label>
+                        <input
+                          type="date"
+                          value={riddorDateReported || selectedItem.riddor_date_reported || ''}
+                          onChange={(e) => setRiddorDateReported(e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm mt-1"
+                        />
+                      </div>
+                      <Button size="sm" onClick={() => updateRiddor(selectedItem.id)} className="mt-2">
+                        Save RIDDOR Details
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Photos */}
+              {selectedItem.photos?.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Photos ({selectedItem.photos.length})</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {selectedItem.photos.map((photo, idx) => (
+                      <img key={idx} src={photo} alt={`Photo ${idx + 1}`} className="w-full h-24 object-cover rounded-lg border" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedItem.investigated_at && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">Investigation by {selectedItem.investigated_by} on {new Date(selectedItem.investigated_at).toLocaleString()}</p>
+                  {selectedItem.investigation_notes && <p className="text-sm text-gray-700 mt-1">{selectedItem.investigation_notes}</p>}
+                </div>
+              )}
+
+              {/* Comments Section */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Comments</h4>
+                {selectedItem.comments?.length > 0 ? (
+                  <div className="space-y-2 mb-3">
+                    {selectedItem.comments.map((comment, idx) => (
+                      <div key={idx} className="p-2 bg-gray-50 rounded text-sm">
+                        <p className="text-gray-800">{comment.text}</p>
+                        <p className="text-xs text-gray-500 mt-1">{comment.by} - {new Date(comment.at).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 mb-3">No comments yet</p>
+                )}
+                <div className="flex gap-2">
+                  <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Add a comment..." className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                  <Button size="sm" onClick={() => addComment(selectedItem.id)} disabled={!newComment.trim()}>Add</Button>
+                </div>
+              </div>
+
+              {/* Admin Actions */}
+              {isAdmin && selectedItem.status !== 'closed' && (
+                <div className="border-t pt-4 mt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Update Investigation Status</p>
+                  <Textarea value={investigationNotes} onChange={(e) => setInvestigationNotes(e.target.value)} placeholder="Investigation notes (optional)" rows={2} className="mb-3" />
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedItem.status === 'new' && (
+                      <Button onClick={() => investigateAccident(selectedItem.id, 'investigating')} variant="outline" className="border-yellow-500 text-yellow-700">
+                        Start Investigation
+                      </Button>
+                    )}
+                    <Button onClick={() => investigateAccident(selectedItem.id, 'closed')} className="bg-green-600 hover:bg-green-700">
+                      Close Investigation
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {(!isAdmin || selectedItem.status === 'closed') && (
+                <div className="flex justify-end mt-6">
+                  <Button onClick={() => { setSelectedItem(null); setInvestigationNotes(''); }}>Close</Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Whistleblowing Page Component
+function WhistleblowingPage() {
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState('all');
+  const [newComment, setNewComment] = useState('');
+  const [investigationNotes, setInvestigationNotes] = useState('');
+  const navigate = useNavigate();
+  const { employee } = useAuth();
+  const isAdmin = employee?.admin_control === 'yes';
+
+  useEffect(() => { fetchReports(); }, []);
+
+  const fetchReports = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/whistleblowing?limit=200`);
+      const data = await response.json();
+      setReports(data);
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+      toast.error('Failed to load reports');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const investigateReport = async (id, status) => {
+    try {
+      const params = new URLSearchParams({
+        status,
+        investigated_by: employee?.name || 'Admin',
+        ...(investigationNotes && { investigation_notes: investigationNotes })
+      });
+      const response = await fetch(`${API_BASE_URL}/api/whistleblowing/${id}/investigate?${params}`, { method: 'PUT' });
+      if (response.ok) {
+        toast.success(`Report marked as ${status}`);
+        fetchReports();
+        setSelectedItem(null);
+        setInvestigationNotes('');
+      }
+    } catch (error) {
+      toast.error('Failed to update report');
+    }
+  };
+
+  const addComment = async (id) => {
+    if (!newComment.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/whistleblowing/${id}/comment?comment=${encodeURIComponent(newComment)}&commented_by=${encodeURIComponent(employee?.name || 'Admin')}`, { method: 'POST' });
+      if (response.ok) {
+        toast.success('Comment added');
+        setNewComment('');
+        fetchReports();
+        const updated = (await (await fetch(`${API_BASE_URL}/api/whistleblowing?limit=200`)).json()).find(a => a.id === id);
+        if (updated) setSelectedItem(updated);
+      }
+    } catch (error) {
+      toast.error('Failed to add comment');
+    }
+  };
+
+  const filteredItems = reports.filter(item => {
+    if (filter !== 'all' && item.status !== filter) return false;
+    if (locationFilter !== 'all' && item.location !== locationFilter) return false;
+    return true;
+  });
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      'new': <Badge className="bg-amber-500 text-white">New</Badge>,
+      'investigating': <Badge className="bg-yellow-500 text-white">Investigating</Badge>,
+      'resolved': <Badge className="bg-green-500 text-white">Resolved</Badge>,
+      'dismissed': <Badge className="bg-gray-500 text-white">Dismissed</Badge>
+    };
+    return badges[status] || <Badge variant="outline">{status}</Badge>;
+  };
+
+  if (loading) return <div className="flex items-center justify-center p-8"><RefreshCw className="h-8 w-8 animate-spin text-amber-600" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')}><ArrowLeft className="h-4 w-4 mr-1" />Back</Button>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-amber-100 rounded-lg"><AlertCircle className="h-6 w-6 text-amber-600" /></div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Whistleblowing Reports</h1>
+              <p className="text-sm text-gray-600">{filteredItems.length} reports</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-md">
+            <option value="all">All Locations</option>
+            <option value="Farm">Farm</option>
+            <option value="Field">Field</option>
+            <option value="Storage">Storage</option>
+            <option value="Grading">Grading</option>
+          </select>
+          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-md">
+            <option value="all">All Reports</option>
+            <option value="new">New</option>
+            <option value="investigating">Investigating</option>
+            <option value="resolved">Resolved</option>
+            <option value="dismissed">Dismissed</option>
+          </select>
+          
+          {/* Export Button */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.open(`${API_BASE_URL}/api/whistleblowing/export/excel`, '_blank')}
+            className="flex items-center gap-1"
+            data-testid="whistleblowing-export-btn"
+          >
+            <Download className="h-4 w-4" />
+            Export Excel
+          </Button>
+        </div>
+      </div>
+
+      {filteredItems.length === 0 ? (
+        <Card><CardContent className="p-8 text-center"><AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" /><p className="text-gray-500">No reports submitted</p></CardContent></Card>
+      ) : (
+        <div className="space-y-3">
+          {filteredItems.map((item) => (
+            <Card key={item.id} className={`hover:shadow-md cursor-pointer ${item.status === 'new' ? 'border-amber-200 bg-amber-50' : ''}`} onClick={() => setSelectedItem(item)}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  {getStatusBadge(item.status)}
+                  {item.category && <Badge variant="outline">{item.category}</Badge>}
+                  {item.location && <Badge variant="outline" className="bg-orange-50 text-orange-700">{item.location}</Badge>}
+                  {item.is_anonymous ? <Badge variant="outline" className="text-gray-500">Anonymous</Badge> : <span className="text-sm text-gray-700">{item.submitted_by}</span>}
+                </div>
+                <h3 className="font-medium text-gray-900">{item.title}</h3>
+                <p className="text-gray-600 text-sm line-clamp-2 mt-1">{item.description}</p>
+                <p className="text-xs text-gray-400 mt-2">{new Date(item.created_at).toLocaleString()}</p>
+                {/* Display actual comments/notes */}
+                {item.comments && item.comments.length > 0 && (
+                  <div className="mt-2 space-y-1 border-t pt-2">
+                    <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                      <MessageSquare className="h-3 w-3" /> Notes ({item.comments.length})
+                    </p>
+                    {item.comments.slice(-2).map((comment, idx) => (
+                      <div key={idx} className="text-xs bg-amber-50 p-2 rounded border-l-2 border-amber-400">
+                        <p className="text-gray-700">{comment.text}</p>
+                        <p className="text-gray-400 mt-1">{comment.by || comment.commented_by} • {comment.at || comment.commented_at ? new Date(comment.at || comment.commented_at).toLocaleDateString() : ''}</p>
+                      </div>
+                    ))}
+                    {item.comments.length > 2 && (
+                      <p className="text-xs text-amber-600">+{item.comments.length - 2} more note{item.comments.length - 2 !== 1 ? 's' : ''}...</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Whistleblowing Report</h3>
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedItem(null); setInvestigationNotes(''); }}><X className="h-5 w-5" /></Button>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                {getStatusBadge(selectedItem.status)}
+                {selectedItem.category && <Badge variant="outline">{selectedItem.category}</Badge>}
+                {selectedItem.is_anonymous ? <Badge variant="outline">Anonymous</Badge> : <span className="text-sm text-gray-600">By: {selectedItem.submitted_by}</span>}
+              </div>
+              <div><p className="text-xs text-gray-500">Title</p><p className="font-medium">{selectedItem.title}</p></div>
+              <div><p className="text-xs text-gray-500">Description</p><p>{selectedItem.description}</p></div>
+              {selectedItem.location && <div><p className="text-xs text-gray-500">Location</p><p>{selectedItem.location}</p></div>}
+              <div><p className="text-xs text-gray-500">Submitted</p><p>{new Date(selectedItem.created_at).toLocaleString()}</p></div>
+              {selectedItem.investigated_at && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">Investigated by {selectedItem.investigated_by} on {new Date(selectedItem.investigated_at).toLocaleString()}</p>
+                  {selectedItem.investigation_notes && <p className="text-sm mt-1">{selectedItem.investigation_notes}</p>}
+                </div>
+              )}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-2"><MessageSquare className="h-4 w-4" />Comments</h4>
+                {selectedItem.comments?.length > 0 ? (
+                  <div className="space-y-2 mb-3">{selectedItem.comments.map((c, i) => (<div key={i} className="p-2 bg-gray-50 rounded text-sm"><p>{c.text}</p><p className="text-xs text-gray-500 mt-1">{c.by} - {new Date(c.at).toLocaleString()}</p></div>))}</div>
+                ) : <p className="text-sm text-gray-500 mb-3">No comments yet</p>}
+                <div className="flex gap-2">
+                  <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Add a comment..." className="flex-1 px-3 py-2 border rounded-md text-sm" />
+                  <Button size="sm" onClick={() => addComment(selectedItem.id)} disabled={!newComment.trim()}>Add</Button>
+                </div>
+              </div>
+              {isAdmin && !['resolved', 'dismissed'].includes(selectedItem.status) && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-2">Update Status</p>
+                  <Textarea value={investigationNotes} onChange={(e) => setInvestigationNotes(e.target.value)} placeholder="Investigation notes..." rows={2} className="mb-3" />
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedItem.status === 'new' && <Button onClick={() => investigateReport(selectedItem.id, 'investigating')} variant="outline" className="border-yellow-500 text-yellow-700">Start Investigation</Button>}
+                    <Button onClick={() => investigateReport(selectedItem.id, 'resolved')} className="bg-green-600 hover:bg-green-700">Mark Resolved</Button>
+                    <Button onClick={() => investigateReport(selectedItem.id, 'dismissed')} variant="outline" className="border-gray-400 text-gray-600">Dismiss</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Training Records Page Component
+function TrainingPage() {
+  const { employee } = useAuth();
+  const navigate = useNavigate();
+  const location = window.location;
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showSignModal, setShowSignModal] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [pendingSignatures, setPendingSignatures] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [filter, setFilter] = useState('all');
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    swp_number: '',
+    swp_version: '',
+    department: '',
+    training_date: new Date().toISOString().split('T')[0],
+    notes: '',
+    selectedEmployees: [],
+    agencyStaff: ''
+  });
+  
+  const [signatureData, setSignatureData] = useState('');
+  const canvasRef = React.useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [signingTrainee, setSigningTrainee] = useState(null);
+
+  const isAdmin = employee?.admin_control === 'yes';
+
+  const departments = [
+    'Farm', 'Field', 'Grading', 'Storage', 'Transport', 'Workshop', 'Office', 'Other'
+  ];
+
+  useEffect(() => {
+    fetchRecords();
+    fetchStaff();
+    if (employee?.employee_number) {
+      fetchPendingSignatures();
+    }
+    // Auto-open create modal if ?create=true is in URL
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('create') === 'true') {
+      setShowCreateModal(true);
+      // Clear the URL parameter
+      window.history.replaceState({}, '', '/training');
+    }
+  }, [employee]);
+
+  const fetchRecords = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/training`);
+      if (response.ok) {
+        const data = await response.json();
+        setRecords(data);
+      }
+    } catch (error) {
+      console.error('Error fetching training records:', error);
+      toast.error('Failed to load training records');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStaff = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/staff`);
+      if (response.ok) {
+        const data = await response.json();
+        setStaffList(data);
+      }
+    } catch (error) {
+      console.error('Error fetching staff:', error);
+    }
+  };
+
+  const fetchPendingSignatures = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/training/pending/${employee.employee_number}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPendingSignatures(data);
+      }
+    } catch (error) {
+      console.error('Error fetching pending signatures:', error);
+    }
+  };
+
+  const handleCreateRecord = async () => {
+    if (!formData.swp_number || !formData.department || !formData.training_date) {
+      toast.error('Please fill in SWP Number, Department, and Training Date');
+      return;
+    }
+
+    const trainees = [];
+    
+    // Add selected employees
+    formData.selectedEmployees.forEach(emp => {
+      trainees.push({
+        employee_id: emp.employee_number,
+        employee_name: emp.name,
+        is_agency: false
+      });
+    });
+    
+    // Add agency staff
+    if (formData.agencyStaff.trim()) {
+      formData.agencyStaff.split('\n').forEach(name => {
+        if (name.trim()) {
+          trainees.push({
+            employee_id: null,
+            employee_name: name.trim(),
+            is_agency: true
+          });
+        }
+      });
+    }
+
+    if (trainees.length === 0) {
+      toast.error('Please add at least one trainee');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/training`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          swp_number: formData.swp_number,
+          swp_version: formData.swp_version,
+          department: formData.department,
+          training_date: formData.training_date,
+          notes: formData.notes,
+          trainer_name: employee.name,
+          trainer_employee_number: employee.employee_number,
+          trainees
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Training record created');
+        setShowCreateModal(false);
+        setFormData({
+          swp_number: '',
+          swp_version: '',
+          department: '',
+          training_date: new Date().toISOString().split('T')[0],
+          notes: '',
+          selectedEmployees: [],
+          agencyStaff: ''
+        });
+        fetchRecords();
+      } else {
+        toast.error('Failed to create training record');
+      }
+    } catch (error) {
+      console.error('Error creating training record:', error);
+      toast.error('Failed to create training record');
+    }
+  };
+
+  const handleSign = async () => {
+    if (!signatureData) {
+      toast.error('Please provide your signature');
+      return;
+    }
+
+    try {
+      // Use signingTrainee if set (collecting signature for someone else), otherwise use current employee
+      const traineeToSign = signingTrainee || { employee_id: employee.employee_number, employee_name: employee.name };
+      
+      const params = new URLSearchParams();
+      if (traineeToSign.employee_id) {
+        params.append('employee_id', traineeToSign.employee_id);
+      }
+      if (traineeToSign.employee_name) {
+        params.append('employee_name', traineeToSign.employee_name);
+      }
+      params.append('signature_data', signatureData);
+      
+      const response = await fetch(`${API_BASE_URL}/api/training/${selectedRecord.id}/sign?${params.toString()}`, {
+        method: 'PUT'
+      });
+
+      if (response.ok) {
+        toast.success(`Signature recorded for ${traineeToSign.employee_name}`);
+        setShowSignModal(false);
+        setSignatureData('');
+        setSigningTrainee(null);
+        fetchRecords();
+        fetchPendingSignatures();
+        // Refresh the selected record
+        const updatedResponse = await fetch(`${API_BASE_URL}/api/training/${selectedRecord.id}`);
+        if (updatedResponse.ok) {
+          setSelectedRecord(await updatedResponse.json());
+        }
+      } else {
+        toast.error('Failed to record signature');
+      }
+    } catch (error) {
+      console.error('Error signing:', error);
+      toast.error('Failed to record signature');
+    }
+  };
+
+  // Canvas drawing functions for signature
+  const startDrawing = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
+    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+  };
+
+  const draw = (e) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
+    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    if (isDrawing) {
+      setIsDrawing(false);
+      const canvas = canvasRef.current;
+      if (canvas) {
+        setSignatureData(canvas.toDataURL());
+      }
+    }
+  };
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      setSignatureData('');
+    }
+  };
+
+  const filteredRecords = records.filter(record => {
+    if (filter === 'all') return true;
+    return record.status === filter;
+  });
+
+  const toggleEmployeeSelection = (emp) => {
+    setFormData(prev => {
+      const isSelected = prev.selectedEmployees.some(e => e.employee_number === emp.employee_number);
+      if (isSelected) {
+        return { ...prev, selectedEmployees: prev.selectedEmployees.filter(e => e.employee_number !== emp.employee_number) };
+      } else {
+        return { ...prev, selectedEmployees: [...prev.selectedEmployees, emp] };
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back
+          </Button>
+          <h1 className="text-2xl font-bold text-gray-900">Training Records</h1>
+        </div>
+        <Button onClick={() => setShowCreateModal(true)} className="bg-teal-600 hover:bg-teal-700">
+          <Plus className="h-4 w-4 mr-2" /> New Training Record
+        </Button>
+      </div>
+
+      {/* Pending Signatures Alert */}
+      {pendingSignatures.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-yellow-800">
+            <AlertTriangle className="h-5 w-5" />
+            <span className="font-medium">You have {pendingSignatures.length} training record(s) awaiting your signature</span>
+          </div>
+          <div className="mt-2 space-y-2">
+            {pendingSignatures.map(record => (
+              <div key={record.id} className="flex items-center justify-between bg-white p-2 rounded border">
+                <span className="text-sm">SWP {record.swp_number} - {record.department} ({record.training_date})</span>
+                <Button size="sm" onClick={() => { setSelectedRecord(record); setShowSignModal(true); }}>
+                  Sign Now
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex gap-2">
+        <select value={filter} onChange={(e) => setFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-md">
+          <option value="all">All Records</option>
+          <option value="pending_signatures">Pending Signatures</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+
+      {/* Records List */}
+      {loading ? (
+        <div className="text-center py-8"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></div>
+      ) : filteredRecords.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">No training records found</div>
+      ) : (
+        <div className="grid gap-4">
+          {filteredRecords.map(record => (
+            <Card key={record.id} className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between cursor-pointer" onClick={() => { setSelectedRecord(record); setShowDetailModal(true); }}>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-lg">SWP {record.swp_number}</h3>
+                      {record.swp_version && <Badge variant="outline">v{record.swp_version}</Badge>}
+                      <Badge className={record.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'}>
+                        {record.status === 'completed' ? 'Completed' : 'Pending Signatures'}
+                      </Badge>
+                    </div>
+                    <p className="text-gray-600 mt-1">{record.department}</p>
+                    <p className="text-sm text-gray-500">Training Date: {record.training_date}</p>
+                    <p className="text-sm text-gray-500">Trainer: {record.trainer_name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500">{record.trainees?.length || 0} trainees</p>
+                    <p className="text-xs text-gray-400">{record.trainees?.filter(t => t.signed).length || 0} signed</p>
+                  </div>
+                </div>
+                {/* Sage HR Checkbox - directly on card */}
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={record.added_to_sage_hr || false}
+                      onChange={async (e) => {
+                        const checked = e.target.checked;
+                        try {
+                          const response = await fetch(`${API_BASE_URL}/api/training/${record.id}/sage-hr?added=${checked}&updated_by=${encodeURIComponent(employee.name)}`, {
+                            method: 'PUT'
+                          });
+                          if (response.ok) {
+                            toast.success(checked ? 'Marked as added to Sage HR' : 'Sage HR status removed');
+                            fetchRecords();
+                          }
+                        } catch (error) {
+                          toast.error('Failed to update Sage HR status');
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-purple-400 text-purple-600 focus:ring-purple-500"
+                    />
+                    <span className="text-sm text-purple-700 font-medium">Added to Sage HR</span>
+                    {record.added_to_sage_hr && record.added_to_sage_hr_at && (
+                      <span className="text-xs text-purple-500 ml-1">
+                        ({new Date(record.added_to_sage_hr_at).toLocaleDateString()} by {record.added_to_sage_hr_by || 'Unknown'})
+                      </span>
+                    )}
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Create Training Record Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">New Training Record</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}><X className="h-4 w-4" /></Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">SWP Number *</label>
+                  <input
+                    type="text"
+                    value={formData.swp_number}
+                    onChange={(e) => setFormData(prev => ({ ...prev, swp_number: e.target.value }))}
+                    placeholder="e.g., SWP-001"
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Version</label>
+                  <input
+                    type="text"
+                    value={formData.swp_version}
+                    onChange={(e) => setFormData(prev => ({ ...prev, swp_version: e.target.value }))}
+                    placeholder="e.g., 1.0"
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Department/Area *</label>
+                  <select
+                    value={formData.department}
+                    onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="">Select department...</option>
+                    {departments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Training Date *</label>
+                  <input
+                    type="date"
+                    value={formData.training_date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, training_date: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <Textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Additional training notes..."
+                  className="min-h-[80px]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Select Employees</label>
+                <div className="border rounded-md max-h-48 overflow-auto p-2">
+                  {staffList.map(emp => (
+                    <label key={emp.employee_number} className="flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.selectedEmployees.some(e => e.employee_number === emp.employee_number)}
+                        onChange={() => toggleEmployeeSelection(emp)}
+                        className="rounded"
+                      />
+                      <span>{emp.name}</span>
+                      <span className="text-xs text-gray-400">({emp.employee_number})</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">{formData.selectedEmployees.length} employee(s) selected</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Agency Staff (one per line)</label>
+                <Textarea
+                  value={formData.agencyStaff}
+                  onChange={(e) => setFormData(prev => ({ ...prev, agencyStaff: e.target.value }))}
+                  placeholder="Enter agency staff names, one per line..."
+                  className="min-h-[80px]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+                <Button onClick={handleCreateRecord} className="bg-teal-600 hover:bg-teal-700">Create Record</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {showDetailModal && selectedRecord && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Training Record Details</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowDetailModal(false)}><X className="h-4 w-4" /></Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div><p className="text-xs text-gray-500">SWP Number</p><p className="font-medium">{selectedRecord.swp_number}</p></div>
+                <div><p className="text-xs text-gray-500">Version</p><p className="font-medium">{selectedRecord.swp_version || 'N/A'}</p></div>
+                <div><p className="text-xs text-gray-500">Department</p><p className="font-medium">{selectedRecord.department}</p></div>
+                <div><p className="text-xs text-gray-500">Training Date</p><p className="font-medium">{selectedRecord.training_date}</p></div>
+                <div><p className="text-xs text-gray-500">Trainer</p><p className="font-medium">{selectedRecord.trainer_name}</p></div>
+                <div><p className="text-xs text-gray-500">Status</p><Badge className={selectedRecord.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'}>{selectedRecord.status === 'completed' ? 'Completed' : 'Pending'}</Badge></div>
+              </div>
+
+              {selectedRecord.notes && (
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1">Notes</p>
+                  <p className="text-sm">{selectedRecord.notes}</p>
+                </div>
+              )}
+
+              <div>
+                <h4 className="font-medium mb-2">Trainees ({selectedRecord.trainees?.length || 0})</h4>
+                <div className="border rounded-lg divide-y">
+                  {selectedRecord.trainees?.map((trainee, idx) => (
+                    <div key={idx} className="p-3 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{trainee.employee_name}</p>
+                        <p className="text-xs text-gray-500">{trainee.is_agency ? 'Agency Staff' : `Employee #${trainee.employee_id}`}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {trainee.signed ? (
+                          <>
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                            <span className="text-xs text-green-600">Signed {trainee.signed_at ? new Date(trainee.signed_at).toLocaleDateString() : ''}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Badge variant="outline" className="text-yellow-600 border-yellow-300">Pending</Badge>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="text-teal-600 border-teal-300 ml-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSigningTrainee(trainee);
+                                setShowSignModal(true);
+                              }}
+                            >
+                              Collect Signature
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sage HR Checkbox */}
+              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedRecord.added_to_sage_hr || false}
+                    onChange={async (e) => {
+                      const checked = e.target.checked;
+                      try {
+                        const response = await fetch(`${API_BASE_URL}/api/training/${selectedRecord.id}/sage-hr?added=${checked}&updated_by=${encodeURIComponent(employee.name)}`, {
+                          method: 'PUT'
+                        });
+                        if (response.ok) {
+                          toast.success(checked ? 'Marked as added to Sage HR' : 'Sage HR status removed');
+                          // Update the selected record locally
+                          setSelectedRecord(prev => ({
+                            ...prev,
+                            added_to_sage_hr: checked,
+                            added_to_sage_hr_at: checked ? new Date().toISOString() : null,
+                            added_to_sage_hr_by: checked ? employee.name : null
+                          }));
+                          fetchRecords();
+                        }
+                      } catch (error) {
+                        toast.error('Failed to update Sage HR status');
+                      }
+                    }}
+                    className="w-5 h-5 rounded border-purple-400 text-purple-600 focus:ring-purple-500"
+                  />
+                  <div>
+                    <span className="font-medium text-purple-900">Added to Sage HR</span>
+                    {selectedRecord.added_to_sage_hr && selectedRecord.added_to_sage_hr_at && (
+                      <p className="text-xs text-purple-600">
+                        Added on {new Date(selectedRecord.added_to_sage_hr_at).toLocaleDateString()} by {selectedRecord.added_to_sage_hr_by || 'Unknown'}
+                      </p>
+                    )}
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                {isAdmin && (
+                  <Button variant="outline" className="text-red-600 border-red-300" onClick={async () => {
+                    if (window.confirm('Are you sure you want to delete this training record?')) {
+                      await fetch(`${API_BASE_URL}/api/training/${selectedRecord.id}`, { method: 'DELETE' });
+                      toast.success('Training record deleted');
+                      setShowDetailModal(false);
+                      fetchRecords();
+                    }
+                  }}>
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setShowDetailModal(false)}>Close</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Signature Modal */}
+      {showSignModal && selectedRecord && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Sign Training Record</h3>
+              <Button variant="ghost" size="sm" onClick={() => { setShowSignModal(false); clearSignature(); setSigningTrainee(null); }}><X className="h-4 w-4" /></Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm"><strong>SWP:</strong> {selectedRecord.swp_number}</p>
+                <p className="text-sm"><strong>Department:</strong> {selectedRecord.department}</p>
+                <p className="text-sm"><strong>Date:</strong> {selectedRecord.training_date}</p>
+              </div>
+
+              {signingTrainee && (
+                <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                  <p className="text-sm font-medium text-teal-800">Collecting signature for:</p>
+                  <p className="text-lg font-bold text-teal-900">{signingTrainee.employee_name}</p>
+                  {signingTrainee.is_agency && <p className="text-xs text-teal-600">(Agency Staff)</p>}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium mb-2">{signingTrainee ? `${signingTrainee.employee_name}'s Signature` : 'Your Signature'}</label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-1">
+                  <canvas
+                    ref={canvasRef}
+                    width={350}
+                    height={150}
+                    className="w-full bg-white cursor-crosshair"
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
+                  />
+                </div>
+                <Button variant="outline" size="sm" className="mt-2" onClick={clearSignature}>Clear Signature</Button>
+              </div>
+
+              <p className="text-xs text-gray-500">By signing, I confirm that I have received and understood the training for SWP {selectedRecord.swp_number}.</p>
+
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => { setShowSignModal(false); clearSignature(); }}>Cancel</Button>
+                <Button onClick={handleSign} className="bg-teal-600 hover:bg-teal-700">Submit Signature</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Machine Additions Page Component
 function MachineAdditionsPage() {
   const [machineRequests, setMachineRequests] = useState([]);
@@ -3946,7 +5327,6 @@ function GeneralRepairRecord() {
 
     setIsSubmitting(true);
     try {
-      console.log('Submitting repair record...', { selectedMake, selectedName, problemDescription });
       
       const repairRecord = {
         employee_number: employee.employee_number,
@@ -3959,8 +5339,6 @@ function GeneralRepairRecord() {
         workshop_photos: repairPhotos
       };
 
-      console.log('Repair record payload:', repairRecord);
-      console.log('API URL:', `${API_BASE_URL}/api/checklists`);
 
       const response = await fetch(`${API_BASE_URL}/api/checklists`, {
         method: 'POST',
@@ -4253,1150 +5631,404 @@ function GeneralRepairRecord() {
   );
 }
 
-// Repairs Needed Component
-function RepairsNeeded() {
-  const [repairs, setRepairs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [showRepairModal, setShowRepairModal] = useState(false);
-  const [currentRepair, setCurrentRepair] = useState(null);
-  const [repairNotes, setRepairNotes] = useState('');
-  const [repairPhotos, setRepairPhotos] = useState([]);
-  const [showRepairCamera, setShowRepairCamera] = useState(false);
-  const [showViewingModal, setShowViewingModal] = useState(false);
-  const [viewingRepair, setViewingRepair] = useState(null);
-  const [editingProgressNotes, setEditingProgressNotes] = useState(null);
-  const [progressNoteText, setProgressNoteText] = useState('');
-  const [hasMore, setHasMore] = useState(true);
-  const [allChecklists, setAllChecklists] = useState([]);
-  const navigate = useNavigate();
-  const { employee } = useAuth();
-  
-  const ITEMS_PER_PAGE = 100;
-  
-  // Get view type from URL parameter (default to 'new')
-  const searchParams = new URLSearchParams(window.location.search);
-  const viewType = searchParams.get('view') || 'new'; // 'new' or 'acknowledged'
 
-  // Check if employee has workshop control access
-  const hasWorkshopAccess = employee?.workshop_control?.toLowerCase() === 'yes';
+// QR Labels Page Component
+function QRLabelsPage() {
+  const [assets, setAssets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [printing, setPrinting] = useState(false);
+  const [selectedAssets, setSelectedAssets] = useState([]);
+  const [activeTab, setActiveTab] = useState('new'); // 'new' or 'printed'
+  const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Check workshop control permission
-    if (!hasWorkshopAccess) {
-      toast.error('Access denied. You do not have Workshop Control permission.');
-      navigate('/');
-      return;
-    }
-    // Clear old localStorage data (migration to database-only storage)
-    localStorage.removeItem('acknowledgedMachines');
-    localStorage.removeItem('acknowledgedRepairs');
-    // Reset state and refetch when viewType changes
-    setAllChecklists([]);
-    setRepairs([]);
-    setLoading(true);
-    fetchRepairs();
-  }, [hasWorkshopAccess, navigate, viewType]);
+    fetchAssets();
+  }, []);
 
-  const fetchRepairs = async (append = false) => {
+  const fetchAssets = async () => {
     try {
-      if (append) {
-        setLoadingMore(true);
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/assets/qr-labels`);
+      if (response.ok) {
+        const data = await response.json();
+        setAssets(data);
       }
-      
-      const skip = append ? allChecklists.length : 0;
-      // Use optimized endpoint that only fetches checklists with repairs
-      const response = await fetch(`${API_BASE_URL}/api/checklists-with-repairs?limit=${ITEMS_PER_PAGE}&skip=${skip}`);
-      const checklists = await response.json();
-      
-      // Store all fetched checklists
-      if (append) {
-        setAllChecklists(prev => [...prev, ...checklists]);
-      } else {
-        setAllChecklists(checklists);
-      }
-      
-      // Check if there are more items to load
-      setHasMore(checklists.length === ITEMS_PER_PAGE);
-      
-      // Get repair statuses from DATABASE (no more localStorage!)
-      const statusResponse = await fetch(`${API_BASE_URL}/api/repair-status/bulk`);
-      const repairStatuses = await statusResponse.json();
-      
-      // Use all checklists (combined from previous and new fetches)
-      const allChecklistsToProcess = append ? allChecklists : checklists;
-      
-      // Extract all unsatisfactory items from checklists AND general repair records
-      const repairItems = [];
-      allChecklistsToProcess.forEach(checklist => {
-        // Add unsatisfactory checklist items
-        if (checklist.checklist_items) {
-          checklist.checklist_items.forEach((item, index) => {
-            if (item.status === 'unsatisfactory') {
-              const repairId = `${checklist.id}-${index}`;
-              const status = repairStatuses[repairId] || {};
-              repairItems.push({
-                id: repairId,
-                checklistId: checklist.id,
-                itemIndex: index,
-                item: item.item,
-                notes: item.notes || '',
-                machine: `${checklist.machine_make} ${checklist.machine_model}`,
-                machine_make: checklist.machine_make,
-                machine_model: checklist.machine_model,
-                completedAt: checklist.completed_at,
-                staffName: checklist.staff_name,
-                checkType: checklist.check_type,
-                repaired: status.completed || false,
-                acknowledged: status.acknowledged || false,
-                progress_notes: status.progress_notes || [],
-                repairNotes: '',
-                repairPhotos: [],
-                type: 'unsatisfactory_item'
-              });
-            }
-          });
-        }
-        
-        // Add GENERAL REPAIR records
-        if (checklist.check_type === 'GENERAL REPAIR') {
-          // Extract problem description from workshop_notes
-          const problemDescription = checklist.workshop_notes
-            .split('\n')
-            .slice(1) // Skip the "GENERAL REPAIR REPORT:" line
-            .map(line => line.replace('Problem Description: ', ''))
-            .join(' ')
-            .trim();
-            
-          const repairId = `${checklist.id}-general`;
-          const status = repairStatuses[repairId] || {};
-          repairItems.push({
-            id: repairId,
-            checklistId: checklist.id,
-            itemIndex: -1, // No specific checklist item
-            item: 'General Equipment Issue',
-            notes: problemDescription,
-            machine: `${checklist.machine_make} ${checklist.machine_model}`,
-            machine_make: checklist.machine_make,
-            machine_model: checklist.machine_model,
-            completedAt: checklist.completed_at,
-            staffName: checklist.staff_name,
-            checkType: checklist.check_type,
-            repaired: status.completed || false,
-            acknowledged: status.acknowledged || false,
-            progress_notes: status.progress_notes || [],
-            repairNotes: '',
-            repairPhotos: [],
-            type: 'general_repair'
-          });
-        }
-      });
-      
-      // Filter based on view type
-      let filteredRepairs = repairItems;
-      if (viewType === 'new') {
-        // Show only non-acknowledged repairs
-        filteredRepairs = repairItems.filter(repair => !repair.acknowledged);
-      } else if (viewType === 'acknowledged') {
-        // Show only acknowledged but not completed repairs
-        filteredRepairs = repairItems.filter(repair => repair.acknowledged && !repair.repaired);
-        
-        // Sort: Safety checks (unsatisfactory_item) first, then by urgency priority
-        filteredRepairs.sort((a, b) => {
-          // Safety checks always come first
-          if (a.type === 'unsatisfactory_item' && b.type !== 'unsatisfactory_item') return -1;
-          if (a.type !== 'unsatisfactory_item' && b.type === 'unsatisfactory_item') return 1;
-          
-          // If both are same type, sort by urgency priority
-          const getUrgencyPriority = (repair) => {
-            const urgency = getUrgencyLevel(repair);
-            if (!urgency) return 4; // No urgency info = lowest priority
-            if (urgency.toLowerCase().includes('stopped')) return 1; // Highest priority
-            if (urgency.toLowerCase().includes('asap')) return 2;
-            if (urgency.toLowerCase().includes('not urgent')) return 3;
-            return 4;
-          };
-          
-          return getUrgencyPriority(a) - getUrgencyPriority(b);
-        });
-      }
-      
-      setRepairs(filteredRepairs);
     } catch (error) {
-      console.error('Error fetching repairs:', error);
-      toast.error('Failed to load repair items');
+      console.error('Error fetching assets:', error);
+      toast.error('Failed to load assets');
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   };
+
+  // Filter assets based on QR printed status and search
+  const newAssets = assets.filter(a => !a.qr_printed && 
+    (searchTerm === '' || 
+     a.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     a.make?.toLowerCase().includes(searchTerm.toLowerCase())));
   
-  const loadMore = () => {
-    if (!loadingMore && hasMore) {
-      fetchRepairs(true);
+  const printedAssets = assets.filter(a => a.qr_printed &&
+    (searchTerm === '' || 
+     a.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     a.make?.toLowerCase().includes(searchTerm.toLowerCase())));
+
+  const currentAssets = activeTab === 'new' ? newAssets : printedAssets;
+
+  const handleSelectAll = () => {
+    if (selectedAssets.length === currentAssets.length) {
+      setSelectedAssets([]);
+    } else {
+      setSelectedAssets(currentAssets.map(a => a.id));
     }
   };
 
-  const handleRepairComplete = (repair) => {
-    setCurrentRepair(repair);
-    setRepairNotes('');
-    setRepairPhotos([]);
-    setShowRepairModal(true);
+  const handleSelectAsset = (assetId) => {
+    setSelectedAssets(prev => 
+      prev.includes(assetId) 
+        ? prev.filter(id => id !== assetId)
+        : [...prev, assetId]
+    );
   };
 
-  const handleViewRepair = (repair) => {
-    setViewingRepair(repair);
-    setShowViewingModal(true);
-  };
+  const handlePrintLabels = async () => {
+    const assetsToPrint = selectedAssets.length > 0 
+      ? assets.filter(a => selectedAssets.includes(a.id))
+      : currentAssets;
 
-  const closeViewingModal = () => {
-    setShowViewingModal(false);
-    setViewingRepair(null);
-  };
-
-  const getUrgencyLevel = (repair) => {
-    if (repair.type === 'general_repair' && repair.notes) {
-      // The notes contain the full workshop_notes, need to extract from there
-      // Check if it contains "Urgency Level:" 
-      if (repair.notes.includes('Urgency Level:')) {
-        const urgencyMatch = repair.notes.match(/Urgency Level:\s*([^\n]+)/);
-        if (urgencyMatch) {
-          return urgencyMatch[1].trim();
-        }
-      }
-      
-      // Fallback: check if the description itself contains urgency keywords
-      if (repair.notes.includes('stopped machine')) {
-        return 'Breakdown has stopped machine';
-      } else if (repair.notes.includes('asap but still running')) {
-        return 'Breakdown will need repair asap but still running';
-      } else if (repair.notes.includes('not urgent')) {
-        return 'Breakdown is not urgent';
-      }
+    if (assetsToPrint.length === 0) {
+      toast.error('No assets selected to print');
+      return;
     }
-    return null;
-  };
 
-  const getCleanDescription = (repair) => {
-    if (repair.type === 'general_repair' && repair.notes) {
-      // Remove "Urgency Level:" line from the description
-      let cleanDescription = repair.notes;
-      
-      // Remove the urgency level line if it exists
-      cleanDescription = cleanDescription.replace(/Urgency Level:\s*[^\n]+\n?/, '');
-      
-      // If it contains "Problem Description:", get everything after that
-      if (cleanDescription.includes('Problem Description:')) {
-        cleanDescription = cleanDescription.split('Problem Description:')[1]?.trim() || cleanDescription;
-      }
-      
-      return cleanDescription.trim();
-    }
-    return repair.notes;
-  };
+    setPrinting(true);
 
-  const getUrgencyColors = (repair) => {
-    // Safety checks always get prominent red styling
-    if (repair.type === 'unsatisfactory_item') {
-      return {
-        border: 'border-l-red-600',
-        text: 'text-red-800',
-        badge: 'border-red-400 text-red-700',
-        bg: 'bg-red-50'
-      };
-    }
-    
-    // General repairs get color based on urgency level
-    const urgencyLevel = getUrgencyLevel(repair);
-    
-    if (repair.type === 'general_repair' && urgencyLevel) {
-      if (urgencyLevel.includes('stopped machine')) {
-        return {
-          border: 'border-l-red-500',
-          text: 'text-red-700',
-          badge: 'border-red-300 text-red-600',
-          bg: 'bg-white'
-        };
-      } else if (urgencyLevel.includes('asap but still running')) {
-        return {
-          border: 'border-l-orange-500',
-          text: 'text-orange-700',
-          badge: 'border-orange-300 text-orange-600',
-          bg: 'bg-white'
-        };
-      } else if (urgencyLevel.includes('not urgent')) {
-        return {
-          border: 'border-l-yellow-500',
-          text: 'text-yellow-700',
-          badge: 'border-yellow-300 text-yellow-600',
-          bg: 'bg-white'
-        };
-      }
-    }
-    
-    // Default colors for general repairs without urgency
-    return { 
-      border: 'border-l-yellow-500', 
-      text: 'text-yellow-700', 
-      badge: 'border-yellow-300 text-yellow-600',
-      bg: 'bg-white'
+    // HTML-escape helper to prevent XSS
+    const escapeHtml = (str) => {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     };
-  };
 
-  const handleAcknowledge = async (repair) => {
-    try {
-      // Store in database ONLY (no more localStorage!)
-      const response = await fetch(`${API_BASE_URL}/api/repair-status/acknowledge?repair_id=${repair.id}`, {
-        method: 'POST'
-      });
-      
-      if (!response.ok) throw new Error('Failed to acknowledge');
-      
-      // Update the repairs list
-      setRepairs(prev => prev.map(r => 
-        r.id === repair.id 
-          ? { ...r, acknowledged: true }
-          : r
-      ));
-      
-      // If on "new" view, filter out acknowledged repairs
-      if (viewType === 'new') {
-        setRepairs(prev => prev.filter(r => !r.acknowledged));
-      }
-      
-      toast.success('Repair acknowledged and moved to Repairs Due');
-    } catch (error) {
-      console.error('Error acknowledging repair:', error);
-      toast.error('Failed to acknowledge repair');
-    }
-  };
-  
-  const handleAcknowledgeAll = async () => {
-    try {
-      const newAcknowledgements = repairs.filter(r => !r.acknowledged);
-      
-      // Acknowledge all in database ONLY
-      await Promise.all(newAcknowledgements.map(r => 
-        fetch(`${API_BASE_URL}/api/repair-status/acknowledge?repair_id=${r.id}`, { method: 'POST' })
-      ));
-      
-      // Remove all from view if in "new" mode
-      if (viewType === 'new') {
-        setRepairs([]);
-      } else {
-        setRepairs(prev => prev.map(r => ({ ...r, acknowledged: true })));
-      }
-      
-      toast.success(`${newAcknowledgements.length} repairs acknowledged and moved to Repairs Due`);
-    } catch (error) {
-      console.error('Error acknowledging repairs:', error);
-      toast.error('Failed to acknowledge all repairs');
-    }
-  };
-  
-  const getProgressNotes = (repairId) => {
-    // Get from repair object which was loaded from database
-    const repair = repairs.find(r => r.id === repairId);
-    return repair?.progress_notes || [];
-  };
-  
-  const handleAddProgressNote = (repairId) => {
-    setEditingProgressNotes(repairId);
-    setProgressNoteText('');
-  };
-  
-  const saveProgressNote = async (repairId) => {
-    if (!progressNoteText.trim()) {
-      toast.error('Please enter a note');
+    // Create a print window with QR codes
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Pop-up blocked. Please allow pop-ups to print QR codes.');
+      setPrinting(false);
       return;
     }
     
-    try {
-      // Save to database ONLY
-      const response = await fetch(`${API_BASE_URL}/api/repair-status/add-note?repair_id=${repairId}&note_text=${encodeURIComponent(progressNoteText.trim())}&author=${encodeURIComponent(employee?.name || 'Unknown')}`, {
-        method: 'POST'
-      });
-      
-      if (!response.ok) throw new Error('Failed to add note');
-      
-      setEditingProgressNotes(null);
-      setProgressNoteText('');
-      toast.success('Progress note added');
-      
-      // Refresh to show new note
-      fetchRepairs();
-    } catch (error) {
-      console.error('Error adding progress note:', error);
-      toast.error('Failed to add progress note');
-    }
-  };
-  
-  const cancelProgressNote = () => {
-    setEditingProgressNotes(null);
-    setProgressNoteText('');
-  };
-
-  const uploadRepairPhoto = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.multiple = false;
-    
-    input.onchange = (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error('File size must be less than 5MB');
-          return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const photoData = {
-            id: Date.now(),
-            data: e.target.result,
-            timestamp: new Date().toISOString()
-          };
-          setRepairPhotos(prev => [...prev, photoData]);
-          toast.success('Photo uploaded for repair documentation!');
-        };
-        
-        reader.onerror = () => {
-          toast.error('Error reading file. Please try again.');
-        };
-        
-        reader.readAsDataURL(file);
-      }
-    };
-    
-    input.click();
-  };
-
-  const takeRepairPhoto = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setShowRepairCamera(true);
-      
-      // Wait for modal to be visible, then set up video
-      setTimeout(async () => {
-        const video = document.getElementById('repair-camera-video');
-        const loadingDiv = document.getElementById('camera-loading');
-        if (video) {
-          video.srcObject = stream;
-          // Store stream reference for cleanup
-          window.repairCameraStream = stream;
-          
-          // Hide loading message when video starts playing
-          video.addEventListener('loadedmetadata', () => {
-            if (loadingDiv) {
-              loadingDiv.style.display = 'none';
+    const htmlContent = `
+      <html>
+        <head>
+          <title>QR Code Labels - Machine Checklist</title>
+          <style>
+            @page { size: A4; margin: 10mm; }
+            body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+            .label-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 10px;
+              padding: 10px;
             }
-          });
-        }
-      }, 100);
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      toast.error('Failed to access camera. Please check camera permissions.');
-    }
-  };
+            .label {
+              border: 1px dashed #ccc;
+              padding: 10px;
+              text-align: center;
+              page-break-inside: avoid;
+            }
+            .label img {
+              width: 100px;
+              height: 100px;
+            }
+            .label-text {
+              font-size: 10px;
+              margin-top: 5px;
+              word-break: break-word;
+            }
+            .label-make {
+              font-weight: bold;
+              font-size: 11px;
+            }
+            @media print {
+              .label { border: 1px dashed #999; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="label-grid">
+            ${assetsToPrint.map(asset => `
+              <div class="label">
+                <img src="${escapeHtml(API_BASE_URL)}${escapeHtml(asset.qr_url)}" alt="QR Code" />
+                <div class="label-make">${escapeHtml(asset.make)}</div>
+                <div class="label-text">${escapeHtml(asset.name)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </body>
+      </html>
+    `;
+    
+    // Use safe DOM methods instead of document.write
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    // Trigger print after content loads
+    printWindow.onload = function() {
+      setTimeout(function() {
+        printWindow.print();
+      }, 1000);
+    };
 
-  const captureRepairPhoto = () => {
+    // Mark assets as printed
+    const assetIds = assetsToPrint.map(a => a.id);
     try {
-      const video = document.getElementById('repair-camera-video');
-      if (!video || !video.videoWidth) {
-        toast.error('Camera not ready. Please wait a moment and try again.');
-        return;
+      const response = await fetch(`${API_BASE_URL}/api/assets/mark-qr-printed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(assetIds)
+      });
+      
+      if (response.ok) {
+        toast.success(`Marked ${assetIds.length} assets as printed`);
+        // Refresh the list
+        await fetchAssets();
+        setSelectedAssets([]);
       }
-      
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      
-      const photoData = {
-        id: Date.now(),
-        data: canvas.toDataURL('image/jpeg', 0.8),
-        timestamp: new Date().toISOString()
-      };
-      
-      setRepairPhotos(prev => [...prev, photoData]);
-      
-      // Stop the camera and close modal
-      if (window.repairCameraStream) {
-        window.repairCameraStream.getTracks().forEach(track => track.stop());
-        window.repairCameraStream = null;
-      }
-      setShowRepairCamera(false);
-      
-      toast.success('Photo captured for repair documentation!');
     } catch (error) {
-      console.error('Error capturing photo:', error);
-      toast.error('Failed to capture photo. Please try again.');
+      console.error('Error marking assets as printed:', error);
     }
+
+    setPrinting(false);
   };
 
-  const closeRepairCamera = () => {
-    // Stop camera when closing modal
-    if (window.repairCameraStream) {
-      window.repairCameraStream.getTracks().forEach(track => track.stop());
-      window.repairCameraStream = null;
-    }
-    setShowRepairCamera(false);
-  };
-
-  const deleteRepairPhoto = (photoId) => {
-    setRepairPhotos(prev => prev.filter(photo => photo.id !== photoId));
-  };
-
-  const submitRepairCompletion = async () => {
-    if (!repairNotes.trim()) {
-      toast.error('Please add notes describing the repair work completed');
+  const handleResetPrintStatus = async () => {
+    if (selectedAssets.length === 0) {
+      toast.error('Select assets to reset print status');
       return;
     }
 
     try {
-      // Create a repair completion record
-      const repairTypeDescription = currentRepair.type === 'general_repair' 
-        ? 'General Repair Issue' 
-        : 'Checklist Item Issue';
-        
-      const repairRecord = {
-        employee_number: '0000', // System record
-        staff_name: 'Maintenance Team',
-        machine_make: currentRepair.machine_make || 'Unknown',
-        machine_model: currentRepair.machine_model || 'Unknown',
-        check_type: 'REPAIR COMPLETED',
-        checklist_items: [],
-        workshop_notes: `REPAIR COMPLETED:\nType: ${repairTypeDescription}\nOriginal Issue: ${currentRepair.item}\nOriginal Notes: ${currentRepair.notes}\nRepair Notes: ${repairNotes.trim()}`,
-        workshop_photos: repairPhotos
-      };
-
-      const response = await fetch(`${API_BASE_URL}/api/checklists`, {
+      const response = await fetch(`${API_BASE_URL}/api/assets/reset-qr-status`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(repairRecord)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(selectedAssets)
       });
-
+      
       if (response.ok) {
-        // Mark as completed in database
-        await fetch(`${API_BASE_URL}/api/repair-status/complete?repair_id=${currentRepair.id}`, {
-          method: 'POST'
-        });
-        
-        toast.success('Repair completion recorded successfully!');
-        
-        // Mark repair as completed locally
-        setRepairs(prev => prev.map(repair => 
-          repair.id === currentRepair.id 
-            ? { ...repair, repaired: true, repairNotes: repairNotes, repairPhotos: repairPhotos }
-            : repair
-        ));
-        
-        setShowRepairModal(false);
-        setCurrentRepair(null);
-        setRepairNotes('');
-        setRepairPhotos([]);
-      } else {
-        throw new Error('Failed to record repair completion');
+        toast.success(`Reset print status for ${selectedAssets.length} assets`);
+        await fetchAssets();
+        setSelectedAssets([]);
       }
     } catch (error) {
-      console.error('Error recording repair completion:', error);
-      toast.error('Failed to record repair completion. Please try again.');
+      console.error('Error resetting print status:', error);
+      toast.error('Failed to reset print status');
     }
   };
 
-  const closeRepairModal = () => {
-    setShowRepairModal(false);
-    setCurrentRepair(null);
-    setRepairNotes('');
-    setRepairPhotos([]);
-  };
-
-  // Show loading
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading repair items...</p>
-        </div>
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        <span className="ml-2">Loading assets...</span>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Repair Completion Modal */}
-      {showRepairModal && currentRepair && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-        >
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-[10000]">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-green-600">Mark Repair Complete</h3>
-              <Button variant="ghost" size="sm" onClick={closeRepairModal}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="bg-gray-50 border rounded-lg p-3">
-                <p className="text-sm font-medium text-gray-800">Machine: {currentRepair.machine}</p>
-                <p className="text-sm text-gray-600">Issue: {currentRepair.item}</p>
-                <p className="text-xs text-gray-500">Original Notes: {currentRepair.notes}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Repair Work Completed *</label>
-                <Textarea
-                  value={repairNotes}
-                  onChange={(e) => setRepairNotes(e.target.value)}
-                  placeholder="Describe the repair work completed, parts replaced, actions taken..."
-                  className="min-h-[100px]"
-                />
-              </div>
-              
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium">Repair Photos</label>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={takeRepairPhoto}
-                      className="text-sm"
-                    >
-                      <Camera className="h-4 w-4 mr-2" />
-                      Take Photo
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={uploadRepairPhoto}
-                      className="text-sm"
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Photo
-                    </Button>
-                  </div>
-                </div>
-                
-                {repairPhotos.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 mt-2">
-                    {repairPhotos.map((photo) => (
-                      <div key={photo.id} className="relative">
-                        <img
-                          src={photo.data}
-                          alt="Repair photo"
-                          className="w-full h-16 object-cover rounded border"
-                        />
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="absolute -top-1 -right-1 w-5 h-5 p-0 rounded-full"
-                          onClick={() => deleteRepairPhoto(photo.id)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3 mt-6">
-              <Button variant="outline" onClick={closeRepairModal}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={submitRepairCompletion}
-                className="bg-green-600 hover:bg-green-700 text-white"
-                disabled={!repairNotes.trim()}
-              >
-                Complete Repair
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Repair Camera Modal */}
-      {showRepairCamera && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-        >
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-[10000]">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-green-600">Take Repair Photo</h3>
-              <Button variant="ghost" size="sm" onClick={closeRepairCamera}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="relative">
-                <video
-                  id="repair-camera-video"
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full rounded-lg bg-gray-200"
-                  style={{ aspectRatio: '4/3' }}
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-200 rounded-lg" id="camera-loading">
-                  <p className="text-gray-600">Loading camera...</p>
-                </div>
-              </div>
-              <Button 
-                onClick={captureRepairPhoto}
-                className="w-full bg-green-600 hover:bg-green-700"
-              >
-                <Camera className="h-4 w-4 mr-2" />
-                Capture Photo
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Repair Viewing Modal */}
-      {showViewingModal && viewingRepair && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-        >
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 relative z-[10000] max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">Repair Details</h3>
-              <Button variant="ghost" size="sm" onClick={closeViewingModal}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="space-y-6">
-              {/* Machine Information */}
-              <div className="bg-gray-50 border rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <h4 className={`text-lg font-semibold ${viewingRepair.type === 'general_repair' ? 'text-yellow-700' : 'text-red-700'}`}>
-                    {viewingRepair.machine}
-                  </h4>
-                  {viewingRepair.type === 'general_repair' ? (
-                    <Badge variant="outline" className="border-yellow-300 text-yellow-600">
-                      General Repair
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="border-red-300 text-red-600">
-                      Safety Check
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-gray-700 font-medium">{viewingRepair.item}</p>
-                <div className="grid grid-cols-2 gap-4 mt-3 text-sm text-gray-600">
-                  <div>
-                    <span className="font-medium">Reported by:</span> {viewingRepair.staffName}
-                  </div>
-                  <div>
-                    <span className="font-medium">Date:</span> {new Date(viewingRepair.completedAt).toLocaleDateString()}
-                  </div>
-                  <div>
-                    <span className="font-medium">Check Type:</span> {viewingRepair.checkType}
-                  </div>
-                  <div>
-                    <span className="font-medium">Status:</span> 
-                    <span className="ml-1 text-red-600 font-medium">Outstanding</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Problem Description */}
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">Problem Description</h4>
-                <div className="bg-white border rounded-lg p-4">
-                  <p className="text-gray-700 leading-relaxed">{viewingRepair.notes}</p>
-                </div>
-              </div>
-
-              {/* Photos Section */}
-              {(() => {
-                // Get photos from the original checklist
-                const getRepairPhotos = async () => {
-                  try {
-                    const response = await fetch(`${API_BASE_URL}/api/checklists`);
-                    const checklists = await response.json();
-                    const originalChecklist = checklists.find(c => c.id === viewingRepair.checklistId);
-                    
-                    if (originalChecklist) {
-                      // For general repair, photos are in workshop_photos
-                      if (viewingRepair.type === 'general_repair') {
-                        return originalChecklist.workshop_photos || [];
-                      }
-                      // For checklist items, photos are in the specific item
-                      if (originalChecklist.checklist_items && originalChecklist.checklist_items[viewingRepair.itemIndex]) {
-                        return originalChecklist.checklist_items[viewingRepair.itemIndex].photos || [];
-                      }
-                    }
-                    return [];
-                  } catch (error) {
-                    console.error('Error fetching photos:', error);
-                    return [];
-                  }
-                };
-
-                // For now, we'll show a placeholder since this is a viewing modal
-                // In a real implementation, you'd want to fetch and store photos in state
-                return (
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Problem Photos</h4>
-                    <div className="bg-gray-50 border rounded-lg p-4">
-                      <p className="text-gray-500 text-center py-4">
-                        Photos from the original report would be displayed here
-                      </p>
-                      <p className="text-xs text-gray-400 text-center">
-                        Note: Photo viewing functionality can be enhanced to fetch and display original photos
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Actions */}
-              <div className="flex justify-end space-x-3 pt-4 border-t">
-                <Button variant="outline" onClick={closeViewingModal}>
-                  Close
-                </Button>
-                <Button 
-                  onClick={() => {
-                    closeViewingModal();
-                    handleRepairComplete(viewingRepair);
-                  }}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  Mark as Complete
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate('/')}
-          >
-            <ArrowLeft className="h-4 w-4" />
+          <Button variant="ghost" onClick={() => navigate('/admin')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Admin
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {viewType === 'new' ? 'New Repairs' : 'Repairs Due'}
-            </h1>
-            <p className="text-gray-600 mt-2">
-              {viewType === 'new' 
-                ? 'New repair requests requiring acknowledgment' 
-                : 'Acknowledged repairs in priority order - ready for completion'}
-            </p>
+            <h1 className="text-2xl font-bold">Print QR Code Labels</h1>
+            <p className="text-gray-600">Generate and print QR labels for machines</p>
           </div>
         </div>
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-orange-700">New (No QR)</p>
+                <p className="text-3xl font-bold text-orange-600">{assets.filter(a => !a.qr_printed).length}</p>
+              </div>
+              <AlertCircle className="h-10 w-10 text-orange-400" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-700">Already Printed</p>
+                <p className="text-3xl font-bold text-green-600">{assets.filter(a => a.qr_printed).length}</p>
+              </div>
+              <CheckCircle className="h-10 w-10 text-green-400" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-purple-200 bg-purple-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-purple-700">Total Machines</p>
+                <p className="text-3xl font-bold text-purple-600">{assets.length}</p>
+              </div>
+              <QrCode className="h-10 w-10 text-purple-400" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs and Actions */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center">
-                {viewType === 'new' ? (
-                  <>
-                    <AlertTriangle className="h-5 w-5 text-orange-600 mr-2" />
-                    New Repairs ({repairs.filter(r => !r.repaired).length})
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
-                    Repairs Due ({repairs.filter(r => !r.repaired).length})
-                  </>
-                )}
-              </CardTitle>
-              <CardDescription>
-                {viewType === 'new' 
-                  ? 'Review and acknowledge new repair requests' 
-                  : 'Complete acknowledged repairs - sorted by urgency'}
-              </CardDescription>
-            </div>
-            {viewType === 'new' && repairs.filter(r => !r.repaired && !r.acknowledged).length > 0 && (
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex space-x-2">
               <Button 
-                onClick={handleAcknowledgeAll}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
+                variant={activeTab === 'new' ? 'default' : 'outline'}
+                onClick={() => { setActiveTab('new'); setSelectedAssets([]); }}
+                className={activeTab === 'new' ? 'bg-orange-600 hover:bg-orange-700' : ''}
               >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Acknowledge All ({repairs.filter(r => !r.repaired && !r.acknowledged).length})
+                <AlertCircle className="h-4 w-4 mr-2" />
+                New Machines ({assets.filter(a => !a.qr_printed).length})
+              </Button>
+              <Button 
+                variant={activeTab === 'printed' ? 'default' : 'outline'}
+                onClick={() => { setActiveTab('printed'); setSelectedAssets([]); }}
+                className={activeTab === 'printed' ? 'bg-green-600 hover:bg-green-700' : ''}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Already Printed ({assets.filter(a => a.qr_printed).length})
+              </Button>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                placeholder="Search machines..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="px-3 py-2 border rounded-md w-48"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        
+        <CardContent>
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Button variant="outline" onClick={handleSelectAll}>
+              {selectedAssets.length === currentAssets.length ? 'Deselect All' : 'Select All'}
+            </Button>
+            
+            <Button 
+              onClick={handlePrintLabels}
+              disabled={printing}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {printing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4 mr-2" />
+              )}
+              Print {selectedAssets.length > 0 ? `Selected (${selectedAssets.length})` : `All ${activeTab === 'new' ? 'New' : 'Printed'} (${currentAssets.length})`}
+            </Button>
+            
+            {activeTab === 'printed' && selectedAssets.length > 0 && (
+              <Button 
+                variant="outline"
+                onClick={handleResetPrintStatus}
+                className="border-orange-300 text-orange-700 hover:bg-orange-50"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset Print Status ({selectedAssets.length})
               </Button>
             )}
           </div>
-        </CardHeader>
-        <CardContent>
-          {repairs.filter(r => !r.repaired).length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <CheckCircle2 className="mx-auto h-12 w-12 text-green-400 mb-4" />
-              <p>{viewType === 'new' ? 'No new repairs' : 'No repairs due'}</p>
-              <p className="text-sm">
-                {viewType === 'new' 
-                  ? 'All repair requests have been acknowledged' 
-                  : 'All acknowledged repairs have been completed'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {repairs
-                .filter(r => !r.repaired)
-                .sort((a, b) => {
-                  // Sort unacknowledged repairs first
-                  if (a.acknowledged === b.acknowledged) return 0;
-                  return a.acknowledged ? 1 : -1;
-                })
-                .map((repair) => {
-                  const colors = getUrgencyColors(repair);
-                  const urgencyLevel = getUrgencyLevel(repair);
-                  
-                  return (
-                    <Card key={repair.id} className={`border-l-4 ${colors.border} ${colors.bg} cursor-pointer hover:shadow-md transition-shadow`}>
-                      <CardContent className="p-4">
-                        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                          <div 
-                            className="flex-1 cursor-pointer min-w-0" 
-                            onClick={() => handleViewRepair(repair)}
-                          >
-                            <div className="flex items-center space-x-2 mb-1">
-                              <h3 className={`font-semibold text-lg ${colors.text}`}>
-                                {repair.machine}
-                              </h3>
-                              {repair.type === 'general_repair' ? (
-                                <Badge variant="outline" className={`text-xs ${colors.badge}`}>
-                                  General Repair
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-xs border-red-300 text-red-600">
-                                  Safety Check
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-gray-700 mt-1 font-medium">{repair.item}</p>
-                            
-                            {/* Urgency Level - separate line */}
-                            {urgencyLevel && (
-                              <div className="mt-2">
-                                <span className={`text-sm font-semibold ${colors.text}`}>
-                                  Urgency: {urgencyLevel}
-                                </span>
-                              </div>
-                            )}
-                            
-                            {/* Problem Description - separate line */}
-                            <div className="text-sm text-gray-600 mt-2 italic break-words">
-                              <p className="line-clamp-3">
-                                "{repair.notes.includes('Problem Description:') 
-                                  ? repair.notes.split('Problem Description:')[1]?.trim() || repair.notes
-                                  : repair.notes}"
-                              </p>
-                            </div>
-                            
-                            <div className="flex flex-wrap items-center gap-2 mt-3 text-xs text-gray-500">
-                              <span>Reported by: {repair.staffName}</span>
-                              <span>•</span>
-                              <span>Date: {new Date(repair.completedAt).toLocaleDateString()}</span>
-                              {repair.type === 'general_repair' && (
-                                <>
-                                  <span>•</span>
-                                  <span className={colors.text.replace('text-', 'text-').replace('-700', '-600') + ' font-medium'}>
-                                    General Report
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                            
-                            {/* Progress Notes Section - Only in acknowledged view */}
-                            {viewType === 'acknowledged' && (
-                              <div className="mt-4 pt-4 border-t border-gray-200">
-                                <div className="flex items-center justify-between mb-2">
-                                  <h4 className="text-sm font-semibold text-gray-700">Progress Notes</h4>
-                                  {editingProgressNotes !== repair.id && (
-                                    <Button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleAddProgressNote(repair.id);
-                                      }}
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-xs h-7"
-                                    >
-                                      + Add Note
-                                    </Button>
-                                  )}
-                                </div>
-                                
-                                {/* Note input field */}
-                                {editingProgressNotes === repair.id && (
-                                  <div className="mb-3 bg-white p-3 rounded border border-gray-300">
-                                    <Textarea
-                                      value={progressNoteText}
-                                      onChange={(e) => setProgressNoteText(e.target.value)}
-                                      placeholder="Add a progress note (e.g., 'Ordered parts', 'Waiting for technician', etc.)"
-                                      className="mb-2"
-                                      rows={2}
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                    <div className="flex gap-2">
-                                      <Button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          saveProgressNote(repair.id);
-                                        }}
-                                        size="sm"
-                                        className="bg-blue-600 hover:bg-blue-700"
-                                      >
-                                        Save Note
-                                      </Button>
-                                      <Button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          cancelProgressNote();
-                                        }}
-                                        variant="outline"
-                                        size="sm"
-                                      >
-                                        Cancel
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {/* Display existing notes */}
-                                <div className="space-y-2">
-                                  {getProgressNotes(repair.id).length === 0 ? (
-                                    <p className="text-xs text-gray-400 italic">No progress notes yet</p>
-                                  ) : (
-                                    getProgressNotes(repair.id).map((note, idx) => (
-                                      <div key={idx} className="bg-blue-50 p-2 rounded text-xs border border-blue-200">
-                                        <p className="text-gray-700">{note.text}</p>
-                                        <p className="text-gray-500 mt-1">
-                                          {note.author} • {new Date(note.date).toLocaleString()}
-                                        </p>
-                                      </div>
-                                    ))
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex flex-row lg:flex-col gap-2 lg:space-y-0 lg:space-x-0 space-x-2 flex-shrink-0">
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewRepair(repair);
-                          }}
-                          variant="outline"
-                          size="sm"
-                          className="text-blue-600 border-blue-300 hover:bg-blue-50 flex-1 lg:flex-none lg:w-24"
-                        >
-                          View Details
-                        </Button>
-                        {/* Only show Acknowledge button in 'new' view */}
-                        {viewType === 'new' && (
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAcknowledge(repair);
-                            }}
-                            variant="outline"
-                            size="sm"
-                            className={`flex-1 lg:flex-none lg:w-24 ${repair.acknowledged 
-                              ? 'bg-orange-100 text-orange-700 border-orange-300' 
-                              : 'text-orange-600 border-orange-300 hover:bg-orange-50'}`}
-                            disabled={repair.acknowledged}
-                          >
-                            {repair.acknowledged ? 'Acknowledged' : 'Acknowledge'}
-                          </Button>
-                        )}
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRepairComplete(repair);
-                          }}
-                          className="bg-green-600 hover:bg-green-700 text-white flex-1 lg:flex-none lg:w-24"
-                          size="sm"
-                        >
-                          Mark Complete
-                        </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              
-              {/* Load More Button */}
-              {hasMore && repairs.length > 0 && (
-                <div className="mt-6 text-center">
-                  <Button 
-                    onClick={loadMore} 
-                    disabled={loadingMore}
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                  >
-                    {loadingMore ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
-                        Loading more...
-                      </>
-                    ) : (
-                      `Load More Repairs (${ITEMS_PER_PAGE} at a time)`
-                    )}
-                  </Button>
-                  <p className="text-sm text-gray-500 mt-2">Showing {repairs.filter(r => !r.repaired).length} repairs</p>
-                </div>
+
+          {/* Assets List */}
+          {currentAssets.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              {activeTab === 'new' ? (
+                <>
+                  <CheckCircle className="h-12 w-12 mx-auto text-green-400 mb-4" />
+                  <p className="text-lg font-medium">All machines have QR codes printed!</p>
+                  <p className="text-sm">Upload a new asset list to add more machines.</p>
+                </>
+              ) : (
+                <>
+                  <QrCode className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                  <p className="text-lg font-medium">No printed QR codes yet</p>
+                  <p className="text-sm">Print labels from the "New Machines" tab.</p>
+                </>
               )}
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {repairs.filter(r => r.repaired).length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <CheckCircle2 className="h-5 w-5 text-green-600 mr-2" />
-              Completed Repairs ({repairs.filter(r => r.repaired).length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {repairs.filter(r => r.repaired).map((repair) => (
-                <Card key={repair.id} className="border-l-4 border-l-green-500 bg-green-50">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg text-green-700">{repair.machine}</h3>
-                        <p className="text-gray-700 mt-1">{repair.item}</p>
-                        <p className="text-sm text-green-600 mt-2">✓ Repair Completed</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {currentAssets.map(asset => (
+                <Card 
+                  key={asset.id}
+                  className={`cursor-pointer transition-all ${
+                    selectedAssets.includes(asset.id) 
+                      ? 'ring-2 ring-purple-500 bg-purple-50' 
+                      : 'hover:shadow-md'
+                  }`}
+                  onClick={() => handleSelectAsset(asset.id)}
+                >
+                  <CardContent className="pt-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={selectedAssets.includes(asset.id)}
+                          onChange={() => {}}
+                          className="h-4 w-4 rounded"
+                        />
                       </div>
-                      <CheckCircle2 className="h-6 w-6 text-green-600" />
+                      <div className="flex-shrink-0">
+                        <img 
+                          src={`${API_BASE_URL}${asset.qr_url}`}
+                          alt="QR Code"
+                          className="w-16 h-16"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{asset.make}</p>
+                        <p className="text-xs text-gray-600 truncate">{asset.name}</p>
+                        <p className="text-xs text-gray-400 mt-1">{asset.check_type}</p>
+                        {asset.qr_printed_at && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Printed: {new Date(asset.qr_printed_at).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
+
 
 // Admin Login Component
 function AdminLogin({ onLogin }) {
@@ -5522,12 +6154,78 @@ function AdminProtectedRoute({ children }) {
   return children;
 }
 
+// Manager Protected Route Component
+function ManagerProtectedRoute({ children }) {
+  const { isAuthenticated, employee, loading } = useAuth();
+  const navigate = useNavigate();
+  
+  // Check if employee has manager OR admin control access (admins can access manager page)
+  const hasManagerAccess = employee?.manager_control?.toLowerCase() === 'yes' || 
+                           employee?.admin_control?.toLowerCase() === 'yes';
+  
+  React.useEffect(() => {
+    if (!loading && isAuthenticated && !hasManagerAccess) {
+      toast.error('Access denied. You do not have Manager permission.');
+      navigate('/');
+    }
+  }, [hasManagerAccess, isAuthenticated, loading, navigate]);
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return <EmployeeLogin />;
+  }
+  
+  if (!hasManagerAccess) {
+    return null; // Will redirect in useEffect
+  }
+  
+  return children;
+}
+
+// Manager Page Component
+function ManagerPage() {
+  const { employee } = useAuth();
+  const navigate = useNavigate();
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" onClick={() => navigate('/')} data-testid="back-to-dashboard-btn">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Manager Dashboard</h1>
+            <p className="text-gray-600 mt-2">Track work progress</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Work Progress Tracking Section */}
+      <WorkProgressAdmin />
+    </div>
+  );
+}
+
 // Main App Content Component
 function AppContent() {
   const { isAuthenticated, employee, logout } = useAuth();
   
   // Check if employee has admin control access
   const hasAdminAccess = employee?.admin_control?.toLowerCase() === 'yes';
+  // Check if employee has manager OR admin access
+  const hasManagerAccess = employee?.manager_control?.toLowerCase() === 'yes' || 
+                           employee?.admin_control?.toLowerCase() === 'yes';
 
   return (
     <Router>
@@ -5544,7 +6242,7 @@ function AppContent() {
                     className="h-8 sm:h-10 w-auto"
                     loading="eager"
                   />
-                  <span className="text-xs sm:text-sm text-gray-600 ml-2 sm:ml-3 font-medium hidden sm:block">Machine Checklist</span>
+                  <span className="text-xs sm:text-sm text-gray-600 ml-2 sm:ml-3 font-medium hidden sm:block">Dashboard</span>
                 </div>
               </Link>
               <nav className="flex items-center space-x-1 sm:space-x-4">
@@ -5555,14 +6253,43 @@ function AppContent() {
                 >
                   Home
                 </Link>
-                {/* Admin link - always visible, access controlled by AdminProtectedRoute */}
-                <Link 
-                  to="/admin" 
-                  className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
-                  data-testid="nav-admin"
+                {/* Manager link - visible for users with manager or admin access */}
+                {hasManagerAccess && (
+                  <Link 
+                    to="/manager" 
+                    className="text-gray-600 hover:text-orange-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                    data-testid="nav-manager"
+                  >
+                    Manager
+                  </Link>
+                )}
+                {/* Admin link - only visible for admin users */}
+                {hasAdminAccess && (
+                  <Link 
+                    to="/admin" 
+                    className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                    data-testid="nav-admin"
+                  >
+                    Admin
+                  </Link>
+                )}
+                {hasManagerAccess && (
+                  <Link 
+                    to="/workplan" 
+                    className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors inline-flex items-center"
+                    data-testid="nav-workplan"
+                  >
+                    <CalendarDays className="h-4 w-4 mr-1" /> Workplan
+                  </Link>
+                )}
+                {/* Cropping Map button - opens Map-only view */}
+                <button
+                  onClick={() => window.open(`${API_BASE_URL}/api/fieldplan?view=map`, '_blank')}
+                  className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors inline-flex items-center"
+                  data-testid="nav-cropping-map"
                 >
-                  Admin
-                </Link>
+                  <MapPin className="h-4 w-4 mr-1" /> Map
+                </button>
                 
                 {/* User info and logout */}
                 {isAuthenticated && employee && (
@@ -5625,17 +6352,67 @@ function AppContent() {
                 <RepairsNeeded />
               </ProtectedRoute>
             } />
+            {/* HIDDEN FOR DEPLOYMENT - Near Misses, Suggestions, Accidents, Whistleblowing, Training routes
+            <Route path="/near-misses" element={
+              <ProtectedRoute>
+                <NearMissesPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/suggestions" element={
+              <AdminProtectedRoute>
+                <SuggestionsPage />
+              </AdminProtectedRoute>
+            } />
+            <Route path="/accidents" element={
+              <ManagerProtectedRoute>
+                <AccidentsPage />
+              </ManagerProtectedRoute>
+            } />
+            <Route path="/whistleblowing" element={
+              <ManagerProtectedRoute>
+                <WhistleblowingPage />
+              </ManagerProtectedRoute>
+            } />
+            <Route path="/training" element={
+              <ProtectedRoute>
+                <TrainingPage />
+              </ProtectedRoute>
+            } />
+            */}
             <Route path="/general-repair-record" element={
               <ProtectedRoute>
                 <GeneralRepairRecord />
               </ProtectedRoute>
             } />
+            <Route path="/qr-labels" element={
+              <AdminProtectedRoute>
+                <QRLabelsPage />
+              </AdminProtectedRoute>
+            } />
+            <Route 
+              path="/manager" 
+              element={
+                <ManagerProtectedRoute>
+                  <ManagerPage />
+                </ManagerProtectedRoute>
+              } 
+            />
             <Route 
               path="/admin" 
               element={
                 <AdminProtectedRoute>
                   <SharePointAdminComponent />
                 </AdminProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/workplan" 
+              element={
+                <ManagerProtectedRoute>
+                  <div className="fixed inset-0 top-16 bg-white overflow-auto z-10">
+                    <WorkplanEditor />
+                  </div>
+                </ManagerProtectedRoute>
               } 
             />
             <Route 

@@ -54,24 +54,100 @@ async def compute_simple_stats(db):
         "check_type": "REPAIR COMPLETED"
     })
     
-    # For repairs due - just count repair_status entries
-    total_repair_records = await db.repair_status.count_documents({})
-    acknowledged_repairs = await db.repair_status.count_documents({"acknowledged": True, "completed": {"$ne": True}})
-    completed_repairs = await db.repair_status.count_documents({"completed": True})
-    new_repairs = total_repair_records - acknowledged_repairs - completed_repairs
+    # Count actual unsatisfactory items in checklists + general repairs
+    # This is what the repairs page actually shows
+    repair_checklists = await db.checklists.find(
+        {"$or": [
+            {"checklist_items.status": "unsatisfactory"},
+            {"check_type": "GENERAL REPAIR"}
+        ]},
+        {"id": 1, "checklist_items": 1, "check_type": 1, "_id": 0}
+    ).to_list(length=10000)
+    
+    # Build list of all repair IDs - must match frontend format!
+    all_repair_ids = []
+    for checklist in repair_checklists:
+        if checklist.get("check_type") == "GENERAL REPAIR":
+            # Frontend uses "{id}-general" format for GENERAL REPAIR
+            all_repair_ids.append(f"{checklist.get('id')}-general")
+        else:
+            items = checklist.get("checklist_items", [])
+            for idx, item in enumerate(items):
+                if item.get("status") == "unsatisfactory":
+                    all_repair_ids.append(f"{checklist.get('id')}-{idx}")
+    
+    # Get repair statuses for these IDs
+    acknowledged_ids = set()
+    completed_ids = set()
+    if all_repair_ids:
+        async for status in db.repair_status.find(
+            {"repair_id": {"$in": all_repair_ids}},
+            {"repair_id": 1, "acknowledged": 1, "completed": 1, "_id": 0}
+        ):
+            if status.get("completed"):
+                completed_ids.add(status.get("repair_id"))
+            elif status.get("acknowledged"):
+                acknowledged_ids.add(status.get("repair_id"))
+    
+    total_repairs = len(all_repair_ids)
+    new_repairs = total_repairs - len(acknowledged_ids) - len(completed_ids)
+    repairs_due = len(acknowledged_ids)  # Acknowledged but not completed
     
     machine_additions = await db.checklists.count_documents({
         "check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]}
     })
+    
+    # Get count of acknowledged machine additions (stored in repair_status)
+    # First get all machine addition IDs, then count how many are acknowledged
+    machine_add_ids = []
+    async for doc in db.checklists.find(
+        {"check_type": {"$in": ["MACHINE ADD", "NEW MACHINE"]}},
+        {"id": 1, "_id": 0}
+    ):
+        if doc.get("id"):
+            machine_add_ids.append(doc["id"])
+    
+    acknowledged_machines = 0
+    if machine_add_ids:
+        acknowledged_machines = await db.repair_status.count_documents({
+            "repair_id": {"$in": machine_add_ids},
+            "acknowledged": True
+        })
+    
+    pending_machine_additions = max(0, machine_additions - acknowledged_machines)
+    
+    # Near misses and suggestions counts
+    near_misses_new = await db.near_misses.count_documents({"acknowledged": False})
+    near_misses_total = await db.near_misses.count_documents({})
+    suggestions_new = await db.suggestions.count_documents({"status": "new"})
+    suggestions_total = await db.suggestions.count_documents({})
+    
+    # Accidents counts
+    accidents_new = await db.accidents.count_documents({"status": "new"})
+    accidents_total = await db.accidents.count_documents({})
+    
+    # Whistleblowing counts
+    whistleblowing_new = await db.whistleblowing.count_documents({"status": "new"})
+    whistleblowing_total = await db.whistleblowing.count_documents({})
     
     return {
         "total_completed": total_completed,
         "today_by_type": {},  # Simplified - skip breakdown for speed
         "today_total": today_total,
         "new_repairs": max(0, new_repairs),
-        "repairs_due": acknowledged_repairs,
+        "repairs_due": repairs_due,
         "repairs_completed": repairs_completed,
-        "machine_additions_count": machine_additions
+        "repairs_completed_count": len(completed_ids),
+        "machine_additions_count": pending_machine_additions,
+        "machine_additions_total": machine_additions,
+        "near_misses_new": near_misses_new,
+        "near_misses_total": near_misses_total,
+        "suggestions_new": suggestions_new,
+        "suggestions_total": suggestions_total,
+        "accidents_new": accidents_new,
+        "accidents_total": accidents_total,
+        "whistleblowing_new": whistleblowing_new,
+        "whistleblowing_total": whistleblowing_total
     }
 
 async def invalidate_cache():
