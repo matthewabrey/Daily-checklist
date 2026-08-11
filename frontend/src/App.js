@@ -73,7 +73,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 2.2 &mdash; August 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 2.3 &mdash; August 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -6284,7 +6284,7 @@ function AppContent() {
                 )}
                 {/* Cropping Map button - opens Map-only view */}
                 <button
-                  onClick={() => window.open(`${API_BASE_URL}/api/fieldplan?view=map`, '_blank')}
+                  onClick={() => window.open(`${API_BASE_URL}/api/fieldmap`, '_blank')}
                   className="text-gray-200 hover:text-green-400 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors inline-flex items-center"
                   data-testid="nav-cropping-map"
                 >

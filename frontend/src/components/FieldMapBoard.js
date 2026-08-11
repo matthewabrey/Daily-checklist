@@ -19,10 +19,10 @@ export default function FieldMapBoard({ active, isPaused }) {
   const switchEstateInIframe = (name) => {
     try {
       const win = iframeRef.current?.contentWindow;
-      const sel = win?.document?.getElementById('mp-estate');
-      if (sel && typeof win._mapSwitchEstate === 'function') {
+      const sel = win?.document?.getElementById('est-sel');
+      if (sel && typeof win.go === 'function') {
         sel.value = name;
-        win._mapSwitchEstate(name);
+        win.go('estate', name);
         return true;
       }
     } catch (e) {
@@ -36,7 +36,7 @@ export default function FieldMapBoard({ active, isPaused }) {
     if (!iframeReady) return;
     const name = ESTATES[estateIdx];
     if (!switchEstateInIframe(name) && iframeRef.current) {
-      iframeRef.current.src = `${API_BASE_URL}/api/fieldplan?view=map&estate=${encodeURIComponent(name)}`;
+      iframeRef.current.src = `${API_BASE_URL}/api/fieldmap?estate=${encodeURIComponent(name)}`;
     }
   }, [estateIdx, iframeReady]);
 
@@ -77,7 +77,7 @@ export default function FieldMapBoard({ active, isPaused }) {
       <iframe
         ref={iframeRef}
         title="Cropping Field Map"
-        src={`${API_BASE_URL}/api/fieldplan?view=map&estate=${encodeURIComponent(ESTATES[0])}`}
+        src={`${API_BASE_URL}/api/fieldmap?estate=${encodeURIComponent(ESTATES[0])}`}
         onLoad={() => setIframeReady(true)}
         className="w-full rounded-lg border border-gray-200 bg-white"
         style={{ height: '70vh', minHeight: 420 }}

@@ -89,7 +89,9 @@ export default function WorkplanEditor() {
   const [jobs, setJobs] = useState([]);
   const [colors, setColors] = useState([]);
   const [staffOptions, setStaffOptions] = useState([]);
-  const [assetOptions, setAssetOptions] = useState([]);
+  const [managerOptions, setManagerOptions] = useState([]);
+  const [vehicleOptions, setVehicleOptions] = useState([]);
+  const [implementOptions, setImplementOptions] = useState([]);
   const [saveState, setSaveState] = useState('saved'); // saving | saved | idle
   const [publishedAt, setPublishedAt] = useState(null);
   const [loaded, setLoaded] = useState(false);
@@ -105,7 +107,8 @@ export default function WorkplanEditor() {
   const [costingUntil, setCostingUntil] = useState('');
   const [staffFilter, setStaffFilter] = useState('');
   const [managerFilter, setManagerFilter] = useState('');
-  const [assetFilter, setAssetFilter] = useState('');
+  const [vehicleFilter, setVehicleFilter] = useState('');
+  const [implementFilter, setImplementFilter] = useState('');
   const [selectedRows, setSelectedRows] = useState(new Set()); // row IDs selected for copy
   const [selectedDay, setSelectedDay] = useState(null); // day index selected for day copy (0-6)
   const [hiddenDays, setHiddenDays] = useState(new Set()); // day indices to hide (0-6)
@@ -182,10 +185,40 @@ export default function WorkplanEditor() {
         setJobs(await jobsRes.json());
         setColors(await colorsRes.json());
         const staff = await staffRes.json();
-        setStaffOptions([...new Set(staff.map((s) => s.name).filter(Boolean))].sort());
+        // Employee list: everyone on the Names list (active staff only)
+        const activeStaff = staff.filter((s) => s.active !== false);
+        setStaffOptions([...new Set(activeStaff.map((s) => s.name).filter(Boolean))].sort());
+        // Mgr list: only people with Yes under Manager on the Names list
+        setManagerOptions(
+          [...new Set(
+            activeStaff
+              .filter((s) => String(s.manager_control || '').toLowerCase() === 'yes' ||
+                             String(s.admin_control || '').toLowerCase() === 'yes')
+              .map((s) => s.name)
+              .filter(Boolean)
+          )].sort()
+        );
         const assets = await assetsRes.json();
-        setAssetOptions(
-          [...new Set(assets.map((a) => `${a.make} ${a.name}`.trim()))].sort()
+        // Split the machine list into vehicles and implements by check type
+        const normType = (a) => {
+          let ct = a.check_type;
+          if (ct && typeof ct === 'object') ct = ct.check_type;
+          return String(ct || '').toLowerCase();
+        };
+        const VEHICLE_MATCH = ['tractor', 'forklift', 'cars and vans', 'car', 'van', 'mewp', 'harvester', 'hgv', 'grader'];
+        const IMPLEMENT_MATCH = ['trailed implement', 'mounted implement', 'implement', 'hire trailer', 'trailer'];
+        const label = (a) => `${a.make || ''} ${a.name || ''}`.trim();
+        setVehicleOptions(
+          [...new Set(
+            assets.filter((a) => { const ct = normType(a); return VEHICLE_MATCH.some((k) => ct.includes(k)); })
+              .map(label).filter(Boolean)
+          )].sort()
+        );
+        setImplementOptions(
+          [...new Set(
+            assets.filter((a) => { const ct = normType(a); return IMPLEMENT_MATCH.some((k) => ct.includes(k)); })
+              .map(label).filter(Boolean)
+          )].sort()
         );
         if (wp.week_start) {
           // Auto-advance to current week if saved week is entirely in the past
@@ -873,12 +906,16 @@ export default function WorkplanEditor() {
     : staffOptions.slice(0, 30);
 
   const filteredManagers = managerFilter
-    ? staffOptions.filter(s => s.toLowerCase().includes(managerFilter.toLowerCase())).slice(0, 30)
-    : staffOptions.slice(0, 30);
+    ? managerOptions.filter(s => s.toLowerCase().includes(managerFilter.toLowerCase())).slice(0, 30)
+    : managerOptions.slice(0, 30);
 
-  const filteredAssets = assetFilter
-    ? assetOptions.filter(a => a.toLowerCase().includes(assetFilter.toLowerCase())).slice(0, 30)
-    : assetOptions.slice(0, 30);
+  const filteredVehicles = vehicleFilter
+    ? vehicleOptions.filter(a => a.toLowerCase().includes(vehicleFilter.toLowerCase())).slice(0, 30)
+    : vehicleOptions.slice(0, 30);
+
+  const filteredImplements = implementFilter
+    ? implementOptions.filter(a => a.toLowerCase().includes(implementFilter.toLowerCase())).slice(0, 30)
+    : implementOptions.slice(0, 30);
 
   // Synchronized scrolling handlers
   const handleLeftScroll = (e) => {
@@ -922,7 +959,8 @@ export default function WorkplanEditor() {
       {/* datalists — filtered for performance */}
       <datalist id="wp-staff">{filteredStaff.map((s) => <option key={s} value={s} />)}</datalist>
       <datalist id="wp-managers">{filteredManagers.map((s) => <option key={s} value={s} />)}</datalist>
-      <datalist id="wp-assets">{filteredAssets.map((a) => <option key={a} value={a} />)}</datalist>
+      <datalist id="wp-vehicles">{filteredVehicles.map((a) => <option key={a} value={a} />)}</datalist>
+      <datalist id="wp-implements">{filteredImplements.map((a) => <option key={a} value={a} />)}</datalist>
 
       {/* Active users warning banner */}
       {activeUsers.length > 0 && (
@@ -1157,10 +1195,10 @@ export default function WorkplanEditor() {
                       </td>
                       <td className="border px-0.5" style={{ background: tint || 'transparent' }}>
                         <input
-                          list="wp-assets"
+                          list="wp-vehicles"
                           value={row.vehicle}
-                          onChange={(e) => { setAssetFilter(e.target.value); updateRow(row.id, { vehicle: e.target.value }); }}
-                          onFocus={(e) => setAssetFilter(e.target.value)}
+                          onChange={(e) => { setVehicleFilter(e.target.value); updateRow(row.id, { vehicle: e.target.value }); }}
+                          onFocus={(e) => setVehicleFilter(e.target.value)}
                           placeholder=""
                           className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent"
                           style={{ minWidth: 65 }}
@@ -1169,10 +1207,10 @@ export default function WorkplanEditor() {
                       </td>
                       <td className="border px-0.5" style={{ background: tint || 'transparent' }}>
                         <input
-                          list="wp-assets"
+                          list="wp-implements"
                           value={row.implement}
-                          onChange={(e) => { setAssetFilter(e.target.value); updateRow(row.id, { implement: e.target.value }); }}
-                          onFocus={(e) => setAssetFilter(e.target.value)}
+                          onChange={(e) => { setImplementFilter(e.target.value); updateRow(row.id, { implement: e.target.value }); }}
+                          onFocus={(e) => setImplementFilter(e.target.value)}
                           placeholder=""
                           className="w-full px-0.5 py-0.5 text-[10px] outline-none bg-transparent"
                           style={{ minWidth: 55 }}

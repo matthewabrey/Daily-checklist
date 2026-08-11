@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from sharepoint_integration import sharepoint_integration
 from sharepoint_auto_sync import sharepoint_auto_sync
 from cached_stats import get_cached_stats, invalidate_cache
-from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH
+from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH, download_fieldmap, FIELDMAP_PATH
 import qrcode
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -101,6 +101,11 @@ async def scheduled_fieldplan_sync():
         logger.info(f"Scheduled FieldPlan sync completed ({size} chars)")
     except Exception as e:
         logger.error(f"Scheduled FieldPlan sync error: {str(e)}")
+    try:
+        size = await download_fieldmap()
+        logger.info(f"Scheduled FieldMap sync completed ({size} chars)")
+    except Exception as e:
+        logger.error(f"Scheduled FieldMap sync error: {str(e)}")
 
 # Setup scheduler on startup
 @app.on_event("startup")
@@ -124,8 +129,8 @@ async def startup_event():
     )
     scheduler.start()
     logger.info("Scheduler started - Daily staff sync scheduled for 9:00 AM UK time")
-    # Download the FieldPlan immediately if we don't have a copy yet
-    if not os.path.exists(FIELDPLAN_PATH):
+    # Download the FieldPlan/FieldMap immediately if we don't have a copy yet
+    if not os.path.exists(FIELDPLAN_PATH) or not os.path.exists(FIELDMAP_PATH):
         asyncio.create_task(scheduled_fieldplan_sync())
 
 @app.on_event("shutdown")
@@ -144,12 +149,23 @@ async def get_fieldplan():
             raise HTTPException(status_code=502, detail=f"Failed to fetch field plan: {str(e)}")
     return FileResponse(FIELDPLAN_PATH, media_type="text/html")
 
+@app.get("/api/fieldmap")
+async def get_fieldmap():
+    """Serve the self-hosted copy of the external FieldMap (map with filters)"""
+    if not os.path.exists(FIELDMAP_PATH):
+        try:
+            await download_fieldmap()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Failed to fetch field map: {str(e)}")
+    return FileResponse(FIELDMAP_PATH, media_type="text/html")
+
 @app.post("/api/fieldplan/refresh")
 async def refresh_fieldplan():
-    """Manually re-download the latest FieldPlan from the external site"""
+    """Manually re-download the latest FieldPlan and FieldMap from the external site"""
     try:
         size = await download_fieldplan()
-        return {"success": True, "size": size}
+        map_size = await download_fieldmap()
+        return {"success": True, "size": size, "map_size": map_size}
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Failed to refresh field plan: {str(e)}")
 
@@ -945,6 +961,65 @@ async def create_checklist(checklist: Checklist):
 async def get_dashboard_stats():
     """ULTRA-FAST cached dashboard stats - returns in <50ms"""
     return await get_cached_stats(db)
+
+@app.get("/api/dashboard/checks-by-day")
+async def get_checks_by_day(days: int = 6):
+    """Counts of completed checks per check type per day, for the last <days>
+    calendar days (UK time, today included as the last day). Used by the
+    dashboard's Check Figures section."""
+    from zoneinfo import ZoneInfo
+    uk = ZoneInfo("Europe/London")
+    days = max(1, min(days, 14))
+    today_uk = datetime.now(uk).date()
+    day_list = [today_uk - timedelta(days=i) for i in range(days - 1, -1, -1)]
+    start_utc = datetime.combine(day_list[0], datetime.min.time(), tzinfo=uk).astimezone(timezone.utc)
+
+    # Pseudo-checklists that aren't real machine checks
+    excluded = {"MACHINE ADD", "NEW MACHINE"}
+
+    counts = {}
+    day_totals = {d.isoformat(): 0 for d in day_list}
+    cursor = db.checklists.find(
+        {"completed_at": {"$gte": start_utc}},
+        {"_id": 0, "completed_at": 1, "check_type": 1},
+    )
+    async for doc in cursor:
+        completed = doc.get("completed_at")
+        if isinstance(completed, str):
+            try:
+                completed = datetime.fromisoformat(completed.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+        if completed is None:
+            continue
+        if completed.tzinfo is None:
+            completed = completed.replace(tzinfo=timezone.utc)
+        day_key = completed.astimezone(uk).date().isoformat()
+        if day_key not in day_totals:
+            continue
+        ct = doc.get("check_type") or "Unknown"
+        if isinstance(ct, dict):
+            ct = ct.get("check_type") or "Unknown"
+        ct = str(ct).strip()
+        if ct.upper() in excluded:
+            continue
+        counts.setdefault(ct, {})
+        counts[ct][day_key] = counts[ct].get(day_key, 0) + 1
+        day_totals[day_key] += 1
+
+    today_key = today_uk.isoformat()
+    today_by_type = {ct: per_day[today_key] for ct, per_day in counts.items() if per_day.get(today_key)}
+    return {
+        "days": [
+            {"date": d.isoformat(), "label": d.strftime("%a %d %b"), "is_today": d == today_uk}
+            for d in day_list
+        ],
+        "types": sorted(counts.keys(), key=lambda t: -sum(counts[t].values())),
+        "counts": counts,
+        "day_totals": day_totals,
+        "today_by_type": today_by_type,
+        "today_total": day_totals.get(today_key, 0),
+    }
 
 @app.get("/api/checklists", response_model=List[ChecklistResponse])
 async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None):

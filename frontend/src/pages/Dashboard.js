@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [recentChecklists, setRecentChecklists] = useState([]);
   const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0, nearMissesNew: 0, suggestionsNew: 0, accidentsNew: 0, accidentsTotal: 0, whistleblowingNew: 0, whistleblowingTotal: 0, trainingPending: 0, trainingTotal: 0 });
   const [showRepairWarning, setShowRepairWarning] = useState(false);
+  const [checksByDay, setChecksByDay] = useState(null);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -551,6 +552,16 @@ export default function Dashboard() {
         whistleblowingTotal: statsData.whistleblowing_total || 0
       });
       
+      // Fetch checks-by-day breakdown for the Check Figures section
+      try {
+        const byDayResponse = await fetch(`${API_BASE_URL}/api/dashboard/checks-by-day?days=6`);
+        if (byDayResponse.ok) {
+          setChecksByDay(await byDayResponse.json());
+        }
+      } catch (e) {
+        // non-fatal
+      }
+
       // Fetch training stats
       try {
         const trainingResponse = await fetch(`${API_BASE_URL}/api/training/stats/count`);
@@ -1549,7 +1560,7 @@ export default function Dashboard() {
           <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold mb-1">{t('dashboardSubtitle')}</p>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
           <div className="flex items-center space-x-2 mt-1">
-            <p className="text-xs text-gray-400">v3.0-nav-buttons</p>
+            <p className="text-xs text-gray-400">Version 2.3</p>
             <span className="text-gray-300">•</span>
             <p className="text-xs text-gray-400">
               <RefreshCw className="h-3 w-3 inline mr-1" />
@@ -1566,7 +1577,7 @@ export default function Dashboard() {
         <div className="mt-4 sm:mt-6">
           <Button 
             onClick={() => setShowQRScanner(true)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg font-semibold shadow-lg"
+            className="w-full bg-gray-800 hover:bg-gray-900 text-white py-6 text-lg font-semibold shadow-md rounded-xl"
             data-testid="quick-scan-btn"
           >
             <QrCode className="mr-3 h-6 w-6" />
@@ -1575,22 +1586,25 @@ export default function Dashboard() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 mt-3 w-full">
-          <Button 
-            onClick={() => navigate('/new-checklist')} 
-            className="bg-green-600 hover:bg-green-700 flex-1 text-sm sm:text-base py-4 sm:py-6"
+          <Button
+            onClick={() => navigate('/new-checklist')}
+            className="bg-green-600 hover:bg-green-700 text-white flex-1 text-sm sm:text-base py-4 sm:py-6 rounded-xl shadow-md"
             data-testid="daily-check-btn"
           >
             <ClipboardList className="mr-2 h-4 w-4" />
             Checks and Servicing
           </Button>
-          <Button 
+          {/* HIDDEN FOR NOW — Breakdown and repair reporting (not in use; set to true to bring it back) */}
+          {false && (
+          <Button
             onClick={() => setShowRepairWarning(true)}
-            className="bg-orange-600 hover:bg-orange-700 text-white flex-1 text-sm sm:text-base py-4 sm:py-6"
+            className="bg-orange-600 hover:bg-orange-700 text-white flex-1 text-sm sm:text-base py-4 sm:py-6 rounded-xl shadow-md"
             data-testid="breakdown-repair-btn"
           >
             <Wrench className="mr-2 h-4 w-4" />
             Breakdown and repair reporting
           </Button>
+          )}
         </div>
         
         {/* HIDDEN FOR DEPLOYMENT - Second Row - Near Miss and Suggestions
@@ -1680,6 +1694,105 @@ export default function Dashboard() {
 
       {/* Section 0: Stats Cards */}
       <div className={`transition-all duration-500 ${activeSection === 0 ? 'block opacity-100' : 'hidden opacity-0'}`}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          {/* Total Checks */}
+          <Card data-testid="total-checks-card" className="flex flex-col">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm">Total Checks</CardTitle>
+              <ClipboardList className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent className="flex flex-col flex-1">
+              <div className="flex-1">
+                <div className="text-4xl font-bold font-serif text-green-700">{stats.total}</div>
+                <p className="text-xs text-gray-500 mt-1">All time completed</p>
+              </div>
+              <Button onClick={openTotalChecksModal} variant="outline" size="sm" className="w-full mt-3">
+                View All Checks
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Today's Checks by type */}
+          <Card data-testid="today-checks-card" className="flex flex-col">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm">Today's Checks</CardTitle>
+              <Calendar className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent className="flex flex-col flex-1">
+              <div className="flex-1">
+                <div className="text-4xl font-bold font-serif text-green-700">{checksByDay?.today_total ?? stats.todayTotal}</div>
+                {checksByDay && Object.keys(checksByDay.today_by_type || {}).length > 0 ? (
+                  <div className="mt-2 space-y-0.5">
+                    {Object.entries(checksByDay.today_by_type)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([type, count]) => (
+                        <p key={type} className="text-xs text-gray-600">{type} <span className="font-semibold text-gray-900">&times; {count}</span></p>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-1">No checks completed today</p>
+                )}
+              </div>
+              <Button onClick={() => navigate('/all-checks?filter=today')} variant="outline" size="sm" className="w-full mt-3">
+                View Today's Checks
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Checks by type over the last 5 days */}
+        <Card data-testid="five-day-table-card" className="mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Checks by Type &mdash; Last 5 Days</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {checksByDay ? (() => {
+              const pastDays = checksByDay.days.filter((d) => !d.is_today).slice(-5);
+              const types = checksByDay.types;
+              if (types.length === 0) {
+                return <p className="text-xs text-gray-500">No checks recorded in the last 5 days</p>;
+              }
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-2 pr-4 text-xs uppercase tracking-wider text-gray-500 font-semibold">Check type</th>
+                        {pastDays.map((d) => (
+                          <th key={d.date} className="text-center py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold whitespace-nowrap">{d.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {types.map((type) => (
+                        <tr key={type} className="border-b border-gray-100">
+                          <td className="py-1.5 pr-4 text-gray-900">{type}</td>
+                          {pastDays.map((d) => {
+                            const n = (checksByDay.counts[type] && checksByDay.counts[type][d.date]) || 0;
+                            return (
+                              <td key={d.date} className={`text-center py-1.5 px-2 font-medium ${n ? 'text-green-700' : 'text-gray-300'}`}>{n || '—'}</td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                      <tr>
+                        <td className="py-2 pr-4 font-semibold text-gray-900">Total</td>
+                        {pastDays.map((d) => (
+                          <td key={d.date} className="text-center py-2 px-2 font-bold text-gray-900">{checksByDay.day_totals[d.date] || 0}</td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })() : (
+              <p className="text-xs text-gray-500">Loading&hellip;</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* HIDDEN FOR NOW — old stat tiles (set to true to bring them back) */}
+        {false && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
         {/* 0. Total Checks Completed - First - Now clickable with button */}
         <Card 
@@ -1842,6 +1955,7 @@ export default function Dashboard() {
           </div>
         </Card>
         </div>
+        )}
       </div>
 
       {/* Section 1: WorkplanBoard */}
