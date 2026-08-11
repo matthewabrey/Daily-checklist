@@ -1546,8 +1546,8 @@ export default function Dashboard() {
       
       <div className="text-center sm:text-left">
         <div>
+          <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold mb-1">{t('dashboardSubtitle')}</p>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">{t('dashboardSubtitle')}</p>
           <div className="flex items-center space-x-2 mt-1">
             <p className="text-xs text-gray-400">v3.0-nav-buttons</p>
             <span className="text-gray-300">•</span>

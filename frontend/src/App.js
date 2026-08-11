@@ -62,19 +62,18 @@ function EmployeeLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <div className="flex items-center justify-center mb-4">
-            <div className="p-3 bg-green-100 rounded-full">
-              <ClipboardList className="h-8 w-8 text-green-600" />
-            </div>
+          <div className="flex items-center justify-center mb-3">
+            <img src="/abreys-logo.png" alt="Abreys" className="h-16 w-auto" />
           </div>
+          <p className="text-center text-[10px] tracking-[3px] uppercase text-green-700 font-extrabold">Safety &middot; Ownership &middot; Team &middot; Driven &middot; Excellence</p>
           <CardTitle className="text-2xl text-center">{t('loginTitle')}</CardTitle>
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 2.1 &mdash; August 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 2.2 &mdash; August 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -6232,7 +6231,7 @@ function AppContent() {
     <Router>
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200">
+        <header className="bg-gray-800 shadow-md">
           <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
             <div className="flex items-center justify-between h-14 sm:h-16">
               <Link to="/" className="flex items-center space-x-2" data-testid="logo-link">
@@ -6240,16 +6239,16 @@ function AppContent() {
                   <img 
                     src="/abreys-logo.png" 
                     alt="Abreys Logo" 
-                    className="h-8 sm:h-10 w-auto"
+                    className="h-8 sm:h-10 w-auto rounded-lg bg-white p-0.5"
                     loading="eager"
                   />
-                  <span className="text-xs sm:text-sm text-gray-600 ml-2 sm:ml-3 font-medium hidden sm:block">Dashboard</span>
+                  <span className="text-xs sm:text-sm text-gray-300 ml-2 sm:ml-3 font-medium hidden sm:block">Day to Day Work App</span>
                 </div>
               </Link>
               <nav className="flex items-center space-x-1 sm:space-x-4">
                 <Link 
                   to="/" 
-                  className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                  className="text-gray-200 hover:text-green-400 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
                   data-testid="nav-dashboard"
                 >
                   Home
@@ -6258,7 +6257,7 @@ function AppContent() {
                 {hasManagerAccess && (
                   <Link 
                     to="/manager" 
-                    className="text-gray-600 hover:text-orange-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                    className="text-gray-200 hover:text-orange-400 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
                     data-testid="nav-manager"
                   >
                     Manager
@@ -6268,7 +6267,7 @@ function AppContent() {
                 {hasAdminAccess && (
                   <Link 
                     to="/admin" 
-                    className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                    className="text-gray-200 hover:text-green-400 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
                     data-testid="nav-admin"
                   >
                     Admin
@@ -6277,7 +6276,7 @@ function AppContent() {
                 {hasManagerAccess && (
                   <Link 
                     to="/workplan" 
-                    className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors inline-flex items-center"
+                    className="text-gray-200 hover:text-green-400 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors inline-flex items-center"
                     data-testid="nav-workplan"
                   >
                     <CalendarDays className="h-4 w-4 mr-1" /> Workplan
@@ -6286,7 +6285,7 @@ function AppContent() {
                 {/* Cropping Map button - opens Map-only view */}
                 <button
                   onClick={() => window.open(`${API_BASE_URL}/api/fieldplan?view=map`, '_blank')}
-                  className="text-gray-600 hover:text-green-600 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors inline-flex items-center"
+                  className="text-gray-200 hover:text-green-400 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors inline-flex items-center"
                   data-testid="nav-cropping-map"
                 >
                   <MapPin className="h-4 w-4 mr-1" /> Map
@@ -6294,16 +6293,16 @@ function AppContent() {
                 
                 {/* User info and logout */}
                 {isAuthenticated && employee && (
-                  <div className="flex items-center space-x-2 border-l pl-2 sm:pl-4 ml-2 sm:ml-4">
+                  <div className="flex items-center space-x-2 border-l border-gray-600 pl-2 sm:pl-4 ml-2 sm:ml-4">
                     <div className="text-right hidden sm:block">
-                      <p className="text-xs font-medium text-gray-900">{employee.name}</p>
-                      <p className="text-xs text-gray-600">#{employee.employee_number}</p>
+                      <p className="text-xs font-medium text-white">{employee.name}</p>
+                      <p className="text-xs text-gray-300">#{employee.employee_number}</p>
                     </div>
                     <Button 
                       variant="ghost"
                       size="sm"
                       onClick={logout}
-                      className="text-gray-600 hover:text-red-600 text-xs sm:text-sm font-medium px-2 sm:px-3"
+                      className="text-gray-200 hover:text-red-400 text-xs sm:text-sm font-medium px-2 sm:px-3"
                       data-testid="logout-btn"
                     >
                       Logout
