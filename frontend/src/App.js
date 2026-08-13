@@ -73,7 +73,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 2.7 &mdash; August 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 2.9 &mdash; August 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -879,7 +879,51 @@ function TemplateDiagnostics() {
 function SharePointAdminComponent() {
   const [uploadResults, setUploadResults] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [tractorReport, setTractorReport] = useState(null);
+  const [tractorDragOver, setTractorDragOver] = useState(false);
   const navigate = useNavigate();
+
+  // Load the current tractor utilisation report info
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/tractor-utilisation`);
+        if (res.ok) setTractorReport(await res.json());
+      } catch (e) { /* non-fatal */ }
+    })();
+  }, []);
+
+  const uploadTractorFile = async (file) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      toast.error('That needs to be a .csv file — the weekly export from the telematics system');
+      return;
+    }
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE_URL}/api/tractor-utilisation/upload`, { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setTractorReport(data);
+        toast.success(`Tractor utilisation updated — ${data.machine_count} machines${data.report_end_date ? `, week ending ${data.report_end_date}` : ''}`);
+      } else {
+        toast.error(data.detail || 'Could not read that CSV');
+      }
+    } catch (e) {
+      toast.error('Upload failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTractorDrop = (e) => {
+    e.preventDefault();
+    setTractorDragOver(false);
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    uploadTractorFile(file);
+  };
 
   const handleFileUpload = async (event, type) => {
     const file = event.target.files[0];
@@ -951,6 +995,49 @@ function SharePointAdminComponent() {
           </div>
         </div>
       </div>
+
+      {/* Tractor Utilisation upload */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Truck className="h-5 w-5 text-green-600" />
+            <span>Tractor Utilisation</span>
+          </CardTitle>
+          <CardDescription>
+            Drop in the weekly utilisation CSV from the telematics system — the report shows on the dashboard's Tractors tab for everyone
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div
+            onDragOver={(e) => { e.preventDefault(); setTractorDragOver(true); }}
+            onDragLeave={() => setTractorDragOver(false)}
+            onDrop={handleTractorDrop}
+            onClick={() => document.getElementById('tractor-csv-admin-input').click()}
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+              tractorDragOver ? 'border-green-600 bg-green-50' : 'border-gray-300 hover:border-green-400'
+            }`}
+            data-testid="tractor-drop-zone"
+          >
+            <Upload className="h-8 w-8 mx-auto text-green-600 mb-2" />
+            <p className="text-sm font-semibold text-gray-900">Drop utilisation CSV here</p>
+            <p className="text-xs text-gray-500 mt-1">or click to browse</p>
+            <input
+              type="file"
+              id="tractor-csv-admin-input"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => { uploadTractorFile(e.target.files && e.target.files[0]); e.target.value = ''; }}
+            />
+          </div>
+          {tractorReport && tractorReport.rows && tractorReport.rows.length > 0 && (
+            <p className="text-xs text-gray-600 mt-3">
+              Current report: <b>{tractorReport.machine_count} machines</b>
+              {tractorReport.report_end_date ? <> &middot; week ending <b>{tractorReport.report_end_date}</b></> : null}
+              {tractorReport.uploaded_at ? <> &middot; uploaded {new Date(tractorReport.uploaded_at).toLocaleDateString()}</> : null}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* QR Code Labels Section */}
       <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 mb-6">

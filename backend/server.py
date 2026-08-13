@@ -1059,16 +1059,84 @@ async def get_farm_crop_areas(year: int = 2027):
         seg,
     ):
         color, name, ha = cm.group(1), cm.group(2).strip(), cm.group(3).replace(",", "")
+        # Belt-and-braces: never count partner-farmed crops as ours
+        if "rllong" in name.lower():
+            continue
         try:
             ha_val = float(ha)
         except ValueError:
             continue
         crops.append({"name": name, "ha": round(ha_val, 1), "color": color})
     crops.sort(key=lambda c: -c["ha"])
+
+    # Last-year comparison: computed from the FieldPlan's embedded field data
+    # using the same "is it ours?" rules as the FieldPlan itself (verified to
+    # reproduce its published figures exactly).
+    prev_year = year - 1
+    prev_crops = {}
+    prev_total = 0.0
+    try:
+        import json as _json
+        fi = html.find("const F=[")
+        if fi != -1:
+            fields = _json.loads(html[fi + len("const F="):html.find("];", fi) + 1])
+            VEG = ["Potatoes", "Salad Potatoes", "Seed Potatoes", "Carrots", "Parsnips", "Onions"]
+            NEVER = ["Uncropped", "Carbon Trees", "Solar", "Chickens", "Pheasants"]
+            SOL = ["Potatoes", "Salad Potatoes", "Seed Potatoes"]
+
+            def _gc(fld, y):
+                return (fld.get("history", {}).get(y, "") if y <= "2026"
+                        else fld.get("plan", {}).get(y, ""))
+
+            def _is_ours(fld, y):
+                c = _gc(fld, y)
+                if not c or c in NEVER or c == "Pigs":
+                    return False
+                e = fld.get("estate", "")
+                if c in ("Grass", "Woodland", "CS MT"):
+                    return e in ("Wretham", "Edwardstone/Borehouse")
+                if c == "ELS/HLS":
+                    return e == "Wretham" and y < "2027"
+                if e == "Rackham Farms":
+                    return c in SOL
+                if e == "Euston":
+                    if c in ("Maize", "Euston Rye", "Sugarbeet", "Veg (RLLONG)"):
+                        return False
+                    return True if y >= "2027" else (c in VEG)
+                if e == "Pickenham":
+                    return c in VEG or c == "Rye A"
+                if e == "Blakeney" or e == "Gooderham":
+                    return c in VEG
+                if e == "Beard":
+                    return c == "Seed Potatoes"
+                if e in ("Warren", "David Hill"):
+                    return c in VEG or c == "Seed Potatoes"
+                if e in ("Chandler", "Wretham", "Edwardstone/Borehouse"):
+                    return True
+                if c == "Maize":
+                    return e in ("Wretham", "Chandler")
+                return True
+
+            py = str(prev_year)
+            for fld in fields:
+                if _is_ours(fld, py):
+                    c = _gc(fld, py)
+                    if "rllong" in c.lower():
+                        continue
+                    prev_crops[c] = prev_crops.get(c, 0) + (fld.get("ha") or 0)
+            prev_crops = {c: round(h, 1) for c, h in prev_crops.items()}
+            prev_total = round(sum(prev_crops.values()), 1)
+    except Exception:
+        prev_crops = {}
+        prev_total = 0.0
+
     return {
         "year": year,
         "crops": crops,
         "total_ha": round(sum(c["ha"] for c in crops), 1),
+        "prev_year": prev_year,
+        "prev_crops": prev_crops,
+        "prev_total_ha": prev_total,
     }
 
 # ---- Link to the Abreys Stock Control app (packouttracks) ----

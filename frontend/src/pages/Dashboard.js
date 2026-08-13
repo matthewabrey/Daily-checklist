@@ -82,26 +82,6 @@ export default function Dashboard() {
 
   // Tractor utilisation CSV upload (managers/admins)
   const pctOf = (part, total) => (total > 0 ? Math.round((part / total) * 100) : 0);
-  const handleTractorCSV = async (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('file', file);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/tractor-utilisation/upload`, { method: 'POST', body: fd });
-      if (res.ok) {
-        setTractorReport(await res.json());
-        toast.success('Tractor utilisation updated');
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.detail || 'Could not read that CSV');
-      }
-    } catch (err) {
-      toast.error('Upload failed - check your connection');
-    }
-    e.target.value = '';
-  };
-
   // Near Miss / Suggestion / Accident / Whistleblowing Modal state
   const [showReportModal, setShowReportModal] = useState(null); // 'near-miss', 'suggestion', or 'accident'
   const [reportIsAnonymous, setReportIsAnonymous] = useState(false);
@@ -1615,7 +1595,7 @@ export default function Dashboard() {
           <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold mb-1">{t('dashboardSubtitle')}</p>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
           <div className="flex items-center space-x-2 mt-1">
-            <p className="text-xs text-gray-400">Version 2.7</p>
+            <p className="text-xs text-gray-400">Version 2.9</p>
             <span className="text-gray-300">•</span>
             <p className="text-xs text-gray-400">
               <RefreshCw className="h-3 w-3 inline mr-1" />
@@ -2357,7 +2337,20 @@ export default function Dashboard() {
           <div>
             <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
               <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold">Our Crops &mdash; {farmCrops.year}</p>
-              <p className="text-sm text-gray-600"><span className="font-serif font-bold text-xl text-gray-900">{Math.round(farmCrops.total_ha).toLocaleString()}</span> ha we farm in total</p>
+              <p className="text-sm text-gray-600">
+                <span className="font-serif font-bold text-xl text-gray-900">{Math.round(farmCrops.total_ha).toLocaleString()}</span> ha we farm in total
+                {farmCrops.prev_total_ha > 0 && (() => {
+                  const diff = Math.round(farmCrops.total_ha - farmCrops.prev_total_ha);
+                  return (
+                    <span className="ml-2 text-xs">
+                      vs {Math.round(farmCrops.prev_total_ha).toLocaleString()} ha in {farmCrops.prev_year}
+                      <span className={`ml-1 font-bold ${diff >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                        {diff >= 0 ? '\u25B2' : '\u25BC'} {diff >= 0 ? '+' : ''}{diff.toLocaleString()} ha
+                      </span>
+                    </span>
+                  );
+                })()}
+              </p>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
               {farmCrops.crops.map((c) => (
@@ -2368,6 +2361,21 @@ export default function Dashboard() {
                       <span className="text-sm font-medium text-gray-900 truncate">{c.name}</span>
                     </div>
                     <div className="text-2xl sm:text-3xl font-bold font-serif text-green-700">{Math.round(c.ha).toLocaleString()}<span className="text-sm text-gray-500 font-sans font-medium ml-1">ha</span></div>
+                    {(() => {
+                      const prev = farmCrops.prev_crops ? farmCrops.prev_crops[c.name] : undefined;
+                      if (prev === undefined || prev === null) {
+                        return <p className="text-[11px] text-gray-500 mt-0.5">new for {farmCrops.year}</p>;
+                      }
+                      const diff = Math.round(c.ha - prev);
+                      if (diff === 0) {
+                        return <p className="text-[11px] text-gray-500 mt-0.5">same as {farmCrops.prev_year}</p>;
+                      }
+                      return (
+                        <p className={`text-[11px] mt-0.5 font-semibold ${diff > 0 ? 'text-green-700' : 'text-red-600'}`}>
+                          {diff > 0 ? '\u25B2' : '\u25BC'} {diff > 0 ? '+' : ''}{diff.toLocaleString()} ha vs {farmCrops.prev_year} ({Math.round(prev).toLocaleString()} ha)
+                        </p>
+                      );
+                    })()}
                     <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
                       <div className="h-1.5 rounded-full" style={{ width: `${Math.min(100, Math.round((c.ha / farmCrops.crops[0].ha) * 100))}%`, background: c.color }}></div>
                     </div>
@@ -2375,6 +2383,20 @@ export default function Dashboard() {
                 </Card>
               ))}
             </div>
+            {(() => {
+              if (!farmCrops.prev_crops) return null;
+              const currentNames = new Set(farmCrops.crops.map((c) => c.name));
+              const dropped = Object.entries(farmCrops.prev_crops)
+                .filter(([name, ha]) => !currentNames.has(name) && ha >= 1)
+                .sort((a, b) => b[1] - a[1]);
+              if (dropped.length === 0) return null;
+              return (
+                <p className="text-xs text-gray-500 mt-4">
+                  Grown in {farmCrops.prev_year} but not {farmCrops.year}:{' '}
+                  {dropped.map(([name, ha]) => `${name} (${Math.round(ha).toLocaleString()} ha)`).join(' · ')}
+                </p>
+              );
+            })()}
           </div>
         ) : (
           <div className="flex items-center justify-center h-48 text-gray-500">
@@ -2544,13 +2566,7 @@ export default function Dashboard() {
               </p>
             )}
           </div>
-          {hasManagerAccess && (
-            <label className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg cursor-pointer shadow-sm">
-              <Upload className="h-4 w-4" />
-              Upload weekly CSV
-              <input type="file" accept=".csv" className="hidden" onChange={handleTractorCSV} data-testid="tractor-csv-input" />
-            </label>
-          )}
+
         </div>
         {tractorReport && tractorReport.rows && tractorReport.rows.length > 0 ? (() => {
           const rows = tractorReport.rows;
@@ -2631,11 +2647,7 @@ export default function Dashboard() {
         })() : (
           <div className="flex flex-col items-center justify-center h-48 text-gray-500 gap-1">
             <p>No utilisation report uploaded yet</p>
-            {hasManagerAccess ? (
-              <p className="text-xs">Use the green button above to upload the weekly CSV from the telematics system</p>
-            ) : (
-              <p className="text-xs">A manager can upload the weekly CSV from the telematics system</p>
-            )}
+            <p className="text-xs">An admin can upload the weekly CSV on the Admin page (drag and drop)</p>
           </div>
         )}
       </div>
