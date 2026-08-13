@@ -192,8 +192,7 @@ export default function WorkplanEditor() {
         setManagerOptions(
           [...new Set(
             activeStaff
-              .filter((s) => String(s.manager_control || '').toLowerCase() === 'yes' ||
-                             String(s.admin_control || '').toLowerCase() === 'yes')
+              .filter((s) => String(s.manager_control || '').toLowerCase() === 'yes')
               .map((s) => s.name)
               .filter(Boolean)
           )].sort()

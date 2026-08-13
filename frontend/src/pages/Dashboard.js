@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, todayByType: {}, todayTotal: 0, repairsDue: 0, nonAcknowledgedRepairs: 0, repairsCompletedLast7Days: 0, pendingMachineAdditions: 0, nearMissesNew: 0, suggestionsNew: 0, accidentsNew: 0, accidentsTotal: 0, whistleblowingNew: 0, whistleblowingTotal: 0, trainingPending: 0, trainingTotal: 0 });
   const [showRepairWarning, setShowRepairWarning] = useState(false);
   const [checksByDay, setChecksByDay] = useState(null);
+  const [stockSummary, setStockSummary] = useState(null);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -37,7 +38,7 @@ export default function Dashboard() {
   const [isPaused, setIsPaused] = useState(false);
   const rotationInterval = useRef(null);
   const ROTATION_DELAY = 60000; // 60 seconds
-  const SECTION_LABELS = ['Check Figures', 'Daily Work Plan', 'Work Progress', 'Field Maps'];
+  const SECTION_LABELS = ['Check Figures', 'Daily Work Plan', 'Work Progress', 'Field Maps', 'Graders', 'Stores'];
 
   // Auto-rotation effect
   useEffect(() => {
@@ -52,7 +53,7 @@ export default function Dashboard() {
     rotationInterval.current = setInterval(() => {
       // Don't rotate while the user is scrolled down reading — it would jump the screen
       if (window.scrollY > 150) return;
-      setActiveSection(prev => (prev + 1) % 4);
+      setActiveSection(prev => (prev + 1) % 6);
     }, ROTATION_DELAY);
 
     return () => {
@@ -560,6 +561,16 @@ export default function Dashboard() {
         }
       } catch (e) {
         // non-fatal
+      }
+
+      // Fetch live stock control summary (stores + graders)
+      try {
+        const stockResponse = await fetch(`${API_BASE_URL}/api/stock/summary`);
+        if (stockResponse.ok) {
+          setStockSummary(await stockResponse.json());
+        }
+      } catch (e) {
+        // non-fatal — stock app may be unreachable
       }
 
       // Fetch training stats
@@ -1560,7 +1571,7 @@ export default function Dashboard() {
           <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold mb-1">{t('dashboardSubtitle')}</p>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
           <div className="flex items-center space-x-2 mt-1">
-            <p className="text-xs text-gray-400">Version 2.3</p>
+            <p className="text-xs text-gray-400">Version 2.4</p>
             <span className="text-gray-300">•</span>
             <p className="text-xs text-gray-400">
               <RefreshCw className="h-3 w-3 inline mr-1" />
@@ -2294,6 +2305,83 @@ export default function Dashboard() {
       {/* Section 3: Field Maps */}
       <div className={`transition-all duration-500 ${activeSection === 3 ? 'block opacity-100' : 'hidden opacity-0'}`}>
         <FieldMapBoard active={activeSection === 3} isPaused={isPaused} />
+      </div>
+
+      {/* Section 4: Graders — live from the Abreys Stock Control app */}
+      <div className={`transition-all duration-500 ${activeSection === 4 ? 'block opacity-100' : 'hidden opacity-0'}`}>
+        {stockSummary && Array.isArray(stockSummary.graders) && stockSummary.graders.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {stockSummary.graders.map((g, i) => {
+              const th = g.current_th ?? g.tph ?? g.throughput ?? g.t_h ?? g.rate ?? null;
+              return (
+                <Card key={g.id || g.name || i} className="flex flex-col">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">{g.name || g.grader_name || `Grader ${i + 1}`}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-4xl font-bold font-serif text-green-700">
+                      {th !== null ? th : '—'}<span className="text-lg text-gray-500 font-sans font-medium ml-1">T/H</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Current throughput</p>
+                    {g.status && <p className="text-xs text-gray-600 mt-1">{g.status}</p>}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-48 text-gray-500">
+            <p>{stockSummary ? 'No grader data available from the Stock Control app yet' : 'Connecting to the Stock Control app…'}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Section 5: Stores — live from the Abreys Stock Control app */}
+      <div className={`transition-all duration-500 ${activeSection === 5 ? 'block opacity-100' : 'hidden opacity-0'}`}>
+        {stockSummary && Array.isArray(stockSummary.stores) && stockSummary.stores.length > 0 ? (
+          <div className="space-y-6">
+            {[
+              { title: 'Potato Stores', match: 'potato' },
+              { title: 'Onion Stores', match: 'onion' },
+            ].map(({ title, match }) => {
+              const group = stockSummary.stores.filter(
+                (s) => (s.crop_type || '').toLowerCase().includes(match)
+              );
+              if (group.length === 0) return null;
+              return (
+                <div key={title}>
+                  <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold mb-2">{title}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {group.map((s) => (
+                      <Card key={s.name} className="flex flex-col">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">{s.name}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-4xl font-bold font-serif text-green-700">{s.utilization}<span className="text-lg text-gray-500 font-sans font-medium">%</span></div>
+                          <p className="text-xs text-gray-500 mb-2">Store utilisation</p>
+                          <div className="w-full bg-gray-100 rounded-full h-2.5">
+                            <div
+                              className={`h-2.5 rounded-full ${s.utilization >= 90 ? 'bg-red-500' : 'bg-green-600'}`}
+                              style={{ width: `${Math.min(100, s.utilization)}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-2">
+                            {s.occupied_zones}/{s.zones} zones in use &middot; {s.total_stock} t in store
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-48 text-gray-500">
+            <p>{stockSummary ? 'No store data available from the Stock Control app yet' : 'Connecting to the Stock Control app…'}</p>
+          </div>
+        )}
       </div>
     </div>
   );

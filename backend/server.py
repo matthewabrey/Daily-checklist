@@ -19,6 +19,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import asyncio
 import logging
+import httpx
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -961,6 +962,101 @@ async def create_checklist(checklist: Checklist):
 async def get_dashboard_stats():
     """ULTRA-FAST cached dashboard stats - returns in <50ms"""
     return await get_cached_stats(db)
+
+# ---- Link to the Abreys Stock Control app (packouttracks) ----
+STOCK_API_BASE = os.environ.get(
+    "STOCK_API_BASE", "https://packouttracks-r-1774892359.emergent.host/api"
+)
+
+@app.get("/api/stock/summary")
+async def get_stock_summary():
+    """Live summary pulled from the Abreys Stock Control app:
+    store utilisation per shed (grouped by crop) and grader throughput."""
+    try:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as hc:
+            sheds_r, zones_r = await asyncio.gather(
+                hc.get(f"{STOCK_API_BASE}/sheds"),
+                hc.get(f"{STOCK_API_BASE}/zones"),
+            )
+            sheds_r.raise_for_status()
+            zones_r.raise_for_status()
+            sheds = sheds_r.json()
+            zones = zones_r.json()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Stock app unreachable: {str(e)}")
+
+    stores = []
+    for shed in sheds:
+        shed_zones = [z for z in zones if z.get("shed_id") == shed.get("id")]
+        total = sum((z.get("total_quantity") or 0) for z in shed_zones)
+        occupied = len([z for z in shed_zones if (z.get("total_quantity") or 0) > 0])
+        utilization = round(occupied / len(shed_zones) * 100) if shed_zones else 0
+        stores.append({
+            "name": shed.get("name") or "",
+            "crop_type": shed.get("crop_type") or "",
+            "zones": len(shed_zones),
+            "occupied_zones": occupied,
+            "total_stock": round(total, 1),
+            "utilization": utilization,
+        })
+
+    # Grader throughput. Newer stock app versions may expose /graders directly;
+    # otherwise we calculate the current T/H from stock movements into the grader.
+    graders = []
+    try:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as hc:
+            g_r = await hc.get(f"{STOCK_API_BASE}/graders")
+            if g_r.status_code == 200 and isinstance(g_r.json(), list) and g_r.json():
+                graders = g_r.json()
+    except Exception:
+        graders = []
+
+    if not graders:
+        try:
+            async with httpx.AsyncClient(timeout=20, follow_redirects=True) as hc:
+                m_r = await hc.get(f"{STOCK_API_BASE}/stock-movements")
+                m_r.raise_for_status()
+                movements = m_r.json()
+            grader_shed_ids = {"GRADER"} | {
+                s.get("id") for s in sheds if "grader" in (s.get("name") or "").lower()
+            }
+            now = datetime.now(timezone.utc)
+            window_hours = 2
+            window_start = now - timedelta(hours=window_hours)
+            today_key = now.astimezone().date().isoformat()
+            window_total = 0.0
+            today_total = 0.0
+            last_move = None
+            for m in movements:
+                if m.get("to_shed_id") not in grader_shed_ids:
+                    continue
+                created = m.get("created_at") or ""
+                try:
+                    ts = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    continue
+                qty = float(m.get("quantity") or 0)
+                if ts >= window_start:
+                    window_total += qty
+                if ts.astimezone().date().isoformat() == today_key:
+                    today_total += qty
+                if last_move is None or ts > last_move:
+                    last_move = ts
+            graders = [{
+                "name": "Grader",
+                "current_th": round(window_total / window_hours, 1),
+                "today_total": round(today_total, 1),
+                "status": (
+                    f"{round(today_total, 1)} t graded today"
+                    + (f" — last load {last_move.astimezone().strftime('%H:%M')}" if last_move else "")
+                ),
+            }]
+        except Exception:
+            graders = []
+
+    return {"stores": stores, "graders": graders}
 
 @app.get("/api/dashboard/checks-by-day")
 async def get_checks_by_day(days: int = 6):
