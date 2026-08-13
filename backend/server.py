@@ -963,6 +963,114 @@ async def get_dashboard_stats():
     """ULTRA-FAST cached dashboard stats - returns in <50ms"""
     return await get_cached_stats(db)
 
+# ---- Tractor Utilisation (weekly telematics CSV, uploaded by a manager) ----
+
+@app.post("/api/tractor-utilisation/upload")
+async def upload_tractor_utilisation(file: UploadFile = File(...)):
+    """Parse and save the weekly tractor utilisation CSV. Columns are read by
+    NAME (order doesn't matter): Nickname, Model, Idle (h), Working (h),
+    Transport (h), Total Hours, Report End Date."""
+    import csv as _csv
+    raw = await file.read()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+    reader = _csv.DictReader(io.StringIO(text))
+
+    def num(v):
+        try:
+            return float(str(v).replace(",", "").strip())
+        except (TypeError, ValueError):
+            return 0.0
+
+    rows = []
+    report_end = ""
+    for r in reader:
+        nick = (r.get("Nickname") or "").strip()
+        if not nick or nick == "---":
+            continue
+        idle = num(r.get("Idle (h)"))
+        work = num(r.get("Working (h)"))
+        trans = num(r.get("Transport (h)"))
+        total = num(r.get("Total Hours"))
+        if idle == 0 and work == 0 and trans == 0 and total == 0:
+            continue
+        if not report_end:
+            report_end = (r.get("Report End Date") or "").strip()
+        rows.append({
+            "nickname": nick,
+            "model": (r.get("Model") or "").strip(),
+            "idle_h": round(idle, 1),
+            "working_h": round(work, 1),
+            "transport_h": round(trans, 1),
+            "total_h": round(total, 1),
+        })
+    if not rows:
+        raise HTTPException(
+            status_code=400,
+            detail="No machine rows found — check this is the weekly utilisation CSV "
+                   "with columns: Nickname, Model, Idle (h), Working (h), Transport (h), Total Hours",
+        )
+    rows.sort(key=lambda x: -x["total_h"])
+    doc = {
+        "rows": rows,
+        "report_end_date": report_end,
+        "machine_count": len(rows),
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.tractor_utilisation.delete_many({})
+    await db.tractor_utilisation.insert_one({**doc})
+    return doc
+
+@app.get("/api/tractor-utilisation")
+async def get_tractor_utilisation():
+    """The latest saved tractor utilisation report."""
+    doc = await db.tractor_utilisation.find_one({}, {"_id": 0})
+    return doc or {"rows": [], "report_end_date": None, "machine_count": 0, "uploaded_at": None}
+
+@app.get("/api/farm/crop-areas")
+async def get_farm_crop_areas(year: int = 2027):
+    """Our crop areas for a given year, parsed from the FieldPlan app's
+    'Our crop areas — <year>' section (the local copy synced daily)."""
+    import re as _re
+    if not os.path.exists(FIELDPLAN_PATH):
+        try:
+            await download_fieldplan()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"FieldPlan not available: {str(e)}")
+    with open(FIELDPLAN_PATH, "r", encoding="utf-8", errors="replace") as f:
+        html = f.read()
+    # Locate the section heading (em dash or hyphen between title and year)
+    m = _re.search(rf"Our crop areas\s*[—-]\s*{year}\s*</h2>", html)
+    if not m:
+        raise HTTPException(status_code=404, detail=f"No crop areas found for {year}")
+    seg = html[m.end():]
+    # Stop at the next section heading, and before the partner-farmed list
+    for marker in ('<div class="sh"', 'Partner-farmed'):
+        end = seg.find(marker)
+        if end != -1:
+            seg = seg[:end]
+    crops = []
+    for cm in _re.finditer(
+        r'background:\s*(#[0-9A-Fa-f]{3,6})"></div>'
+        r'<span[^>]*>([^<]+)</span>'
+        r'<span[^>]*>([\d,\.]+)\s*ha</span>',
+        seg,
+    ):
+        color, name, ha = cm.group(1), cm.group(2).strip(), cm.group(3).replace(",", "")
+        try:
+            ha_val = float(ha)
+        except ValueError:
+            continue
+        crops.append({"name": name, "ha": round(ha_val, 1), "color": color})
+    crops.sort(key=lambda c: -c["ha"])
+    return {
+        "year": year,
+        "crops": crops,
+        "total_ha": round(sum(c["ha"] for c in crops), 1),
+    }
+
 # ---- Link to the Abreys Stock Control app (packouttracks) ----
 STOCK_API_BASE = os.environ.get(
     "STOCK_API_BASE", "https://packouttracks-r-1774892359.emergent.host/api"
@@ -1000,61 +1108,17 @@ async def get_stock_summary():
             "utilization": utilization,
         })
 
-    # Grader throughput. Newer stock app versions may expose /graders directly;
-    # otherwise we calculate the current T/H from stock movements into the grader.
+    # Grader stats — the same feed the stock app's Lines Overview page uses:
+    # per grader, the current session (T/H, tonnes in/out, waste, efficiency,
+    # staff, hours) and all-time statistics.
     graders = []
     try:
-        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as hc:
-            g_r = await hc.get(f"{STOCK_API_BASE}/graders")
-            if g_r.status_code == 200 and isinstance(g_r.json(), list) and g_r.json():
+        async with httpx.AsyncClient(timeout=25, follow_redirects=True) as hc:
+            g_r = await hc.get(f"{STOCK_API_BASE}/grader-stats")
+            if g_r.status_code == 200 and isinstance(g_r.json(), list):
                 graders = g_r.json()
     except Exception:
         graders = []
-
-    if not graders:
-        try:
-            async with httpx.AsyncClient(timeout=20, follow_redirects=True) as hc:
-                m_r = await hc.get(f"{STOCK_API_BASE}/stock-movements")
-                m_r.raise_for_status()
-                movements = m_r.json()
-            grader_shed_ids = {"GRADER"} | {
-                s.get("id") for s in sheds if "grader" in (s.get("name") or "").lower()
-            }
-            now = datetime.now(timezone.utc)
-            window_hours = 2
-            window_start = now - timedelta(hours=window_hours)
-            today_key = now.astimezone().date().isoformat()
-            window_total = 0.0
-            today_total = 0.0
-            last_move = None
-            for m in movements:
-                if m.get("to_shed_id") not in grader_shed_ids:
-                    continue
-                created = m.get("created_at") or ""
-                try:
-                    ts = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
-                    if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=timezone.utc)
-                except ValueError:
-                    continue
-                qty = float(m.get("quantity") or 0)
-                if ts >= window_start:
-                    window_total += qty
-                if ts.astimezone().date().isoformat() == today_key:
-                    today_total += qty
-                if last_move is None or ts > last_move:
-                    last_move = ts
-            graders = [{
-                "name": "Grader",
-                "current_th": round(window_total / window_hours, 1),
-                "today_total": round(today_total, 1),
-                "status": (
-                    f"{round(today_total, 1)} t graded today"
-                    + (f" — last load {last_move.astimezone().strftime('%H:%M')}" if last_move else "")
-                ),
-            }]
-        except Exception:
-            graders = []
 
     return {"stores": stores, "graders": graders}
 

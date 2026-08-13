@@ -27,6 +27,8 @@ export default function Dashboard() {
   const [showRepairWarning, setShowRepairWarning] = useState(false);
   const [checksByDay, setChecksByDay] = useState(null);
   const [stockSummary, setStockSummary] = useState(null);
+  const [farmCrops, setFarmCrops] = useState(null);
+  const [tractorReport, setTractorReport] = useState(null);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +40,7 @@ export default function Dashboard() {
   const [isPaused, setIsPaused] = useState(false);
   const rotationInterval = useRef(null);
   const ROTATION_DELAY = 60000; // 60 seconds
-  const SECTION_LABELS = ['Check Figures', 'Daily Work Plan', 'Work Progress', 'Field Maps', 'Graders', 'Stores'];
+  const SECTION_LABELS = ['Check Figures', 'Daily Work Plan', 'Work Progress', 'Field Maps', 'Farm', 'Graders', 'Stores', 'Tractors'];
 
   // Auto-rotation effect
   useEffect(() => {
@@ -53,7 +55,7 @@ export default function Dashboard() {
     rotationInterval.current = setInterval(() => {
       // Don't rotate while the user is scrolled down reading — it would jump the screen
       if (window.scrollY > 150) return;
-      setActiveSection(prev => (prev + 1) % 6);
+      setActiveSection(prev => (prev + 1) % 8);
     }, ROTATION_DELAY);
 
     return () => {
@@ -76,6 +78,28 @@ export default function Dashboard() {
       setActiveSection(sectionIndex);
       setIsPaused(true);
     }
+  };
+
+  // Tractor utilisation CSV upload (managers/admins)
+  const pctOf = (part, total) => (total > 0 ? Math.round((part / total) * 100) : 0);
+  const handleTractorCSV = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/tractor-utilisation/upload`, { method: 'POST', body: fd });
+      if (res.ok) {
+        setTractorReport(await res.json());
+        toast.success('Tractor utilisation updated');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.detail || 'Could not read that CSV');
+      }
+    } catch (err) {
+      toast.error('Upload failed - check your connection');
+    }
+    e.target.value = '';
   };
 
   // Near Miss / Suggestion / Accident / Whistleblowing Modal state
@@ -558,6 +582,26 @@ export default function Dashboard() {
         const byDayResponse = await fetch(`${API_BASE_URL}/api/dashboard/checks-by-day?days=6`);
         if (byDayResponse.ok) {
           setChecksByDay(await byDayResponse.json());
+        }
+      } catch (e) {
+        // non-fatal
+      }
+
+      // Fetch our crop areas for the Farm tab (from the FieldPlan app)
+      try {
+        const farmResponse = await fetch(`${API_BASE_URL}/api/farm/crop-areas?year=2027`);
+        if (farmResponse.ok) {
+          setFarmCrops(await farmResponse.json());
+        }
+      } catch (e) {
+        // non-fatal
+      }
+
+      // Fetch the saved tractor utilisation report
+      try {
+        const tractorResponse = await fetch(`${API_BASE_URL}/api/tractor-utilisation`);
+        if (tractorResponse.ok) {
+          setTractorReport(await tractorResponse.json());
         }
       } catch (e) {
         // non-fatal
@@ -1571,7 +1615,7 @@ export default function Dashboard() {
           <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold mb-1">{t('dashboardSubtitle')}</p>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
           <div className="flex items-center space-x-2 mt-1">
-            <p className="text-xs text-gray-400">Version 2.4</p>
+            <p className="text-xs text-gray-400">Version 2.7</p>
             <span className="text-gray-300">•</span>
             <p className="text-xs text-gray-400">
               <RefreshCw className="h-3 w-3 inline mr-1" />
@@ -2307,23 +2351,92 @@ export default function Dashboard() {
         <FieldMapBoard active={activeSection === 3} isPaused={isPaused} />
       </div>
 
-      {/* Section 4: Graders — live from the Abreys Stock Control app */}
+      {/* Section 4: Farm — our crop areas from the FieldPlan app */}
       <div className={`transition-all duration-500 ${activeSection === 4 ? 'block opacity-100' : 'hidden opacity-0'}`}>
+        {farmCrops && Array.isArray(farmCrops.crops) && farmCrops.crops.length > 0 ? (
+          <div>
+            <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+              <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold">Our Crops &mdash; {farmCrops.year}</p>
+              <p className="text-sm text-gray-600"><span className="font-serif font-bold text-xl text-gray-900">{Math.round(farmCrops.total_ha).toLocaleString()}</span> ha we farm in total</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {farmCrops.crops.map((c) => (
+                <Card key={c.name}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="inline-block w-3 h-3 rounded-full border border-black/10" style={{ background: c.color }}></span>
+                      <span className="text-sm font-medium text-gray-900 truncate">{c.name}</span>
+                    </div>
+                    <div className="text-2xl sm:text-3xl font-bold font-serif text-green-700">{Math.round(c.ha).toLocaleString()}<span className="text-sm text-gray-500 font-sans font-medium ml-1">ha</span></div>
+                    <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
+                      <div className="h-1.5 rounded-full" style={{ width: `${Math.min(100, Math.round((c.ha / farmCrops.crops[0].ha) * 100))}%`, background: c.color }}></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-48 text-gray-500">
+            <p>{farmCrops ? 'No crop areas found for 2027' : 'Loading crop areas…'}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Section 5: Graders — live from the Abreys Stock Control app */}
+      <div className={`transition-all duration-500 ${activeSection === 5 ? 'block opacity-100' : 'hidden opacity-0'}`}>
         {stockSummary && Array.isArray(stockSummary.graders) && stockSummary.graders.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {stockSummary.graders.map((g, i) => {
-              const th = g.current_th ?? g.tph ?? g.throughput ?? g.t_h ?? g.rate ?? null;
+              const cs = g.current_session;
+              const status = g.status || 'idle';
+              const badge = status === 'running'
+                ? 'bg-green-100 text-green-800'
+                : status === 'paused'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-gray-100 text-gray-600';
+              const at = g.alltime || {};
               return (
-                <Card key={g.id || g.name || i} className="flex flex-col">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">{g.name || g.grader_name || `Grader ${i + 1}`}</CardTitle>
+                <Card key={g.grader_id || g.grader_name || i}>
+                  <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-base">{g.grader_name || `Grader ${i + 1}`}</CardTitle>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider ${badge}`}>{status}</span>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-4xl font-bold font-serif text-green-700">
-                      {th !== null ? th : '—'}<span className="text-lg text-gray-500 font-sans font-medium ml-1">T/H</span>
+                    {cs ? (
+                      <div>
+                        <div className="flex items-end gap-5 flex-wrap">
+                          <div>
+                            <div className="text-4xl font-bold font-serif text-green-700">{cs.tons_per_hour}<span className="text-lg text-gray-500 font-sans font-medium ml-1">T/H</span></div>
+                            <p className="text-xs text-gray-500">Current session &middot; {cs.hours_running} h running</p>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-1 text-xs text-gray-600 mb-1">
+                            <span>In <b className="text-gray-900">{cs.input_tons} t</b></span>
+                            <span>Out <b className="text-gray-900">{cs.output_tons} t</b></span>
+                            <span>Waste <b className="text-gray-900">{cs.waste_tons} t</b></span>
+                            <span>Efficiency <b className="text-gray-900">{cs.efficiency_percent}%</b></span>
+                            <span>Staff <b className="text-gray-900">{(cs.staff_count || 0) + (cs.drivers_count || 0)}</b></span>
+                            {(cs.break_minutes || 0) > 0 && <span>Breaks <b className="text-gray-900">{cs.break_minutes} min</b></span>}
+                          </div>
+                        </div>
+                        {status === 'paused' && cs.pause_reason && (
+                          <p className="text-xs text-yellow-700 mt-2">Paused: {cs.pause_reason}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No session running</p>
+                    )}
+                    <div className="border-t border-gray-100 mt-3 pt-2">
+                      <p className="text-[10px] tracking-[2px] uppercase text-gray-400 font-bold mb-1">All time</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-1 text-xs text-gray-600">
+                        <span>Output <b className="text-gray-900">{at.output_tons} t</b></span>
+                        <span>Avg <b className="text-gray-900">{at.tons_per_hour} T/H</b></span>
+                        <span>Efficiency <b className="text-gray-900">{at.efficiency_percent}%</b></span>
+                        <span>Waste <b className="text-gray-900">{at.waste_tons} t</b></span>
+                        <span>Hours <b className="text-gray-900">{at.total_hours}</b></span>
+                        <span>Sessions <b className="text-gray-900">{at.sessions_completed}</b></span>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">Current throughput</p>
-                    {g.status && <p className="text-xs text-gray-600 mt-1">{g.status}</p>}
                   </CardContent>
                 </Card>
               );
@@ -2336,10 +2449,45 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Section 5: Stores — live from the Abreys Stock Control app */}
-      <div className={`transition-all duration-500 ${activeSection === 5 ? 'block opacity-100' : 'hidden opacity-0'}`}>
+      {/* Section 6: Stores — live from the Abreys Stock Control app */}
+      <div className={`transition-all duration-500 ${activeSection === 6 ? 'block opacity-100' : 'hidden opacity-0'}`}>
         {stockSummary && Array.isArray(stockSummary.stores) && stockSummary.stores.length > 0 ? (
           <div className="space-y-6">
+            {/* Overall store utilisation, like the Stock Control dashboard */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                { title: 'Onion Stores', match: 'onion' },
+                { title: 'Potato Stores', match: 'potato' },
+              ].map(({ title, match }) => {
+                const group = stockSummary.stores.filter(
+                  (s) => (s.crop_type || '').toLowerCase().includes(match)
+                );
+                if (group.length === 0) return null;
+                const totalZones = group.reduce((sum, s) => sum + (s.zones || 0), 0);
+                const occupied = group.reduce((sum, s) => sum + (s.occupied_zones || 0), 0);
+                const totalStock = group.reduce((sum, s) => sum + (s.total_stock || 0), 0);
+                const overall = totalZones > 0 ? Math.round((occupied / totalZones) * 100) : 0;
+                return (
+                  <Card key={title}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">{title} &mdash; Overall Utilisation</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-5xl font-bold font-serif text-green-700">{overall}<span className="text-xl text-gray-500 font-sans font-medium">%</span></div>
+                      <div className="w-full bg-gray-100 rounded-full h-3 mt-2">
+                        <div
+                          className={`h-3 rounded-full ${overall >= 90 ? 'bg-red-500' : 'bg-green-600'}`}
+                          style={{ width: `${Math.min(100, overall)}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-2">
+                        {occupied}/{totalZones} zones in use across {group.length} store{group.length === 1 ? '' : 's'} &middot; {Math.round(totalStock)} t in store
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
             {[
               { title: 'Potato Stores', match: 'potato' },
               { title: 'Onion Stores', match: 'onion' },
@@ -2380,6 +2528,114 @@ export default function Dashboard() {
         ) : (
           <div className="flex items-center justify-center h-48 text-gray-500">
             <p>{stockSummary ? 'No store data available from the Stock Control app yet' : 'Connecting to the Stock Control app…'}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Section 7: Tractors — weekly utilisation from the telematics CSV */}
+      <div className={`transition-all duration-500 ${activeSection === 7 ? 'block opacity-100' : 'hidden opacity-0'}`}>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <div>
+            <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold">Tractor Utilisation</p>
+            {tractorReport && tractorReport.rows && tractorReport.rows.length > 0 && (
+              <p className="text-xs text-gray-500 mt-0.5">
+                {tractorReport.machine_count} machines
+                {tractorReport.report_end_date ? ` · week ending ${tractorReport.report_end_date}` : ''}
+              </p>
+            )}
+          </div>
+          {hasManagerAccess && (
+            <label className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg cursor-pointer shadow-sm">
+              <Upload className="h-4 w-4" />
+              Upload weekly CSV
+              <input type="file" accept=".csv" className="hidden" onChange={handleTractorCSV} data-testid="tractor-csv-input" />
+            </label>
+          )}
+        </div>
+        {tractorReport && tractorReport.rows && tractorReport.rows.length > 0 ? (() => {
+          const rows = tractorReport.rows;
+          const tI = rows.reduce((a, r) => a + r.idle_h, 0);
+          const tW = rows.reduce((a, r) => a + r.working_h, 0);
+          const tT = rows.reduce((a, r) => a + r.transport_h, 0);
+          const tTot = rows.reduce((a, r) => a + r.total_h, 0);
+          const tpW = pctOf(tW, tTot);
+          const workColour = (p) => (p >= 50 ? '#5D8F1C' : p >= 30 ? '#e67e22' : '#e74c3c');
+          return (
+            <Card>
+              <CardContent className="p-4 overflow-x-auto">
+                <table className="w-full text-sm" style={{ minWidth: 700 }}>
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-2 pr-3 text-xs uppercase tracking-wider text-gray-500 font-semibold whitespace-nowrap">Machine</th>
+                      <th className="text-left py-2 pr-3 text-xs uppercase tracking-wider text-gray-500 font-semibold">Model</th>
+                      <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Idle (h)</th>
+                      <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Working (h)</th>
+                      <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Transport (h)</th>
+                      <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Total (h)</th>
+                      <th className="text-left py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold" style={{ minWidth: 200 }}>Breakdown</th>
+                      <th className="text-right py-2 pl-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Work%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => {
+                      const pW = pctOf(r.working_h, r.total_h);
+                      const pI = pctOf(r.idle_h, r.total_h);
+                      const pT = pctOf(r.transport_h, r.total_h);
+                      return (
+                        <tr key={r.nickname} className="border-b border-gray-100">
+                          <td className="py-1.5 pr-3 font-semibold text-gray-900 whitespace-nowrap">{r.nickname}</td>
+                          <td className="py-1.5 pr-3 text-gray-600">{r.model}</td>
+                          <td className="py-1.5 px-2 text-right">{r.idle_h.toFixed(1)}</td>
+                          <td className="py-1.5 px-2 text-right">{r.working_h.toFixed(1)}</td>
+                          <td className="py-1.5 px-2 text-right">{r.transport_h.toFixed(1)}</td>
+                          <td className="py-1.5 px-2 text-right font-semibold">{r.total_h.toFixed(1)}</td>
+                          <td className="py-1.5 px-2">
+                            <div className="flex h-3.5 rounded-sm overflow-hidden bg-gray-100">
+                              <div title={`Working ${pW}%`} style={{ width: `${pW}%`, background: '#7DB82B' }}></div>
+                              <div title={`Transport ${pT}%`} style={{ width: `${pT}%`, background: '#2980b9' }}></div>
+                              <div title={`Idle ${pI}%`} style={{ width: `${pI}%`, background: '#e67e22' }}></div>
+                            </div>
+                          </td>
+                          <td className="py-1.5 pl-2 text-right font-bold" style={{ color: workColour(pW) }}>{pW}%</td>
+                        </tr>
+                      );
+                    })}
+                    <tr className="border-t-2 border-gray-200 font-bold">
+                      <td className="py-2 pr-3" colSpan={2}>FLEET TOTAL ({rows.length} machines)</td>
+                      <td className="py-2 px-2 text-right">{tI.toFixed(1)}</td>
+                      <td className="py-2 px-2 text-right">{tW.toFixed(1)}</td>
+                      <td className="py-2 px-2 text-right">{tT.toFixed(1)}</td>
+                      <td className="py-2 px-2 text-right">{tTot.toFixed(1)}</td>
+                      <td className="py-2 px-2">
+                        <div className="flex h-3.5 rounded-sm overflow-hidden bg-gray-100">
+                          <div style={{ width: `${pctOf(tW, tTot)}%`, background: '#7DB82B' }}></div>
+                          <div style={{ width: `${pctOf(tT, tTot)}%`, background: '#2980b9' }}></div>
+                          <div style={{ width: `${pctOf(tI, tTot)}%`, background: '#e67e22' }}></div>
+                        </div>
+                      </td>
+                      <td className="py-2 pl-2 text-right" style={{ color: workColour(tpW) }}>{tpW}%</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="flex items-center gap-5 mt-3 text-xs text-gray-600">
+                  <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#7DB82B' }}></span>Working</span>
+                  <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#2980b9' }}></span>Transport</span>
+                  <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#e67e22' }}></span>Idle</span>
+                  {tractorReport.uploaded_at && (
+                    <span className="ml-auto text-gray-400">Uploaded {new Date(tractorReport.uploaded_at).toLocaleDateString()}</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })() : (
+          <div className="flex flex-col items-center justify-center h-48 text-gray-500 gap-1">
+            <p>No utilisation report uploaded yet</p>
+            {hasManagerAccess ? (
+              <p className="text-xs">Use the green button above to upload the weekly CSV from the telematics system</p>
+            ) : (
+              <p className="text-xs">A manager can upload the weekly CSV from the telematics system</p>
+            )}
           </div>
         )}
       </div>
