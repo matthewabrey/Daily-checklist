@@ -963,6 +963,191 @@ async def get_dashboard_stats():
     """ULTRA-FAST cached dashboard stats - returns in <50ms"""
     return await get_cached_stats(db)
 
+# ---- Workplan import from the DailyWorkPlan Excel (SharePoint or upload) ----
+
+WORKPLAN_XLSX_FILENAME = os.environ.get("SHAREPOINT_WORKPLAN_FILENAME", "DailyWorkPlanApp.xlsx")
+
+def _parse_workplan_excel(content: bytes, week_start):
+    """Parse the DailyWorkPlanApp.xlsx 'Main Sheet': one row per person
+    (vehicle, name, manager, start time, field/jobs note) with two columns
+    per dated day (AM job, PM job). Returns app-shaped workplan rows for the
+    week beginning week_start (a Monday)."""
+    import openpyxl as _openpyxl
+    from datetime import time as _time
+
+    wb = _openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+    if "Main Sheet" not in wb.sheetnames:
+        raise ValueError("Couldn't find the 'Main Sheet' tab in the Excel file")
+    ws = wb["Main Sheet"]
+
+    date_cols = {}
+    for c in range(1, ws.max_column + 1):
+        v = ws.cell(row=2, column=c).value
+        if isinstance(v, datetime):
+            date_cols[v.date()] = c
+
+    week = [week_start + timedelta(days=i) for i in range(7)]
+    if not any(d in date_cols for d in week):
+        span = ""
+        if date_cols:
+            all_dates = sorted(date_cols)
+            span = f" (the file covers {all_dates[0].strftime('%d %b %Y')} to {all_dates[-1].strftime('%d %b %Y')})"
+        raise ValueError(f"No columns found for the week beginning {week_start.strftime('%d %b %Y')}{span}")
+
+    def cellv(r, c):
+        v = ws.cell(row=r, column=c).value
+        return str(v).strip() if v is not None else ""
+
+    rows = []
+    for r in range(3, ws.max_row + 1):
+        name = cellv(r, 6)
+        if not name:
+            continue
+        st = ws.cell(row=r, column=8).value
+        if isinstance(st, datetime):
+            start = st.strftime("%H:%M")
+        elif isinstance(st, _time):
+            start = st.strftime("%H:%M")
+        else:
+            start = str(st)[:5] if st else ""
+        days = []
+        has_job = False
+        for d in week:
+            c = date_cols.get(d)
+            am = cellv(r, c) if c else ""
+            pm = cellv(r, c + 1) if c else ""
+            if am or pm:
+                has_job = True
+            days.append({
+                "am": {"job": am, "color_id": None} if am else None,
+                "pm": {"job": pm, "color_id": None} if pm else None,
+            })
+        if not has_job:
+            continue  # only import people with work this week
+        rows.append({
+            "id": str(uuid.uuid4()),
+            "employee_name": name,
+            "vehicle": cellv(r, 5),
+            "implement": "",
+            "manager": cellv(r, 7),
+            "start_time": start,
+            "notes": cellv(r, 10),
+            "group_color": None,
+            "left": False,
+            "days": days,
+        })
+    return rows
+
+
+def _match_vehicles_to_assets(rows, assets):
+    """Where a vehicle from the Excel clearly matches a machine on the
+    checklist machine list, rename it to the checklist's naming so daily
+    checks can be cross-referenced later. Ambiguous or numeric-only
+    vehicles are left as typed."""
+    NO_MATCH = {"", "n/a", "na", "own", "qwn", "own transport", "-"}
+    labels = []
+    for a in assets:
+        nm = (a.get("name") or "").strip()
+        mk = (a.get("make") or "").strip()
+        full = f"{mk} {nm}".strip()
+        labels.append((full.lower(), nm.lower(), full))
+    matched = 0
+    for row in rows:
+        v = (row.get("vehicle") or "").strip()
+        vl = v.lower()
+        if vl in NO_MATCH or not v:
+            continue
+        # exact match against "Make Name" or just Name
+        exact = [full for fl, nl, full in labels if fl == vl or nl == vl]
+        if len(exact) >= 1:
+            row["vehicle"] = exact[0]
+            matched += 1
+            continue
+        # distinctive word (not just a number): unique substring match
+        if not v.replace(" ", "").isdigit() and len(v) >= 4:
+            subs = [full for fl, nl, full in labels if vl in fl]
+            if len(subs) == 1:
+                row["vehicle"] = subs[0]
+                matched += 1
+    return matched
+
+
+@app.post("/api/workplan/sync-from-excel")
+async def sync_workplan_from_excel(file: UploadFile = File(None)):
+    """Update the workplan from the DailyWorkPlan Excel. If a file is
+    uploaded, use it; otherwise fetch the latest copy from SharePoint
+    (same connection as the staff/assets sync). Imports the current week
+    and publishes it immediately."""
+    from zoneinfo import ZoneInfo
+    uk_today = datetime.now(ZoneInfo("Europe/London")).date()
+    week_start = uk_today - timedelta(days=uk_today.weekday())  # Monday
+
+    if file is not None and file.filename:
+        content = await file.read()
+        source = f"uploaded file ({file.filename})"
+    else:
+        try:
+            token_site = sharepoint_auto_sync._get_site_id()
+            drive_id = sharepoint_auto_sync._get_drive_id(token_site)
+            item_id = sharepoint_auto_sync._find_file(drive_id, WORKPLAN_XLSX_FILENAME)
+            content = sharepoint_auto_sync._download_file(drive_id, item_id)
+            source = f"SharePoint ({WORKPLAN_XLSX_FILENAME})"
+        except Exception as e:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Couldn't fetch {WORKPLAN_XLSX_FILENAME} from SharePoint ({str(e)}). "
+                       "You can drag the Excel file into the box instead.",
+            )
+
+    try:
+        rows = _parse_workplan_excel(content, week_start)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Couldn't read that Excel file: {str(e)}")
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="No people with jobs found for this week in the Excel file")
+
+    assets = await db.assets.find({}, {"_id": 0, "name": 1, "make": 1}).to_list(length=5000)
+    vehicles_matched = _match_vehicles_to_assets(rows, assets)
+
+    ws_iso = week_start.isoformat()
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Archive the previous week's draft if the week is changing (same as manual save)
+    existing = await db.workplan.find_one({"key": "current"}, {"_id": 0})
+    if existing and existing.get("week_start") and existing.get("week_start") != ws_iso:
+        old_rows = existing.get("draft_rows", [])
+        if old_rows:
+            await db.workplan_archive.update_one(
+                {"week_start": existing["week_start"]},
+                {"$set": {"week_start": existing["week_start"], "rows": old_rows, "archived_at": now}},
+                upsert=True,
+            )
+
+    await db.workplan.update_one(
+        {"key": "current"},
+        {"$set": {
+            "week_start": ws_iso,
+            "draft_rows": rows,
+            "published_rows": rows,
+            "published_week_start": ws_iso,
+            "published_at": now,
+            "imported_from_excel_at": now,
+            "import_source": source,
+        }},
+        upsert=True,
+    )
+    return {
+        "success": True,
+        "week_start": ws_iso,
+        "people": len(rows),
+        "vehicles_matched": vehicles_matched,
+        "source": source,
+        "published_at": now,
+    }
+
 # ---- Tractor Utilisation (weekly telematics CSV, uploaded by a manager) ----
 
 @app.post("/api/tractor-utilisation/upload")

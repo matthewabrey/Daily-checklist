@@ -1595,7 +1595,7 @@ export default function Dashboard() {
           <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold mb-1">{t('dashboardSubtitle')}</p>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
           <div className="flex items-center space-x-2 mt-1">
-            <p className="text-xs text-gray-400">Version 2.9</p>
+            <p className="text-xs text-gray-400">Version 3.0</p>
             <span className="text-gray-300">•</span>
             <p className="text-xs text-gray-400">
               <RefreshCw className="h-3 w-3 inline mr-1" />

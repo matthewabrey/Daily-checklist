@@ -73,7 +73,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 2.9 &mdash; August 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 3.0 &mdash; August 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -6283,6 +6283,34 @@ function ManagerProtectedRoute({ children }) {
 function ManagerPage() {
   const { employee } = useAuth();
   const navigate = useNavigate();
+  const [wpSyncing, setWpSyncing] = useState(false);
+  const [wpResult, setWpResult] = useState(null);
+  const [wpDragOver, setWpDragOver] = useState(false);
+
+  const syncWorkplan = async (file) => {
+    setWpSyncing(true);
+    setWpResult(null);
+    try {
+      const opts = { method: 'POST' };
+      if (file) {
+        const fd = new FormData();
+        fd.append('file', file);
+        opts.body = fd;
+      }
+      const res = await fetch(`${API_BASE_URL}/api/workplan/sync-from-excel`, opts);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setWpResult(data);
+        toast.success(`Workplan updated — ${data.people} people, week beginning ${data.week_start}`);
+      } else {
+        toast.error(data.detail || 'Workplan update failed');
+      }
+    } catch (e) {
+      toast.error('Workplan update failed. Please try again.');
+    } finally {
+      setWpSyncing(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -6297,6 +6325,62 @@ function ManagerPage() {
           </div>
         </div>
       </div>
+
+      {/* Workplan update from the DailyWorkPlan Excel */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <CalendarDays className="h-5 w-5 text-green-600" />
+            <span>Daily Work Plan &mdash; update from Excel</span>
+          </CardTitle>
+          <CardDescription>
+            Pulls this week from the DailyWorkPlanApp spreadsheet and publishes it to the dashboard for everyone
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4 items-stretch">
+            <Button
+              onClick={() => syncWorkplan(null)}
+              disabled={wpSyncing}
+              className="bg-green-600 hover:bg-green-700 text-white sm:flex-1 py-6"
+              data-testid="workplan-sync-btn"
+            >
+              {wpSyncing ? (
+                <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Updating&hellip;</>
+              ) : (
+                <><RefreshCw className="h-4 w-4 mr-2" />Update Workplan from Excel</>
+              )}
+            </Button>
+            <div
+              onDragOver={(e) => { e.preventDefault(); setWpDragOver(true); }}
+              onDragLeave={() => setWpDragOver(false)}
+              onDrop={(e) => { e.preventDefault(); setWpDragOver(false); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) syncWorkplan(f); }}
+              onClick={() => document.getElementById('workplan-xlsx-input').click()}
+              className={`sm:flex-1 border-2 border-dashed rounded-xl px-4 py-3 text-center cursor-pointer transition-colors flex flex-col items-center justify-center ${
+                wpDragOver ? 'border-green-600 bg-green-50' : 'border-gray-300 hover:border-green-400'
+              }`}
+              data-testid="workplan-drop-zone"
+            >
+              <p className="text-sm font-semibold text-gray-900">or drop the Excel file here</p>
+              <p className="text-xs text-gray-500 mt-0.5">if SharePoint can't be reached</p>
+              <input
+                type="file"
+                id="workplan-xlsx-input"
+                accept=".xlsx"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) syncWorkplan(f); e.target.value = ''; }}
+              />
+            </div>
+          </div>
+          {wpResult && (
+            <p className="text-xs text-gray-600 mt-3">
+              Updated from {wpResult.source}: <b>{wpResult.people} people</b> for the week beginning <b>{wpResult.week_start}</b>
+              {typeof wpResult.vehicles_matched === 'number' ? <> &middot; {wpResult.vehicles_matched} vehicles matched to the machine list</> : null}
+              &nbsp;&middot; published to the dashboard
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Work Progress Tracking Section */}
       <WorkProgressAdmin />
