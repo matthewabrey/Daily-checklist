@@ -52,6 +52,7 @@ export default function RepairsNeeded() {
     setRepairs([]);
     setLoading(true);
     fetchRepairs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch page 1 whenever the view type changes; paging handled by Load More
   }, [hasWorkshopAccess, navigate, viewType]);
 
   const fetchRepairs = async (append = false) => {

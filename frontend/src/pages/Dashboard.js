@@ -996,6 +996,25 @@ export default function Dashboard() {
               </div>
             )}
 
+            {selectedCheckDetail.check_type === 'pre_service_check' && (selectedCheckDetail.workshop_notes || selectedCheckDetail.parts_required?.length > 0) && (
+              <div className="mt-4 p-4 bg-purple-50 rounded-lg space-y-3" data-testid="dashboard-detail-service-extras">
+                {selectedCheckDetail.workshop_notes && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-1">Any other Parts or Issues</h4>
+                    <p className="text-sm whitespace-pre-wrap">{selectedCheckDetail.workshop_notes}</p>
+                  </div>
+                )}
+                {selectedCheckDetail.parts_required?.length > 0 && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-1">Parts Required</h4>
+                    <ul className="list-decimal list-inside text-sm space-y-0.5">
+                      {selectedCheckDetail.parts_required.map((part, i) => <li key={`${part}-${i}`}>{part}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="mt-4 flex justify-end">
               <Button onClick={() => setSelectedCheckDetail(null)}>
                 Close

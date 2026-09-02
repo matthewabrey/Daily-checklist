@@ -9,10 +9,65 @@ import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
 import { toast } from 'sonner';
 import { useTranslation } from '../LanguageContext';
-import { CheckCircle2, ClipboardList, Settings, ArrowLeft, User, Wrench, Database, Upload, Camera, X, QrCode, ScanLine, TrendingUp } from 'lucide-react';
+import { CheckCircle2, ClipboardList, ClipboardCheck, Settings, ArrowLeft, User, Wrench, Database, Upload, Camera, X, QrCode, ScanLine, TrendingUp } from 'lucide-react';
 import QRScanner from '../components/QRScanner';
+import { PreServiceCheckForm } from '../components/PreServiceCheckForm';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../lib/api';
+
+const DEFAULT_CHECKLIST_ITEMS = [
+  { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
+  { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
+  { item: "Hydraulic fluid level - Within acceptable range", status: "unchecked", notes: "" },
+  { item: "Battery condition - Terminals clean, voltage adequate", status: "unchecked", notes: "" },
+  { item: "Tire/track condition - No visible damage or excessive wear", status: "unchecked", notes: "" },
+  { item: "Safety guards in place - All protective covers secured", status: "unchecked", notes: "" },
+  { item: "Emergency stop function - Test emergency stop button", status: "unchecked", notes: "" },
+  { item: "Warning lights operational - All safety lights working", status: "unchecked", notes: "" },
+  { item: "Operator seat condition - Seat belt and controls functional", status: "unchecked", notes: "" },
+  { item: "Air filter condition - Clean and properly sealed", status: "unchecked", notes: "" },
+  { item: "Cooling system - Radiator clear, coolant level adequate", status: "unchecked", notes: "" },
+  { item: "Brake system function - Service and parking brakes operational", status: "unchecked", notes: "" },
+  { item: "Steering operation - Smooth operation, no excessive play", status: "unchecked", notes: "" },
+  { item: "Lights and signals - All operational lights working", status: "unchecked", notes: "" },
+  { item: "Fire extinguisher - Present and within service date", status: "unchecked", notes: "" }
+];
+
+const GRADER_STARTUP_CHECKLIST_ITEMS = [
+  { item: "Emergency stops working and present - Test all emergency stop buttons", status: "unchecked", notes: "" },
+  { item: "Walkways clear of debris and gates closed - All access areas safe", status: "unchecked", notes: "" },
+  { item: "Guards are all in place - All safety guards properly secured", status: "unchecked", notes: "" },
+  { item: "All personnel accounted for and out of reach of dangers - Safety zone clear", status: "unchecked", notes: "" },
+  { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
+  { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
+  { item: "Hydraulic fluid level - Within acceptable range", status: "unchecked", notes: "" },
+  { item: "Battery condition - Terminals clean, voltage adequate", status: "unchecked", notes: "" },
+  { item: "Track/blade condition - No visible damage or excessive wear", status: "unchecked", notes: "" },
+  { item: "Blade operation - Hydraulic lift and angle functions working", status: "unchecked", notes: "" },
+  { item: "Warning beacon - Rotating warning light operational", status: "unchecked", notes: "" },
+  { item: "Backup alarm - Reverse warning signal functional", status: "unchecked", notes: "" }
+];
+
+const loadChecklistTemplate = async (type) => {
+  const fallbackItems = type === 'daily_check' ? DEFAULT_CHECKLIST_ITEMS : GRADER_STARTUP_CHECKLIST_ITEMS;
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/checklist-templates/${encodeURIComponent(type)}`);
+    const template = await response.json();
+    if (response.ok && template.items) {
+      return template.items.map(templateItem => ({
+        item: typeof templateItem === 'string' ? templateItem : templateItem.item,
+        status: "unchecked",
+        notes: "",
+        compulsory: typeof templateItem === 'object' ? (templateItem.compulsory || false) : false,
+        photos: []
+      }));
+    }
+    return fallbackItems;
+  } catch (error) {
+    console.error('Error loading checklist template:', error);
+    return fallbackItems;
+  }
+};
 
 
 // New Checklist Component
@@ -28,6 +83,10 @@ export default function NewChecklist() {
   const [checklistItems, setChecklistItems] = useState([]);
   const [workshopNotes, setWorkshopNotes] = useState('');
   const [workshopPhotos, setWorkshopPhotos] = useState([]);
+  // Pre Service Check (make-specific service sheet, e.g. Perrot)
+  const [serviceTemplate, setServiceTemplate] = useState(null);
+  const [partsRequired, setPartsRequired] = useState([]);
+  const [partInput, setPartInput] = useState('');
   // Fuel and Mileage fields
   const [fuelMileage, setFuelMileage] = useState('');
   const [fuelAdded, setFuelAdded] = useState('');
@@ -75,38 +134,6 @@ export default function NewChecklist() {
     }
   }, [location.state]);
 
-  const defaultChecklistItems = [
-    { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
-    { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
-    { item: "Hydraulic fluid level - Within acceptable range", status: "unchecked", notes: "" },
-    { item: "Battery condition - Terminals clean, voltage adequate", status: "unchecked", notes: "" },
-    { item: "Tire/track condition - No visible damage or excessive wear", status: "unchecked", notes: "" },
-    { item: "Safety guards in place - All protective covers secured", status: "unchecked", notes: "" },
-    { item: "Emergency stop function - Test emergency stop button", status: "unchecked", notes: "" },
-    { item: "Warning lights operational - All safety lights working", status: "unchecked", notes: "" },
-    { item: "Operator seat condition - Seat belt and controls functional", status: "unchecked", notes: "" },
-    { item: "Air filter condition - Clean and properly sealed", status: "unchecked", notes: "" },
-    { item: "Cooling system - Radiator clear, coolant level adequate", status: "unchecked", notes: "" },
-    { item: "Brake system function - Service and parking brakes operational", status: "unchecked", notes: "" },
-    { item: "Steering operation - Smooth operation, no excessive play", status: "unchecked", notes: "" },
-    { item: "Lights and signals - All operational lights working", status: "unchecked", notes: "" },
-    { item: "Fire extinguisher - Present and within service date", status: "unchecked", notes: "" }
-  ];
-
-  const graderStartupChecklistItems = [
-    { item: "Emergency stops working and present - Test all emergency stop buttons", status: "unchecked", notes: "" },
-    { item: "Walkways clear of debris and gates closed - All access areas safe", status: "unchecked", notes: "" },
-    { item: "Guards are all in place - All safety guards properly secured", status: "unchecked", notes: "" },
-    { item: "All personnel accounted for and out of reach of dangers - Safety zone clear", status: "unchecked", notes: "" },
-    { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
-    { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
-    { item: "Hydraulic fluid level - Within acceptable range", status: "unchecked", notes: "" },
-    { item: "Battery condition - Terminals clean, voltage adequate", status: "unchecked", notes: "" },
-    { item: "Track/blade condition - No visible damage or excessive wear", status: "unchecked", notes: "" },
-    { item: "Blade operation - Hydraulic lift and angle functions working", status: "unchecked", notes: "" },
-    { item: "Warning beacon - Rotating warning light operational", status: "unchecked", notes: "" },
-    { item: "Backup alarm - Reverse warning signal functional", status: "unchecked", notes: "" }
-  ];
 
   // Handle QR code scan
   const handleQRScan = async (scannedData) => {
@@ -180,6 +207,7 @@ export default function NewChecklist() {
   useEffect(() => {
     if (selectedMake) {
       fetchNames(selectedMake);
+      fetchServiceTemplate(selectedMake);
       setSelectedName(''); // Reset name when make changes
       setMachineCheckType(''); // Reset check type
     }
@@ -193,35 +221,30 @@ export default function NewChecklist() {
 
   useEffect(() => {
     if (step === 3 && selectedCheckType === 'daily_check' && machineCheckType) {
-      loadChecklistTemplate(machineCheckType);
+      loadChecklistTemplate(machineCheckType).then(setChecklistItems);
     }
-  }, [step, selectedCheckType, machineCheckType]);
+    if (step === 3 && selectedCheckType === 'pre_service_check' && serviceTemplate) {
+      setChecklistItems(serviceTemplate.sections.map(section => ({
+        item: section, status: 'unchecked', notes: '', compulsory: false, photos: []
+      })));
+    }
+  }, [step, selectedCheckType, machineCheckType, serviceTemplate]);
 
-  const loadChecklistTemplate = async (type) => {
+  const fetchServiceTemplate = async (make) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklist-templates/${encodeURIComponent(type)}`);
-      const template = await response.json();
-      
-      if (response.ok && template.items) {
-        const items = template.items.map(templateItem => ({
-          item: typeof templateItem === 'string' ? templateItem : templateItem.item,
-          status: "unchecked",
-          notes: "",
-          compulsory: typeof templateItem === 'object' ? (templateItem.compulsory || false) : false,
-          photos: []
-        }));
-        setChecklistItems(items);
-      } else {
-        // Fallback to default items if template not found
-        const fallbackItems = type === 'daily_check' ? defaultChecklistItems : graderStartupChecklistItems;
-        setChecklistItems(fallbackItems);
-      }
+      const response = await fetch(`${API_BASE_URL}/api/service-check-templates/by-make/${encodeURIComponent(make)}`);
+      setServiceTemplate(response.ok ? await response.json() : null);
     } catch (error) {
-      console.error('Error loading checklist template:', error);
-      // Fallback to default items on error
-      const fallbackItems = type === 'daily_check' ? defaultChecklistItems : graderStartupChecklistItems;
-      setChecklistItems(fallbackItems);
+      console.error('Error fetching service template:', error);
+      setServiceTemplate(null);
     }
+  };
+
+  const addPartRequired = () => {
+    const part = partInput.trim();
+    if (!part) return;
+    setPartsRequired(prev => [...prev, part]);
+    setPartInput('');
   };
 
   // fetchStaff function removed - no longer needed since staff selection was replaced with employee authentication
@@ -282,7 +305,6 @@ export default function NewChecklist() {
           const video = document.getElementById('camera-video');
           if (video) {
             video.srcObject = stream;
-          } else {
           }
         }, 200);
         
@@ -580,28 +602,32 @@ export default function NewChecklist() {
     }
 
     // Check for unsatisfactory items without explanations
-    if (selectedCheckType === 'daily_check') {
+    if (selectedCheckType === 'daily_check' || selectedCheckType === 'pre_service_check') {
       const unsatisfactoryWithoutNotes = checklistItems.find(item => 
         item.status === 'unsatisfactory' && (!item.notes || item.notes.trim() === '')
       );
       
       if (unsatisfactoryWithoutNotes) {
-        toast.error('Do not carry on with this check or until this issue is recorded and sorted.');
+        toast.error(selectedCheckType === 'pre_service_check'
+          ? 'Please describe the work needed for every section marked "Needs Work".'
+          : 'Do not carry on with this check or until this issue is recorded and sorted.');
         return;
       }
     }
 
     setIsSubmitting(true);
     try {
+      const isPreService = selectedCheckType === 'pre_service_check';
       const checklist = {
         employee_number: employee.employee_number,
         staff_name: employee.name,
         machine_make: selectedMake,
         machine_model: selectedName,
         check_type: selectedCheckType,
-        checklist_items: selectedCheckType === 'daily_check' ? checklistItems : [],
-        workshop_notes: selectedCheckType === 'workshop_service' ? workshopNotes : null,
-        workshop_photos: selectedCheckType === 'workshop_service' ? workshopPhotos : [],
+        checklist_items: (selectedCheckType === 'daily_check' || isPreService) ? checklistItems : [],
+        workshop_notes: selectedCheckType === 'workshop_service' ? workshopNotes : (isPreService && workshopNotes.trim() ? workshopNotes : null),
+        workshop_photos: (selectedCheckType === 'workshop_service' || isPreService) ? workshopPhotos : [],
+        parts_required: isPreService ? partsRequired : [],
         // Fuel and Mileage fields
         fuel_mileage: selectedCheckType === 'fuel_mileage' ? fuelMileage : null,
         fuel_added: selectedCheckType === 'fuel_mileage' ? fuelAdded : null,
@@ -618,7 +644,7 @@ export default function NewChecklist() {
       });
 
       if (response.ok) {
-        toast.success('Checklist completed successfully!');
+        toast.success(selectedCheckType === 'pre_service_check' ? 'Pre Service Check saved successfully!' : 'Checklist completed successfully!');
         navigate('/');
       } else {
         // Parse error response from backend
@@ -997,7 +1023,7 @@ export default function NewChecklist() {
                   
                   <p className="text-gray-700 font-medium">Select check type:</p>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${serviceTemplate ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
                     <Button 
                       onClick={() => {
                         setSelectedCheckType('daily_check');
@@ -1036,6 +1062,21 @@ export default function NewChecklist() {
                       <span className="text-lg font-semibold">Fuel & Mileage</span>
                       <span className="text-xs opacity-90">Record fuel and mileage</span>
                     </Button>
+
+                    {serviceTemplate && (
+                      <Button 
+                        onClick={() => {
+                          setSelectedCheckType('pre_service_check');
+                          setStep(3);
+                        }}
+                        className="h-auto py-4 bg-purple-700 hover:bg-purple-800 flex flex-col items-center gap-2"
+                        data-testid="pre-service-check-btn"
+                      >
+                        <ClipboardCheck className="h-6 w-6" />
+                        <span className="text-lg font-semibold">Pre Service Check</span>
+                        <span className="text-xs opacity-90">End of season service sheet</span>
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
@@ -1140,6 +1181,29 @@ export default function NewChecklist() {
                     </div>
                   </div>
                 </Card>
+
+                {serviceTemplate && (
+                  <Card 
+                    className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-purple-400 border-2 ${selectedCheckType === 'pre_service_check' ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}`}
+                    onClick={() => {
+                      setSelectedCheckType('pre_service_check');
+                      setStep(3);
+                    }}
+                    data-testid="pre-service-check-option"
+                  >
+                    <div className="flex items-center space-x-3 sm:space-x-4">
+                      <div className="p-3 bg-purple-100 rounded-lg">
+                        <ClipboardCheck className="h-6 w-6 text-purple-700" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg sm:text-xl">Pre Service Check</h3>
+                        <p className="text-gray-600 text-sm sm:text-base">{serviceTemplate.name}</p>
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">End of season service sheet — {serviceTemplate.sections.length} sections</p>
+                        <p className="text-sm text-purple-700 font-medium mt-2">Tap to start →</p>
+                      </div>
+                    </div>
+                  </Card>
+                )}
               </div>
               
               <div className="flex justify-start pt-6">
@@ -1164,11 +1228,11 @@ export default function NewChecklist() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <ClipboardList className="h-5 w-5 text-green-600" />
-                    <span className="font-medium">Check Type: {selectedCheckType === 'daily_check' ? `Daily Check (${machineCheckType})` : selectedCheckType === 'fuel_mileage' ? 'Fuel & Mileage Recording' : 'Workshop Service'}</span>
+                    <span className="font-medium">Check Type: {selectedCheckType === 'daily_check' ? `Daily Check (${machineCheckType})` : selectedCheckType === 'fuel_mileage' ? 'Fuel & Mileage Recording' : selectedCheckType === 'pre_service_check' ? 'Pre Service Check' : 'Workshop Service'}</span>
                   </div>
                 </div>
-                {selectedCheckType === 'daily_check' && (
-                  <Badge variant={allItemsAddressed ? "default" : "secondary"} className="px-3 py-1">
+                {(selectedCheckType === 'daily_check' || selectedCheckType === 'pre_service_check') && (
+                  <Badge variant={allItemsAddressed ? "default" : "secondary"} className="px-3 py-1" data-testid="items-complete-badge">
                     {checklistItems.filter(item => item.status !== 'unchecked').length} / {checklistItems.length} Complete
                   </Badge>
                 )}
@@ -1315,6 +1379,23 @@ export default function NewChecklist() {
                     </Card>
                   ))}
                 </div>
+              ) : selectedCheckType === 'pre_service_check' && serviceTemplate ? (
+                <PreServiceCheckForm
+                  template={serviceTemplate}
+                  items={checklistItems}
+                  onItemChange={handleItemChange}
+                  takePhoto={takePhoto}
+                  uploadPhoto={uploadPhoto}
+                  deletePhoto={deletePhoto}
+                  notes={workshopNotes}
+                  setNotes={setWorkshopNotes}
+                  photos={workshopPhotos}
+                  partsRequired={partsRequired}
+                  setPartsRequired={setPartsRequired}
+                  partInput={partInput}
+                  setPartInput={setPartInput}
+                  addPart={addPartRequired}
+                />
               ) : selectedCheckType === 'workshop_service' ? (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Workshop Service Record</h3>
@@ -1552,6 +1633,7 @@ export default function NewChecklist() {
                 >
                   {isSubmitting ? 'Saving...' : hasFailedCompulsoryItems ? 'Cannot Submit - Compulsory Check Failed' : `Complete ${
                     selectedCheckType === 'daily_check' ? 'Checklist' : 
+                    selectedCheckType === 'pre_service_check' ? 'Pre Service Check' :
                     'Service Record'
                   }`}
                 </Button>

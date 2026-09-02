@@ -95,9 +95,20 @@ QR code-based machine checklist application with health, safety, and work manage
 - [x] Normalized legacy '6:30 Am' start times to 'HH:mm' for <input type="time">
 - Verified by testing agent: 8/8 frontend tests passed (/app/test_reports/iteration_7.json)
 
+## Pre Service Check — Perrot (June 2026)
+- [x] New check type `pre_service_check` (end-of-season service sheet), currently ONLY for make "Perrot" (47 irrigators)
+- [x] Backend: `service_check_templates` collection seeded idempotently on startup with Perrot template (7 sections: Gun Carriage General, Gun Carriage Wheels and Axles, Gun, Hydraulic Rams, Drum, Guards, Computer/Computer Box). Endpoints: GET `/api/service-check-templates`, GET `/api/service-check-templates/by-make/{make}` (case-insensitive, 404 if none). `Checklist`/`ChecklistResponse` gained `parts_required: List[str]`; by-machine projection + dashboard stats updated
+- [x] Frontend: `/new-checklist` shows a 4th purple "Pre Service Check" button (data-testid `pre-service-check-btn`) only when the selected make has a template. Form = `src/components/PreServiceCheckForm.js`: each section OK / Needs Work / N/A + notes + photos; "Needs Work" reuses the Fault Explanation modal (notes required); "Any other Parts or Issues" card = notes + photos + "Parts required" list. Payload reuses `checklist_items`, `workshop_notes`, `workshop_photos` + new `parts_required`
+- [x] Records / All Checks / Dashboard detail modals show "Pre Service Check" label, purple ClipboardCheck icon, "Any other Parts or Issues" notes and "Parts Required" list. "Needs Work" items flow into Repairs Needed like any unsatisfactory item
+- [x] React hooks P0 closed: `WorkplanEditor.js` (normalizeRow/normalizeTime → module scope, drag-fill pointerup via `fillTileRef`), `App.js` filterChecklists/filterRepairs → useCallback, mount-only fetches documented with justified disables, `NewChecklist.js` loadChecklistTemplate → module scope. `frontend/.eslintrc.json` now enables `react-hooks` rules in the CRA build — whole `src/` lints clean
+- [x] Lint fixes: duplicate `startup_event` renamed `startup_data_init`, bare `except` → `except ValueError`
+- Verified by testing agent: backend 11/11, frontend 100% incl. Workplan Editor regression (/app/test_reports/iteration_10.json)
+- NEXT (user's stated plan): make templates configurable — "which checks from where" (admin editor to assign service sheets to other makes / check types, add sub-items per section)
+
 ## Pending / Backlog
-- [ ] P1: Continue App.js modularization (~6,442 lines remain: Records, AllChecksCompleted, Training, Accidents, etc.)
-- [ ] P1: Fix React Hook dependencies (remaining missing deps across files)
+- [ ] P1: Pre Service Check admin editor: choose which makes/check types get a service sheet, edit sections & add sub-items (user: "then we can add the functionality of which checks from where later")
+- [ ] P1: Continue App.js modularization (~6,480 lines remain: Records, AllChecksCompleted, Training, Accidents, etc.)
+- [x] ~~P1: Fix React Hook dependencies~~ (DONE June 2026 — rules now enforced via .eslintrc.json)
 - [ ] P1: Refactor `upload_assets_file()` (175 lines, complexity 63) and `upload_staff_file()` (124 lines)
 - [ ] P1: Replace array index keys with unique IDs (remaining instances)
 - [ ] P1: Restore hidden features when ready

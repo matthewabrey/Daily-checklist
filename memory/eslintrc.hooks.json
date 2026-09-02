@@ -1,0 +1,1 @@
+{ "root": true, "parser": "@babel/eslint-parser", "parserOptions": { "requireConfigFile": false, "babelOptions": { "presets": ["@babel/preset-react"] }, "ecmaVersion": 2022, "sourceType": "module", "ecmaFeatures": { "jsx": true } }, "plugins": ["react-hooks"], "rules": { "react-hooks/exhaustive-deps": "warn", "react-hooks/rules-of-hooks": "error" } }

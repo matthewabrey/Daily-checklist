@@ -1,0 +1,40 @@
+{
+  "summary": "Full backend + frontend test of the new 'Pre Service Check' feature (Perrot-only end-of-season service sheet) plus regression testing of Daily Check / Workshop Service flows, Records & Repairs make/model filters, /repairs-needed refetch behaviour and the WorkplanEditor hook-deps refactor. Backend: 11/11 pytest cases pass (templates by-make incl. case-insensitivity + 404, template list, pre_service_check submission with parts_required and Create->GET/by-machine/check_type-filter persistence checks, daily_check backwards compatibility, dashboard stats). Frontend: end-to-end Perrot pre-service flow works - purple pre-service-check-btn appears only for Perrot, form renders 7 correctly-ordered sections with all OK/Needs Work/N/A + notes + photo testids, badge 0/7 -> 7/7, Fault Explanation modal writes notes into service-section-4-notes and toggles off/on, parts list add-via-Enter/Add-button/remove works, submit persisted (verified via API: parts_required=['Drum bearing'], workshop_notes saved) and redirected to '/'. Records (/records) list shows purple ClipboardCheck + 'Pre Service Check' label with correct item counts, and both /records and /all-checks detail modals show 'Check Type: Pre Service Check', the 7 items, 'Any other Parts or Issues' notes and data-testid='detail-parts-required'. Workplan regression passed: 102 rows load, start_time renders HH:mm, cell edit saves ('All changes saved'), shift multi-select (3 selected), Ctrl+C/Ctrl+V, drag-fill handle tiles the job into 2 rows below (fillTile via ref), Sort by Manager works, zero console/page errors and no 'normalizeRow is not defined' style errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "DELETE /api/checklists/{id}", "issue": "No delete endpoint exists, so test-created checklists cannot be cleaned up by automated tests. Test data (TEST_ prefixed notes/parts) remains in the checklists collection."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AllChecks (/all-checks list)", "issue": "List rows render the raw snake_case check_type ('pre_service_check', 'daily_check', 'workshop_service') instead of a friendly label, and always use the green CheckCircle2 icon - unlike Records (/records) which shows 'Pre Service Check' with the purple ClipboardCheck icon. Pre-existing for all check types but now also affects the new pre-service records. App.js ~line 2250.", "selector": "h3.font-semibold + p.text-gray-600 in /all-checks rows", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Pre Service Check form", "issues": ["No visible issues: contrast, spacing and purple 'Any other Parts or Issues' card look correct; section cards use green/red left borders consistently.", "Note: photo capture (Take/Upload Photo) could not be exercised headlessly - buttons verified present for all 7 sections and for the other-issues card."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pre_service_check.py",
+    "/app/test_reports/pytest/pre_service_check.xml"
+  ],
+  "action_items": [
+    "OPTIONAL (LOW): map check_type to friendly labels + per-type icons in the AllChecks list (/all-checks) so pre_service_check shows as 'Pre Service Check' like it does on /records.",
+    "OPTIONAL: remove the 5 now-unused '// eslint-disable-next-line react-hooks/exhaustive-deps' directives in App.js (lines 1146, 1790, 2321, 4343, 4977) - ESLint reports them as unused after the useCallback refactor.",
+    "OPTIONAL: NewChecklist.js:308 has an empty catch/block statement (no-empty) - add a comment or logging."
+  ],
+  "critical_code_review_comments": [
+    "App.js is 6470 lines and NewChecklist.js 1648 lines - both far above the 700-line guideline; Records/AllChecks/RepairsList and their shared detail modal (duplicated 'detail-parts-required' + check-type label blocks at ~1322/1398 and ~2020/2098) should be extracted into shared components to remove the DRY violation that already caused the /all-checks label inconsistency.",
+    "GET /api/service-check-templates/by-make/{make} builds a regex from user input; re.escape is correctly applied - no injection risk found. Templates are seeded idempotently (verified exactly 1 Perrot template).",
+    "parts_required is Optional[List[str]] with default [] on both Checklist and ChecklistResponse and the by-machine projection includes it - backwards compatibility with old records verified (daily_check without the field returns [])."
+  ],
+  "updated_files": ["/app/backend/tests/test_pre_service_check.py"],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% of tested flows (1 low-severity label inconsistency on /all-checks)"},
+  "seed_data_creation": "Created via API/UI on the preview DB (no DELETE endpoint available to clean up): 3 pre_service_check records for Perrot/Machine 1 (parts_required ['TEST_Drum bearing','TEST_Hose repair kit'] x2 and ['Drum bearing'] from the UI run, workshop_notes prefixed TEST_), 2 daily_check records for JCB (1 TEST_Machine via API, 1 for '520S Farm Special Loadall' via UI) and 1 workshop_service record for JCB '520S Farm Special Loadall' with notes 'TEST_UI workshop notes regression'. These unsatisfactory Drum items also produced 4 entries in /repairs-needed. Workplan: 3 temporary rows were added and DELETED again - grid verified back to 102 rows with 'All changes saved'.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Employee number login only - admin 4444 used for all tests (also 191/1447/1234 available)",
+  "context_for_next_testing_agent": "Radix Select: use page.get_by_role('combobox').first/.nth(1) then get_by_role('option', name=..., exact=True) with scroll_into_view_if_needed() and a NORMAL click. GET /api/checklists/by-machine returns a paginated envelope {checklists, total, limit, skip, has_more} - not a bare list. Daily-check item buttons use data-testid checklist-satisfactory-{i} (not service-section-*). In WorkplanEditor '[data-testid^=\"wp-row-\"]' also matches wp-row-left-N, so use '[data-testid^=\"wp-row-left-\"]' to count rows; day cells are wp-cell-{rowIdx}-{dayIdx}-{am|pm} (dayIdx starts at 1) and the fill handle only renders on the bottom-right cell of the current selection. Workplan holds REAL production data (102 rows) - only mutate rows you added via add-row-btn and delete them afterwards.",
+  "rca_of_the_issue": "Only finding: /all-checks renders {checklist.check_type} verbatim (App.js ~line 2250) while /records uses a getCheckTypeDisplay()/getIconAndColor() mapping (App.js ~1606-1650). The label/icon mapping was never shared between the two list components, so the new pre_service_check type inherits the raw-string display on /all-checks. No functional impact - the detail modal on both pages resolves the friendly label and renders detail-parts-required correctly."
+}

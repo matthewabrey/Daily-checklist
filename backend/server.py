@@ -6,6 +6,7 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 import os
 import io
+import re
 from motor.motor_asyncio import AsyncIOMotorClient
 import uuid
 from bson import ObjectId
@@ -187,16 +188,23 @@ class ChecklistTemplate(BaseModel):
     check_type: str  # "daily_check", "grader_startup", "workshop_service"
     items: List[ChecklistTemplateItem]  # Now includes compulsory flag per item
     
+class ServiceCheckTemplate(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    make: str  # Asset make this pre-service sheet applies to (e.g. "Perrot")
+    name: str
+    sections: List[str]
+
 class Checklist(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     employee_number: str
     staff_name: str
     machine_make: str
     machine_model: str
-    check_type: str  # "daily_check", "grader_startup", "workshop_service", or "fuel_mileage"
+    check_type: str  # "daily_check", "grader_startup", "workshop_service", "fuel_mileage" or "pre_service_check"
     checklist_items: List[ChecklistItem] = []
     workshop_notes: Optional[str] = None
     workshop_photos: Optional[List[dict]] = []
+    parts_required: Optional[List[str]] = []
     # Fuel and Mileage fields
     fuel_mileage: Optional[str] = None
     fuel_added: Optional[str] = None
@@ -215,6 +223,7 @@ class ChecklistResponse(BaseModel):
     checklist_items: List[ChecklistItem]
     workshop_notes: Optional[str] = None
     workshop_photos: Optional[List[dict]] = []
+    parts_required: Optional[List[str]] = []
     # Fuel and Mileage fields
     fuel_mileage: Optional[str] = None
     fuel_added: Optional[str] = None
@@ -523,9 +532,27 @@ async def initialize_workplan_data():
         for i, (name, color) in enumerate(default_colors):
             await db.workplan_colors.insert_one({"id": str(uuid.uuid4()), "name": name, "color": color, "order": i})
 
+PERROT_SERVICE_SECTIONS = [
+    "Gun Carriage General",
+    "Gun Carriage Wheels and Axles",
+    "Gun",
+    "Hydraulic Rams",
+    "Drum",
+    "Guards",
+    "Computer/Computer Box",
+]
+
+async def initialize_service_check_templates():
+    """Seed the Perrot pre-service sheet once (idempotent)"""
+    if await db.service_check_templates.count_documents({"make": "Perrot"}) == 0:
+        template = ServiceCheckTemplate(make="Perrot", name="Perrot Irrigator Pre Service Check", sections=PERROT_SERVICE_SECTIONS)
+        await db.service_check_templates.insert_one(template.dict())
+        logger.info("Seeded Perrot pre-service check template")
+
 @app.on_event("startup")
-async def startup_event():
+async def startup_data_init():
     await initialize_data()
+    await initialize_service_check_templates()
     await initialize_workplan_data()
     await migrate_existing_checklists()
     await ensure_indexes()
@@ -830,6 +857,19 @@ async def get_checktype_by_make_and_name(make: str, name: str):
     else:
         raise HTTPException(status_code=404, detail="Asset not found")
 
+@app.get("/api/service-check-templates", response_model=List[ServiceCheckTemplate])
+async def get_service_check_templates():
+    return await db.service_check_templates.find({}, {"_id": 0}).to_list(length=100)
+
+@app.get("/api/service-check-templates/by-make/{make}", response_model=ServiceCheckTemplate)
+async def get_service_check_template_by_make(make: str):
+    template = await db.service_check_templates.find_one(
+        {"make": {"$regex": f"^{re.escape(make)}$", "$options": "i"}}, {"_id": 0}
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="No pre-service check template for this make")
+    return template
+
 @app.get("/api/assets", response_model=List[Asset])
 async def get_all_assets():
     assets = await db.assets.find({}, {"_id": 0}).to_list(length=1000)  # Max 1000 assets
@@ -969,7 +1009,7 @@ async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None
             if checklist.get('completed_at') and isinstance(checklist['completed_at'], str):
                 try:
                     checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'].replace('Z', '+00:00'))
-                except:
+                except ValueError:
                     pass  # Keep as string if parsing fails
         
         return checklists
@@ -993,7 +1033,7 @@ async def get_todays_checklists():
         if checklist.get('completed_at') and isinstance(checklist['completed_at'], str):
             try:
                 checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'].replace('Z', '+00:00'))
-            except:
+            except ValueError:
                 pass
     
     return checklists
@@ -1024,6 +1064,7 @@ async def get_checklists_by_machine(make: str = None, name: str = None, limit: i
         "checklist_items": 1,
         "workshop_notes": 1,
         "workshop_photos": 1,
+        "parts_required": 1,
         # Fuel and Mileage fields
         "fuel_mileage": 1,
         "fuel_added": 1,

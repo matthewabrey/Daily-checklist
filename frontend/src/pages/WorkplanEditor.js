@@ -80,6 +80,40 @@ const newRow = () => ({
   days: emptyDays(),
 });
 
+// Normalize times like '6:30 Am' to 'HH:mm' for <input type="time">
+const normalizeTime = (t) => {
+  if (!t) return '';
+  const m = String(t).trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+  if (!m) return t;
+  let h = parseInt(m[1], 10);
+  const ampm = (m[3] || '').toLowerCase();
+  if (ampm === 'pm' && h < 12) h += 12;
+  if (ampm === 'am' && h === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${m[2]}`;
+};
+
+const normalizeRow = (r) => {
+  // days can be an array [7 items] OR dict {"0": ..., "1": ...} from the backend import
+  let normalizedDays;
+  if (Array.isArray(r.days) && r.days.length === 7) {
+    normalizedDays = r.days.map((d) => ({
+      am: { job: d?.am?.job || '', color_id: d?.am?.color_id ?? null, color: d?.am?.color || '' },
+      pm: { job: d?.pm?.job || '', color_id: d?.pm?.color_id ?? null, color: d?.pm?.color || '' },
+    }));
+  } else if (r.days && typeof r.days === 'object' && !Array.isArray(r.days)) {
+    normalizedDays = [0, 1, 2, 3, 4, 5, 6].map((d) => {
+      const src = r.days[d] || r.days[String(d)] || {};
+      return {
+        am: { job: src?.am?.job || '', color_id: src?.am?.color_id ?? null, color: src?.am?.color || '' },
+        pm: { job: src?.pm?.job || '', color_id: src?.pm?.color_id ?? null, color: src?.pm?.color || '' },
+      };
+    });
+  } else {
+    normalizedDays = emptyDays();
+  }
+  return { ...newRow(), ...r, start_time: normalizeTime(r.start_time), days: normalizedDays };
+};
+
 export default function WorkplanEditor() {
   const navigate = useNavigate();
   const { employee } = useAuth();
@@ -257,40 +291,6 @@ export default function WorkplanEditor() {
       }).catch(() => {});
     };
   }, [employee]);
-
-  // Normalize times like '6:30 Am' to 'HH:mm' for <input type="time">
-  const normalizeTime = (t) => {
-    if (!t) return '';
-    const m = String(t).trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
-    if (!m) return t;
-    let h = parseInt(m[1], 10);
-    const ampm = (m[3] || '').toLowerCase();
-    if (ampm === 'pm' && h < 12) h += 12;
-    if (ampm === 'am' && h === 12) h = 0;
-    return `${String(h).padStart(2, '0')}:${m[2]}`;
-  };
-
-  const normalizeRow = (r) => {
-    // days can be an array [7 items] OR dict {"0": ..., "1": ...} from the backend import
-    let normalizedDays;
-    if (Array.isArray(r.days) && r.days.length === 7) {
-      normalizedDays = r.days.map((d) => ({
-        am: { job: d?.am?.job || '', color_id: d?.am?.color_id ?? null, color: d?.am?.color || '' },
-        pm: { job: d?.pm?.job || '', color_id: d?.pm?.color_id ?? null, color: d?.pm?.color || '' },
-      }));
-    } else if (r.days && typeof r.days === 'object' && !Array.isArray(r.days)) {
-      normalizedDays = [0, 1, 2, 3, 4, 5, 6].map((d) => {
-        const src = r.days[d] || r.days[String(d)] || {};
-        return {
-          am: { job: src?.am?.job || '', color_id: src?.am?.color_id ?? null, color: src?.am?.color || '' },
-          pm: { job: src?.pm?.job || '', color_id: src?.pm?.color_id ?? null, color: src?.pm?.color || '' },
-        };
-      });
-    } else {
-      normalizedDays = emptyDays();
-    }
-    return { ...newRow(), ...r, start_time: normalizeTime(r.start_time), days: normalizedDays };
-  };
 
   // ---------- autosave ----------
   const persist = useCallback(async (ws, rws) => {
@@ -686,12 +686,14 @@ export default function WorkplanEditor() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  // finish drag-fill on pointer release
+  // finish drag-fill on pointer release (ref keeps the latest fillTile/displayRows without re-subscribing)
+  const fillTileRef = useRef(fillTile);
+  fillTileRef.current = fillTile;
   useEffect(() => {
     const onUp = () => {
       const dr = dragRef.current;
       if (dr.active && dragRect && dr.matrix) {
-        fillTile(dragRect.r0, dragRect.r1, dragRect.c0, dragRect.c1, dr.src, dr.matrix);
+        fillTileRef.current(dragRect.r0, dragRect.r1, dragRect.c0, dragRect.c1, dr.src, dr.matrix);
       }
       dragRef.current = { active: false, src: null, matrix: null };
       setDragRect(null);

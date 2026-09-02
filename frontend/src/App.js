@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, lazy } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -8,7 +8,18 @@ import { Textarea } from './components/ui/textarea';
 import { Badge } from './components/ui/badge';
 import { toast } from 'sonner';
 import { useTranslation } from './LanguageContext';
-import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, User, Wrench, RefreshCw, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock, FileCheck, CalendarDays, MapPin } from 'lucide-react';
+
+const CHECK_TYPE_LABELS = {
+  daily_check: 'Daily Check',
+  grader_startup: 'Grader Startup',
+  workshop_service: 'Workshop Service',
+  fuel_mileage: 'Fuel & Mileage',
+  pre_service_check: 'Pre Service Check',
+  'NEW MACHINE': 'New Machine',
+  'REPAIR COMPLETED': 'Repair Completed',
+  'GENERAL REPAIR': 'General Repair',
+};
+import { CheckCircle2, ClipboardList, ClipboardCheck, Settings, FileText, ArrowLeft, Download, User, Wrench, RefreshCw, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock, FileCheck, CalendarDays, MapPin } from 'lucide-react';
 import WorkplanEditor from './pages/WorkplanEditor';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { API_BASE_URL } from './lib/api';
@@ -1143,6 +1154,7 @@ function Records() {
 
   useEffect(() => {
     fetchChecklists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial page load only; later pages are fetched via Load More
   }, []);
 
   const fetchChecklists = async (append = false) => {
@@ -1322,6 +1334,7 @@ function Records() {
                   <p className="text-lg">{selectedChecklist.check_type === 'daily_check' ? 'Daily Check' : 
                                           selectedChecklist.check_type === 'grader_startup' ? 'Grader Startup' : 
                                           selectedChecklist.check_type === 'workshop_service' ? 'Workshop Service' : 
+                                          selectedChecklist.check_type === 'pre_service_check' ? 'Pre Service Check' : 
                                           selectedChecklist.check_type === 'NEW MACHINE' ? 'New Machine' : 
                                           selectedChecklist.check_type === 'REPAIR COMPLETED' ? 'Repair Completed' : 
                                           selectedChecklist.check_type}</p>
@@ -1388,10 +1401,19 @@ function Records() {
               {/* Workshop Notes */}
               {selectedChecklist.workshop_notes && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Notes</h3>
+                  <h3 className="text-lg font-semibold mb-2">{selectedChecklist.check_type === 'pre_service_check' ? 'Any other Parts or Issues' : 'Notes'}</h3>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-gray-700 whitespace-pre-wrap">{selectedChecklist.workshop_notes}</p>
                   </div>
+                </div>
+              )}
+
+              {selectedChecklist.parts_required && selectedChecklist.parts_required.length > 0 && (
+                <div data-testid="detail-parts-required">
+                  <h3 className="text-lg font-semibold mb-2">Parts Required</h3>
+                  <ul className="list-decimal list-inside bg-purple-50 p-4 rounded-lg space-y-1 text-gray-800">
+                    {selectedChecklist.parts_required.map((part, i) => <li key={`${part}-${i}`}>{part}</li>)}
+                  </ul>
                 </div>
               )}
 
@@ -1556,7 +1578,7 @@ function Records() {
                 const completedDate = new Date(checklist.completed_at);
                 let statusInfo;
                 
-                if (checklist.check_type === 'daily_check' || checklist.check_type === 'grader_startup') {
+                if (checklist.check_type === 'daily_check' || checklist.check_type === 'grader_startup' || checklist.check_type === 'pre_service_check') {
                   const itemsSatisfactory = checklist.checklist_items.filter(item => item.status === 'satisfactory').length;
                   const itemsUnsatisfactory = checklist.checklist_items.filter(item => item.status === 'unsatisfactory').length;
                   const totalItems = checklist.checklist_items.length;
@@ -1608,6 +1630,7 @@ function Records() {
                     case 'daily_check': return 'Daily check';
                     case 'grader_startup': return 'Grader startup';
                     case 'workshop_service': return 'Workshop service';
+                    case 'pre_service_check': return 'Pre Service Check';
                     case 'NEW MACHINE': return 'New Machine';
                     case 'REPAIR COMPLETED': return 'Repair Completed';
                     case 'GENERAL REPAIR': return 'General Repair';
@@ -1623,6 +1646,8 @@ function Records() {
                       return { bg: 'bg-orange-100', icon: <AlertCircle className="h-6 w-6 text-orange-600" /> };
                     case 'workshop_service': 
                       return { bg: 'bg-blue-100', icon: <Settings className="h-6 w-6 text-blue-600" /> };
+                    case 'pre_service_check': 
+                      return { bg: 'bg-purple-100', icon: <ClipboardCheck className="h-6 w-6 text-purple-700" /> };
                     case 'NEW MACHINE': 
                       return { bg: 'bg-purple-100', icon: <Database className="h-6 w-6 text-purple-600" /> };
                     case 'REPAIR COMPLETED': 
@@ -1773,11 +1798,39 @@ function AllChecksCompleted() {
 
   useEffect(() => {
     fetchChecklists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch on mount and when the today filter changes; paging handled by Load More
   }, [filterToday]); // Re-fetch when filter changes
+
+  const filterChecklists = useCallback(() => {
+    let filtered = checklists;
+    
+    // Filter for today's checks if specified
+    if (filterToday) {
+      const today = new Date().toISOString().split('T')[0];
+      filtered = filtered.filter(c => c.completed_at && c.completed_at.startsWith(today));
+    }
+    
+    if (selectedMake) {
+      filtered = filtered.filter(c => c.machine_make === selectedMake);
+      
+      // Update available models based on selected make
+      const availableModels = [...new Set(filtered.map(c => c.machine_model))].sort();
+      setModels(availableModels);
+    } else {
+      setModels([]);
+      setSelectedModel('');
+    }
+    
+    if (selectedModel) {
+      filtered = filtered.filter(c => c.machine_model === selectedModel);
+    }
+    
+    setFilteredChecklists(filtered);
+  }, [checklists, filterToday, selectedMake, selectedModel]);
 
   useEffect(() => {
     filterChecklists();
-  }, [selectedMake, selectedModel, checklists]);
+  }, [filterChecklists]);
 
   const fetchChecklists = async (append = false) => {
     try {
@@ -1883,33 +1936,6 @@ function AllChecksCompleted() {
     if (!loadingMore && hasMore && !selectedMake && !selectedModel) {
       fetchChecklists(true);
     }
-  };
-
-  const filterChecklists = () => {
-    let filtered = checklists;
-    
-    // Filter for today's checks if specified
-    if (filterToday) {
-      const today = new Date().toISOString().split('T')[0];
-      filtered = filtered.filter(c => c.completed_at && c.completed_at.startsWith(today));
-    }
-    
-    if (selectedMake) {
-      filtered = filtered.filter(c => c.machine_make === selectedMake);
-      
-      // Update available models based on selected make
-      const availableModels = [...new Set(filtered.map(c => c.machine_model))].sort();
-      setModels(availableModels);
-    } else {
-      setModels([]);
-      setSelectedModel('');
-    }
-    
-    if (selectedModel) {
-      filtered = filtered.filter(c => c.machine_model === selectedModel);
-    }
-    
-    setFilteredChecklists(filtered);
   };
 
   const handleViewDetails = (checklist) => {
@@ -2020,6 +2046,7 @@ function AllChecksCompleted() {
                   <p className="text-lg">{selectedChecklist.check_type === 'daily_check' ? 'Daily Check' : 
                                           selectedChecklist.check_type === 'grader_startup' ? 'Grader Startup' : 
                                           selectedChecklist.check_type === 'workshop_service' ? 'Workshop Service' : 
+                                          selectedChecklist.check_type === 'pre_service_check' ? 'Pre Service Check' : 
                                           selectedChecklist.check_type}</p>
                 </div>
                 <div>
@@ -2074,10 +2101,19 @@ function AllChecksCompleted() {
 
               {selectedChecklist.workshop_notes && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Notes</h3>
+                  <h3 className="text-lg font-semibold mb-2">{selectedChecklist.check_type === 'pre_service_check' ? 'Any other Parts or Issues' : 'Notes'}</h3>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-gray-700 whitespace-pre-wrap">{selectedChecklist.workshop_notes}</p>
                   </div>
+                </div>
+              )}
+
+              {selectedChecklist.parts_required && selectedChecklist.parts_required.length > 0 && (
+                <div data-testid="detail-parts-required">
+                  <h3 className="text-lg font-semibold mb-2">Parts Required</h3>
+                  <ul className="list-decimal list-inside bg-purple-50 p-4 rounded-lg space-y-1 text-gray-800">
+                    {selectedChecklist.parts_required.map((part, i) => <li key={`${part}-${i}`}>{part}</li>)}
+                  </ul>
                 </div>
               )}
 
@@ -2219,12 +2255,14 @@ function AllChecksCompleted() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
-                        <div className="p-3 rounded-lg bg-green-100">
-                          <CheckCircle2 className="h-6 w-6 text-green-600" />
+                        <div className={`p-3 rounded-lg ${checklist.check_type === 'pre_service_check' ? 'bg-purple-100' : 'bg-green-100'}`}>
+                          {checklist.check_type === 'pre_service_check'
+                            ? <ClipboardCheck className="h-6 w-6 text-purple-700" />
+                            : <CheckCircle2 className="h-6 w-6 text-green-600" />}
                         </div>
                         <div>
                           <h3 className="font-semibold text-lg">{checklist.machine_make} {checklist.machine_model}</h3>
-                          <p className="text-gray-600">{checklist.check_type} by {checklist.staff_name}</p>
+                          <p className="text-gray-600">{CHECK_TYPE_LABELS[checklist.check_type] || checklist.check_type} by {checklist.staff_name}</p>
                           <p className="text-sm text-gray-500">ID: {checklist.id.substring(0, 8)}...</p>
                         </div>
                       </div>
@@ -2293,11 +2331,33 @@ function RepairsCompletedPage() {
 
   useEffect(() => {
     fetchRepairs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial page load only; later pages are fetched via Load More
   }, []);
+
+  const filterRepairs = useCallback(() => {
+    let filtered = repairs;
+    
+    if (selectedMake) {
+      filtered = filtered.filter(r => r.machine_make === selectedMake);
+      
+      // Update available models
+      const availableModels = [...new Set(filtered.map(r => r.machine_model))].sort();
+      setModels(availableModels);
+    } else {
+      setModels([]);
+      setSelectedModel('');
+    }
+    
+    if (selectedModel) {
+      filtered = filtered.filter(r => r.machine_model === selectedModel);
+    }
+    
+    setFilteredRepairs(filtered);
+  }, [repairs, selectedMake, selectedModel]);
 
   useEffect(() => {
     filterRepairs();
-  }, [selectedMake, selectedModel, repairs]);
+  }, [filterRepairs]);
 
   const fetchRepairs = async (append = false) => {
     try {
@@ -2337,27 +2397,6 @@ function RepairsCompletedPage() {
     if (!loadingMore && hasMore && !selectedMake && !selectedModel) {
       fetchRepairs(true);
     }
-  };
-
-  const filterRepairs = () => {
-    let filtered = repairs;
-    
-    if (selectedMake) {
-      filtered = filtered.filter(r => r.machine_make === selectedMake);
-      
-      // Update available models
-      const availableModels = [...new Set(filtered.map(r => r.machine_model))].sort();
-      setModels(availableModels);
-    } else {
-      setModels([]);
-      setSelectedModel('');
-    }
-    
-    if (selectedModel) {
-      filtered = filtered.filter(r => r.machine_model === selectedModel);
-    }
-    
-    setFilteredRepairs(filtered);
   };
 
   const handleMakeChange = (make) => {
@@ -4314,6 +4353,7 @@ function TrainingPage() {
       // Clear the URL parameter
       window.history.replaceState({}, '', '/training');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchers only depend on the logged-in employee
   }, [employee]);
 
   const fetchRecords = async () => {
@@ -4947,6 +4987,7 @@ function MachineAdditionsPage() {
     localStorage.removeItem('acknowledgedMachines');
     localStorage.removeItem('acknowledgedRepairs');
     fetchMachineRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial page load only; later pages are fetched via Load More
   }, []);
 
   const fetchMachineRequests = async (append = false) => {
