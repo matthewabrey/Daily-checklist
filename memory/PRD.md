@@ -112,6 +112,13 @@ QR code-based machine checklist application with health, safety, and work manage
 - [x] Records list badge/label now uses shared `CHECK_TYPE_LABELS` (fuel & mileage no longer shown as "Workshop Service")
 - Verified by testing agent: backend 15/15, frontend all functional flows pass (/app/test_reports/iteration_11.json); the one layout defect (date wrapping on long notes) fixed and self-verified
 
+## Service Manager Excel Report + notes export fix (June 2026)
+- [x] BUG: item notes were only exported for daily_check/grader_startup → Pre Service Check notes missing from Excel. Now `export_row()` exports notes for every type as "Section: note" (no truncation), plus new column **Needs Work / Repairs** (14 columns). By-machine export also writes full "Item: note"
+- [x] Servicing Excel (`/api/checklists/export/excel?category=servicing`) is now a 3-sheet workbook (`backend/servicing_export.py`): **Action List** (one row per Repair / Order Part / Other Issue / Workshop Service, colour-coded, filterable, "Done?" column), **Parts to Order**, **Service Sheets** (one column per section: OK / NEEDS WORK - note / N/A, red fill on NEEDS WORK)
+- [x] Servicing tab shows a hint banner describing the report (data-testid servicing-export-hint); detail modals now match `n/a` status (grey) correctly
+- Verified by testing agent: 40/40 backend tests, frontend 100% (/app/test_reports/iteration_12.json)
+- NOTE: the user may have seen the bug on the PRODUCTION deployment — remind them to redeploy to get these fixes live
+
 ## Pending / Backlog
 - [ ] P1: Pre Service Check admin editor: choose which makes/check types get a service sheet, edit sections & add sub-items (user: "then we can add the functionality of which checks from where later")
 - [ ] P1: Continue App.js modularization (~6,480 lines remain: Records, AllChecksCompleted, Training, Accidents, etc.)

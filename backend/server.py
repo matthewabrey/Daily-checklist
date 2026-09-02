@@ -15,6 +15,7 @@ from sharepoint_integration import sharepoint_integration
 from sharepoint_auto_sync import sharepoint_auto_sync
 from cached_stats import get_cached_stats, invalidate_cache
 from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH
+from servicing_export import build_servicing_workbook
 import qrcode
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -1807,7 +1808,7 @@ async def get_checklist_template(check_type: str):
 
 # OLD SharePoint sync endpoint removed - using new sharepoint_auto_sync with client credentials flow
 
-EXPORT_HEADERS = ["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Satisfactory", "Unsatisfactory", "Total", "Notes", "Workshop Details", "Parts Required"]
+EXPORT_HEADERS = ["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Satisfactory", "Unsatisfactory", "Total", "Needs Work / Repairs", "Notes", "Workshop Details", "Parts Required"]
 EXPORT_PROJECTION = {
     "_id": 0, "id": 1, "staff_name": 1, "machine_make": 1, "machine_model": 1,
     "check_type": 1, "completed_at": 1, "status": 1, "checklist_items": 1, "workshop_notes": 1, "parts_required": 1
@@ -1819,7 +1820,8 @@ def export_row(checklist: dict) -> list:
     items = checklist.get('checklist_items', []) or []
     items_satisfactory = sum(1 for item in items if item.get('status') == 'satisfactory')
     items_unsatisfactory = sum(1 for item in items if item.get('status') == 'unsatisfactory')
-    notes_list = [f"{item.get('item', '')}: {item.get('notes', '')[:100]}" if check_type == 'pre_service_check' else item.get('notes', '')[:100] for item in items if item.get('notes')]
+    needs_work = [f"{item.get('item', '')}: {(item.get('notes') or '').strip() or 'no details'}" for item in items if item.get('status') == 'unsatisfactory']
+    notes_list = [f"{item.get('item', '')}: {item.get('notes', '').strip()}" for item in items if (item.get('notes') or '').strip()]
     return [
         checklist.get('id', ''),
         checklist.get('staff_name', ''),
@@ -1831,8 +1833,9 @@ def export_row(checklist: dict) -> list:
         items_satisfactory,
         items_unsatisfactory,
         len(items),
-        "; ".join(notes_list)[:500] if notes_list else "",
-        (checklist.get('workshop_notes') or '')[:500],
+        "; ".join(needs_work)[:5000],
+        "; ".join(notes_list)[:5000],
+        (checklist.get('workshop_notes') or '')[:5000],
         "; ".join(checklist.get('parts_required') or []),
     ]
 
@@ -1873,12 +1876,20 @@ async def export_checklists_excel(category: str = None):
     
     checklists = await db.checklists.find(category_filter(category), EXPORT_PROJECTION).sort("completed_at", -1).limit(10000).to_list(length=10000)
     
+    if category == "servicing":
+        # Service-manager workbook: Action List (repairs / parts / other issues), Parts to Order, full Service Sheets
+        return StreamingResponse(
+            build_servicing_workbook(checklists),
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={"Content-Disposition": "attachment; filename=all_servicing.xlsx"}
+        )
+    
     # Create workbook with optimized settings
     wb = Workbook(write_only=False)  # Can't use write_only with formatting
     ws = wb.active
-    ws.title = "All Servicing" if category == "servicing" else "All Checks"
+    ws.title = "All Checks"
     
-    col_widths = [38, 20, 20, 25, 18, 22, 12, 12, 14, 8, 50, 50, 40]
+    col_widths = [38, 20, 20, 25, 18, 22, 12, 12, 14, 8, 50, 50, 50, 40]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
     
@@ -2037,8 +2048,8 @@ async def export_checklists_excel_by_machine(make: str = None, name: str = None)
                 notes = []
                 for item in c.get('checklist_items', []):
                     status_map[item.get('item', '')] = item.get('status', '')
-                    if item.get('notes'):
-                        notes.append(item['notes'][:30])
+                    if (item.get('notes') or '').strip():
+                        notes.append(f"{item.get('item', '')}: {item['notes'].strip()}")
                 
                 # Add status for each question column
                 for item_name in all_items[:50]:

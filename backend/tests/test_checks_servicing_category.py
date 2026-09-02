@@ -16,8 +16,8 @@ BASE_URL = base_url.rstrip("/")
 
 SERVICING = {"pre_service_check", "workshop_service"}
 EXPORT_HEADERS = ["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At",
-                  "Status", "Satisfactory", "Unsatisfactory", "Total", "Notes", "Workshop Details",
-                  "Parts Required"]
+                  "Status", "Satisfactory", "Unsatisfactory", "Total", "Needs Work / Repairs", "Notes",
+                  "Workshop Details", "Parts Required"]
 SECTIONS = [
     "Gun Carriage General", "Gun Carriage Wheels and Axles", "Gun", "Hydraulic Rams",
     "Drum", "Guards", "Computer/Computer Box",
@@ -147,7 +147,7 @@ class TestCsvExport:
         assert "all_servicing.csv" in r.headers.get("content-disposition", "")
         header, rows = _parse_csv(r)
         assert header == EXPORT_HEADERS
-        assert len(header) == 13
+        assert len(header) == 14
         assert len(rows) > 0
         bad = {row[4] for row in rows} - SERVICING
         assert not bad, f"Non-servicing rows in servicing export: {bad}"
@@ -179,9 +179,10 @@ class TestCsvExport:
         assert row[7] == "5", f"Satisfactory expected 5, got {row[7]}"
         assert row[8] == "1", f"Unsatisfactory expected 1, got {row[8]}"
         assert row[9] == "7", f"Total expected 7, got {row[9]}"
-        assert "Drum: TEST_worn seal" in row[10], f"Notes column: {row[10]!r}"
-        assert row[11] == "TEST_other issue"
-        assert row[12] == "TEST_part A; TEST_part B"
+        assert "Drum: TEST_worn seal" in row[10], f"Needs Work column: {row[10]!r}"
+        assert "Drum: TEST_worn seal" in row[11], f"Notes column: {row[11]!r}"
+        assert row[12] == "TEST_other issue"
+        assert row[13] == "TEST_part A; TEST_part B"
 
 
 # --- Module: Excel export with category ---
@@ -191,12 +192,12 @@ class TestExcelExport:
         assert r.status_code == 200, r.text[:300]
         assert "all_servicing.xlsx" in r.headers.get("content-disposition", "")
         wb = load_workbook(io.BytesIO(r.content))
-        ws = wb.active
-        assert ws.title == "All Servicing"
+        assert wb.sheetnames == ["Action List", "Parts to Order", "Service Sheets"]
+        ws = wb["Service Sheets"]
         header = [c.value for c in ws[1]]
-        assert header == EXPORT_HEADERS
-        types = {ws.cell(row=i, column=5).value for i in range(2, ws.max_row + 1)}
-        assert types <= SERVICING, f"Unexpected: {types - SERVICING}"
+        assert header[:6] == ["Date", "Time", "Machine Make", "Machine Model", "Staff", "Record Type"]
+        types = {ws.cell(row=i, column=6).value for i in range(2, ws.max_row + 1)}
+        assert types <= {"Pre Service Check", "Workshop Service"}, f"Unexpected: {types}"
 
     def test_excel_no_param(self, api):
         r = api.get(f"{BASE_URL}/api/checklists/export/excel", timeout=180)

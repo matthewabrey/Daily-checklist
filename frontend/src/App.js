@@ -1355,20 +1355,20 @@ function Records() {
                   <h3 className="text-lg font-semibold mb-3">Checklist Items</h3>
                   <div className="space-y-3">
                     {selectedChecklist.checklist_items.map((item, index) => (
-                      <div key={index} className={`p-4 rounded-lg border ${item.status === 'unsatisfactory' ? 'bg-red-50 border-red-200' : item.status === 'na' ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200'}`}>
+                      <div key={index} className={`p-4 rounded-lg border ${item.status === 'unsatisfactory' ? 'bg-red-50 border-red-200' : item.status === 'n/a' ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200'}`}>
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-2">
                               {item.status === 'satisfactory' && <CheckCircle2 className="h-5 w-5 text-green-600" />}
                               {item.status === 'unsatisfactory' && <X className="h-5 w-5 text-red-600" />}
-                              {item.status === 'na' && <span className="text-sm font-medium text-gray-600">N/A</span>}
+                              {item.status === 'n/a' && <span className="text-sm font-medium text-gray-600">N/A</span>}
                               <p className="font-medium">{tItem(item.item)}</p>
                             </div>
                             {item.notes && (
                               <p className="text-sm text-gray-700 mt-2 italic">"{item.notes}"</p>
                             )}
                           </div>
-                          <Badge variant={item.status === 'unsatisfactory' ? 'destructive' : item.status === 'na' ? 'secondary' : 'default'}>
+                          <Badge variant={item.status === 'unsatisfactory' ? 'destructive' : item.status === 'n/a' ? 'secondary' : 'default'}>
                             {item.status === 'satisfactory' ? 'OK' : item.status === 'unsatisfactory' ? 'Issue' : 'N/A'}
                           </Badge>
                         </div>
@@ -2063,20 +2063,20 @@ function AllChecksCompleted() {
                   <h3 className="text-lg font-semibold mb-3">Checklist Items</h3>
                   <div className="space-y-3">
                     {selectedChecklist.checklist_items.map((item, index) => (
-                      <div key={index} className={`p-4 rounded-lg border ${item.status === 'unsatisfactory' ? 'bg-red-50 border-red-200' : item.status === 'na' ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200'}`}>
+                      <div key={index} className={`p-4 rounded-lg border ${item.status === 'unsatisfactory' ? 'bg-red-50 border-red-200' : item.status === 'n/a' ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200'}`}>
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-2">
                               {item.status === 'satisfactory' && <CheckCircle2 className="h-5 w-5 text-green-600" />}
                               {item.status === 'unsatisfactory' && <X className="h-5 w-5 text-red-600" />}
-                              {item.status === 'na' && <span className="text-sm font-medium text-gray-600">N/A</span>}
+                              {item.status === 'n/a' && <span className="text-sm font-medium text-gray-600">N/A</span>}
                               <p className="font-medium">{tItem(item.item)}</p>
                             </div>
                             {item.notes && (
                               <p className="text-sm text-gray-700 mt-2 italic">"{item.notes}"</p>
                             )}
                           </div>
-                          <Badge variant={item.status === 'unsatisfactory' ? 'destructive' : item.status === 'na' ? 'secondary' : 'default'}>
+                          <Badge variant={item.status === 'unsatisfactory' ? 'destructive' : item.status === 'n/a' ? 'secondary' : 'default'}>
                             {item.status === 'satisfactory' ? 'OK' : item.status === 'unsatisfactory' ? 'Issue' : 'N/A'}
                           </Badge>
                         </div>
@@ -2216,6 +2216,11 @@ function AllChecksCompleted() {
           Servicing
         </button>
       </div>
+      {isServicing && (
+        <p className="text-sm text-purple-800 bg-purple-50 border border-purple-100 rounded-md px-3 py-2 -mt-2" data-testid="servicing-export-hint">
+          <span className="font-semibold">Excel</span> downloads the service manager report: an <span className="font-semibold">Action List</span> of every repair, part to order and other issue across all machines, a <span className="font-semibold">Parts to Order</span> sheet, and the full <span className="font-semibold">Service Sheets</span> with every section's status and notes.
+        </p>
+      )}
 
       {/* Filters */}
       <Card>

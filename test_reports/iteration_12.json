@@ -1,0 +1,30 @@
+{
+  "summary": "Verified the 'notes missing from Excel' bug fix end-to-end. Backend: created a new pytest module (14 tests) covering the 3-sheet servicing workbook (Action List / Parts to Order / Service Sheets), notes-on-OK-item export, 14-column CSV/Excel headers, checks-category regression, daily_check notes and the by-machine full-note fix. Ran together with the existing servicing/pre-service suites: 40/40 passed. Frontend: logged in with 4444, verified servicing-export-hint visibility (only on Servicing tab, mentions 'Action List' + 'Parts to Order'), downloaded all_servicing_2026-09-02.xlsx (3 sheets, Perrot Machine 4 row shows 'NEEDS WORK - TEST_drum bearing worn'), all_servicing_2026-09-02.csv (14 cols), regression all_checks_2026-09-02.xlsx (single 'All Checks' sheet), servicing summary line '✓4 ✗2 of 7 sections · 2 parts required', Servicing Record modal showing all item notes incl. the OK-item note plus detail-parts-required, Direct Link button visible, /records loads. No console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Servicing Record modal", "issues": ["'Computer/Computer Box' N/A item uses the same light-green success background as OK items; a neutral/grey background would read better (cosmetic only)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_servicing_export_notes.py",
+    "/app/backend/tests/test_checks_servicing_category.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "servicing_export.section_columns() derives Service Sheets columns from the records present, so the column set (and their order) can shift between exports if a template changes or a record has extra/missing sections; consider pinning to the canonical Pre Service Check section list with dynamic extras appended.",
+    "Excel/CSV exports are capped at limit=10000 with no pagination or warning; once the collection exceeds that, the service manager silently gets a partial workbook.",
+    "server.py is very large (>2000 lines); the export endpoints are good candidates to move alongside servicing_export.py."
+  ],
+  "updated_files": ["/app/backend/tests/test_servicing_export_notes.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Pre Service Check: Perrot / Machine 4, staff TEST_Notes (notes TEST_slight rust ok, TEST_left ram leaking, TEST_drum bearing worn, workshop TEST_hose split near gun, parts TEST_Drum bearing / TEST_Ram seal kit) and a daily_check JCB / TEST_Daily Machine with note TEST_daily note. Created twice (suite run twice) - no DELETE endpoint, all prefixed TEST_.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Employee number 4444 (admin)",
+  "context_for_next_testing_agent": "Servicing export workbook is fully covered by /app/backend/tests/test_servicing_export_notes.py (14 tests) - extend that file rather than duplicating. Frontend download assertions must save the file and inspect it via bash/openpyxl: openpyxl is NOT installed in the playwright runtime.",
+  "rca_of_the_issue": "Original bug: export_row() only emitted item notes for daily_check/grader_startup, so Pre Service Check notes (and notes on satisfactory items) were dropped. Fix verified: notes are now collected for every check type with 'Section: note' formatting, no 100-char truncation, plus the new 'Needs Work / Repairs' column and the 3-sheet service-manager workbook for category=servicing."
+}
