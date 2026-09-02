@@ -11,6 +11,7 @@ from io import BytesIO
 import openpyxl
 from datetime import datetime
 from dotenv import load_dotenv
+from sync_utils import upsert_staff, upsert_assets, upsert_checklist_templates
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -260,29 +261,14 @@ class SharePointAutoSync:
             if not staff_data:
                 raise Exception("No valid staff data found in Excel file")
             
-            # Update database - preserve admin account (4444)
-            from pydantic import BaseModel
-            from typing import Optional
-            
-            class Staff(BaseModel):
-                name: str
-                employee_number: str
-                active: bool = True
-                workshop_control: Optional[str] = None
-                admin_control: Optional[str] = None
-                manager_control: Optional[str] = None
-            
-            delete_result = await db.staff.delete_many({"employee_number": {"$ne": "4444"}})
-            logger.info(f"Deleted {delete_result.deleted_count} existing staff records")
-            
-            new_staff = [Staff(**data).dict() for data in staff_data]
-            insert_result = await db.staff.insert_many(new_staff)
-            logger.info(f"Inserted {len(insert_result.inserted_ids)} new staff records")
+            # Idempotent upsert - never hard-deletes; staff missing from SharePoint are marked inactive
+            sync_stats = await upsert_staff(db, staff_data)
             
             result = {
                 'success': True,
-                'message': f'Successfully synced {len(staff_data)} staff members from SharePoint',
+                'message': f"Successfully synced {len(staff_data)} staff members from SharePoint ({sync_stats['added']} added, {sync_stats['updated']} updated, {sync_stats['deactivated']} deactivated)",
                 'count': len(staff_data),
+                **sync_stats,
                 'synced_at': datetime.now().isoformat(),
                 'preview': staff_data[:5]
             }
@@ -449,57 +435,15 @@ class SharePointAutoSync:
             if not assets:
                 raise Exception("No valid asset data found in Excel file")
             
-            # Get existing QR print status to preserve
-            existing_assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
-            existing_qr_status = {}
-            for ea in existing_assets:
-                key = f"{ea.get('make', '')}:{ea.get('name', '')}"
-                if ea.get('qr_printed'):
-                    existing_qr_status[key] = {
-                        'qr_printed': ea.get('qr_printed', False),
-                        'qr_printed_at': ea.get('qr_printed_at')
-                    }
-            
-            # Update assets database
-            await db.assets.delete_many({})
-            
-            import uuid
-            new_assets = []
-            for asset in assets:
-                asset_dict = {
-                    'id': str(uuid.uuid4()),
-                    'check_type': asset['check_type'],
-                    'name': asset['name'],
-                    'make': asset['make'],
-                    'qr_printed': False,
-                    'qr_printed_at': None
-                }
-                # Preserve QR print status
-                key = f"{asset_dict['make']}:{asset_dict['name']}"
-                if key in existing_qr_status:
-                    asset_dict['qr_printed'] = existing_qr_status[key]['qr_printed']
-                    asset_dict['qr_printed_at'] = existing_qr_status[key]['qr_printed_at']
-                new_assets.append(asset_dict)
-            
-            await db.assets.insert_many(new_assets)
-            logger.info(f"Inserted {len(new_assets)} assets")
-            
-            # Update checklist templates - clear all and re-insert for clean state
-            if checklist_templates:
-                await db.checklist_templates.delete_many({})
-                for template in checklist_templates:
-                    template['updated_at'] = datetime.now().isoformat()
-                await db.checklist_templates.insert_many(checklist_templates)
-                templates_count = len(checklist_templates)
-            else:
-                templates_count = 0
-            
-            logger.info(f"Replaced all checklist templates: {templates_count} templates")
+            # Idempotent upserts - keeps asset ids + QR print status, retires assets missing from SharePoint
+            asset_stats = await upsert_assets(db, assets)
+            templates_count = await upsert_checklist_templates(db, checklist_templates) if checklist_templates else 0
             
             result = {
                 'success': True,
-                'message': f'Successfully synced {len(assets)} assets and {templates_count} checklist templates',
+                'message': f"Successfully synced {len(assets)} assets ({asset_stats['added']} added, {asset_stats['updated']} updated, {asset_stats['retired']} retired) and {templates_count} checklist templates",
                 'assets_count': len(assets),
+                **asset_stats,
                 'templates_count': templates_count,
                 'synced_at': datetime.now().isoformat(),
                 'preview': assets[:5]

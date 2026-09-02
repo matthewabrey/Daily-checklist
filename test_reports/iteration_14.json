@@ -1,0 +1,53 @@
+{
+  "summary": "Iteration 14: verified the non-destructive/idempotent sync refactor (sync_utils.upsert_staff / upsert_assets / upsert_checklist_templates) end-to-end against the public preview URL. New suite /app/backend/tests/test_sync_idempotency.py (17 tests) all pass: read endpoints hide soft-deleted records, removed destructive endpoints return 405, staff upload is add/idempotent/soft-delete correct, asset upload preserves ids + qr_printed, retires missing assets, un-retires a reappearing asset with the SAME id, and checklist templates are not wiped. Unit tests (3) and regression suites (56) pass. Frontend smoke with 4444 passes with zero 4xx/5xx. Two pre-existing data/robustness issues found (duplicate docs without unique indexes; employee-login returns 400 instead of 401). DB was restored to its original state (84 staff, 243 assets, 0 retired, 11 templates, no TEST_ rows).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/employee-login", "issue": "The intended HTTPException(401, 'Invalid employee number or account inactive') is caught by the broad `except Exception` at server.py:676-677 and re-raised as 400 'Login failed: 401: ...'. Inactive/unknown employees therefore get 400, not 401. Same anti-pattern in GET /api/auth/validate/{employee_number}. Move the `raise HTTPException` outside the try or re-raise HTTPException before the generic handler."},
+      {"endpoint": "db.staff / db.assets (data integrity)", "issue": "No UNIQUE indexes on staff.employee_number or assets.(make,name), and the DB already contains duplicates left over from the old delete_many+insert_many pattern: employee_number '4444' x6, plus 17 duplicated asset make+name groups (e.g. Grimme/'GT170S potato harvester' x5, Gardiner/'10 box twin axle trailer' x4). upsert_staff/upsert_assets use non-multi UpdateOne, so only ONE of each duplicate group is ever updated - a duplicate copy keeps a stale check_type/control flags forever while still being returned by GET /api/assets and /api/assets/qr-labels (duplicate QR labels). Recommend a de-dup migration + unique indexes (or switch to update_many for the $set part)."},
+      {"endpoint": "POST /api/admin/upload-assets-file", "issue": "All failures (including intentional HTTPException 400 for missing columns) are re-raised as 500 by the blanket `except Exception` at server.py:1585-1586; same in upload_staff_file (1246-1250). Validation errors should surface as 400."},
+      {"endpoint": "data hygiene", "issue": "Leftover test data from earlier iterations is visible in production-preview UI: /all-checks shows checks for 'JCB TEST_Machine' / 'JCB TEST_Daily Machine' submitted by 'TEST_Notes'. Should be purged before deployment."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/all-checks filters", "issues": ["Check Type / Machine Make / Machine Model filters use native browser <select> elements (data-testid check-type-filter, make-filter, model-filter) instead of the shadcn Select used elsewhere (/new-checklist) - inconsistent look; pre-existing, not caused by this change."]},
+      {"screen": "/new-checklist", "issues": ["Machine Make / Machine Name shadcn Select triggers have no data-testid (had to select by placeholder text 'Choose machine manufacturer' / 'Choose machine name'). Add data-testid=\"make-select\" / \"name-select\" for stable automation."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_sync_idempotency.py",
+    "/app/backend/tests/cleanup_sync_test_rows.py",
+    "/app/backend/tests/dup_check.py",
+    "/app/test_reports/pytest/iter14_sync_idempotency.xml",
+    "/app/test_reports/pytest/iter14_sync_utils.xml",
+    "/app/test_reports/pytest/iter14_regression.xml"
+  ],
+  "action_items": [
+    "Fix employee_login (and validate_employee) so HTTPException is not swallowed -> inactive/unknown employee must return 401, not 400.",
+    "De-duplicate staff (4444 x6) and the 17 duplicated asset make+name groups, then add unique indexes on staff.employee_number and assets.(make,name) so the UpdateOne-based upserts are guaranteed to touch every record.",
+    "Let upload_staff_file / upload_assets_file re-raise HTTPException instead of converting 400 validation errors into 500.",
+    "Purge leftover TEST_ checks (JCB TEST_Machine, TEST_Notes submitter) from the checks collection.",
+    "Optional: add data-testid to the make/name Select triggers on /new-checklist."
+  ],
+  "critical_code_review_comments": [
+    "sync_utils.upsert_assets builds the retire filter as update_many({'$or': missing}) - with a large asset list this can produce a very big $or array (243 assets today, fine, but consider $nin on a compound key or a sync-token/generation field instead).",
+    "upsert_staff returns bulk_write.modified_count as 'updated'; because $set always writes name/active/*_control, any pre-existing doc missing those keys reports as updated on the first upload - expected, but the idempotency contract only holds from the 2nd upload onward (verified).",
+    "Verified good: $setOnInsert of id/qr_printed/qr_printed_at means existing asset ids and QR-printed status survive re-uploads, and a retired asset that reappears is un-retired with the same id (asserted in test_05_retired_asset_reappears_with_same_id).",
+    "server.py is 3608 lines - well over the 700-line guideline; should be split into routers (staff, assets, checks, workplan, admin/uploads)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_sync_idempotency.py (new)",
+    "/app/backend/tests/cleanup_sync_test_rows.py (new)",
+    "/app/backend/tests/dup_check.py (new)"
+  ],
+  "success_rate": {"backend": "100% (17/17 new idempotency tests, 3/3 sync_utils unit tests, 56/56 regression tests)", "frontend": "100% (login 4444, dashboard, /new-checklist make+name dropdowns 53 makes / 47 names, /workplan staff rows, /all-checks 1795 records; zero 4xx/5xx)"},
+  "seed_data_creation": "Temporary only: staff 'TEST_Sync Person' / 999001 and asset Perrot/'TEST_Sync Machine'. Both hard-removed afterwards via /app/backend/tests/cleanup_sync_test_rows.py. All uploaded xlsx files always contained every pre-existing record, so no real staff/asset was deactivated or retired. Final DB state verified identical to the original: 84 staff (all active), 243 assets (0 retired), 11 checklist templates.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "Employee-number-only login. Admin 4444 (verified working). /app/memory/test_credentials.md is accurate.",
+  "context_for_next_testing_agent": "Run `cd /app/backend && python -m pytest tests/test_sync_idempotency.py -q -p no:randomly` - tests are ORDER-DEPENDENT (module-level STATE dict) so keep -p no:randomly and do not run them in parallel. The suite builds its upload files from the CURRENT live staff/assets so it is safe to re-run; it leaves the TEST_ rows soft-deleted - run `python tests/cleanup_sync_test_rows.py` afterwards to hard-remove them. `python tests/dup_check.py` prints staff/asset duplicate + index diagnostics. SharePoint sync paths were NOT tested (no credentials). Known-failing expectations already relaxed in the suite: login-denied status is 400 (bug) not 401, and there are 6 duplicate 4444 staff docs.",
+  "rca_of_the_issue": "1) 400-instead-of-401 on login: the `raise HTTPException(401)` sits inside the same try block as the DB lookup, and the trailing `except Exception as e: raise HTTPException(400, f'Login failed: {e}')` catches HTTPException (a subclass of Exception) and rewraps it. 2) Duplicate documents: legacy delete_many+insert_many syncs ran without unique indexes and previously re-inserted overlapping rows; the new upsert helpers no longer create duplicates but also cannot heal the existing ones because UpdateOne updates a single document per filter match."
+}

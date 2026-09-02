@@ -16,6 +16,7 @@ from sharepoint_auto_sync import sharepoint_auto_sync
 from cached_stats import get_cached_stats, invalidate_cache
 from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH
 from servicing_export import build_servicing_workbook
+from sync_utils import upsert_staff, upsert_assets, upsert_checklist_templates, dedupe_collection
 import qrcode
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -621,42 +622,6 @@ async def migrate_existing_checklists():
     except Exception as e:
         print(f"Migration error: {e}")
 
-async def cleanup_duplicate_staff():
-    """Remove duplicate staff entries, keeping the one with most permissions"""
-    try:
-        # Find all employee numbers with duplicates
-        pipeline = [
-            {"$group": {"_id": "$employee_number", "count": {"$sum": 1}, "ids": {"$push": "$id"}}},
-            {"$match": {"count": {"$gt": 1}}}
-        ]
-        duplicates = await db.staff.aggregate(pipeline).to_list(length=100)
-        
-        for dup in duplicates:
-            emp_num = dup["_id"]
-            if not emp_num:
-                continue
-                
-            # Get all records for this employee
-            records = await db.staff.find({"employee_number": emp_num}).to_list(length=100)
-            
-            # Keep the one with admin_control='yes' or workshop_control='yes', or the first one
-            best_record = None
-            for r in records:
-                if r.get("admin_control") == "yes" or r.get("workshop_control") == "yes":
-                    best_record = r
-                    break
-            if not best_record:
-                best_record = records[0]
-            
-            # Delete all except the best one
-            for r in records:
-                if r["_id"] != best_record["_id"]:
-                    await db.staff.delete_one({"_id": r["_id"]})
-            
-            print(f"Cleaned up duplicates for employee {emp_num}")
-    except Exception as e:
-        print(f"Duplicate cleanup error: {e}")
-
 # API Routes
 @app.get("/api/health")
 async def health_check():
@@ -708,6 +673,8 @@ async def employee_login(request: EmployeeLoginRequest):
             return result
         else:
             raise HTTPException(status_code=401, detail="Invalid employee number or account inactive")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Login failed: {str(e)}")
 
@@ -730,6 +697,8 @@ async def validate_employee(employee_number: str):
             }
         else:
             return {"valid": False}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Validation failed: {str(e)}")
 
@@ -831,19 +800,22 @@ async def get_employee_activity():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get employee activity: {str(e)}")
 
+ACTIVE_ASSETS = {"retired": {"$ne": True}}
+
 @app.get("/api/staff", response_model=List[Staff])
-async def get_staff():
-    staff_list = await db.staff.find({}, {"_id": 0}).to_list(length=1000)  # Max 1000 staff
+async def get_staff(include_inactive: bool = False):
+    query = {} if include_inactive else {"active": {"$ne": False}}
+    staff_list = await db.staff.find(query, {"_id": 0}).to_list(length=1000)  # Max 1000 staff
     return staff_list
 
 @app.get("/api/assets/makes", response_model=List[str])
 async def get_makes():
-    makes = await db.assets.distinct("make")
+    makes = await db.assets.distinct("make", ACTIVE_ASSETS)
     return sorted(makes)
 
 @app.get("/api/assets/names/{make}", response_model=List[str])
 async def get_names_by_make(make: str):
-    names = await db.assets.distinct("name", {"make": make})
+    names = await db.assets.distinct("name", {"make": make, **ACTIVE_ASSETS})
     return sorted(names)
 
 @app.get("/api/assets/checktype/{make}/{name:path}")
@@ -873,13 +845,13 @@ async def get_service_check_template_by_make(make: str):
 
 @app.get("/api/assets", response_model=List[Asset])
 async def get_all_assets():
-    assets = await db.assets.find({}, {"_id": 0}).to_list(length=1000)  # Max 1000 assets
+    assets = await db.assets.find(ACTIVE_ASSETS, {"_id": 0}).to_list(length=1000)  # Max 1000 assets
     return assets
 
 @app.get("/api/assets/qr-labels")
 async def get_all_qr_labels():
     """Get list of all assets with QR code URLs and print status for printing page"""
-    assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
+    assets = await db.assets.find(ACTIVE_ASSETS, {"_id": 0}).to_list(length=10000)
     
     # Add QR code URL to each asset and ensure qr_printed field exists
     for asset in assets:
@@ -1142,50 +1114,6 @@ async def get_checklists_with_repairs(limit: int = 50, skip: int = 0):
     
     return checklists
 
-@app.post("/api/admin/update-staff")
-async def update_staff_list(staff_names: List[str]):
-    """Update the staff list by replacing all existing staff with new list"""
-    try:
-        # Clear existing staff except admin (4444)
-        await db.staff.delete_many({"employee_number": {"$ne": "4444"}})
-        
-        # Add new staff
-        new_staff = []
-        for staff_name in staff_names:
-            staff = Staff(name=staff_name.strip())
-            new_staff.append(staff.dict())
-        
-        if new_staff:
-            await db.staff.insert_many(new_staff)
-        
-        return {"message": f"Successfully updated {len(new_staff)} staff members", "count": len(new_staff)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update staff list: {str(e)}")
-
-class AssetUpdate(BaseModel):
-    make: str
-    model: str
-
-@app.post("/api/admin/update-assets")
-async def update_asset_list(assets: List[AssetUpdate]):
-    """Update the asset list by replacing all existing assets with new list"""
-    try:
-        # Clear existing assets
-        await db.assets.delete_many({})
-        
-        # Add new assets
-        new_assets = []
-        for asset_data in assets:
-            asset = Asset(make=asset_data.make.strip(), model=asset_data.model.strip())
-            new_assets.append(asset.dict())
-        
-        if new_assets:
-            await db.assets.insert_many(new_assets)
-        
-        return {"message": f"Successfully updated {len(new_assets)} assets", "count": len(new_assets)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update asset list: {str(e)}")
-
 # ============ OLD SharePoint OAuth Endpoints (Deprecated) ============
 # These endpoints use user OAuth flow which requires manual authentication.
 # Now replaced by SharePoint Auto-Sync with client credentials (app-only auth).
@@ -1303,17 +1231,14 @@ async def upload_staff_file(file: UploadFile = File(...)):
         if not staff_data:
             raise HTTPException(status_code=400, detail=f"No valid staff data found. Processed {rows_processed} rows but none had valid Name and Employee Number. Headers found: {headers}")
         
-        # Update database - preserve admin account (4444)
-        delete_result = await db.staff.delete_many({"employee_number": {"$ne": "4444"}})
-        print(f"[STAFF UPLOAD] Deleted {delete_result.deleted_count} existing staff records")
-        
-        new_staff = [Staff(**data).dict() for data in staff_data]
-        insert_result = await db.staff.insert_many(new_staff)
-        print(f"[STAFF UPLOAD] Inserted {len(insert_result.inserted_ids)} new staff records")
+        # Idempotent upsert - never hard-deletes; staff missing from the file are marked inactive
+        sync_stats = await upsert_staff(db, staff_data)
+        print(f"[STAFF UPLOAD] {sync_stats}")
         
         return {
-            "message": f"Successfully uploaded {len(staff_data)} staff members with employee numbers",
+            "message": f"Successfully uploaded {len(staff_data)} staff members ({sync_stats['added']} added, {sync_stats['updated']} updated, {sync_stats['deactivated']} deactivated)",
             "count": len(staff_data),
+            **sync_stats,
             "preview": staff_data[:5],
             "debug": {
                 "headers_found": headers,
@@ -1322,6 +1247,8 @@ async def upload_staff_file(file: UploadFile = File(...)):
             }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         print(f"[STAFF UPLOAD ERROR] {str(e)}")
@@ -1476,8 +1403,8 @@ async def get_sync_logs(limit: int = 10):
 async def get_template_diagnostics():
     """Diagnostic endpoint to verify template-to-asset mappings"""
     try:
-        # Get all unique check_types from assets
-        assets = await db.assets.find({}, {"_id": 0, "check_type": 1, "name": 1}).to_list(length=10000)
+        # Get all unique check_types from active assets
+        assets = await db.assets.find(ACTIVE_ASSETS, {"_id": 0, "check_type": 1, "name": 1}).to_list(length=10000)
         check_type_counts = {}
         for a in assets:
             ct = a.get('check_type', 'unknown')
@@ -1561,31 +1488,8 @@ async def upload_assets_file(file: UploadFile = File(...)):
         if not assets:
             raise HTTPException(status_code=400, detail="No asset data found in the uploaded file")
         
-        # Get existing assets to preserve QR print status
-        existing_assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
-        existing_qr_status = {}
-        for ea in existing_assets:
-            # Key by make+name to match assets
-            key = f"{ea.get('make', '')}:{ea.get('name', '')}"
-            if ea.get('qr_printed'):
-                existing_qr_status[key] = {
-                    'qr_printed': ea.get('qr_printed', False),
-                    'qr_printed_at': ea.get('qr_printed_at')
-                }
-        
-        # Update assets database - preserve QR status for existing machines
-        await db.assets.delete_many({})
-        new_assets = []
-        for asset in assets:
-            asset_obj = Asset(**asset)
-            asset_dict = asset_obj.dict()
-            # Check if this asset had QR printed before
-            key = f"{asset_dict['make']}:{asset_dict['name']}"
-            if key in existing_qr_status:
-                asset_dict['qr_printed'] = existing_qr_status[key]['qr_printed']
-                asset_dict['qr_printed_at'] = existing_qr_status[key]['qr_printed_at']
-            new_assets.append(asset_dict)
-        await db.assets.insert_many(new_assets)
+        # Idempotent upsert - keeps ids + QR print status, retires assets missing from the file
+        asset_stats = await upsert_assets(db, assets)
         
         # Process checklist sheets
         checklist_templates = []
@@ -1671,22 +1575,21 @@ async def upload_assets_file(file: UploadFile = File(...)):
                 checklist_templates.append(template)
                 processed_sheets.append(f"{sheet_name} -> {matching_check_type} ({len(items)} items, {compulsory_count} compulsory)")
         
-        # Update checklist templates in database
+        # Update checklist templates in database (upsert per check type - nothing is wiped)
         if checklist_templates:
-            # Clear ALL existing templates and insert new ones for complete refresh
-            await db.checklist_templates.delete_many({})
-            
-            # Insert new templates
-            await db.checklist_templates.insert_many(checklist_templates)
+            await upsert_checklist_templates(db, checklist_templates)
         
         return {
-            "message": f"Successfully uploaded {len(assets)} assets and {len(checklist_templates)} checklist templates", 
+            "message": f"Successfully uploaded {len(assets)} assets ({asset_stats['added']} added, {asset_stats['updated']} updated, {asset_stats['retired']} retired) and {len(checklist_templates)} checklist templates", 
             "count": len(assets),
+            **asset_stats,
             "templates_created": len(checklist_templates),
             "processed_sheets": processed_sheets,
             "preview": assets[:5] if assets else []
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process assets file: {str(e)}")
 
@@ -1737,14 +1640,12 @@ async def upload_checklist_file(check_type: str, file: UploadFile = File(...)):
         if not items:
             raise HTTPException(status_code=400, detail="No checklist items found in the uploaded file")
         
-        # Update database
-        await db.checklist_templates.delete_many({"check_type": check_type})
-        
+        # Update database (upsert - replaces just this check type's template)
         template = ChecklistTemplate(
             check_type=check_type,
             items=items
         )
-        await db.checklist_templates.insert_one(template.dict())
+        await db.checklist_templates.replace_one({"check_type": check_type}, template.dict(), upsert=True)
         
         return {
             "message": f"Successfully uploaded {len(items)} items for {check_type}",
@@ -1753,8 +1654,19 @@ async def upload_checklist_file(check_type: str, file: UploadFile = File(...)):
             "preview": items[:5]
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process checklist file: {str(e)}")
+
+@app.post("/api/admin/dedupe-records")
+async def dedupe_records():
+    """One-off admin cleanup: drop duplicate staff (same employee number) / asset (same make + name) copies left by the old replace-style sync"""
+    removed = {
+        "staff": await dedupe_collection(db.staff, ["employee_number"]),
+        "assets": await dedupe_collection(db.assets, ["make", "name"]),
+    }
+    return {"success": True, "removed": removed}
 
 # OLD sync-checklists endpoint removed - now handled by sync_assets_list which processes
 # checklist templates from the AssetList.xlsx file sheets

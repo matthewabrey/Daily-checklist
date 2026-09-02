@@ -126,6 +126,13 @@ QR code-based machine checklist application with health, safety, and work manage
 - [x] `category=checks` now excludes GENERAL REPAIR server-side (was dropped client-side, which broke paging); `clear-filters-btn`, `export-filter-note`, `load-more-btn` test ids added
 - Verified by testing agent: backend 53/53, frontend all flows (/app/test_reports/iteration_13.json); the Load More paging bug it found was fixed and self-verified (100 → 200 of 201 JCB rows)
 
+## Deployment readiness pass (June 2026)
+- [x] Deployment agent: PASS. Blockers fixed: (a) destructive `delete_many + insert_many` replace pattern in SharePoint daily sync + admin uploads replaced by idempotent `backend/sync_utils.py` (upsert_staff → soft-delete `active=False`; upsert_assets → `retired=True`, keeps ids + QR status; upsert_checklist_templates → replace_one per check type); (b) `.gitignore` no longer ignores `.env` files
+- [x] Read endpoints hide soft-deleted records: `GET /api/staff` active only (`?include_inactive=true` for all); `/api/assets*` exclude `retired`. Removed dead destructive endpoints `/api/admin/update-staff`, `/api/admin/update-assets`, `cleanup_duplicate_staff()`
+- [x] New admin maintenance endpoint `POST /api/admin/dedupe-records` (manual only) — ran on preview: removed 5 duplicate staff (4444 was x6) and 25 duplicate assets. **Run it once on production after deploying**
+- [x] Login/validate/upload endpoints now re-raise HTTPException (401 for inactive employee instead of 400)
+- Verified: testing agent iteration_14 (17 idempotency tests + regressions, frontend smoke) + `tests/test_sync_utils.py`; leftover TEST_ data purged
+
 ## Pending / Backlog
 - [ ] P1: Pre Service Check admin editor: choose which makes/check types get a service sheet, edit sections & add sub-items (user: "then we can add the functionality of which checks from where later")
 - [ ] P1: Continue App.js modularization (~6,480 lines remain: Records, AllChecksCompleted, Training, Accidents, etc.)
