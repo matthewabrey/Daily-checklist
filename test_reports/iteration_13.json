@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 13: tested the new /all-checks Check Type / Machine Make / Machine Model server-side filters and filtered CSV/Excel/Direct-Link exports. Backend: new pytest suite tests/test_allchecks_filters.py (13 tests) all pass - make/model/check_type/category/today filters on GET /api/checklists, filtered CSV (14-col header, row-count parity with the list API, header-only for unknown make, today rows all today's UTC date), filtered Excel (single 'All Checks' sheet for checks; 3 sheets Action List/Parts to Order/Service Sheets with all-Perrot rows for servicing). Regression suites test_checks_servicing_category.py + test_servicing_export_notes.py + test_pre_service_check.py: 40/40 pass. Frontend: login 4444 -> /all-checks; three selects present in the required order with correct static option sets per tab; makes come from asset register (54 makes incl. JCB + Perrot); models from /api/assets/names/JCB; export-filter-note + clear-filters-btn correctly hidden with no filters and shown/working when filtered; list refetches exactly once per filter change (no loop); CSV/Excel filenames all_checks_daily_check_JCB_2026-09-02.(csv|xlsx) with 195 rows all JCB/daily_check and single 'All Checks' sheet; Direct Link URL contains make=JCB&check_type=daily_check; model filter narrows list + filename contains sanitised model; Clear filters resets all three selects and refetches unfiltered mixed list; Servicing tab resets filters, Perrot filter shows only Perrot servicing rows, xlsx all_servicing_Perrot_<date>.xlsx with 3 sheets (Service Sheets all Perrot), Perrot+Workshop Service shows 'No servicing records found' and header-only CSV; Load More works with make=JCB&check_type=daily_check (100 -> 195 rows, one paging request). Regression: /all-checks?filter=today loads with title Today's Checks and no Load More; /records loads with no errors. One real bug found: Load More is hidden when a filtered page contains GENERAL REPAIR records.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/checklists/export/excel?category=servicing", "issue": "Content-Disposition filename is hardcoded 'all_servicing.xlsx' (does not encode filters). Harmless in-app because the frontend sets a.download, but the Direct Link button / raw API consumers get an unfiltered-looking filename."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AllChecksCompleted Load More", "issue": "Load More button has no data-testid (had to match by accessible text 'Load More').", "selector": "button:has-text('Load More')", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Load More while filtered by make only (make=JCB, All Types)", "issue": "BUG: hasMore is computed from regularChecks.length === ITEMS_PER_PAGE AFTER the client drops GENERAL REPAIR records (App.js ~1935-1944). GET /api/checklists?limit=100&category=checks&make=JCB returns 100 rows of which 2 are GENERAL REPAIR, so the client keeps 98, hasMore becomes false and Load More is hidden - the user can only ever see 98 of 202 JCB check records. Fix: base hasMore on the raw response length (data.length === ITEMS_PER_PAGE) or exclude GENERAL REPAIR server-side in build_checklist_query.", "affected_selectors": ["make-filter", "button:has-text('Load More')"]}
+    ],
+    "design_issues": [
+      {"screen": "/all-checks header/subtitle", "issues": ["Subtitle count reflects only the currently loaded page (e.g. 'View all equipment checks - 100 records') while the filtered export contains 195 rows - can read as if the export is truncated. Consider showing a total filtered count or wording like 'showing 100 of N'."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_allchecks_filters.py",
+    "/app/test_reports/pytest/allchecks_filters.xml"
+  ],
+  "action_items": [
+    "Fix hasMore/Load More so it is not hidden when a page contains GENERAL REPAIR records (make-only filter currently caps the list at 98 of 202 JCB records).",
+    "Add data-testid (e.g. load-more-btn) to the Load More button in AllChecksCompleted.",
+    "Optional: encode filters in the servicing Excel Content-Disposition filename; optional: show total filtered count in the subtitle."
+  ],
+  "critical_code_review_comments": [
+    "App.js ~1944: setHasMore(regularChecks.length === ITEMS_PER_PAGE) uses the post-filter length; any server page containing GENERAL REPAIR silently ends pagination. Use the raw response length.",
+    "App.js filterChecklists() duplicates the server-side filtering client-side; harmless now but a second source of truth that can hide server-filter bugs.",
+    "server.py export_checklists_excel for category=servicing ignores export_filename() and hardcodes all_servicing.xlsx.",
+    "App.js is ~6600 lines - AllChecksCompleted (>650 lines) should be split into its own module."
+  ],
+  "updated_files": ["/app/backend/tests/test_allchecks_filters.py"],
+  "success_rate": {"backend": "100% (53/53: 13 new + 40 regression)", "frontend": "95% (all filter/export flows pass; 1 Load More paging bug)"},
+  "seed_data_creation": "None - no records created or deleted; existing TEST_ prefixed data from earlier iterations was reused read-only.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Employee number 4444 (admin) at '/' via employee-number-input + login-btn",
+  "context_for_next_testing_agent": "New suite /app/backend/tests/test_allchecks_filters.py covers list + CSV + Excel filtering; run with `python -m pytest tests/test_allchecks_filters.py -q`. DB currently has 202 JCB category=checks records (195 daily_check + 2 GENERAL REPAIR + others) and 6 Perrot servicing (pre_service_check) records - the note that only 1 Perrot record exists is stale. Filter selects are native <select>: use page.select_option. Only open issue: Load More hidden when page contains GENERAL REPAIR (make-only filter).",
+  "rca_of_the_issue": "Load More bug: fetchChecklists() requests limit=100 then filters out check_type === 'GENERAL REPAIR' client-side, then sets hasMore = (filtered.length === 100). With make=JCB the first page contains 2 GENERAL REPAIR rows, so filtered.length = 98 != 100 -> hasMore false -> Load More button never renders, capping the visible list at 98 while 202 JCB check records exist. Reproduce: /all-checks, select Machine Make = JCB, leave Check Type = All Types -> no Load More. Selecting Check Type = Daily Check returns a clean 100-row page and Load More works (100 -> 195)."
+}

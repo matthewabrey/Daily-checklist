@@ -1769,11 +1769,13 @@ function AllChecksCompleted() {
   const [loadError, setLoadError] = useState(null);
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
+  const [selectedCheckType, setSelectedCheckType] = useState('');
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
   const [selectedChecklist, setSelectedChecklist] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(null);
   const navigate = useNavigate();
   
   const ITEMS_PER_PAGE = 100;
@@ -1791,14 +1793,54 @@ function AllChecksCompleted() {
     setViewMode(mode);
     setSelectedMake('');
     setSelectedModel('');
+    setSelectedCheckType('');
     setChecklists([]);
     setFilteredChecklists([]);
   };
 
+  // Query string describing the current tab + filters, shared by the list and all exports
+  const exportQuery = () => {
+    const params = new URLSearchParams({ category: viewMode });
+    if (selectedCheckType) params.set('check_type', selectedCheckType);
+    if (selectedMake) params.set('make', selectedMake);
+    if (selectedModel) params.set('model', selectedModel);
+    if (filterToday) params.set('today', 'true');
+    return params.toString();
+  };
+
+  const exportFilename = (ext) => {
+    const parts = ['all', viewMode];
+    if (selectedCheckType) parts.push(selectedCheckType);
+    if (selectedMake) parts.push(selectedMake);
+    if (selectedModel) parts.push(selectedModel);
+    if (filterToday) parts.push('today');
+    parts.push(new Date().toISOString().split('T')[0]);
+    return `${parts.join('_').replace(/[^\w.-]+/g, '-')}.${ext}`;
+  };
+
+  const hasActiveFilter = Boolean(selectedMake || selectedModel || selectedCheckType);
+  const CHECKS_TAB_TYPES = ['daily_check', 'grader_startup', 'fuel_mileage', 'NEW MACHINE', 'REPAIR COMPLETED'];
+  const checkTypeOptions = isServicing ? ['pre_service_check', 'workshop_service'] : CHECKS_TAB_TYPES;
+
+  // Makes / models come from the asset register so any machine can be filtered, not just those on the loaded page
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/assets/makes`).then(r => r.ok ? r.json() : []).then(setMakes).catch(() => setMakes([]));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedMake) { setModels([]); return; }
+    fetch(`${API_BASE_URL}/api/assets/names/${encodeURIComponent(selectedMake)}`).then(r => r.ok ? r.json() : []).then(setModels).catch(() => setModels([]));
+  }, [selectedMake]);
+
   useEffect(() => {
     fetchChecklists();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch on mount and when the today filter / view tab changes; paging handled by Load More
-  }, [filterToday, viewMode]); // Re-fetch when filter changes
+    setTotalCount(null);
+    fetch(`${API_BASE_URL}/api/checklists/count?${exportQuery()}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setTotalCount(d ? d.count : null))
+      .catch(() => setTotalCount(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch page 1 whenever the tab or any server-side filter changes; paging handled by Load More
+  }, [filterToday, viewMode, selectedCheckType, selectedMake, selectedModel]);
 
   const filterChecklists = useCallback(() => {
     let filtered = checklists;
@@ -1808,24 +1850,20 @@ function AllChecksCompleted() {
       const today = new Date().toISOString().split('T')[0];
       filtered = filtered.filter(c => c.completed_at && c.completed_at.startsWith(today));
     }
-    
+
+    // Server already filters; this keeps the list consistent while a refetch is in flight
+    if (selectedCheckType) {
+      filtered = filtered.filter(c => c.check_type === selectedCheckType);
+    }
     if (selectedMake) {
       filtered = filtered.filter(c => c.machine_make === selectedMake);
-      
-      // Update available models based on selected make
-      const availableModels = [...new Set(filtered.map(c => c.machine_model))].sort();
-      setModels(availableModels);
-    } else {
-      setModels([]);
-      setSelectedModel('');
     }
-    
     if (selectedModel) {
       filtered = filtered.filter(c => c.machine_model === selectedModel);
     }
     
     setFilteredChecklists(filtered);
-  }, [checklists, filterToday, selectedMake, selectedModel]);
+  }, [checklists, filterToday, selectedCheckType, selectedMake, selectedModel]);
 
   useEffect(() => {
     filterChecklists();
@@ -1893,7 +1931,7 @@ function AllChecksCompleted() {
       }
       
       const skip = append ? checklists.length : 0;
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}&category=${viewMode}`, {
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}&${exportQuery()}`, {
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -1908,13 +1946,8 @@ function AllChecksCompleted() {
         setChecklists(regularChecks);
       }
       
-      // Extract unique makes and models
-      const allChecklists = append ? [...checklists, ...regularChecks] : regularChecks;
-      const uniqueMakes = [...new Set(allChecklists.map(c => c.machine_make))].sort();
-      setMakes(uniqueMakes);
-      
-      // Check if there are more items to load
-      setHasMore(regularChecks.length === ITEMS_PER_PAGE);
+      // Check if there are more items to load (based on the raw page size, before any client-side drop)
+      setHasMore(Array.isArray(data) && data.length === ITEMS_PER_PAGE);
       
     } catch (error) {
       console.error('Error fetching checklists:', error);
@@ -1932,7 +1965,7 @@ function AllChecksCompleted() {
   };
   
   const loadMore = () => {
-    if (!loadingMore && hasMore && !selectedMake && !selectedModel) {
+    if (!loadingMore && hasMore) {
       fetchChecklists(true);
     }
   };
@@ -1960,7 +1993,7 @@ function AllChecksCompleted() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
       
-      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel?category=${viewMode}`, {
+      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel?${exportQuery()}`, {
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -1972,12 +2005,12 @@ function AllChecksCompleted() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `all_${viewMode}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.download = exportFilename('xlsx');
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success(`${isServicing ? 'Servicing records' : 'Checks'} exported successfully to Excel`);
+      toast.success(`${hasActiveFilter ? 'Filtered ' : ''}${isServicing ? 'servicing records' : 'checks'} exported successfully to Excel`);
     } catch (error) {
       console.error('Export error:', error);
       if (error.name === 'AbortError') {
@@ -1991,7 +2024,7 @@ function AllChecksCompleted() {
   const handleExportCSV = async () => {
     try {
       toast.info('Generating CSV export...');
-      const response = await fetch(`${API_BASE_URL}/api/checklists/export/csv?category=${viewMode}`);
+      const response = await fetch(`${API_BASE_URL}/api/checklists/export/csv?${exportQuery()}`);
       if (!response.ok) {
         throw new Error('Export failed');
       }
@@ -1999,12 +2032,12 @@ function AllChecksCompleted() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `all_${viewMode}_${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = exportFilename('csv');
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success(`${isServicing ? 'Servicing records' : 'Checks'} exported successfully to CSV`);
+      toast.success(`${hasActiveFilter ? 'Filtered ' : ''}${isServicing ? 'servicing records' : 'checks'} exported successfully to CSV`);
     } catch (error) {
       console.error('Export error:', error);
       toast.error(`Failed to export ${recordLabel}`);
@@ -2149,10 +2182,10 @@ function AllChecksCompleted() {
             </h1>
             <p className="text-gray-600 mt-2" data-testid="all-checks-subtitle">
               {isServicing
-                ? `Pre Service Checks & Workshop Service records${filterToday ? ' completed today' : ''} - ${filteredChecklists.length} records`
+                ? `Pre Service Checks & Workshop Service records${filterToday ? ' completed today' : ''} - ${totalCount ?? filteredChecklists.length} records`
                 : (filterToday 
-                  ? `Checks completed today - ${filteredChecklists.length} records` 
-                  : `View all equipment checks - ${filteredChecklists.length} records`)
+                  ? `Checks completed today - ${totalCount ?? filteredChecklists.length} records` 
+                  : `View all equipment checks - ${totalCount ?? filteredChecklists.length} records`)
               }
             </p>
           </div>
@@ -2179,7 +2212,7 @@ function AllChecksCompleted() {
             CSV (Fast)
           </Button>
           <Button 
-            onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel?category=${viewMode}`, '_blank')}
+            onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel?${exportQuery()}`, '_blank')}
             variant="outline"
             className="text-gray-600"
             title="Opens in new tab - use if other exports timeout"
@@ -2225,16 +2258,41 @@ function AllChecksCompleted() {
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>{isServicing ? 'Filter Servicing Records' : 'Filter Checks'}</CardTitle>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <CardTitle>{isServicing ? 'Filter Servicing Records' : 'Filter Checks'}</CardTitle>
+            {hasActiveFilter && (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-600" data-testid="export-filter-note">Excel / CSV will export only the filtered {recordLabel}</span>
+                <Button variant="ghost" size="sm" onClick={() => { setSelectedMake(''); setSelectedModel(''); setSelectedCheckType(''); }} data-testid="clear-filters-btn">
+                  Clear filters
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Check Type</label>
+              <select
+                value={selectedCheckType}
+                onChange={(e) => setSelectedCheckType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                data-testid="check-type-filter"
+              >
+                <option value="">All Types</option>
+                {checkTypeOptions.map(type => (
+                  <option key={type} value={type}>{CHECK_TYPE_LABELS[type] || type}</option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Machine Make</label>
               <select
                 value={selectedMake}
                 onChange={(e) => handleMakeChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                data-testid="make-filter"
               >
                 <option value="">All Makes</option>
                 {makes.map(make => (
@@ -2249,6 +2307,7 @@ function AllChecksCompleted() {
                 onChange={(e) => setSelectedModel(e.target.value)}
                 disabled={!selectedMake}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                data-testid="model-filter"
               >
                 <option value="">All Models</option>
                 {models.map(model => (
@@ -2325,14 +2384,15 @@ function AllChecksCompleted() {
                 </Card>
               ))}
               
-              {/* Load More Button - only show when not filtering */}
-              {hasMore && filteredChecklists.length > 0 && !selectedMake && !selectedModel && (
+              {/* Load More Button */}
+              {hasMore && filteredChecklists.length > 0 && !filterToday && (
                 <div className="mt-6 text-center">
                   <Button 
                     onClick={loadMore} 
                     disabled={loadingMore}
                     variant="outline"
                     className="w-full sm:w-auto"
+                    data-testid="load-more-btn"
                   >
                     {loadingMore ? (
                       <>
@@ -2343,14 +2403,13 @@ function AllChecksCompleted() {
                       `Load More ${isServicing ? 'Servicing Records' : 'Checks'} (${ITEMS_PER_PAGE} at a time)`
                     )}
                   </Button>
-                  <p className="text-sm text-gray-500 mt-2">Showing {filteredChecklists.length} {recordLabel}</p>
+                  <p className="text-sm text-gray-500 mt-2" data-testid="showing-count">Showing {filteredChecklists.length}{totalCount != null ? ` of ${totalCount}` : ''} {recordLabel}{hasActiveFilter ? ' — exports include all of them' : ''}</p>
                 </div>
               )}
               
-              {/* Info message when filtering */}
-              {(selectedMake || selectedModel) && (
-                <div className="mt-4 text-center text-sm text-gray-500">
-                  <p>Filtering applied. Clear filters to load more records.</p>
+              {hasActiveFilter && !hasMore && filteredChecklists.length > 0 && (
+                <div className="mt-4 text-center text-sm text-gray-500" data-testid="filter-complete-note">
+                  <p>All {totalCount ?? filteredChecklists.length} matching {recordLabel} loaded — Excel / CSV export exactly this list.</p>
                 </div>
               )}
             </div>

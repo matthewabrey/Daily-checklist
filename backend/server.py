@@ -990,24 +990,38 @@ async def get_dashboard_stats():
 SERVICING_CHECK_TYPES = ["pre_service_check", "workshop_service"]
 
 def category_filter(category: Optional[str]) -> dict:
-    """'servicing' = service sheets + workshop services; 'checks' = everything else"""
+    """'servicing' = service sheets + workshop services; 'checks' = everything else (GENERAL REPAIR lives on the Repairs page)"""
     if category == "servicing":
         return {"check_type": {"$in": SERVICING_CHECK_TYPES}}
     if category == "checks":
-        return {"check_type": {"$nin": SERVICING_CHECK_TYPES}}
+        return {"check_type": {"$nin": SERVICING_CHECK_TYPES + ["GENERAL REPAIR"]}}
     return {}
 
-@app.get("/api/checklists", response_model=List[ChecklistResponse])
-async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None, category: str = None):
-    """Get checklists with pagination - optimized for speed"""
-    # Build query filter
+def build_checklist_query(category: Optional[str] = None, check_type: Optional[str] = None,
+                          make: Optional[str] = None, model: Optional[str] = None, today: bool = False) -> dict:
+    """Shared Mongo filter for the checklist list + exports (check_type may be comma-separated)"""
     query = category_filter(category)
     if check_type:
-        if ',' in check_type:
-            check_types = [ct.strip() for ct in check_type.split(',')]
-            query["check_type"] = {"$in": check_types}
-        else:
-            query["check_type"] = check_type
+        check_types = [ct.strip() for ct in check_type.split(',') if ct.strip()]
+        query["check_type"] = {"$in": check_types} if len(check_types) > 1 else check_types[0]
+    if make:
+        query["machine_make"] = make
+    if model:
+        query["machine_model"] = model
+    if today:
+        query["completed_at"] = {"$regex": f"^{datetime.now(timezone.utc).date().isoformat()}"}
+    return query
+
+@app.get("/api/checklists/count")
+async def count_checklists(check_type: str = None, category: str = None, make: str = None, model: str = None, today: bool = False):
+    """Total number of records matching the same filters as the list / exports"""
+    return {"count": await db.checklists.count_documents(build_checklist_query(category, check_type, make, model, today))}
+
+@app.get("/api/checklists", response_model=List[ChecklistResponse])
+async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None, category: str = None,
+                         make: str = None, model: str = None):
+    """Get checklists with pagination - optimized for speed"""
+    query = build_checklist_query(category, check_type, make, model)
     
     # Enforce reasonable limits
     limit = min(limit, 500)  # Max 500 at a time
@@ -1839,17 +1853,23 @@ def export_row(checklist: dict) -> list:
         "; ".join(checklist.get('parts_required') or []),
     ]
 
-def export_filename(category: Optional[str], ext: str) -> str:
-    return f"all_{'servicing' if category == 'servicing' else 'checks'}.{ext}"
+def export_filename(category: Optional[str], ext: str, check_type: Optional[str] = None,
+                    make: Optional[str] = None, model: Optional[str] = None, today: bool = False) -> str:
+    parts = ["all", "servicing" if category == "servicing" else "checks"]
+    parts += [p for p in (check_type, make, model) if p]
+    if today:
+        parts.append("today")
+    return re.sub(r"[^\w.-]+", "-", "_".join(parts)) + f".{ext}"
 
 @app.get("/api/checklists/export/csv")
-async def export_checklists_csv(category: str = None):
+async def export_checklists_csv(category: str = None, check_type: str = None, make: str = None, model: str = None, today: bool = False):
     """Fast CSV export - use this for very large datasets"""
     from fastapi.responses import StreamingResponse
     import io
     import csv
     
-    checklists = await db.checklists.find(category_filter(category), EXPORT_PROJECTION).sort("completed_at", -1).limit(10000).to_list(length=10000)
+    query = build_checklist_query(category, check_type, make, model, today)
+    checklists = await db.checklists.find(query, EXPORT_PROJECTION).sort("completed_at", -1).limit(10000).to_list(length=10000)
     
     output = io.StringIO()
     writer = csv.writer(output)
@@ -1862,11 +1882,11 @@ async def export_checklists_csv(category: str = None):
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode('utf-8')),
         media_type='text/csv',
-        headers={"Content-Disposition": f"attachment; filename={export_filename(category, 'csv')}"}
+        headers={"Content-Disposition": f"attachment; filename={export_filename(category, 'csv', check_type, make, model, today)}"}
     )
 
 @app.get("/api/checklists/export/excel")
-async def export_checklists_excel(category: str = None):
+async def export_checklists_excel(category: str = None, check_type: str = None, make: str = None, model: str = None, today: bool = False):
     """Optimized Excel export for large datasets"""
     from fastapi.responses import StreamingResponse
     import io
@@ -1874,14 +1894,15 @@ async def export_checklists_excel(category: str = None):
     from openpyxl.styles import Font, PatternFill
     from openpyxl.utils import get_column_letter
     
-    checklists = await db.checklists.find(category_filter(category), EXPORT_PROJECTION).sort("completed_at", -1).limit(10000).to_list(length=10000)
+    query = build_checklist_query(category, check_type, make, model, today)
+    checklists = await db.checklists.find(query, EXPORT_PROJECTION).sort("completed_at", -1).limit(10000).to_list(length=10000)
     
     if category == "servicing":
         # Service-manager workbook: Action List (repairs / parts / other issues), Parts to Order, full Service Sheets
         return StreamingResponse(
             build_servicing_workbook(checklists),
             media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            headers={"Content-Disposition": "attachment; filename=all_servicing.xlsx"}
+            headers={"Content-Disposition": f"attachment; filename={export_filename(category, 'xlsx', check_type, make, model, today)}"}
         )
     
     # Create workbook with optimized settings
@@ -1911,7 +1932,7 @@ async def export_checklists_excel(category: str = None):
     return StreamingResponse(
         output,
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        headers={"Content-Disposition": f"attachment; filename={export_filename(category, 'xlsx')}"}
+        headers={"Content-Disposition": f"attachment; filename={export_filename(category, 'xlsx', check_type, make, model, today)}"}
     )
 
 @app.get("/api/checklists/export/excel-by-machine")

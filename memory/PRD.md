@@ -119,6 +119,13 @@ QR code-based machine checklist application with health, safety, and work manage
 - Verified by testing agent: 40/40 backend tests, frontend 100% (/app/test_reports/iteration_12.json)
 - NOTE: the user may have seen the bug on the PRODUCTION deployment — remind them to redeploy to get these fixes live
 
+## All Checks filters + filtered exports (June 2026)
+- [x] `/all-checks`: new **Check Type** dropdown (static options per tab) beside Make / Model; makes from `/api/assets/makes`, models from `/api/assets/names/{make}` so any machine can be filtered
+- [x] List is server-filtered (`GET /api/checklists` now accepts `make`, `model` + existing `check_type`, `category`); Load More pages through filtered results; header shows true total via new `GET /api/checklists/count?<same filters>`; "Showing X of N — exports include all of them"
+- [x] Excel / CSV (Fast) / Direct Link export exactly the filtered set: `/export/csv` + `/export/excel` accept `category, check_type, make, model, today`; filenames encode filters (`all_checks_daily_check_JCB_<date>.csv`, `all_servicing_Perrot.xlsx`). Shared `build_checklist_query()` + `export_filename()` in server.py
+- [x] `category=checks` now excludes GENERAL REPAIR server-side (was dropped client-side, which broke paging); `clear-filters-btn`, `export-filter-note`, `load-more-btn` test ids added
+- Verified by testing agent: backend 53/53, frontend all flows (/app/test_reports/iteration_13.json); the Load More paging bug it found was fixed and self-verified (100 → 200 of 201 JCB rows)
+
 ## Pending / Backlog
 - [ ] P1: Pre Service Check admin editor: choose which makes/check types get a service sheet, edit sections & add sub-items (user: "then we can add the functionality of which checks from where later")
 - [ ] P1: Continue App.js modularization (~6,480 lines remain: Records, AllChecksCompleted, Training, Accidents, etc.)
