@@ -105,6 +105,13 @@ QR code-based machine checklist application with health, safety, and work manage
 - Verified by testing agent: backend 11/11, frontend 100% incl. Workplan Editor regression (/app/test_reports/iteration_10.json)
 - NEXT (user's stated plan): make templates configurable — "which checks from where" (admin editor to assign service sheets to other makes / check types, add sub-items per section)
 
+## Checks / Servicing tabs on All Checks (June 2026)
+- [x] `/all-checks` now has a Checks | Servicing tab toggle (default Checks; deep link `?view=servicing`). Servicing = `pre_service_check` + `workshop_service`; Checks = everything else (GENERAL REPAIR still hidden client-side)
+- [x] Title/subtitle, filter card, empty state, Load More label and detail modal header ("Servicing Record") follow the tab; servicing rows show orange Settings (workshop) / purple ClipboardCheck (pre-service) icons, notes snippet or "✓x ✗y of 7 sections · N parts required" summary
+- [x] Backend `category` param (`checks` | `servicing` | omitted=all) on GET `/api/checklists`, `/api/checklists/today`, `/api/checklists/export/csv`, `/api/checklists/export/excel` (`category_filter()` in server.py). Exports share `export_row()`; new 13th column **Parts Required**; counts now computed for any record with items (incl. pre-service); filenames `all_servicing.*` vs `all_checks.*`, sheet title "All Servicing"/"All Checks"
+- [x] Records list badge/label now uses shared `CHECK_TYPE_LABELS` (fuel & mileage no longer shown as "Workshop Service")
+- Verified by testing agent: backend 15/15, frontend all functional flows pass (/app/test_reports/iteration_11.json); the one layout defect (date wrapping on long notes) fixed and self-verified
+
 ## Pending / Backlog
 - [ ] P1: Pre Service Check admin editor: choose which makes/check types get a service sheet, edit sections & add sub-items (user: "then we can add the functionality of which checks from where later")
 - [ ] P1: Continue App.js modularization (~6,480 lines remain: Records, AllChecksCompleted, Training, Accidents, etc.)

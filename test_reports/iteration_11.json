@@ -1,0 +1,48 @@
+{
+  "summary": "Tested the new Checks/Servicing tab feature end-to-end. Backend: 15 new pytest cases (category filter on /api/checklists, /api/checklists/today, CSV + Excel exports incl. filenames, 13-column header with 'Parts Required', sheet titles, count/notes/parts computation for a newly created pre_service_check) — all 15 passed. Frontend: login 4444 -> /all-checks; default Checks tab, tab switch to Servicing (title/subtitle/filter-card/labels/service-summary), ?view=servicing deep link, ?filter=today on both tabs, Make/Model filters + Load More hiding, Pre Service Check & Workshop Service detail modals, all three exports (CSV/Excel downloads + Direct Link window.open) with correct category param & filenames, filter reset on tab switch, and regressions on /records and the /new-checklist Perrot -> pre-service-check-btn flow. Everything functional passed; one layout defect found (date column wraps on rows with long workshop notes).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AllChecksCompleted list row (Servicing tab)",
+        "issue": "Requirement 'date/time on the right stays on one line' FAILS for rows with long workshop notes. Measured date <p> height = 60px (3 lines: '11/4/2025 / at 4:41:20 / PM') vs 20px on other rows (row 3, Standen Pearson Uniweb destoner 3). Cause: the left flex child has no min-w-0/flex-1 and the right .text-right wrapper has no whitespace-nowrap/flex-shrink-0, so the long line-clamp-1 notes squeeze the date column. Suggested fix (App.js ~line 2255): add 'min-w-0 flex-1' to the left content div and 'whitespace-nowrap flex-shrink-0' (or shrink-0) to the date wrapper div.",
+        "selector": "[data-testid^=\"check-row-\"] .text-right p",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "/records (pre-existing, outside this session's scope)",
+        "issues": ["workshop_service rows are labelled generically as 'Check by <name>' in the left column while the right badge says 'Workshop Service' — inconsistent with the new /all-checks labelling"]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_checks_servicing_category.py",
+    "/app/test_reports/pytest/iter11_category.xml"
+  ],
+  "action_items": [
+    "Fix date-column wrapping on Servicing rows with long workshop notes (add min-w-0/flex-1 + whitespace-nowrap shrink-0)",
+    "Clean up TEST_ records created by testing: pre_service_check id 7ad3857a... (staff_name 'TEST_Agent', Perrot Machine 2) — there is still no DELETE endpoint for checklists"
+  ],
+  "critical_code_review_comments": [
+    "export_row() only prefixes 'Section: note' when check_type == 'pre_service_check'; workshop_service items keep bare notes. Intentional per spec but brittle — consider driving it off a template flag instead of a string comparison.",
+    "category param is unvalidated: ?category=bogus silently behaves like 'all' (verified 200 + mixed types). Consider a Literal['checks','servicing'] query type so typos fail fast instead of returning wrong-scoped exports.",
+    "/app/frontend/src/App.js is far over the 700-line guideline (AllChecksCompleted alone ~600 lines); AllChecksCompleted and Records duplicate the detail-modal markup — extract shared ChecklistDetailModal.",
+    "Machine make/model filters on /all-checks are plain <select> elements while /new-checklist uses shadcn Select — inconsistent UI primitives."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_checks_servicing_category.py"
+  ],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "95% (all functional checks pass; 1 layout defect)"},
+  "seed_data_creation": "Created 1 pre_service_check record via POST /api/checklists: Perrot Machine 2, staff_name TEST_Agent, employee 4444, 7 items (5 satisfactory / 1 unsatisfactory with note 'TEST_worn seal' on Drum / 1 n/a), workshop_notes 'TEST_other issue', parts ['TEST_part A','TEST_part B']. Verified in CSV export row (Sat=5, Unsat=1, Total=7, Notes contains 'Drum: TEST_worn seal', Parts Required='TEST_part A; TEST_part B') and rendered as a purple Pre Service Check row with summary '✓5 ✗1 of 7 sections · 2 parts required'.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Employee number 4444 (admin), login-only",
+  "context_for_next_testing_agent": "Backend category/export coverage lives in /app/backend/tests/test_checks_servicing_category.py (15 tests, all green) — reuse it as regression. DB now has 26 servicing records (25 workshop_service + 1 TEST_Agent pre_service_check, id starts 7ad3857a) unless the main agent purged it; if purged, re-run TestCreatePreServiceRecord before frontend servicing-tab tests. Note: shadcn Select options on /new-checklist must be clicked with scroll_into_view_if_needed() + a normal click — force=True clicks land on the wrong option (selects 'Brian Legg' instead of 'Perrot').",
+  "rca_of_the_issue": "Date wrapping: in AllChecksCompleted's row markup the outer 'flex items-center justify-between' has an unconstrained left child (no min-w-0) holding a line-clamp-1 notes paragraph; flexbox therefore gives the left child its max-content-ish width and shrinks the right date wrapper, whose text has no whitespace-nowrap, so it wraps across 3 lines for long-note rows."
+}

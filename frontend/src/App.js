@@ -1617,26 +1617,12 @@ function Records() {
                 } else {
                   statusInfo = (
                     <Badge variant="outline" className="mb-1">
-                      {checklist.check_type === 'NEW MACHINE' ? 'New Machine' : 
-                       checklist.check_type === 'REPAIR COMPLETED' ? 'Repair Completed' : 
-                       checklist.check_type === 'GENERAL REPAIR' ? 'General Repair' : 
-                       'Workshop Service'}
+                      {CHECK_TYPE_LABELS[checklist.check_type] || 'Check'}
                     </Badge>
                   );
                 }
 
-                const getCheckTypeDisplay = (type) => {
-                  switch(type) {
-                    case 'daily_check': return 'Daily check';
-                    case 'grader_startup': return 'Grader startup';
-                    case 'workshop_service': return 'Workshop service';
-                    case 'pre_service_check': return 'Pre Service Check';
-                    case 'NEW MACHINE': return 'New Machine';
-                    case 'REPAIR COMPLETED': return 'Repair Completed';
-                    case 'GENERAL REPAIR': return 'General Repair';
-                    default: return 'Check';
-                  }
-                };
+                const getCheckTypeDisplay = (type) => CHECK_TYPE_LABELS[type] || 'Check';
 
                 const getIconAndColor = (type) => {
                   switch(type) {
@@ -1795,11 +1781,24 @@ function AllChecksCompleted() {
   // Check if we're filtering for today's checks
   const urlParams = new URLSearchParams(window.location.search);
   const filterToday = urlParams.get('filter') === 'today';
+  // 'checks' (daily / grader / fuel etc.) or 'servicing' (Pre Service Checks + Workshop Service)
+  const [viewMode, setViewMode] = useState(urlParams.get('view') === 'servicing' ? 'servicing' : 'checks');
+  const isServicing = viewMode === 'servicing';
+  const recordLabel = isServicing ? 'servicing records' : 'checks';
+
+  const switchView = (mode) => {
+    if (mode === viewMode) return;
+    setViewMode(mode);
+    setSelectedMake('');
+    setSelectedModel('');
+    setChecklists([]);
+    setFilteredChecklists([]);
+  };
 
   useEffect(() => {
     fetchChecklists();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch on mount and when the today filter changes; paging handled by Load More
-  }, [filterToday]); // Re-fetch when filter changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch on mount and when the today filter / view tab changes; paging handled by Load More
+  }, [filterToday, viewMode]); // Re-fetch when filter changes
 
   const filterChecklists = useCallback(() => {
     let filtered = checklists;
@@ -1844,7 +1843,7 @@ function AllChecksCompleted() {
       // Use dedicated today endpoint if filtering for today
       if (filterToday && !append) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/checklists/today`, {
+          const response = await fetch(`${API_BASE_URL}/api/checklists/today?category=${viewMode}`, {
             signal: controller.signal
           });
           clearTimeout(timeoutId);
@@ -1867,7 +1866,7 @@ function AllChecksCompleted() {
         try {
           const controller2 = new AbortController();
           const timeoutId2 = setTimeout(() => controller2.abort(), 30000);
-          const response = await fetch(`${API_BASE_URL}/api/checklists?limit=50`, {
+          const response = await fetch(`${API_BASE_URL}/api/checklists?limit=50&category=${viewMode}`, {
             signal: controller2.signal
           });
           clearTimeout(timeoutId2);
@@ -1894,7 +1893,7 @@ function AllChecksCompleted() {
       }
       
       const skip = append ? checklists.length : 0;
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}`, {
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}&category=${viewMode}`, {
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -1961,7 +1960,7 @@ function AllChecksCompleted() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
       
-      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel`, {
+      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel?category=${viewMode}`, {
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -1973,18 +1972,18 @@ function AllChecksCompleted() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `all_checks_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.download = `all_${viewMode}_${new Date().toISOString().split('T')[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success('Checks exported successfully to Excel');
+      toast.success(`${isServicing ? 'Servicing records' : 'Checks'} exported successfully to Excel`);
     } catch (error) {
       console.error('Export error:', error);
       if (error.name === 'AbortError') {
         toast.error('Export timed out. Try the faster CSV format instead.');
       } else {
-        toast.error('Failed to export checks. Try CSV format for large datasets.');
+        toast.error(`Failed to export ${recordLabel}. Try CSV format for large datasets.`);
       }
     }
   };
@@ -1992,7 +1991,7 @@ function AllChecksCompleted() {
   const handleExportCSV = async () => {
     try {
       toast.info('Generating CSV export...');
-      const response = await fetch(`${API_BASE_URL}/api/checklists/export/csv`);
+      const response = await fetch(`${API_BASE_URL}/api/checklists/export/csv?category=${viewMode}`);
       if (!response.ok) {
         throw new Error('Export failed');
       }
@@ -2000,15 +1999,15 @@ function AllChecksCompleted() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `all_checks_${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `all_${viewMode}_${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success('Checks exported successfully to CSV');
+      toast.success(`${isServicing ? 'Servicing records' : 'Checks'} exported successfully to CSV`);
     } catch (error) {
       console.error('Export error:', error);
-      toast.error('Failed to export checks');
+      toast.error(`Failed to export ${recordLabel}`);
     }
   };
 
@@ -2017,7 +2016,7 @@ function AllChecksCompleted() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading checks...</p>
+          <p className="mt-2 text-gray-600">Loading {recordLabel}...</p>
         </div>
       </div>
     );
@@ -2030,7 +2029,7 @@ function AllChecksCompleted() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Check Details</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{selectedChecklist.check_type === 'pre_service_check' || selectedChecklist.check_type === 'workshop_service' ? 'Servicing Record' : 'Check Details'}</h2>
               <Button variant="ghost" size="sm" onClick={closeDetailModal}>
                 <X className="h-5 w-5" />
               </Button>
@@ -2143,13 +2142,17 @@ function AllChecksCompleted() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {filterToday ? "Today's Checks" : "All Checks Completed"}
+            <h1 className="text-3xl font-bold text-gray-900" data-testid="all-checks-title">
+              {isServicing
+                ? (filterToday ? "Today's Servicing" : 'All Servicing Records')
+                : (filterToday ? "Today's Checks" : 'All Checks Completed')}
             </h1>
-            <p className="text-gray-600 mt-2">
-              {filterToday 
-                ? `Checks completed today - ${filteredChecklists.length} records` 
-                : `View all equipment checks - ${filteredChecklists.length} records`
+            <p className="text-gray-600 mt-2" data-testid="all-checks-subtitle">
+              {isServicing
+                ? `Pre Service Checks & Workshop Service records${filterToday ? ' completed today' : ''} - ${filteredChecklists.length} records`
+                : (filterToday 
+                  ? `Checks completed today - ${filteredChecklists.length} records` 
+                  : `View all equipment checks - ${filteredChecklists.length} records`)
               }
             </p>
           </div>
@@ -2160,6 +2163,7 @@ function AllChecksCompleted() {
             variant="outline"
             className="bg-green-600 hover:bg-green-700 text-white"
             title="Download as Excel file"
+            data-testid="export-excel-btn"
           >
             <Download className="mr-2 h-4 w-4" />
             Excel
@@ -2169,15 +2173,17 @@ function AllChecksCompleted() {
             variant="outline"
             className="bg-blue-600 hover:bg-blue-700 text-white"
             title="Faster for large datasets"
+            data-testid="export-csv-btn"
           >
             <Download className="mr-2 h-4 w-4" />
             CSV (Fast)
           </Button>
           <Button 
-            onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel`, '_blank')}
+            onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel?category=${viewMode}`, '_blank')}
             variant="outline"
             className="text-gray-600"
             title="Opens in new tab - use if other exports timeout"
+            data-testid="export-direct-link-btn"
           >
             <Download className="mr-2 h-4 w-4" />
             Direct Link
@@ -2185,10 +2191,36 @@ function AllChecksCompleted() {
         </div>
       </div>
 
+      {/* Checks / Servicing tabs */}
+      <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-1" role="tablist" data-testid="all-checks-view-tabs">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={!isServicing}
+          onClick={() => switchView('checks')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${!isServicing ? 'bg-white text-green-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+          data-testid="view-tab-checks"
+        >
+          <CheckCircle2 className="h-4 w-4" />
+          Checks
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={isServicing}
+          onClick={() => switchView('servicing')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${isServicing ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+          data-testid="view-tab-servicing"
+        >
+          <Wrench className="h-4 w-4" />
+          Servicing
+        </button>
+      </div>
+
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Filter Checks</CardTitle>
+          <CardTitle>{isServicing ? 'Filter Servicing Records' : 'Filter Checks'}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2240,34 +2272,46 @@ function AllChecksCompleted() {
               </Button>
             </div>
           ) : filteredChecklists.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500" data-testid="all-checks-empty">
               <FileText className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-              <p>No checks found</p>
+              <p>No {recordLabel} found</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4" data-testid="all-checks-list">
               {filteredChecklists.map((checklist) => (
                 <Card
                   key={checklist.id}
                   className="hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => handleViewDetails(checklist)}
+                  data-testid={`check-row-${checklist.id}`}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className={`p-3 rounded-lg ${checklist.check_type === 'pre_service_check' ? 'bg-purple-100' : 'bg-green-100'}`}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center space-x-4 min-w-0 flex-1">
+                        <div className={`shrink-0 p-3 rounded-lg ${checklist.check_type === 'pre_service_check' ? 'bg-purple-100' : checklist.check_type === 'workshop_service' ? 'bg-orange-100' : 'bg-green-100'}`}>
                           {checklist.check_type === 'pre_service_check'
                             ? <ClipboardCheck className="h-6 w-6 text-purple-700" />
+                            : checklist.check_type === 'workshop_service'
+                            ? <Settings className="h-6 w-6 text-orange-600" />
                             : <CheckCircle2 className="h-6 w-6 text-green-600" />}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <h3 className="font-semibold text-lg">{checklist.machine_make} {checklist.machine_model}</h3>
                           <p className="text-gray-600">{CHECK_TYPE_LABELS[checklist.check_type] || checklist.check_type} by {checklist.staff_name}</p>
+                          {checklist.check_type === 'pre_service_check' && (
+                            <p className="text-sm text-purple-700" data-testid={`service-summary-${checklist.id}`}>
+                              ✓{(checklist.checklist_items || []).filter(i => i.status === 'satisfactory').length} ✗{(checklist.checklist_items || []).filter(i => i.status === 'unsatisfactory').length} of {(checklist.checklist_items || []).length} sections
+                              {checklist.parts_required?.length > 0 && ` · ${checklist.parts_required.length} part${checklist.parts_required.length > 1 ? 's' : ''} required`}
+                            </p>
+                          )}
+                          {checklist.check_type === 'workshop_service' && checklist.workshop_notes && (
+                            <p className="text-sm text-gray-500 italic truncate">{checklist.workshop_notes}</p>
+                          )}
                           <p className="text-sm text-gray-500">ID: {checklist.id.substring(0, 8)}...</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">
+                      <div className="text-right shrink-0">
+                        <p className="text-sm text-gray-500 whitespace-nowrap">
                           {new Date(checklist.completed_at).toLocaleDateString()} at {new Date(checklist.completed_at).toLocaleTimeString()}
                         </p>
                       </div>
@@ -2291,10 +2335,10 @@ function AllChecksCompleted() {
                         Loading more...
                       </>
                     ) : (
-                      `Load More Checks (${ITEMS_PER_PAGE} at a time)`
+                      `Load More ${isServicing ? 'Servicing Records' : 'Checks'} (${ITEMS_PER_PAGE} at a time)`
                     )}
                   </Button>
-                  <p className="text-sm text-gray-500 mt-2">Showing {filteredChecklists.length} checks</p>
+                  <p className="text-sm text-gray-500 mt-2">Showing {filteredChecklists.length} {recordLabel}</p>
                 </div>
               )}
               

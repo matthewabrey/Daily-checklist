@@ -986,11 +986,21 @@ async def get_dashboard_stats():
     """ULTRA-FAST cached dashboard stats - returns in <50ms"""
     return await get_cached_stats(db)
 
+SERVICING_CHECK_TYPES = ["pre_service_check", "workshop_service"]
+
+def category_filter(category: Optional[str]) -> dict:
+    """'servicing' = service sheets + workshop services; 'checks' = everything else"""
+    if category == "servicing":
+        return {"check_type": {"$in": SERVICING_CHECK_TYPES}}
+    if category == "checks":
+        return {"check_type": {"$nin": SERVICING_CHECK_TYPES}}
+    return {}
+
 @app.get("/api/checklists", response_model=List[ChecklistResponse])
-async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None):
+async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None, category: str = None):
     """Get checklists with pagination - optimized for speed"""
     # Build query filter
-    query = {}
+    query = category_filter(category)
     if check_type:
         if ',' in check_type:
             check_types = [ct.strip() for ct in check_type.split(',')]
@@ -1018,13 +1028,13 @@ async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/checklists/today")
-async def get_todays_checklists():
+async def get_todays_checklists(category: str = None):
     """Get today's checklists - fast dedicated endpoint"""
     today = datetime.now(timezone.utc).date().isoformat()
     
     # Use regex to match today's date regardless of time format
     checklists = await db.checklists.find(
-        {"completed_at": {"$regex": f"^{today}"}},
+        {"completed_at": {"$regex": f"^{today}"}, **category_filter(category)},
         {"_id": 0}
     ).sort("completed_at", -1).to_list(length=100)
     
@@ -1797,70 +1807,63 @@ async def get_checklist_template(check_type: str):
 
 # OLD SharePoint sync endpoint removed - using new sharepoint_auto_sync with client credentials flow
 
+EXPORT_HEADERS = ["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Satisfactory", "Unsatisfactory", "Total", "Notes", "Workshop Details", "Parts Required"]
+EXPORT_PROJECTION = {
+    "_id": 0, "id": 1, "staff_name": 1, "machine_make": 1, "machine_model": 1,
+    "check_type": 1, "completed_at": 1, "status": 1, "checklist_items": 1, "workshop_notes": 1, "parts_required": 1
+}
+
+def export_row(checklist: dict) -> list:
+    """Flatten a checklist into one export row (shared by CSV + Excel)"""
+    check_type = checklist.get('check_type', '')
+    items = checklist.get('checklist_items', []) or []
+    items_satisfactory = sum(1 for item in items if item.get('status') == 'satisfactory')
+    items_unsatisfactory = sum(1 for item in items if item.get('status') == 'unsatisfactory')
+    notes_list = [f"{item.get('item', '')}: {item.get('notes', '')[:100]}" if check_type == 'pre_service_check' else item.get('notes', '')[:100] for item in items if item.get('notes')]
+    return [
+        checklist.get('id', ''),
+        checklist.get('staff_name', ''),
+        checklist.get('machine_make', ''),
+        checklist.get('machine_model', ''),
+        check_type,
+        str(checklist.get('completed_at', '')),
+        checklist.get('status', ''),
+        items_satisfactory,
+        items_unsatisfactory,
+        len(items),
+        "; ".join(notes_list)[:500] if notes_list else "",
+        (checklist.get('workshop_notes') or '')[:500],
+        "; ".join(checklist.get('parts_required') or []),
+    ]
+
+def export_filename(category: Optional[str], ext: str) -> str:
+    return f"all_{'servicing' if category == 'servicing' else 'checks'}.{ext}"
+
 @app.get("/api/checklists/export/csv")
-async def export_checklists_csv():
+async def export_checklists_csv(category: str = None):
     """Fast CSV export - use this for very large datasets"""
     from fastapi.responses import StreamingResponse
     import io
     import csv
     
-    # Use projection for speed
-    projection = {
-        "_id": 0, "id": 1, "staff_name": 1, "machine_make": 1, "machine_model": 1,
-        "check_type": 1, "completed_at": 1, "status": 1, "checklist_items": 1, "workshop_notes": 1
-    }
-    
-    checklists = await db.checklists.find({}, projection).sort("completed_at", -1).limit(10000).to_list(length=10000)
+    checklists = await db.checklists.find(category_filter(category), EXPORT_PROJECTION).sort("completed_at", -1).limit(10000).to_list(length=10000)
     
     output = io.StringIO()
     writer = csv.writer(output)
-    
-    # Write header
-    writer.writerow(["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Satisfactory", "Unsatisfactory", "Total", "Notes", "Workshop Details"])
-    
-    # Write data
+    writer.writerow(EXPORT_HEADERS)
     for checklist in checklists:
-        check_type = checklist.get('check_type', '')
-        if check_type in ['daily_check', 'grader_startup']:
-            items = checklist.get('checklist_items', [])
-            items_satisfactory = sum(1 for item in items if item.get('status') == 'satisfactory')
-            items_unsatisfactory = sum(1 for item in items if item.get('status') == 'unsatisfactory')
-            items_total = len(items)
-            notes_list = [item.get('notes', '')[:100] for item in items if item.get('notes')]
-            notes = "; ".join(notes_list)[:500] if notes_list else ""
-            workshop_details = ""
-        else:
-            items_satisfactory = 0
-            items_unsatisfactory = 0
-            items_total = 0
-            notes = ""
-            workshop_details = (checklist.get('workshop_notes') or '')[:500]
-        
-        writer.writerow([
-            checklist.get('id', ''),
-            checklist.get('staff_name', ''),
-            checklist.get('machine_make', ''),
-            checklist.get('machine_model', ''),
-            check_type,
-            checklist.get('completed_at', ''),
-            checklist.get('status', ''),
-            items_satisfactory,
-            items_unsatisfactory,
-            items_total,
-            notes,
-            workshop_details
-        ])
+        writer.writerow(export_row(checklist))
     
     output.seek(0)
     
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode('utf-8')),
         media_type='text/csv',
-        headers={"Content-Disposition": "attachment; filename=all_checks.csv"}
+        headers={"Content-Disposition": f"attachment; filename={export_filename(category, 'csv')}"}
     )
 
 @app.get("/api/checklists/export/excel")
-async def export_checklists_excel():
+async def export_checklists_excel(category: str = None):
     """Optimized Excel export for large datasets"""
     from fastapi.responses import StreamingResponse
     import io
@@ -1868,70 +1871,26 @@ async def export_checklists_excel():
     from openpyxl.styles import Font, PatternFill
     from openpyxl.utils import get_column_letter
     
-    # Use projection to only get fields we need (reduces memory)
-    projection = {
-        "_id": 0, "id": 1, "staff_name": 1, "machine_make": 1, "machine_model": 1,
-        "check_type": 1, "completed_at": 1, "status": 1, "checklist_items": 1, "workshop_notes": 1
-    }
-    
-    # Stream data in batches to avoid memory issues
-    checklists = await db.checklists.find({}, projection).sort("completed_at", -1).limit(10000).to_list(length=10000)
+    checklists = await db.checklists.find(category_filter(category), EXPORT_PROJECTION).sort("completed_at", -1).limit(10000).to_list(length=10000)
     
     # Create workbook with optimized settings
     wb = Workbook(write_only=False)  # Can't use write_only with formatting
     ws = wb.active
-    ws.title = "All Checks"
+    ws.title = "All Servicing" if category == "servicing" else "All Checks"
     
-    # Define headers and fixed column widths (skip auto-adjust which is slow)
-    headers = ["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Satisfactory", "Unsatisfactory", "Total", "Notes", "Workshop Details"]
-    col_widths = [38, 20, 20, 25, 15, 22, 12, 12, 14, 8, 50, 50]
-    
-    # Set column widths upfront (much faster than auto-adjust)
+    col_widths = [38, 20, 20, 25, 18, 22, 12, 12, 14, 8, 50, 50, 40]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
     
-    # Write and format header
-    ws.append(headers)
+    ws.append(EXPORT_HEADERS)
     header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True)
     for cell in ws[1]:
         cell.fill = header_fill
         cell.font = header_font
     
-    # Process data in optimized way
     for checklist in checklists:
-        check_type = checklist.get('check_type', '')
-        
-        if check_type in ['daily_check', 'grader_startup']:
-            items = checklist.get('checklist_items', [])
-            items_satisfactory = sum(1 for item in items if item.get('status') == 'satisfactory')
-            items_unsatisfactory = sum(1 for item in items if item.get('status') == 'unsatisfactory')
-            items_total = len(items)
-            # Limit notes length to prevent huge cells
-            notes_list = [item.get('notes', '')[:100] for item in items if item.get('notes')]
-            notes = "; ".join(notes_list)[:500] if notes_list else ""
-            workshop_details = ""
-        else:
-            items_satisfactory = 0
-            items_unsatisfactory = 0
-            items_total = 0
-            notes = ""
-            workshop_details = (checklist.get('workshop_notes') or '')[:500]
-        
-        ws.append([
-            checklist.get('id', ''),
-            checklist.get('staff_name', ''),
-            checklist.get('machine_make', ''),
-            checklist.get('machine_model', ''),
-            check_type,
-            str(checklist.get('completed_at', '')),
-            checklist.get('status', ''),
-            items_satisfactory,
-            items_unsatisfactory,
-            items_total,
-            notes,
-            workshop_details
-        ])
+        ws.append(export_row(checklist))
     
     # Save to BytesIO
     output = io.BytesIO()
@@ -1941,7 +1900,7 @@ async def export_checklists_excel():
     return StreamingResponse(
         output,
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        headers={"Content-Disposition": "attachment; filename=all_checks.xlsx"}
+        headers={"Content-Disposition": f"attachment; filename={export_filename(category, 'xlsx')}"}
     )
 
 @app.get("/api/checklists/export/excel-by-machine")
