@@ -120,12 +120,12 @@ async def startup_event():
         name="Daily SharePoint Staff Sync",
         replace_existing=True
     )
-    # Schedule daily FieldPlan download at 5:00 AM UK time
+    # Refresh the FieldPlan/FieldMap copies every hour (they change often)
     scheduler.add_job(
         scheduled_fieldplan_sync,
-        CronTrigger(hour=5, minute=0, timezone="Europe/London"),
+        CronTrigger(minute=15, timezone="Europe/London"),
         id="daily_fieldplan_sync",
-        name="Daily FieldPlan Map Download",
+        name="Hourly FieldPlan/FieldMap Download",
         replace_existing=True
     )
     scheduler.start()
@@ -963,6 +963,547 @@ async def get_dashboard_stats():
     """ULTRA-FAST cached dashboard stats - returns in <50ms"""
     return await get_cached_stats(db)
 
+# ---- Face ID / fingerprint login (WebAuthn passkeys) ----
+
+try:
+    from webauthn import (
+        generate_registration_options, verify_registration_response,
+        generate_authentication_options, verify_authentication_response,
+    )
+    from webauthn.helpers import (
+        options_to_json, parse_registration_credential_json, parse_authentication_credential_json,
+    )
+    from webauthn.helpers.structs import (
+        AuthenticatorSelectionCriteria, ResidentKeyRequirement, UserVerificationRequirement,
+    )
+    import json as _pk_json
+    import base64 as _pk_b64
+    PASSKEYS_AVAILABLE = True
+except ImportError:
+    PASSKEYS_AVAILABLE = False
+
+PASSKEY_RP_ID = os.environ.get("PASSKEY_RP_ID", "abreys.app")
+PASSKEY_ORIGIN = os.environ.get("PASSKEY_ORIGIN", "https://abreys.app")
+PASSKEY_RP_NAME = "Abreys Day to Day Work App"
+
+def _pk_b64u_decode(s: str) -> bytes:
+    return _pk_b64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+def _pk_challenge_from_credential(credential: dict) -> str:
+    """Pull the challenge (b64url string) out of the signed clientDataJSON."""
+    cdj = credential.get("response", {}).get("clientDataJSON", "")
+    data = _pk_json.loads(_pk_b64u_decode(cdj).decode("utf-8"))
+    return data.get("challenge", "")
+
+async def _pk_store_challenge(challenge_b64u: str, purpose: str, employee_number: str = None):
+    await db.webauthn_challenges.insert_one({
+        "challenge": challenge_b64u,
+        "purpose": purpose,
+        "employee_number": employee_number,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+async def _pk_consume_challenge(challenge_b64u: str, purpose: str):
+    doc = await db.webauthn_challenges.find_one_and_delete(
+        {"challenge": challenge_b64u, "purpose": purpose}
+    )
+    if not doc:
+        return None
+    try:
+        age = datetime.now(timezone.utc) - datetime.fromisoformat(doc["created_at"])
+        if age > timedelta(minutes=10):
+            return None
+    except (KeyError, ValueError):
+        return None
+    return doc
+
+class PasskeyRegisterOptionsRequest(BaseModel):
+    employee_number: str
+
+class PasskeyRegisterVerifyRequest(BaseModel):
+    employee_number: str
+    credential: dict
+
+class PasskeyLoginVerifyRequest(BaseModel):
+    credential: dict
+
+@app.post("/api/auth/passkey/register-options")
+async def passkey_register_options(req: PasskeyRegisterOptionsRequest):
+    """Start Face ID setup for a logged-in employee."""
+    if not PASSKEYS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face ID login is not available on this server yet")
+    employee = await db.staff.find_one(
+        {"employee_number": req.employee_number, "active": True}, {"_id": 0}
+    )
+    if not employee:
+        raise HTTPException(status_code=401, detail="Invalid employee number or account inactive")
+    opts = generate_registration_options(
+        rp_id=PASSKEY_RP_ID,
+        rp_name=PASSKEY_RP_NAME,
+        user_id=req.employee_number.encode("utf-8"),
+        user_name=req.employee_number,
+        user_display_name=employee.get("name") or req.employee_number,
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            resident_key=ResidentKeyRequirement.REQUIRED,
+            user_verification=UserVerificationRequirement.REQUIRED,
+        ),
+    )
+    options = _pk_json.loads(options_to_json(opts))
+    await _pk_store_challenge(options["challenge"], "register", req.employee_number)
+    return options
+
+@app.post("/api/auth/passkey/register-verify")
+async def passkey_register_verify(req: PasskeyRegisterVerifyRequest):
+    """Finish Face ID setup: verify and save the new passkey."""
+    if not PASSKEYS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face ID login is not available on this server yet")
+    challenge_b64u = _pk_challenge_from_credential(req.credential)
+    ch = await _pk_consume_challenge(challenge_b64u, "register")
+    if not ch or ch.get("employee_number") != req.employee_number:
+        raise HTTPException(status_code=400, detail="Face ID setup expired — please try again")
+    try:
+        ver = verify_registration_response(
+            credential=parse_registration_credential_json(_pk_json.dumps(req.credential)),
+            expected_challenge=_pk_b64u_decode(challenge_b64u),
+            expected_rp_id=PASSKEY_RP_ID,
+            expected_origin=PASSKEY_ORIGIN,
+            require_user_verification=True,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Face ID setup failed: {str(e)}")
+    cred_id_b64u = _pk_b64.urlsafe_b64encode(ver.credential_id).decode().rstrip("=")
+    await db.passkeys.update_one(
+        {"credential_id": cred_id_b64u},
+        {"$set": {
+            "credential_id": cred_id_b64u,
+            "public_key": _pk_b64.b64encode(ver.credential_public_key).decode(),
+            "sign_count": ver.sign_count,
+            "employee_number": req.employee_number,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+    return {"success": True}
+
+@app.post("/api/auth/passkey/login-options")
+async def passkey_login_options():
+    """Start a Face ID sign-in."""
+    if not PASSKEYS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face ID login is not available on this server yet")
+    opts = generate_authentication_options(
+        rp_id=PASSKEY_RP_ID,
+        user_verification=UserVerificationRequirement.REQUIRED,
+    )
+    options = _pk_json.loads(options_to_json(opts))
+    await _pk_store_challenge(options["challenge"], "login")
+    return options
+
+@app.post("/api/auth/passkey/login-verify")
+async def passkey_login_verify(req: PasskeyLoginVerifyRequest):
+    """Finish a Face ID sign-in: verify the passkey and log the employee in."""
+    if not PASSKEYS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face ID login is not available on this server yet")
+    challenge_b64u = _pk_challenge_from_credential(req.credential)
+    ch = await _pk_consume_challenge(challenge_b64u, "login")
+    if not ch:
+        raise HTTPException(status_code=400, detail="Sign-in expired — please try again")
+    cred_id = (req.credential.get("id") or "").rstrip("=")
+    passkey = await db.passkeys.find_one({"credential_id": cred_id}, {"_id": 0})
+    if not passkey:
+        raise HTTPException(status_code=401, detail="This phone isn't set up for Face ID login — sign in with your employee number and set it up")
+    try:
+        ver = verify_authentication_response(
+            credential=parse_authentication_credential_json(_pk_json.dumps(req.credential)),
+            expected_challenge=_pk_b64u_decode(challenge_b64u),
+            expected_rp_id=PASSKEY_RP_ID,
+            expected_origin=PASSKEY_ORIGIN,
+            credential_public_key=_pk_b64.b64decode(passkey["public_key"]),
+            credential_current_sign_count=passkey.get("sign_count", 0),
+            require_user_verification=True,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Face ID sign-in failed: {str(e)}")
+    await db.passkeys.update_one(
+        {"credential_id": cred_id},
+        {"$set": {"sign_count": ver.new_sign_count, "last_used_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    employee = await db.staff.find_one(
+        {"employee_number": passkey["employee_number"], "active": True}, {"_id": 0}
+    )
+    if not employee:
+        raise HTTPException(status_code=401, detail="Account inactive")
+    return {
+        "success": True,
+        "employee": {
+            "employee_number": employee["employee_number"],
+            "name": employee["name"],
+            "workshop_control": employee.get("workshop_control", None),
+            "admin_control": employee.get("admin_control", None),
+            "manager_control": employee.get("manager_control", None),
+        },
+    }
+
+# ---- Workplan import from the DailyWorkPlan Excel (SharePoint or upload) ----
+
+WORKPLAN_XLSX_FILENAME = os.environ.get("SHAREPOINT_WORKPLAN_FILENAME", "DailyWorkPlanApp.xlsx")
+
+def _parse_workplan_excel(content: bytes, week_start):
+    """Parse the DailyWorkPlanApp.xlsx 'Main Sheet': one row per person
+    (vehicle, name, manager, start time, field/jobs note) with two columns
+    per dated day (AM job, PM job). Returns app-shaped workplan rows for the
+    week beginning week_start (a Monday)."""
+    import openpyxl as _openpyxl
+    from datetime import time as _time
+
+    wb = _openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+    if "Main Sheet" not in wb.sheetnames:
+        raise ValueError("Couldn't find the 'Main Sheet' tab in the Excel file")
+    ws = wb["Main Sheet"]
+
+    date_cols = {}
+    for c in range(1, ws.max_column + 1):
+        v = ws.cell(row=2, column=c).value
+        if isinstance(v, datetime):
+            date_cols[v.date()] = c
+
+    week = [week_start + timedelta(days=i) for i in range(7)]
+    if not any(d in date_cols for d in week):
+        span = ""
+        if date_cols:
+            all_dates = sorted(date_cols)
+            span = f" (the file covers {all_dates[0].strftime('%d %b %Y')} to {all_dates[-1].strftime('%d %b %Y')})"
+        raise ValueError(f"No columns found for the week beginning {week_start.strftime('%d %b %Y')}{span}")
+
+    def cellv(r, c):
+        v = ws.cell(row=r, column=c).value
+        return str(v).strip() if v is not None else ""
+
+    rows = []
+    for r in range(3, ws.max_row + 1):
+        name = cellv(r, 6)
+        if not name:
+            continue
+        st = ws.cell(row=r, column=8).value
+        if isinstance(st, datetime):
+            start = st.strftime("%H:%M")
+        elif isinstance(st, _time):
+            start = st.strftime("%H:%M")
+        else:
+            start = str(st)[:5] if st else ""
+        days = []
+        has_job = False
+        for d in week:
+            c = date_cols.get(d)
+            am = cellv(r, c) if c else ""
+            pm = cellv(r, c + 1) if c else ""
+            if am or pm:
+                has_job = True
+            days.append({
+                "am": {"job": am, "color_id": None} if am else None,
+                "pm": {"job": pm, "color_id": None} if pm else None,
+            })
+        if not has_job:
+            continue  # only import people with work this week
+        rows.append({
+            "id": str(uuid.uuid4()),
+            "employee_name": name,
+            "vehicle": cellv(r, 5),
+            "implement": "",
+            "manager": cellv(r, 7),
+            "start_time": start,
+            "notes": cellv(r, 10),
+            "group_color": None,
+            "left": False,
+            "days": days,
+        })
+    return rows
+
+
+def _match_vehicles_to_assets(rows, assets):
+    """Where a vehicle from the Excel clearly matches a machine on the
+    checklist machine list, rename it to the checklist's naming so daily
+    checks can be cross-referenced later. Ambiguous or numeric-only
+    vehicles are left as typed."""
+    NO_MATCH = {"", "n/a", "na", "own", "qwn", "own transport", "-"}
+    labels = []
+    for a in assets:
+        nm = (a.get("name") or "").strip()
+        mk = (a.get("make") or "").strip()
+        full = f"{mk} {nm}".strip()
+        labels.append((full.lower(), nm.lower(), full))
+    matched = 0
+    for row in rows:
+        v = (row.get("vehicle") or "").strip()
+        vl = v.lower()
+        if vl in NO_MATCH or not v:
+            continue
+        # exact match against "Make Name" or just Name
+        exact = [full for fl, nl, full in labels if fl == vl or nl == vl]
+        if len(exact) >= 1:
+            row["vehicle"] = exact[0]
+            matched += 1
+            continue
+        # distinctive word (not just a number): unique substring match
+        if not v.replace(" ", "").isdigit() and len(v) >= 4:
+            subs = [full for fl, nl, full in labels if vl in fl]
+            if len(subs) == 1:
+                row["vehicle"] = subs[0]
+                matched += 1
+    return matched
+
+
+@app.post("/api/workplan/sync-from-excel")
+async def sync_workplan_from_excel(file: UploadFile = File(None)):
+    """Update the workplan from the DailyWorkPlan Excel. If a file is
+    uploaded, use it; otherwise fetch the latest copy from SharePoint
+    (same connection as the staff/assets sync). Imports the current week
+    and publishes it immediately."""
+    from zoneinfo import ZoneInfo
+    uk_today = datetime.now(ZoneInfo("Europe/London")).date()
+    week_start = uk_today - timedelta(days=uk_today.weekday())  # Monday
+
+    if file is not None and file.filename:
+        content = await file.read()
+        source = f"uploaded file ({file.filename})"
+    else:
+        try:
+            token_site = sharepoint_auto_sync._get_site_id()
+            drive_id = sharepoint_auto_sync._get_drive_id(token_site)
+            item_id = sharepoint_auto_sync._find_file(drive_id, WORKPLAN_XLSX_FILENAME)
+            content = sharepoint_auto_sync._download_file(drive_id, item_id)
+            source = f"SharePoint ({WORKPLAN_XLSX_FILENAME})"
+        except Exception as e:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Couldn't fetch {WORKPLAN_XLSX_FILENAME} from SharePoint ({str(e)}). "
+                       "You can drag the Excel file into the box instead.",
+            )
+
+    try:
+        rows = _parse_workplan_excel(content, week_start)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Couldn't read that Excel file: {str(e)}")
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="No people with jobs found for this week in the Excel file")
+
+    assets = await db.assets.find({}, {"_id": 0, "name": 1, "make": 1}).to_list(length=5000)
+    vehicles_matched = _match_vehicles_to_assets(rows, assets)
+
+    ws_iso = week_start.isoformat()
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Archive the previous week's draft if the week is changing (same as manual save)
+    existing = await db.workplan.find_one({"key": "current"}, {"_id": 0})
+    if existing and existing.get("week_start") and existing.get("week_start") != ws_iso:
+        old_rows = existing.get("draft_rows", [])
+        if old_rows:
+            await db.workplan_archive.update_one(
+                {"week_start": existing["week_start"]},
+                {"$set": {"week_start": existing["week_start"], "rows": old_rows, "archived_at": now}},
+                upsert=True,
+            )
+
+    await db.workplan.update_one(
+        {"key": "current"},
+        {"$set": {
+            "week_start": ws_iso,
+            "draft_rows": rows,
+            "published_rows": rows,
+            "published_week_start": ws_iso,
+            "published_at": now,
+            "imported_from_excel_at": now,
+            "import_source": source,
+        }},
+        upsert=True,
+    )
+    return {
+        "success": True,
+        "week_start": ws_iso,
+        "people": len(rows),
+        "vehicles_matched": vehicles_matched,
+        "source": source,
+        "published_at": now,
+    }
+
+# ---- Tractor Utilisation (weekly telematics CSV, uploaded by a manager) ----
+
+@app.post("/api/tractor-utilisation/upload")
+async def upload_tractor_utilisation(file: UploadFile = File(...)):
+    """Parse and save the weekly tractor utilisation CSV. Columns are read by
+    NAME (order doesn't matter): Nickname, Model, Idle (h), Working (h),
+    Transport (h), Total Hours, Report End Date."""
+    import csv as _csv
+    raw = await file.read()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+    reader = _csv.DictReader(io.StringIO(text))
+
+    def num(v):
+        try:
+            return float(str(v).replace(",", "").strip())
+        except (TypeError, ValueError):
+            return 0.0
+
+    rows = []
+    report_end = ""
+    for r in reader:
+        nick = (r.get("Nickname") or "").strip()
+        if not nick or nick == "---":
+            continue
+        idle = num(r.get("Idle (h)"))
+        work = num(r.get("Working (h)"))
+        trans = num(r.get("Transport (h)"))
+        total = num(r.get("Total Hours"))
+        if idle == 0 and work == 0 and trans == 0 and total == 0:
+            continue
+        if not report_end:
+            report_end = (r.get("Report End Date") or "").strip()
+        rows.append({
+            "nickname": nick,
+            "model": (r.get("Model") or "").strip(),
+            "idle_h": round(idle, 1),
+            "working_h": round(work, 1),
+            "transport_h": round(trans, 1),
+            "total_h": round(total, 1),
+        })
+    if not rows:
+        raise HTTPException(
+            status_code=400,
+            detail="No machine rows found — check this is the weekly utilisation CSV "
+                   "with columns: Nickname, Model, Idle (h), Working (h), Transport (h), Total Hours",
+        )
+    rows.sort(key=lambda x: -x["total_h"])
+    doc = {
+        "rows": rows,
+        "report_end_date": report_end,
+        "machine_count": len(rows),
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.tractor_utilisation.delete_many({})
+    await db.tractor_utilisation.insert_one({**doc})
+    return doc
+
+@app.get("/api/tractor-utilisation")
+async def get_tractor_utilisation():
+    """The latest saved tractor utilisation report."""
+    doc = await db.tractor_utilisation.find_one({}, {"_id": 0})
+    return doc or {"rows": [], "report_end_date": None, "machine_count": 0, "uploaded_at": None}
+
+@app.get("/api/farm/crop-areas")
+async def get_farm_crop_areas(year: int = 2027):
+    """Our crop areas for a given year, parsed from the FieldPlan app's
+    'Our crop areas — <year>' section (the local copy synced daily)."""
+    import re as _re
+    if not os.path.exists(FIELDPLAN_PATH):
+        try:
+            await download_fieldplan()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"FieldPlan not available: {str(e)}")
+    with open(FIELDPLAN_PATH, "r", encoding="utf-8", errors="replace") as f:
+        html = f.read()
+    # Locate the section heading (em dash or hyphen between title and year)
+    m = _re.search(rf"Our crop areas\s*[—-]\s*{year}\s*</h2>", html)
+    if not m:
+        raise HTTPException(status_code=404, detail=f"No crop areas found for {year}")
+    seg = html[m.end():]
+    # Stop at the next section heading, and before the partner-farmed list
+    for marker in ('<div class="sh"', 'Partner-farmed'):
+        end = seg.find(marker)
+        if end != -1:
+            seg = seg[:end]
+    crops = []
+    for cm in _re.finditer(
+        r'background:\s*(#[0-9A-Fa-f]{3,6})"></div>'
+        r'<span[^>]*>([^<]+)</span>'
+        r'<span[^>]*>([\d,\.]+)\s*ha</span>',
+        seg,
+    ):
+        color, name, ha = cm.group(1), cm.group(2).strip(), cm.group(3).replace(",", "")
+        # Belt-and-braces: never count partner-farmed crops as ours
+        if "rllong" in name.lower():
+            continue
+        try:
+            ha_val = float(ha)
+        except ValueError:
+            continue
+        crops.append({"name": name, "ha": round(ha_val, 1), "color": color})
+    crops.sort(key=lambda c: -c["ha"])
+
+    # Last-year comparison: computed from the FieldPlan's embedded field data
+    # using the same "is it ours?" rules as the FieldPlan itself (verified to
+    # reproduce its published figures exactly).
+    prev_year = year - 1
+    prev_crops = {}
+    prev_total = 0.0
+    try:
+        import json as _json
+        fi = html.find("const F=[")
+        if fi != -1:
+            fields = _json.loads(html[fi + len("const F="):html.find("];", fi) + 1])
+            VEG = ["Potatoes", "Salad Potatoes", "Seed Potatoes", "Carrots", "Parsnips", "Onions"]
+            NEVER = ["Uncropped", "Carbon Trees", "Solar", "Chickens", "Pheasants"]
+            SOL = ["Potatoes", "Salad Potatoes", "Seed Potatoes"]
+
+            def _gc(fld, y):
+                return (fld.get("history", {}).get(y, "") if y <= "2026"
+                        else fld.get("plan", {}).get(y, ""))
+
+            def _is_ours(fld, y):
+                c = _gc(fld, y)
+                if not c or c in NEVER or c == "Pigs":
+                    return False
+                e = fld.get("estate", "")
+                if c in ("Grass", "Woodland", "CS MT"):
+                    return e in ("Wretham", "Edwardstone/Borehouse")
+                if c == "ELS/HLS":
+                    return e == "Wretham" and y < "2027"
+                if e == "Rackham Farms":
+                    return c in SOL
+                if e == "Euston":
+                    if c in ("Maize", "Euston Rye", "Sugarbeet", "Veg (RLLONG)"):
+                        return False
+                    return True if y >= "2027" else (c in VEG)
+                if e == "Pickenham":
+                    return c in VEG or c == "Rye A"
+                if e == "Blakeney" or e == "Gooderham":
+                    return c in VEG
+                if e == "Beard":
+                    return c == "Seed Potatoes"
+                if e in ("Warren", "David Hill"):
+                    return c in VEG or c == "Seed Potatoes"
+                if e in ("Chandler", "Wretham", "Edwardstone/Borehouse"):
+                    return True
+                if c == "Maize":
+                    return e in ("Wretham", "Chandler")
+                return True
+
+            py = str(prev_year)
+            for fld in fields:
+                if _is_ours(fld, py):
+                    c = _gc(fld, py)
+                    if "rllong" in c.lower():
+                        continue
+                    prev_crops[c] = prev_crops.get(c, 0) + (fld.get("ha") or 0)
+            prev_crops = {c: round(h, 1) for c, h in prev_crops.items()}
+            prev_total = round(sum(prev_crops.values()), 1)
+    except Exception:
+        prev_crops = {}
+        prev_total = 0.0
+
+    return {
+        "year": year,
+        "crops": crops,
+        "total_ha": round(sum(c["ha"] for c in crops), 1),
+        "prev_year": prev_year,
+        "prev_crops": prev_crops,
+        "prev_total_ha": prev_total,
+    }
+
 # ---- Link to the Abreys Stock Control app (packouttracks) ----
 STOCK_API_BASE = os.environ.get(
     "STOCK_API_BASE", "https://packouttracks-r-1774892359.emergent.host/api"
@@ -1000,61 +1541,17 @@ async def get_stock_summary():
             "utilization": utilization,
         })
 
-    # Grader throughput. Newer stock app versions may expose /graders directly;
-    # otherwise we calculate the current T/H from stock movements into the grader.
+    # Grader stats — the same feed the stock app's Lines Overview page uses:
+    # per grader, the current session (T/H, tonnes in/out, waste, efficiency,
+    # staff, hours) and all-time statistics.
     graders = []
     try:
-        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as hc:
-            g_r = await hc.get(f"{STOCK_API_BASE}/graders")
-            if g_r.status_code == 200 and isinstance(g_r.json(), list) and g_r.json():
+        async with httpx.AsyncClient(timeout=25, follow_redirects=True) as hc:
+            g_r = await hc.get(f"{STOCK_API_BASE}/grader-stats")
+            if g_r.status_code == 200 and isinstance(g_r.json(), list):
                 graders = g_r.json()
     except Exception:
         graders = []
-
-    if not graders:
-        try:
-            async with httpx.AsyncClient(timeout=20, follow_redirects=True) as hc:
-                m_r = await hc.get(f"{STOCK_API_BASE}/stock-movements")
-                m_r.raise_for_status()
-                movements = m_r.json()
-            grader_shed_ids = {"GRADER"} | {
-                s.get("id") for s in sheds if "grader" in (s.get("name") or "").lower()
-            }
-            now = datetime.now(timezone.utc)
-            window_hours = 2
-            window_start = now - timedelta(hours=window_hours)
-            today_key = now.astimezone().date().isoformat()
-            window_total = 0.0
-            today_total = 0.0
-            last_move = None
-            for m in movements:
-                if m.get("to_shed_id") not in grader_shed_ids:
-                    continue
-                created = m.get("created_at") or ""
-                try:
-                    ts = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
-                    if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=timezone.utc)
-                except ValueError:
-                    continue
-                qty = float(m.get("quantity") or 0)
-                if ts >= window_start:
-                    window_total += qty
-                if ts.astimezone().date().isoformat() == today_key:
-                    today_total += qty
-                if last_move is None or ts > last_move:
-                    last_move = ts
-            graders = [{
-                "name": "Grader",
-                "current_th": round(window_total / window_hours, 1),
-                "today_total": round(today_total, 1),
-                "status": (
-                    f"{round(today_total, 1)} t graded today"
-                    + (f" — last load {last_move.astimezone().strftime('%H:%M')}" if last_move else "")
-                ),
-            }]
-        except Exception:
-            graders = []
 
     return {"stores": stores, "graders": graders}
 
