@@ -93,7 +93,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 3.1 &mdash; September 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 3.2 &mdash; September 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -6444,12 +6444,12 @@ function AppContent() {
         <header className="bg-gray-800 shadow-md">
           <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
             <div className="flex items-center justify-between h-14 sm:h-16">
-              <Link to="/" className="flex items-center space-x-2" data-testid="logo-link">
+              <Link to="/" className="flex items-center space-x-2 shrink-0" data-testid="logo-link">
                 <div className="flex items-center">
                   <img 
                     src="/abreys-logo.png" 
                     alt="Abreys Logo" 
-                    className="h-8 sm:h-10 w-auto rounded-lg bg-white p-0.5"
+                    className="h-8 sm:h-10 w-auto shrink-0 rounded-lg bg-white p-0.5"
                     loading="eager"
                   />
                   <span className="text-xs sm:text-sm text-gray-300 ml-2 sm:ml-3 font-medium hidden sm:block">Day to Day Work App</span>
