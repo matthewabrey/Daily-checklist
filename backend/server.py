@@ -120,12 +120,12 @@ async def startup_event():
         name="Daily SharePoint Staff Sync",
         replace_existing=True
     )
-    # Schedule daily FieldPlan download at 5:00 AM UK time
+    # Refresh the FieldPlan/FieldMap copies every hour (they change often)
     scheduler.add_job(
         scheduled_fieldplan_sync,
-        CronTrigger(hour=5, minute=0, timezone="Europe/London"),
+        CronTrigger(minute=15, timezone="Europe/London"),
         id="daily_fieldplan_sync",
-        name="Daily FieldPlan Map Download",
+        name="Hourly FieldPlan/FieldMap Download",
         replace_existing=True
     )
     scheduler.start()
@@ -962,6 +962,186 @@ async def create_checklist(checklist: Checklist):
 async def get_dashboard_stats():
     """ULTRA-FAST cached dashboard stats - returns in <50ms"""
     return await get_cached_stats(db)
+
+# ---- Face ID / fingerprint login (WebAuthn passkeys) ----
+
+try:
+    from webauthn import (
+        generate_registration_options, verify_registration_response,
+        generate_authentication_options, verify_authentication_response,
+    )
+    from webauthn.helpers import (
+        options_to_json, parse_registration_credential_json, parse_authentication_credential_json,
+    )
+    from webauthn.helpers.structs import (
+        AuthenticatorSelectionCriteria, ResidentKeyRequirement, UserVerificationRequirement,
+    )
+    import json as _pk_json
+    import base64 as _pk_b64
+    PASSKEYS_AVAILABLE = True
+except ImportError:
+    PASSKEYS_AVAILABLE = False
+
+PASSKEY_RP_ID = os.environ.get("PASSKEY_RP_ID", "abreys.app")
+PASSKEY_ORIGIN = os.environ.get("PASSKEY_ORIGIN", "https://abreys.app")
+PASSKEY_RP_NAME = "Abreys Day to Day Work App"
+
+def _pk_b64u_decode(s: str) -> bytes:
+    return _pk_b64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+def _pk_challenge_from_credential(credential: dict) -> str:
+    """Pull the challenge (b64url string) out of the signed clientDataJSON."""
+    cdj = credential.get("response", {}).get("clientDataJSON", "")
+    data = _pk_json.loads(_pk_b64u_decode(cdj).decode("utf-8"))
+    return data.get("challenge", "")
+
+async def _pk_store_challenge(challenge_b64u: str, purpose: str, employee_number: str = None):
+    await db.webauthn_challenges.insert_one({
+        "challenge": challenge_b64u,
+        "purpose": purpose,
+        "employee_number": employee_number,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+async def _pk_consume_challenge(challenge_b64u: str, purpose: str):
+    doc = await db.webauthn_challenges.find_one_and_delete(
+        {"challenge": challenge_b64u, "purpose": purpose}
+    )
+    if not doc:
+        return None
+    try:
+        age = datetime.now(timezone.utc) - datetime.fromisoformat(doc["created_at"])
+        if age > timedelta(minutes=10):
+            return None
+    except (KeyError, ValueError):
+        return None
+    return doc
+
+class PasskeyRegisterOptionsRequest(BaseModel):
+    employee_number: str
+
+class PasskeyRegisterVerifyRequest(BaseModel):
+    employee_number: str
+    credential: dict
+
+class PasskeyLoginVerifyRequest(BaseModel):
+    credential: dict
+
+@app.post("/api/auth/passkey/register-options")
+async def passkey_register_options(req: PasskeyRegisterOptionsRequest):
+    """Start Face ID setup for a logged-in employee."""
+    if not PASSKEYS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face ID login is not available on this server yet")
+    employee = await db.staff.find_one(
+        {"employee_number": req.employee_number, "active": True}, {"_id": 0}
+    )
+    if not employee:
+        raise HTTPException(status_code=401, detail="Invalid employee number or account inactive")
+    opts = generate_registration_options(
+        rp_id=PASSKEY_RP_ID,
+        rp_name=PASSKEY_RP_NAME,
+        user_id=req.employee_number.encode("utf-8"),
+        user_name=req.employee_number,
+        user_display_name=employee.get("name") or req.employee_number,
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            resident_key=ResidentKeyRequirement.REQUIRED,
+            user_verification=UserVerificationRequirement.REQUIRED,
+        ),
+    )
+    options = _pk_json.loads(options_to_json(opts))
+    await _pk_store_challenge(options["challenge"], "register", req.employee_number)
+    return options
+
+@app.post("/api/auth/passkey/register-verify")
+async def passkey_register_verify(req: PasskeyRegisterVerifyRequest):
+    """Finish Face ID setup: verify and save the new passkey."""
+    if not PASSKEYS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face ID login is not available on this server yet")
+    challenge_b64u = _pk_challenge_from_credential(req.credential)
+    ch = await _pk_consume_challenge(challenge_b64u, "register")
+    if not ch or ch.get("employee_number") != req.employee_number:
+        raise HTTPException(status_code=400, detail="Face ID setup expired — please try again")
+    try:
+        ver = verify_registration_response(
+            credential=parse_registration_credential_json(_pk_json.dumps(req.credential)),
+            expected_challenge=_pk_b64u_decode(challenge_b64u),
+            expected_rp_id=PASSKEY_RP_ID,
+            expected_origin=PASSKEY_ORIGIN,
+            require_user_verification=True,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Face ID setup failed: {str(e)}")
+    cred_id_b64u = _pk_b64.urlsafe_b64encode(ver.credential_id).decode().rstrip("=")
+    await db.passkeys.update_one(
+        {"credential_id": cred_id_b64u},
+        {"$set": {
+            "credential_id": cred_id_b64u,
+            "public_key": _pk_b64.b64encode(ver.credential_public_key).decode(),
+            "sign_count": ver.sign_count,
+            "employee_number": req.employee_number,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+    return {"success": True}
+
+@app.post("/api/auth/passkey/login-options")
+async def passkey_login_options():
+    """Start a Face ID sign-in."""
+    if not PASSKEYS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face ID login is not available on this server yet")
+    opts = generate_authentication_options(
+        rp_id=PASSKEY_RP_ID,
+        user_verification=UserVerificationRequirement.REQUIRED,
+    )
+    options = _pk_json.loads(options_to_json(opts))
+    await _pk_store_challenge(options["challenge"], "login")
+    return options
+
+@app.post("/api/auth/passkey/login-verify")
+async def passkey_login_verify(req: PasskeyLoginVerifyRequest):
+    """Finish a Face ID sign-in: verify the passkey and log the employee in."""
+    if not PASSKEYS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face ID login is not available on this server yet")
+    challenge_b64u = _pk_challenge_from_credential(req.credential)
+    ch = await _pk_consume_challenge(challenge_b64u, "login")
+    if not ch:
+        raise HTTPException(status_code=400, detail="Sign-in expired — please try again")
+    cred_id = (req.credential.get("id") or "").rstrip("=")
+    passkey = await db.passkeys.find_one({"credential_id": cred_id}, {"_id": 0})
+    if not passkey:
+        raise HTTPException(status_code=401, detail="This phone isn't set up for Face ID login — sign in with your employee number and set it up")
+    try:
+        ver = verify_authentication_response(
+            credential=parse_authentication_credential_json(_pk_json.dumps(req.credential)),
+            expected_challenge=_pk_b64u_decode(challenge_b64u),
+            expected_rp_id=PASSKEY_RP_ID,
+            expected_origin=PASSKEY_ORIGIN,
+            credential_public_key=_pk_b64.b64decode(passkey["public_key"]),
+            credential_current_sign_count=passkey.get("sign_count", 0),
+            require_user_verification=True,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Face ID sign-in failed: {str(e)}")
+    await db.passkeys.update_one(
+        {"credential_id": cred_id},
+        {"$set": {"sign_count": ver.new_sign_count, "last_used_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    employee = await db.staff.find_one(
+        {"employee_number": passkey["employee_number"], "active": True}, {"_id": 0}
+    )
+    if not employee:
+        raise HTTPException(status_code=401, detail="Account inactive")
+    return {
+        "success": True,
+        "employee": {
+            "employee_number": employee["employee_number"],
+            "name": employee["name"],
+            "workshop_control": employee.get("workshop_control", None),
+            "admin_control": employee.get("admin_control", None),
+            "manager_control": employee.get("manager_control", None),
+        },
+    }
 
 # ---- Workplan import from the DailyWorkPlan Excel (SharePoint or upload) ----
 

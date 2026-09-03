@@ -13,6 +13,7 @@ import WorkplanBoard from '../components/WorkplanBoard';
 import QRScanner from '../components/QRScanner';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../lib/api';
+import { passkeysSupported, hasRegisteredPasskey, passkeyPromptDismissed, dismissPasskeyPrompt, registerPasskey } from '../lib/passkeys';
 import FieldMapBoard from '../components/FieldMapBoard';
 
 // Dashboard Component
@@ -29,6 +30,8 @@ export default function Dashboard() {
   const [stockSummary, setStockSummary] = useState(null);
   const [farmCrops, setFarmCrops] = useState(null);
   const [tractorReport, setTractorReport] = useState(null);
+  const [showFaceIdOffer, setShowFaceIdOffer] = useState(() => passkeysSupported() && !hasRegisteredPasskey() && !passkeyPromptDismissed());
+  const [faceIdSettingUp, setFaceIdSettingUp] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -1595,7 +1598,7 @@ export default function Dashboard() {
           <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold mb-1">{t('dashboardSubtitle')}</p>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
           <div className="flex items-center space-x-2 mt-1">
-            <p className="text-xs text-gray-400">Version 3.0</p>
+            <p className="text-xs text-gray-400">Version 3.2</p>
             <span className="text-gray-300">•</span>
             <p className="text-xs text-gray-400">
               <RefreshCw className="h-3 w-3 inline mr-1" />
@@ -1607,6 +1610,41 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
+
+        {/* Face ID setup offer (once per phone) */}
+        {showFaceIdOffer && employee && (
+          <div className="mt-4 bg-green-50 border border-green-200 rounded-xl p-3 flex items-center justify-between flex-wrap gap-2" data-testid="faceid-offer">
+            <p className="text-sm text-gray-800"><b>Log in faster:</b> set up Face ID / fingerprint on this phone</p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={faceIdSettingUp}
+                onClick={async () => {
+                  setFaceIdSettingUp(true);
+                  try {
+                    await registerPasskey(employee.employee_number);
+                    toast.success('Face ID login is set up on this phone');
+                    setShowFaceIdOffer(false);
+                  } catch (err) {
+                    if (err && (err.name === 'NotAllowedError' || err.name === 'AbortError')) {
+                      // cancelled — keep the offer visible
+                    } else {
+                      toast.error(err.message || 'Face ID setup failed');
+                    }
+                  } finally {
+                    setFaceIdSettingUp(false);
+                  }
+                }}
+              >
+                {faceIdSettingUp ? 'Waiting\u2026' : 'Set up'}
+              </Button>
+              <Button size="sm" variant="ghost" className="text-gray-600" onClick={() => { dismissPasskeyPrompt(); setShowFaceIdOffer(false); }}>
+                Not now
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Quick Scan Button - Prominent */}
         <div className="mt-4 sm:mt-6">

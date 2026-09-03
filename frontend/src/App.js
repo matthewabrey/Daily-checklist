@@ -12,6 +12,7 @@ import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, U
 import WorkplanEditor from './pages/WorkplanEditor';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { API_BASE_URL } from './lib/api';
+import { passkeysSupported, hasRegisteredPasskey, loginWithPasskey } from './lib/passkeys';
 import Dashboard from './pages/Dashboard';
 import NewChecklist from './pages/NewChecklist';
 import RepairsNeeded from './pages/RepairsNeeded';
@@ -26,6 +27,25 @@ function EmployeeLogin() {
   const { language, changeLanguage, t } = useTranslation();
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [faceIdBusy, setFaceIdBusy] = useState(false);
+  const [canFaceId] = useState(() => passkeysSupported() && hasRegisteredPasskey());
+
+  const handleFaceIdLogin = async () => {
+    setFaceIdBusy(true);
+    try {
+      const emp = await loginWithPasskey();
+      login(emp);
+      toast.success(`Welcome, ${emp.name}!`);
+    } catch (err) {
+      if (err && (err.name === 'NotAllowedError' || err.name === 'AbortError')) {
+        // user cancelled the Face ID prompt — no error needed
+      } else {
+        toast.error(err.message || 'Face ID sign-in failed');
+      }
+    } finally {
+      setFaceIdBusy(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -73,7 +93,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 3.0 &mdash; August 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 3.2 &mdash; September 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -108,6 +128,25 @@ function EmployeeLogin() {
                 t('login')
               )}
             </Button>
+            {canFaceId && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={handleFaceIdLogin}
+                disabled={faceIdBusy}
+                data-testid="faceid-login-btn"
+              >
+                {faceIdBusy ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                    Waiting for Face ID&hellip;
+                  </>
+                ) : (
+                  <>Sign in with Face ID</>
+                )}
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>
@@ -6405,12 +6444,12 @@ function AppContent() {
         <header className="bg-gray-800 shadow-md">
           <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
             <div className="flex items-center justify-between h-14 sm:h-16">
-              <Link to="/" className="flex items-center space-x-2" data-testid="logo-link">
+              <Link to="/" className="flex items-center space-x-2 shrink-0" data-testid="logo-link">
                 <div className="flex items-center">
                   <img 
                     src="/abreys-logo.png" 
                     alt="Abreys Logo" 
-                    className="h-8 sm:h-10 w-auto rounded-lg bg-white p-0.5"
+                    className="h-8 sm:h-10 w-auto shrink-0 rounded-lg bg-white p-0.5"
                     loading="eager"
                   />
                   <span className="text-xs sm:text-sm text-gray-300 ml-2 sm:ml-3 font-medium hidden sm:block">Day to Day Work App</span>
