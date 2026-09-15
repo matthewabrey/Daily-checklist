@@ -131,7 +131,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 4.1 &mdash; September 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 4.3 &mdash; September 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -979,7 +979,7 @@ function SharePointAdminComponent() {
   const [tractorReport, setTractorReport] = useState(null);
   const [tractorDragOver, setTractorDragOver] = useState(false);
   const [pullPassword, setPullPassword] = useState('');
-  const [pullPhotos, setPullPhotos] = useState(true);
+  const [pullPhotos, setPullPhotos] = useState(false);
   const [pullStatus, setPullStatus] = useState(null);
   const [pullStarting, setPullStarting] = useState(false);
 
@@ -1152,7 +1152,7 @@ function SharePointAdminComponent() {
             />
             <label className="inline-flex items-center gap-2 text-sm text-gray-700">
               <input type="checkbox" checked={pullPhotos} onChange={(e) => setPullPhotos(e.target.checked)} />
-              Include photos (slower)
+              Include photos (much slower, far more storage)
             </label>
             <Button
               onClick={startPull}
@@ -1160,7 +1160,9 @@ function SharePointAdminComponent() {
               className="bg-green-600 hover:bg-green-700 text-white"
               data-testid="pull-start-btn"
             >
-              {pullStatus?.state === 'running' ? 'Copying…' : 'Start copy'}
+              {pullStatus?.state === 'running' ? 'Copying…'
+                : (pullStatus?.state === 'interrupted' || pullStatus?.state === 'failed') ? 'Carry on'
+                : 'Start copy'}
             </Button>
           </div>
 
@@ -1170,6 +1172,7 @@ function SharePointAdminComponent() {
                 {pullStatus.state === 'running' && <>In progress &mdash; {pullStatus.message}</>}
                 {pullStatus.state === 'finished' && <span className="text-green-700">Finished</span>}
                 {pullStatus.state === 'failed' && <span className="text-red-600">Stopped: {pullStatus.error}</span>}
+                {pullStatus.state === 'interrupted' && <span className="text-orange-600">Interrupted &mdash; {pullStatus.message}</span>}
               </p>
               {pullStatus.totals && Object.keys(pullStatus.totals).length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 mt-2 text-xs text-gray-600">

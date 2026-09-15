@@ -134,6 +134,22 @@ async def startup_event():
     )
     scheduler.start()
     logger.info("Scheduler started - Daily staff sync scheduled for 9:00 AM UK time")
+    # If a data copy was running when the server last stopped, it died with it —
+    # say so plainly instead of leaving the panel stuck on "running".
+    try:
+        stuck = await db.pull_status.find_one({"key": "current"}, {"_id": 0})
+        if stuck and stuck.get("state") == "running":
+            await db.pull_status.update_one(
+                {"key": "current"},
+                {"$set": {
+                    "state": "interrupted",
+                    "message": "Stopped when the server restarted — press Start copy to carry on from where it got to.",
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }},
+            )
+            logger.warning("Marked an interrupted data copy after restart")
+    except Exception as e:
+        logger.error(f"Could not check the data copy status: {e}")
     # Download the FieldPlan/FieldMap immediately if we don't have a copy yet
     if not os.path.exists(FIELDPLAN_PATH) or not os.path.exists(FIELDMAP_PATH):
         asyncio.create_task(scheduled_fieldplan_sync())
@@ -4227,7 +4243,7 @@ async def _save_records(collection: str, records: list) -> int:
         saved += 1
     return saved
 
-async def _run_emergent_pull(source: str, include_photos: bool):
+async def _run_emergent_pull(source: str, include_photos: bool, resume: bool = True):
     started = datetime.now(timezone.utc).isoformat()
     totals = {}
     try:
@@ -4283,7 +4299,12 @@ async def _run_emergent_pull(source: str, include_photos: bool):
             await _pull_progress(totals=totals)
 
             # --- the big one: every check, a page at a time ---
-            skip, done, with_photos = 0, 0, []
+            # Resume where a previous interrupted run got to, so a restart
+            # doesn't mean starting the whole lot again.
+            prev = await db.pull_status.find_one({"key": "current"}, {"_id": 0})
+            skip = int((prev or {}).get("next_skip") or 0) if resume else 0
+            done = int((prev or {}).get("totals", {}).get("checklists") or 0) if resume and skip else 0
+            with_photos = []
             while True:
                 await _pull_progress(message=f"Copying checks… {done} so far", totals=totals)
                 r = await hc.get(f"{source}/api/checklists", params={"limit": PULL_PAGE_SIZE, "skip": skip})
@@ -4301,6 +4322,8 @@ async def _run_emergent_pull(source: str, include_photos: bool):
                             with_photos.append(rec["id"])
                 skip += PULL_PAGE_SIZE
                 totals["checklists"] = done
+                await _pull_progress(totals=totals, next_skip=skip)
+                await asyncio.sleep(0.4)  # don't hammer the database
                 if len(page) < PULL_PAGE_SIZE:
                     break
 
@@ -4333,17 +4356,26 @@ async def _run_emergent_pull(source: str, include_photos: bool):
                              finished_at=datetime.now(timezone.utc).isoformat())
 
 @app.post("/api/admin/pull-from-emergent")
-async def pull_from_emergent(password: str = Form(...), include_photos: bool = Form(True),
-                             source: str = Form(None)):
+async def pull_from_emergent(password: str = Form(...), include_photos: bool = Form(False),
+                             source: str = Form(None), resume: bool = Form(True)):
     """Copy the live records across from the old Emergent app."""
     if not _admin_password_ok(password):
         raise HTTPException(status_code=401, detail="Wrong admin password.")
     current = await db.pull_status.find_one({"key": "current"}, {"_id": 0})
     if current and current.get("state") == "running":
-        raise HTTPException(status_code=409, detail="A copy is already running — watch its progress below.")
+        # If nothing has moved for a few minutes the previous run died with a
+        # restart — let a new one take over rather than blocking forever.
+        alive = False
+        try:
+            last = datetime.fromisoformat(current.get("updated_at"))
+            alive = (datetime.now(timezone.utc) - last) < timedelta(minutes=4)
+        except (TypeError, ValueError):
+            alive = False
+        if alive:
+            raise HTTPException(status_code=409, detail="A copy is already running — watch its progress below.")
     src = (source or EMERGENT_SOURCE_URL).rstrip("/")
-    asyncio.create_task(_run_emergent_pull(src, include_photos))
-    return {"started": True, "source": src}
+    asyncio.create_task(_run_emergent_pull(src, include_photos, resume))
+    return {"started": True, "source": src, "resuming": bool(resume and (current or {}).get("next_skip"))}
 
 @app.get("/api/admin/pull-status")
 async def pull_status():
@@ -4422,7 +4454,21 @@ async def import_page():
 </style>
 </head>
 <body>
-<h1>Import data from the old app</h1>
+<h1>Set up this app's data</h1>
+
+<div class="card">
+  <h2 style="font-size:1.1rem;margin:0 0 6px">Copy everything from the old app</h2>
+  <p style="margin:0 0 10px">Brings the checks, repairs, machines, staff and templates
+  across from the old Emergent app. Use this first if the database is empty &mdash; it
+  restores the staff list, so people can log in again.</p>
+  <label>Admin password<br><input type="password" id="pullpw" style="width:100%"></label><br>
+  <label style="display:block;margin:8px 0"><input type="checkbox" id="pullphotos"> Include photos
+  (much slower and far more storage &mdash; leave unticked unless you're sure)</label>
+  <button id="pullgo">Start copy</button>
+  <div id="pullstatus" style="margin-top:12px;font-size:.95rem"></div>
+</div>
+
+<h2 style="font-size:1.1rem;margin-top:28px">Or import from files</h2>
 <p>Select the exported <b>.json</b> files (assets, checklists, staff, repair_status,
 checklist_templates). Each file <b>replaces</b> that data type entirely, so only pick
 the ones you mean to bring across.</p>
@@ -4433,6 +4479,45 @@ the ones you mean to bring across.</p>
 </div>
 <ul id="log"></ul>
 <script>
+// --- copy from the old app ---
+function renderPull(d) {
+  var el = document.getElementById('pullstatus');
+  if (!d || !d.state || d.state === 'idle') { el.innerHTML = ''; return; }
+  var head = '';
+  if (d.state === 'running') head = '<b>In progress</b> &mdash; ' + (d.message || '');
+  else if (d.state === 'finished') head = '<b class="ok">Finished</b>';
+  else if (d.state === 'interrupted') head = '<b style="color:#c05621">Interrupted</b> &mdash; ' + (d.message || '');
+  else if (d.state === 'failed') head = '<b class="err">Stopped</b> &mdash; ' + (d.error || '');
+  var rows = '';
+  if (d.totals) {
+    for (var k in d.totals) rows += '<li>' + k.replace(/_/g, ' ') + ': <b>' + d.totals[k] + '</b></li>';
+  }
+  el.innerHTML = head + (rows ? '<ul>' + rows + '</ul>' : '');
+}
+async function pollPull() {
+  try {
+    var r = await fetch('/api/admin/pull-status');
+    if (r.ok) renderPull(await r.json());
+  } catch (e) {}
+}
+pollPull();
+setInterval(pollPull, 4000);
+document.getElementById('pullgo').onclick = async function () {
+  var pw = document.getElementById('pullpw').value;
+  if (!pw) { alert('Enter the admin password first'); return; }
+  this.disabled = true;
+  var fd = new FormData();
+  fd.append('password', pw);
+  fd.append('include_photos', document.getElementById('pullphotos').checked ? 'true' : 'false');
+  try {
+    var r = await fetch('/api/admin/pull-from-emergent', { method: 'POST', body: fd });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) alert(d.detail || 'Could not start the copy');
+  } catch (e) { alert('Could not start the copy'); }
+  this.disabled = false;
+  pollPull();
+};
+
 document.getElementById('go').onclick = async function () {
   const pw = document.getElementById('pw').value;
   const files = document.getElementById('files').files;
