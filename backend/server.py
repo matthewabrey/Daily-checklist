@@ -984,6 +984,11 @@ def build_checklist_query(category: Optional[str] = None, check_type: Optional[s
         query["completed_at"] = {"$regex": f"^{datetime.now(timezone.utc).date().isoformat()}"}
     return query
 
+# List endpoints never ship photo binaries (a single check can carry 10MB+ of base64) - photo
+# entries keep their id/timestamp so the UI can show a count; GET /api/checklists/{id} returns the full record.
+LIST_PROJECTION = {"_id": 0, "checklist_items.photos.data": 0, "workshop_photos.data": 0}
+NO_PHOTOS_PROJECTION = {"_id": 0, "checklist_items.photos": 0, "workshop_photos": 0}
+
 @app.get("/api/checklists/count")
 async def count_checklists(check_type: str = None, category: str = None, make: str = None, model: str = None, today: bool = False):
     """Total number of records matching the same filters as the list / exports"""
@@ -999,7 +1004,7 @@ async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None
     limit = min(limit, 500)  # Max 500 at a time
     
     try:
-        checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
+        checklists = await db.checklists.find(query, LIST_PROJECTION).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
         
         # Parse datetime strings - simplified
         for checklist in checklists:
@@ -1022,7 +1027,7 @@ async def get_todays_checklists(category: str = None):
     # Use regex to match today's date regardless of time format
     checklists = await db.checklists.find(
         {"completed_at": {"$regex": f"^{today}"}, **category_filter(category)},
-        {"_id": 0}
+        LIST_PROJECTION
     ).sort("completed_at", -1).to_list(length=100)
     
     # Parse datetime strings
@@ -1044,32 +1049,7 @@ async def get_checklists_by_machine(make: str = None, name: str = None, limit: i
     if name:
         query["machine_model"] = name
     
-    # Use projection to only get needed fields (faster)
-    projection = {
-        "_id": 0,
-        "id": 1,
-        "staff_name": 1,
-        "machine_make": 1,
-        "machine_model": 1,
-        "check_type": 1,
-        "completed_at": 1,
-        "status": 1,
-        "items_satisfactory": 1,
-        "items_unsatisfactory": 1,
-        "items_total": 1,
-        "notes_summary": 1,
-        "checklist_items": 1,
-        "workshop_notes": 1,
-        "workshop_photos": 1,
-        "parts_required": 1,
-        # Fuel and Mileage fields
-        "fuel_mileage": 1,
-        "fuel_added": 1,
-        "adblue_added": 1,
-        "fuel_notes": 1
-    }
-    
-    checklists = await db.checklists.find(query, projection).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
+    checklists = await db.checklists.find(query, LIST_PROJECTION).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
     
     # Get total count for pagination info
     total = await db.checklists.count_documents(query)
@@ -1105,7 +1085,7 @@ async def get_checklists_with_repairs(limit: int = 50, skip: int = 0):
         ]
     }
     
-    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
+    checklists = await db.checklists.find(query, LIST_PROJECTION).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
     
     # Parse datetime strings
     for checklist in checklists:
@@ -1735,10 +1715,7 @@ async def get_checklist_template(check_type: str):
 # OLD SharePoint sync endpoint removed - using new sharepoint_auto_sync with client credentials flow
 
 EXPORT_HEADERS = ["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Satisfactory", "Unsatisfactory", "Total", "Needs Work / Repairs", "Notes", "Workshop Details", "Parts Required"]
-EXPORT_PROJECTION = {
-    "_id": 0, "id": 1, "staff_name": 1, "machine_make": 1, "machine_model": 1,
-    "check_type": 1, "completed_at": 1, "status": 1, "checklist_items": 1, "workshop_notes": 1, "parts_required": 1
-}
+EXPORT_PROJECTION = NO_PHOTOS_PROJECTION
 
 def export_row(checklist: dict) -> list:
     """Flatten a checklist into one export row (shared by CSV + Excel)"""
@@ -1848,42 +1825,20 @@ async def export_checklists_excel(category: str = None, check_type: str = None, 
     )
 
 @app.get("/api/checklists/export/excel-by-machine")
-async def export_checklists_excel_by_machine(make: str = None, name: str = None):
-    """Export checklists to Excel - optimized for large datasets.
-    Uses CSV-style approach for speed, then converts to Excel."""
+async def export_checklists_excel_by_machine(make: str = None, name: str = None, model: str = None,
+                                             check_type: str = None, category: str = None, today: bool = False):
+    """Detailed Excel export (one sheet per check type, one column per question) - honours the same filters as /api/checklists"""
     from fastapi.responses import StreamingResponse
     import io
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
     
-    # Build query
-    query = {}
-    if make:
-        query["machine_make"] = make
-    if name:
-        query["machine_model"] = name
+    query = build_checklist_query(category, check_type, make, model or name, today)
     
-    # Use projection to only get needed fields - MUCH faster
-    projection = {
-        "_id": 0,
-        "id": 1,
-        "staff_name": 1,
-        "machine_make": 1,
-        "machine_model": 1,
-        "check_type": 1,
-        "completed_at": 1,
-        "checklist_items": 1,
-        "workshop_notes": 1,
-        "notes_summary": 1,
-        "items_satisfactory": 1,
-        "items_unsatisfactory": 1,
-        "items_total": 1
-    }
-    
-    # Stream results in batches for memory efficiency
+    # Stream results in batches for memory efficiency (photos excluded - they are not exported)
     checklists = []
-    cursor = db.checklists.find(query, projection).sort("completed_at", -1)
+    cursor = db.checklists.find(query, NO_PHOTOS_PROJECTION).sort("completed_at", -1)
     async for doc in cursor:
         checklists.append(doc)
         if len(checklists) >= 10000:  # Cap at 10k for reasonable export time
@@ -2034,7 +1989,7 @@ async def export_checklists_excel_by_machine(make: str = None, name: str = None)
     return StreamingResponse(
         output,
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        headers={"Content-Disposition": "attachment; filename=checklists_export.xlsx"}
+        headers={"Content-Disposition": f"attachment; filename={export_filename(category, 'xlsx', check_type, make, model or name, today).replace('all_', 'detailed_', 1)}"}
     )
 
 # Repair Status Management Endpoints

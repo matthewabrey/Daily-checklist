@@ -1,0 +1,55 @@
+{
+  "summary": "Verified list-endpoint payload stripping, detail endpoint full photos, exports with filters, and the frontend photo-on-demand + client-side compression flows. All 65 backend tests pass (5 requested regression suites + new test_payload_stripping.py). Frontend flows verified end-to-end on the live preview URL as employees 1234 and 4444.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "backend_verification": {
+    "GET /api/checklists?limit=100": "200, ~135KB (<1MB), <5s, no photo.data keys",
+    "GET /api/checklists/today": "200, small payload, stripped",
+    "GET /api/checklists-with-repairs?limit=50": "200, small, stripped",
+    "GET /api/checklists/by-machine?make=AD Plant Enviromental Record&limit=50": "200, small, stripped",
+    "GET /api/checklists/82bef03c-...": "200, full photos with data:image present",
+    "GET /api/checklists/export/excel-by-machine?make=Perrot": "200, filename detailed_checks_pre_service_check_Perrot.xlsx (contains 'detailed_checks' and 'Perrot')",
+    "GET /api/checklists/export/excel-by-machine?category=servicing&make=Perrot": "200",
+    "GET /api/checklists/export/excel-by-machine (no filters)": "200, <20s",
+    "GET /api/checklists/export/csv?category=checks": "200, 14 columns"
+  },
+  "frontend_verification": {
+    "login as 1234": "OK",
+    "dashboard view-all-checks-btn -> /all-checks": "OK, page loads, 100 rows",
+    "export-howto-note visible when no filter": "true",
+    "Perrot on Checks tab -> all-checks-empty + other-tab-hint": "OK (hint says 'Perrot has 4 servicing records on the Servicing tab')",
+    "switch-tab-btn -> Servicing tab, make persists as Perrot, 4 rows": "OK (first row: Perrot Machine 1 / Pre Service Check)",
+    "export-detailed-btn window.open URL": "/api/checklists/export/excel-by-machine?category=servicing&make=Perrot (verified via injected window.open capture)",
+    "export-csv-btn download filename": "all_servicing_Perrot_2026-09-14.csv",
+    "/all-checks?filter=today as 1234": "loads with title 'Today\\'s Checks', no 'Server is slow' text",
+    "photo-on-demand as 4444 for 82bef03c row": "modal opens <2s, GET /api/checklists/82bef03c-... fires only after click, 5 data:image imgs visible within ~1.6s",
+    "photo compression as 1234 on /new-checklist JCB": "12.7MB uploaded jpeg compressed to 529,987 chars data:image/jpeg (<600000)",
+    "/records": "loads in 4.4s, no console errors",
+    "/repairs-needed": "loads in 4.3s",
+    "/workplan": "loads in 3.3s",
+    "console errors mentioning photos/undefined": "0"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_payload_stripping.py",
+    "/app/test_reports/pytest/iter15.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Data drift vs spec: prompt expected exactly 1 Perrot record, live DB has 4 Perrot servicing records; expected filename 'detailed_checks_Perrot.xlsx' but backend produces 'detailed_checks_pre_service_check_Perrot.xlsx' when a single check type matches. Both are behaviourally correct — filename still identifies make + attachment is xlsx.",
+    "Records page rows do not use a 'check-row-' data-testid so the same helper used on /all-checks can't be reused. Consider unifying data-testids for consistency (minor)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_payload_stripping.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "1234 (regular Matthew Abrey), 4444 (admin)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Container date is 2026-09-14. AD Plant Enviromental Record big record id 82bef03c-47fa-451a-a02b-d7e89cf89c8f still contains embedded photos. Perrot make now has 4 servicing records + 0 check-category records. Filter selects on /all-checks are NATIVE <select> — use page.select_option('[data-testid=make-filter]', label='Perrot'), not Radix combobox. On /new-checklist the make/model are Radix comboboxes — use get_by_role('combobox') + get_by_role('option', name=..., exact=True). To capture export-detailed-btn URL, add init script overriding window.open BEFORE navigating.",
+  "rca of the issue": "N/A - all fixes verified working"
+}

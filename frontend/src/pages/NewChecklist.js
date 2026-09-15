@@ -14,6 +14,7 @@ import QRScanner from '../components/QRScanner';
 import { PreServiceCheckForm } from '../components/PreServiceCheckForm';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../lib/api';
+import { compressImage } from '../lib/images';
 
 const DEFAULT_CHECKLIST_ITEMS = [
   { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
@@ -329,13 +330,11 @@ export default function NewChecklist() {
     input.click();
   };
 
-  const handleFileSelect = (event, itemIndex) => {
+  const handleFileSelect = async (event, itemIndex) => {
     const file = event.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const photoData = e.target.result;
-        
+      const photoData = await compressImage(file);
+      {
         if (itemIndex === -1) {
           // Workshop photo
           setWorkshopPhotos(prev => [...prev, {
@@ -358,24 +357,16 @@ export default function NewChecklist() {
           setChecklistItems(updatedItems);
           toast.success('Photo added to checklist item!');
         }
-      };
-      reader.readAsDataURL(file);
+      }
     }
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     const video = document.getElementById('camera-video');
-    const canvas = document.createElement('canvas');
     
     if (video) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      
-      // Convert to base64
-      const photoData = canvas.toDataURL('image/jpeg', 0.8);
+      // Convert to a compressed base64 JPEG
+      const photoData = await compressImage(video);
       
       if (currentPhotoIndex === -1) {
         // Workshop photo
@@ -432,20 +423,19 @@ export default function NewChecklist() {
     input.accept = 'image/*';
     input.multiple = false;
     
-    input.onchange = (event) => {
+    input.onchange = async (event) => {
       const file = event.target.files[0];
       if (file) {
-        // Check file size (limit to 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error('File size must be less than 5MB');
+        // Check file size (limit to 20MB before compression)
+        if (file.size > 20 * 1024 * 1024) {
+          toast.error('File size must be less than 20MB');
           return;
         }
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
+        try {
           const photoData = {
             id: Date.now(),
-            data: e.target.result,
+            data: await compressImage(file),
             timestamp: new Date().toISOString()
           };
 
@@ -463,13 +453,9 @@ export default function NewChecklist() {
             setChecklistItems(updatedItems);
             toast.success('Photo uploaded for checklist item!');
           }
-        };
-        
-        reader.onerror = () => {
+        } catch (error) {
           toast.error('Error reading file. Please try again.');
-        };
-        
-        reader.readAsDataURL(file);
+        }
       }
     };
     

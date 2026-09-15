@@ -22,7 +22,9 @@ const CHECK_TYPE_LABELS = {
 import { CheckCircle2, ClipboardList, ClipboardCheck, Settings, FileText, ArrowLeft, Download, User, Wrench, RefreshCw, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock, FileCheck, CalendarDays, MapPin } from 'lucide-react';
 import WorkplanEditor from './pages/WorkplanEditor';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { API_BASE_URL } from './lib/api';
+import { API_BASE_URL, fetchChecklistDetail, hasMissingPhotoData } from './lib/api';
+import { compressImage } from './lib/images';
+import { ChecklistPhotos } from './components/ChecklistPhotos';
 import Dashboard from './pages/Dashboard';
 import NewChecklist from './pages/NewChecklist';
 import RepairsNeeded from './pages/RepairsNeeded';
@@ -1287,6 +1289,12 @@ function Records() {
   const handleViewDetails = (checklist) => {
     setSelectedChecklist(checklist);
     setShowDetailModal(true);
+    // Lists omit photo binaries - pull the full record (with photos) for the modal
+    if (hasMissingPhotoData(checklist)) {
+      fetchChecklistDetail(checklist.id).then(full => {
+        if (full) setSelectedChecklist(prev => (prev && prev.id === full.id ? full : prev));
+      });
+    }
   };
 
   const closeDetailModal = () => {
@@ -1374,23 +1382,15 @@ function Records() {
                         </div>
                         {/* Item Photos */}
                         {item.photos && item.photos.length > 0 && (
-                          <div className="mt-3 grid grid-cols-3 gap-2">
-                            {item.photos.map((photo, photoIndex) => (
-                              <img
-                                key={photoIndex}
-                                src={photo.data}
-                                alt={`${item.item} - Photo ${photoIndex + 1}`}
-                                className="w-full h-24 object-cover rounded cursor-pointer hover:opacity-75"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const photos = [{...photo, title: item.item, type: 'checklist_item'}];
-                                  setSelectedPhotos(photos);
-                                  setCurrentPhotoIndex(0);
-                                  setShowPhotoModal(true);
-                                }}
-                              />
-                            ))}
-                          </div>
+                          <ChecklistPhotos
+                            photos={item.photos}
+                            alt={`${item.item} - Photo`}
+                            onPhotoClick={(photo) => {
+                              setSelectedPhotos([{...photo, title: item.item, type: 'checklist_item'}]);
+                              setCurrentPhotoIndex(0);
+                              setShowPhotoModal(true);
+                            }}
+                          />
                         )}
                       </div>
                     ))}
@@ -1453,22 +1453,17 @@ function Records() {
               {selectedChecklist.workshop_photos && selectedChecklist.workshop_photos.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Workshop Photos</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {selectedChecklist.workshop_photos.map((photo, index) => (
-                      <img
-                        key={index}
-                        src={photo.data}
-                        alt={`Workshop Photo ${index + 1}`}
-                        className="w-full h-32 object-cover rounded cursor-pointer hover:opacity-75"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedPhotos(selectedChecklist.workshop_photos.map(p => ({...p, title: 'Workshop Photo', type: 'workshop'})));
-                          setCurrentPhotoIndex(index);
-                          setShowPhotoModal(true);
-                        }}
-                      />
-                    ))}
-                  </div>
+                  <ChecklistPhotos
+                    photos={selectedChecklist.workshop_photos}
+                    alt="Workshop Photo"
+                    imgClassName="w-full h-32 object-cover rounded"
+                    gridClassName="grid grid-cols-2 md:grid-cols-3 gap-3"
+                    onPhotoClick={(photo, index, ready) => {
+                      setSelectedPhotos(ready.map(p => ({...p, title: 'Workshop Photo', type: 'workshop'})));
+                      setCurrentPhotoIndex(index);
+                      setShowPhotoModal(true);
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -1776,6 +1771,7 @@ function AllChecksCompleted() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(null);
+  const [otherTabCount, setOtherTabCount] = useState(null);
   const navigate = useNavigate();
   
   const ITEMS_PER_PAGE = 100;
@@ -1835,10 +1831,20 @@ function AllChecksCompleted() {
   useEffect(() => {
     fetchChecklists();
     setTotalCount(null);
+    setOtherTabCount(null);
     fetch(`${API_BASE_URL}/api/checklists/count?${exportQuery()}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => setTotalCount(d ? d.count : null))
       .catch(() => setTotalCount(null));
+    if (hasActiveFilter) {
+      const otherParams = new URLSearchParams(exportQuery());
+      otherParams.set('category', isServicing ? 'checks' : 'servicing');
+      otherParams.delete('check_type');
+      fetch(`${API_BASE_URL}/api/checklists/count?${otherParams.toString()}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => setOtherTabCount(d ? d.count : null))
+        .catch(() => setOtherTabCount(null));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch page 1 whenever the tab or any server-side filter changes; paging handled by Load More
   }, [filterToday, viewMode, selectedCheckType, selectedMake, selectedModel]);
 
@@ -1973,6 +1979,12 @@ function AllChecksCompleted() {
   const handleViewDetails = (checklist) => {
     setSelectedChecklist(checklist);
     setShowDetailModal(true);
+    // Lists omit photo binaries - pull the full record (with photos) for the modal
+    if (hasMissingPhotoData(checklist)) {
+      fetchChecklistDetail(checklist.id).then(full => {
+        if (full) setSelectedChecklist(prev => (prev && prev.id === full.id ? full : prev));
+      });
+    }
   };
 
   const closeDetailModal = () => {
@@ -2114,16 +2126,7 @@ function AllChecksCompleted() {
                           </Badge>
                         </div>
                         {item.photos && item.photos.length > 0 && (
-                          <div className="mt-3 grid grid-cols-3 gap-2">
-                            {item.photos.map((photo, photoIndex) => (
-                              <img
-                                key={photoIndex}
-                                src={photo.data}
-                                alt={`${item.item} - Photo ${photoIndex + 1}`}
-                                className="w-full h-24 object-cover rounded"
-                              />
-                            ))}
-                          </div>
+                          <ChecklistPhotos photos={item.photos} alt={`${item.item} - Photo`} />
                         )}
                       </div>
                     ))}
@@ -2152,16 +2155,13 @@ function AllChecksCompleted() {
               {selectedChecklist.workshop_photos && selectedChecklist.workshop_photos.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Workshop Photos</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {selectedChecklist.workshop_photos.map((photo, index) => (
-                      <img
-                        key={index}
-                        src={photo.data}
-                        alt={`Workshop Photo ${index + 1}`}
-                        className="w-full h-32 object-cover rounded"
-                      />
-                    ))}
-                  </div>
+                  <ChecklistPhotos
+                    photos={selectedChecklist.workshop_photos}
+                    alt="Workshop Photo"
+                    imgClassName="w-full h-32 object-cover rounded"
+                    gridClassName="grid grid-cols-2 md:grid-cols-3 gap-3"
+                    onPhotoClick={(photo) => window.open(photo.data, '_blank')}
+                  />
                 </div>
               )}
             </div>
@@ -2212,6 +2212,16 @@ function AllChecksCompleted() {
             CSV (Fast)
           </Button>
           <Button 
+            onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel-by-machine?${exportQuery()}`, '_blank')}
+            variant="outline"
+            className="border-emerald-500 text-emerald-700 hover:bg-emerald-50"
+            title="One sheet per check type with every question shown as ✓ / ✗ / N/A"
+            data-testid="export-detailed-btn"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Excel (Detailed)
+          </Button>
+          <Button 
             onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel?${exportQuery()}`, '_blank')}
             variant="outline"
             className="text-gray-600"
@@ -2260,13 +2270,17 @@ function AllChecksCompleted() {
         <CardHeader>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <CardTitle>{isServicing ? 'Filter Servicing Records' : 'Filter Checks'}</CardTitle>
-            {hasActiveFilter && (
+            {hasActiveFilter ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-600" data-testid="export-filter-note">Excel / CSV will export only the filtered {recordLabel}</span>
                 <Button variant="ghost" size="sm" onClick={() => { setSelectedMake(''); setSelectedModel(''); setSelectedCheckType(''); }} data-testid="clear-filters-btn">
                   Clear filters
                 </Button>
               </div>
+            ) : (
+              <span className="text-sm text-gray-500" data-testid="export-howto-note">
+                Want one make (e.g. Perrot)? Pick it under <span className="font-medium">Machine Make</span>, then press <span className="font-medium">Excel</span> or <span className="font-medium">CSV (Fast)</span>.
+              </span>
             )}
           </div>
         </CardHeader>
@@ -2338,7 +2352,17 @@ function AllChecksCompleted() {
           ) : filteredChecklists.length === 0 ? (
             <div className="text-center py-8 text-gray-500" data-testid="all-checks-empty">
               <FileText className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-              <p>No {recordLabel} found</p>
+              <p>No {recordLabel} found{hasActiveFilter ? ' for these filters' : ''}</p>
+              {hasActiveFilter && otherTabCount > 0 && (
+                <div className="mt-3" data-testid="other-tab-hint">
+                  <p className="text-sm">
+                    {selectedMake || 'This selection'} has <span className="font-semibold">{otherTabCount}</span> {isServicing ? 'check' : 'servicing record'}{otherTabCount > 1 ? 's' : ''} on the {isServicing ? 'Checks' : 'Servicing'} tab.
+                  </p>
+                  <Button variant="outline" size="sm" className="mt-2" onClick={() => { const keepMake = selectedMake; const keepModel = selectedModel; switchView(isServicing ? 'checks' : 'servicing'); setSelectedMake(keepMake); setSelectedModel(keepModel); }} data-testid="switch-tab-btn">
+                    Show them on the {isServicing ? 'Checks' : 'Servicing'} tab
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4" data-testid="all-checks-list">
@@ -2515,6 +2539,11 @@ function RepairsCompletedPage() {
   const handleViewDetails = (repair) => {
     setSelectedRepair(repair);
     setShowDetailModal(true);
+    if (hasMissingPhotoData(repair)) {
+      fetchChecklistDetail(repair.id).then(full => {
+        if (full) setSelectedRepair(prev => (prev && prev.id === full.id ? full : prev));
+      });
+    }
   };
 
   const closeDetailModal = () => {
@@ -2581,17 +2610,13 @@ function RepairsCompletedPage() {
               {selectedRepair.workshop_photos && selectedRepair.workshop_photos.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Photos</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {selectedRepair.workshop_photos.map((photo, index) => (
-                      <img
-                        key={index}
-                        src={photo.data}
-                        alt={`Repair Photo ${index + 1}`}
-                        className="w-full h-32 object-cover rounded cursor-pointer hover:opacity-75"
-                        onClick={() => window.open(photo.data, '_blank')}
-                      />
-                    ))}
-                  </div>
+                  <ChecklistPhotos
+                    photos={selectedRepair.workshop_photos}
+                    alt="Repair Photo"
+                    imgClassName="w-full h-32 object-cover rounded"
+                    gridClassName="grid grid-cols-2 md:grid-cols-3 gap-3"
+                    onPhotoClick={(photo) => window.open(photo.data, '_blank')}
+                  />
                 </div>
               )}
             </div>
@@ -5400,10 +5425,10 @@ function GeneralRepairRecord() {
         }
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
           const photoData = {
             id: Date.now(),
-            data: e.target.result,
+            data: await compressImage(e.target.result),
             timestamp: new Date().toISOString()
           };
           setRepairPhotos(prev => [...prev, photoData]);
@@ -5427,16 +5452,10 @@ function GeneralRepairRecord() {
       const video = document.getElementById('camera-video');
       video.srcObject = stream;
       
-      setTimeout(() => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0);
-        
+      setTimeout(async () => {
         const photoData = {
           id: Date.now(),
-          data: canvas.toDataURL('image/jpeg', 0.8),
+          data: await compressImage(video),
           timestamp: new Date().toISOString()
         };
         

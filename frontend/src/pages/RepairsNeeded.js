@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { CheckCircle2, ArrowLeft, Upload, AlertCircle, AlertTriangle, Camera, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../lib/api';
+import { compressImage } from '../lib/images';
 
 // Repairs Needed Component
 export default function RepairsNeeded() {
@@ -408,10 +409,10 @@ export default function RepairsNeeded() {
         }
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
           const photoData = {
             id: Date.now(),
-            data: e.target.result,
+            data: await compressImage(e.target.result),
             timestamp: new Date().toISOString()
           };
           setRepairPhotos(prev => [...prev, photoData]);
@@ -457,7 +458,7 @@ export default function RepairsNeeded() {
     }
   };
 
-  const captureRepairPhoto = () => {
+  const captureRepairPhoto = async () => {
     try {
       const video = document.getElementById('repair-camera-video');
       if (!video || !video.videoWidth) {
@@ -465,15 +466,9 @@ export default function RepairsNeeded() {
         return;
       }
       
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      
       const photoData = {
         id: Date.now(),
-        data: canvas.toDataURL('image/jpeg', 0.8),
+        data: await compressImage(video),
         timestamp: new Date().toISOString()
       };
       
