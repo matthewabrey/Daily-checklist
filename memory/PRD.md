@@ -144,6 +144,13 @@ QR code-based machine checklist application with health, safety, and work manage
 - Verified by testing agent: backend 100%, frontend Irrigator + Generic flows end-to-end, regressions pass (/app/test_reports/iteration_16.json). Tests: `backend/tests/test_asset_excel.py`, `test_pre_service_check.py` (updated to 13 sections)
 - NOTE for user/live app: after deploying, re-upload AssetList.xlsx in Admin (or wait for the 9 AM SharePoint sync) so the Irrigator sheet exists; until then irrigators get the generic check
 
+## Sub-checks, Service History, Date Range filter (June 2026)
+- [x] **Sheet sub-items (option b = guidance bullets)**: a `… - Pre Service Sheet` tab may have a 3rd column of sub-checks; a row with blank section column belongs to the section above; cells may hold several sub-checks split on new lines / semicolons; optional header row. `asset_excel.parse_service_sections()` → template `section_details: [{name, sub_items}]` (+ `sections` names kept). Sub-checks show as small bullets under the section in the Pre Service form (`service-section-{i}-sub-items`) and in record detail modals; only the section is marked. `ChecklistItem.sub_items` stored with the record. Upload log line shows "…13 sections, 5 sub-checks)". Example workbook: `/app/memory/AssetList_subitems_example.xlsx`; user's current file (no sub-items yet): `/app/memory/AssetList_user_latest.xlsx`
+- [x] **Service History panel** (`src/components/ServiceHistoryPanel.js`) under the check-type buttons on /new-checklist: `GET /api/checklists/machine-history?make=&model=&limit=` → Pre Service Checks + Workshop Services + any check with an unsatisfactory item (clean daily checks excluded), newest first, `last_service_at`; entries expand to show Needed work + notes, other issues, parts required; newest expanded by default
+- [x] **Date range filter + quick picks** on /all-checks (both tabs): From/To date inputs + This week / This month / Last 30 days / Last 12 months; list, header count and ALL exports (Excel, CSV, Excel (Detailed), Direct Link) pass `date_from`/`date_to` (inclusive, YYYY-MM-DD, 400 on bad dates; `today=true` wins); filenames `all_servicing_<from>_to_<to>.xlsx`. `/all-checks?filter=today` shows a "Show all dates" link instead. `build_checklist_query()` + `export_filename()` extended; `excel-by-machine` also honours dates
+- Verified by testing agent: backend 72/72, all frontend flows (/app/test_reports/iteration_17.json). Tests: `backend/tests/test_date_range_history.py`
+- [x] Fault modal test ids (`fault-explanation-textarea`, `fault-record-btn`, `fault-cancel-btn`); machine name list cleared while a new make's names load
+
 ## Pending / Backlog
 - [ ] P1: Continue App.js modularization (~6,500 lines remain: Records, AllChecksCompleted, Training, Accidents, etc.)
 - [x] ~~P1: Pre Service Check admin editor~~ → superseded: sheets are configured in AssetList.xlsx tabs (June 2026)
@@ -154,7 +161,7 @@ QR code-based machine checklist application with health, safety, and work manage
 - [ ] P1: Restore hidden features when ready
 - [ ] P2: `test_sync_idempotency.py` test_01 cases flaky when leftover TEST_ rows exist in DB (pre-existing)
 - [ ] P2: Trace background HTTP 422 seen in console (non-blocking)
-- [ ] P2: Date range filter for "All Checks Overview"
+- [x] ~~P2: Date range filter for "All Checks Overview"~~ (DONE June 2026)
 - [ ] P2: Add type hints to Python files (currently 32.9% coverage)
 - [ ] P2: Mobile-friendliness improvements
 

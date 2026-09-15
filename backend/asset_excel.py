@@ -132,6 +132,34 @@ def parse_items(sheet) -> List[Dict]:
     return items
 
 
+def _split_multi(value) -> List[str]:
+    return [p.strip() for p in re.split(r"[\n;]+", str(value)) if p and p.strip()]
+
+
+def parse_service_sections(sheet) -> List[Dict]:
+    """Pre Service Sheet tab: `number | section | sub-check` rows. A row with a blank section column
+    but text further right adds sub-checks to the section above; cells may hold several sub-checks
+    separated by new lines or semicolons."""
+    rows = [r for r in sheet.iter_rows(values_only=True) if any(c not in (None, "") for c in r)]
+    if rows and any(_is_header_cell(c) for c in rows[0]):
+        rows = rows[1:]
+    sections: List[Dict] = []
+    section_col = None
+    for row in rows:
+        texts = [(i, str(c).strip()) for i, c in enumerate(row) if isinstance(c, str) and c.strip() and not re.fullmatch(r"[\d.\s]+", c)]
+        if not texts:
+            continue
+        if section_col is None:
+            section_col = texts[0][0]
+        section_text = next((t for i, t in texts if i == section_col), None)
+        subs = [s for i, t in texts if i > section_col for s in _split_multi(t)]
+        if section_text and section_text.lower() not in JUNK_ITEMS:
+            sections.append({"name": section_text, "sub_items": subs})
+        elif sections:
+            sections[-1]["sub_items"].extend(subs)
+    return sections
+
+
 def parse_assets_sheet(sheet) -> List[Dict]:
     headers = [str(cell.value).strip().lower() if cell.value else "" for cell in sheet[1]]
     check_type_col = name_col = make_col = None
@@ -164,28 +192,37 @@ def parse_asset_workbook(file_content: bytes) -> Dict:
     service_templates: List[Dict] = []
     processed_sheets: List[str] = []
     for sheet_name, check_type, kind in resolve_sheet_check_types(workbook.sheetnames[1:], check_types):
-        items = parse_items(workbook[sheet_name])
-        if not items:
-            processed_sheets.append(f"{sheet_name} -> skipped (no items found)")
-            continue
         if kind == "service":
+            details = parse_service_sections(workbook[sheet_name])
+            if not details:
+                processed_sheets.append(f"{sheet_name} -> skipped (no items found)")
+                continue
+            sub_count = sum(len(d["sub_items"]) for d in details)
             service_templates.append({
                 "id": str(uuid.uuid4()),
                 "check_type": check_type,
                 "name": f"{check_type} Pre Service Check",
                 "sheet_name": sheet_name,
-                "sections": [i["item"] for i in items],
+                "sections": [d["name"] for d in details],
+                "section_details": details,
             })
-            processed_sheets.append(f"{sheet_name} -> {check_type} (Pre Service Sheet: {len(items)} sections)")
-        else:
-            compulsory = sum(1 for i in items if i["compulsory"])
-            checklist_templates.append({
-                "id": str(uuid.uuid4()),
-                "check_type": check_type,
-                "sheet_name": sheet_name,
-                "items": items,
-            })
-            processed_sheets.append(f"{sheet_name} -> {check_type} (Daily Check: {len(items)} items, {compulsory} compulsory)")
+            processed_sheets.append(
+                f"{sheet_name} -> {check_type} (Pre Service Sheet: {len(details)} sections"
+                + (f", {sub_count} sub-checks)" if sub_count else ")")
+            )
+            continue
+        items = parse_items(workbook[sheet_name])
+        if not items:
+            processed_sheets.append(f"{sheet_name} -> skipped (no items found)")
+            continue
+        compulsory = sum(1 for i in items if i["compulsory"])
+        checklist_templates.append({
+            "id": str(uuid.uuid4()),
+            "check_type": check_type,
+            "sheet_name": sheet_name,
+            "items": items,
+        })
+        processed_sheets.append(f"{sheet_name} -> {check_type} (Daily Check: {len(items)} items, {compulsory} compulsory)")
     return {
         "assets": assets,
         "checklist_templates": checklist_templates,

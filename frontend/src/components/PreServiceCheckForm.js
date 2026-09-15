@@ -50,6 +50,11 @@ const SectionCard = ({ item, index, onItemChange, onRemove, takePhoto, uploadPho
         )}
         <div>
           <p className={`text-base font-semibold ${item.status === 'unsatisfactory' ? 'text-red-700' : item.status === 'n/a' ? 'text-gray-500' : 'text-gray-900'}`}>{item.item}</p>
+          {item.sub_items?.length > 0 && (
+            <ul className="mt-1 space-y-0.5 text-xs text-gray-600 list-disc list-inside" data-testid={`service-section-${index}-sub-items`}>
+              {item.sub_items.map((sub) => <li key={sub}>{sub}</li>)}
+            </ul>
+          )}
           {item.status === 'unsatisfactory' && <p className="mt-1 text-xs text-red-600 font-medium">⚠ Needs work - describe what is required below</p>}
           {item.status === 'n/a' && <p className="mt-1 text-xs text-gray-500 font-medium">ℹ Not Applicable</p>}
         </div>

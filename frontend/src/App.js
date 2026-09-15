@@ -19,6 +19,8 @@ const CHECK_TYPE_LABELS = {
   'REPAIR COMPLETED': 'Repair Completed',
   'GENERAL REPAIR': 'General Repair',
 };
+// Local calendar day as YYYY-MM-DD (date inputs + date range filters)
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 import { CheckCircle2, ClipboardList, ClipboardCheck, Settings, FileText, ArrowLeft, Download, User, Wrench, RefreshCw, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock, FileCheck, CalendarDays, MapPin } from 'lucide-react';
 import WorkplanEditor from './pages/WorkplanEditor';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -1402,6 +1404,11 @@ function Records() {
                               {item.status === 'n/a' && <span className="text-sm font-medium text-gray-600">N/A</span>}
                               <p className="font-medium">{tItem(item.item)}</p>
                             </div>
+                            {item.sub_items?.length > 0 && (
+                              <ul className="text-xs text-gray-500 list-disc list-inside mt-1">
+                                {item.sub_items.map((sub) => <li key={sub}>{sub}</li>)}
+                              </ul>
+                            )}
                             {item.notes && (
                               <p className="text-sm text-gray-700 mt-2 italic">"{item.notes}"</p>
                             )}
@@ -1824,6 +1831,19 @@ function AllChecksCompleted() {
     setFilteredChecklists([]);
   };
 
+  // Date range (inclusive, YYYY-MM-DD) - ignored when the URL asks for today's checks
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const hasDateRange = Boolean(dateFrom || dateTo);
+  const setRange = (from, to) => { setDateFrom(from); setDateTo(to); };
+  const quickPicks = [
+    { id: 'this-week', label: 'This week', range: () => { const d = new Date(); const day = (d.getDay() + 6) % 7; const mon = new Date(d); mon.setDate(d.getDate() - day); return [isoDay(mon), isoDay(d)]; } },
+    { id: 'this-month', label: 'This month', range: () => { const d = new Date(); return [isoDay(new Date(d.getFullYear(), d.getMonth(), 1)), isoDay(d)]; } },
+    { id: 'last-30', label: 'Last 30 days', range: () => { const d = new Date(); const s = new Date(d); s.setDate(d.getDate() - 29); return [isoDay(s), isoDay(d)]; } },
+    { id: 'last-year', label: 'Last 12 months', range: () => { const d = new Date(); const s = new Date(d); s.setFullYear(d.getFullYear() - 1); return [isoDay(s), isoDay(d)]; } },
+  ];
+  const activeQuickPick = quickPicks.find(q => { const [f, t] = q.range(); return f === dateFrom && t === dateTo; })?.id;
+
   // Query string describing the current tab + filters, shared by the list and all exports
   const exportQuery = () => {
     const params = new URLSearchParams({ category: viewMode });
@@ -1831,6 +1851,10 @@ function AllChecksCompleted() {
     if (selectedMake) params.set('make', selectedMake);
     if (selectedModel) params.set('model', selectedModel);
     if (filterToday) params.set('today', 'true');
+    else {
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+    }
     return params.toString();
   };
 
@@ -1840,11 +1864,13 @@ function AllChecksCompleted() {
     if (selectedMake) parts.push(selectedMake);
     if (selectedModel) parts.push(selectedModel);
     if (filterToday) parts.push('today');
+    else if (hasDateRange) parts.push(`${dateFrom || 'start'}_to_${dateTo || 'now'}`);
     parts.push(new Date().toISOString().split('T')[0]);
     return `${parts.join('_').replace(/[^\w.-]+/g, '-')}.${ext}`;
   };
 
-  const hasActiveFilter = Boolean(selectedMake || selectedModel || selectedCheckType);
+  const hasActiveFilter = Boolean(selectedMake || selectedModel || selectedCheckType || (!filterToday && hasDateRange));
+  const clearFilters = () => { setSelectedMake(''); setSelectedModel(''); setSelectedCheckType(''); setRange('', ''); };
   const CHECKS_TAB_TYPES = ['daily_check', 'grader_startup', 'fuel_mileage', 'NEW MACHINE', 'REPAIR COMPLETED'];
   const checkTypeOptions = isServicing ? ['pre_service_check', 'workshop_service'] : CHECKS_TAB_TYPES;
 
@@ -1876,7 +1902,7 @@ function AllChecksCompleted() {
         .catch(() => setOtherTabCount(null));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch page 1 whenever the tab or any server-side filter changes; paging handled by Load More
-  }, [filterToday, viewMode, selectedCheckType, selectedMake, selectedModel]);
+  }, [filterToday, viewMode, selectedCheckType, selectedMake, selectedModel, dateFrom, dateTo]);
 
   const filterChecklists = useCallback(() => {
     let filtered = checklists;
@@ -1885,6 +1911,11 @@ function AllChecksCompleted() {
     if (filterToday) {
       const today = new Date().toISOString().split('T')[0];
       filtered = filtered.filter(c => c.completed_at && c.completed_at.startsWith(today));
+    } else if (dateFrom || dateTo) {
+      filtered = filtered.filter(c => {
+        const day = c.completed_at ? String(c.completed_at).slice(0, 10) : '';
+        return day && (!dateFrom || day >= dateFrom) && (!dateTo || day <= dateTo);
+      });
     }
 
     // Server already filters; this keeps the list consistent while a refetch is in flight
@@ -1899,7 +1930,7 @@ function AllChecksCompleted() {
     }
     
     setFilteredChecklists(filtered);
-  }, [checklists, filterToday, selectedCheckType, selectedMake, selectedModel]);
+  }, [checklists, filterToday, selectedCheckType, selectedMake, selectedModel, dateFrom, dateTo]);
 
   useEffect(() => {
     filterChecklists();
@@ -2147,6 +2178,11 @@ function AllChecksCompleted() {
                               {item.status === 'n/a' && <span className="text-sm font-medium text-gray-600">N/A</span>}
                               <p className="font-medium">{tItem(item.item)}</p>
                             </div>
+                            {item.sub_items?.length > 0 && (
+                              <ul className="text-xs text-gray-500 list-disc list-inside mt-1">
+                                {item.sub_items.map((sub) => <li key={sub}>{sub}</li>)}
+                              </ul>
+                            )}
                             {item.notes && (
                               <p className="text-sm text-gray-700 mt-2 italic">"{item.notes}"</p>
                             )}
@@ -2303,7 +2339,7 @@ function AllChecksCompleted() {
             {hasActiveFilter ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-600" data-testid="export-filter-note">Excel / CSV will export only the filtered {recordLabel}</span>
-                <Button variant="ghost" size="sm" onClick={() => { setSelectedMake(''); setSelectedModel(''); setSelectedCheckType(''); }} data-testid="clear-filters-btn">
+                <Button variant="ghost" size="sm" onClick={clearFilters} data-testid="clear-filters-btn">
                   Clear filters
                 </Button>
               </div>
@@ -2360,6 +2396,65 @@ function AllChecksCompleted() {
               </select>
             </div>
           </div>
+
+          {/* Date range */}
+          {filterToday ? (
+            <p className="mt-4 text-sm text-gray-500" data-testid="date-range-today-note">Showing today's {recordLabel} only. <button type="button" className="text-green-700 underline" onClick={() => navigate(`/all-checks${isServicing ? '?view=servicing' : ''}`)} data-testid="date-range-show-all-btn">Show all dates</button></p>
+          ) : (
+            <div className="mt-4 pt-4 border-t" data-testid="date-range-filter">
+              <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+                <div className="flex items-end gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">From</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      max={dateTo || undefined}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      data-testid="date-from-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">To</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      min={dateFrom || undefined}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      data-testid="date-to-input"
+                    />
+                  </div>
+                  {hasDateRange && (
+                    <Button variant="ghost" size="sm" className="mb-0.5" onClick={() => setRange('', '')} data-testid="date-range-clear-btn">
+                      <X className="h-4 w-4 mr-1" /> Clear dates
+                    </Button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2 lg:ml-2" data-testid="date-quick-picks">
+                  {quickPicks.map(q => (
+                    <Button
+                      key={q.id}
+                      type="button"
+                      size="sm"
+                      variant={activeQuickPick === q.id ? 'default' : 'outline'}
+                      className={activeQuickPick === q.id ? 'bg-green-600 hover:bg-green-700' : ''}
+                      onClick={() => setRange(...q.range())}
+                      data-testid={`quick-pick-${q.id}`}
+                    >
+                      {q.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              {hasDateRange && (
+                <p className="text-xs text-gray-500 mt-2" data-testid="date-range-note">
+                  Showing {recordLabel} {dateFrom ? `from ${dateFrom}` : ''}{dateFrom && dateTo ? ' ' : ''}{dateTo ? `to ${dateTo}` : ''} — Excel / CSV / Direct Link exports use the same dates.
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -12,6 +12,7 @@ import { useTranslation } from '../LanguageContext';
 import { CheckCircle2, ClipboardList, ClipboardCheck, Settings, ArrowLeft, User, Wrench, Database, Upload, Camera, X, QrCode, ScanLine, TrendingUp } from 'lucide-react';
 import QRScanner from '../components/QRScanner';
 import { PreServiceCheckForm } from '../components/PreServiceCheckForm';
+import { ServiceHistoryPanel } from '../components/ServiceHistoryPanel';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../lib/api';
 import { compressImage } from '../lib/images';
@@ -23,9 +24,16 @@ const GENERIC_SERVICE_TEMPLATE = {
   generic: true,
 };
 
-const newServiceItem = (name, custom = false) => ({
-  item: name, status: 'unchecked', notes: '', compulsory: false, photos: [], custom,
+const newServiceItem = (name, custom = false, subItems = []) => ({
+  item: name, status: 'unchecked', notes: '', compulsory: false, photos: [], custom, sub_items: subItems,
 });
+
+// Sections with their guidance sub-checks (older templates only have the names list)
+const templateSections = (template) => (
+  template.section_details?.length
+    ? template.section_details.map(d => ({ name: d.name, sub_items: d.sub_items || [] }))
+    : template.sections.map(name => ({ name, sub_items: [] }))
+);
 
 const DEFAULT_CHECKLIST_ITEMS = [
   { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
@@ -244,7 +252,7 @@ export default function NewChecklist() {
       loadChecklistTemplate(machineCheckType).then(setChecklistItems);
     }
     if (step === 3 && selectedCheckType === 'pre_service_check') {
-      setChecklistItems((serviceTemplate || GENERIC_SERVICE_TEMPLATE).sections.map(section => newServiceItem(section)));
+      setChecklistItems(templateSections(serviceTemplate || GENERIC_SERVICE_TEMPLATE).map(s => newServiceItem(s.name, false, s.sub_items)));
     }
   }, [step, selectedCheckType, machineCheckType, serviceTemplate]);
 
@@ -1104,6 +1112,8 @@ export default function NewChecklist() {
                       <span className="text-xs opacity-90">{serviceTemplate && !serviceTemplate.generic ? `${serviceTemplate.sections.length}-section service sheet` : 'Whole-machine check & parts list'}</span>
                     </Button>
                   </div>
+
+                  <ServiceHistoryPanel make={selectedMake} model={selectedName} />
                 </div>
               )}
 

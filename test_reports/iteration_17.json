@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 17 - Sub-item guidance bullets on Pre Service Check, Service History panel on /new-checklist, and Date Range filter on /all-checks: ALL features verified end-to-end. Backend: 72/72 pytest passed across the 6 required test files. Frontend: sub-items render as bullets (3/2/none for sections 0/1/2), PSC submits and immediately appears in Service History with NEEDED WORK + PARTS REQUIRED, empty-history state works, /all-checks date filter with all quick-picks + note + clear buttons work, export URLs contain date_from/date_to, filenames include the dates, /all-checks?filter=today shows today-note + Show-all link that navigates to /all-checks and reveals the date inputs, detail modal renders the sub-check bullets under section names.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_date_range_history.py",
+    "/app/backend/tests/test_asset_excel.py",
+    "/app/backend/tests/test_pre_service_check.py",
+    "/app/backend/tests/test_checks_servicing_category.py",
+    "/app/backend/tests/test_allchecks_filters.py",
+    "/app/backend/tests/test_servicing_export_notes.py",
+    "/app/test_reports/pytest/iter17.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ServiceHistoryPanel: toggle DOM element (data-testid=\"service-history-toggle\") is still rendered on machines with no history — this is fine functionally (task said 'no chevron/badge' which is visually true, the chevron icon is hidden), but tests targeting service-history-toggle presence to imply 'has history' will be misleading. Consider omitting the toggle entirely (or its testid) when records=0, or add a data-attr like data-has-history to gate assertions.",
+    "NewChecklist.js is still ~1700 lines (was flagged in iter16); adding ServiceHistoryPanel + sub_items propagation didn't shrink it. Splitting the Fault Explanation Modal + Add Machine Modal into their own files is still recommended.",
+    "AllChecksCompleted uses inline date-input onChange -> immediate refetch which triggers a request on every keystroke while the user is typing YYYY-MM-DD (visible when I typed 2001-01-01). Consider a small debounce (300ms) or an onBlur commit.",
+    "Servicing record cards on /all-checks do not have a data-testid on the row wrapper (only inner buttons). Adding data-testid=\"all-checks-row-<id>\" would make automated tests less brittle (I had to fall back to text locator to open the detail modal)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (72/72 across 6 required suites)", "frontend": "100% of listed flows verified"},
+  "test_credentials": "1234 (Matthew Abrey), 4444 (Admin User) — per /app/memory/test_credentials.md",
+  "seed_data_creation": "Created one TEST_ Pre Service Check: Perrot '1 A F Machinery 12541 450', section 0 OK, section 1 Needs Work (note 'TEST_wheel nut torque low'), sections 2-12 N/A, part 'TEST_Nozzle 12mm'. Record persists in DB (no DELETE endpoint) and correctly appears in that machine's Service History newest-first.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "AssetList_subitems.xlsx is loaded (Irrigator sheet: section 0 'Gun Carriage General' has 3 sub-checks, section 1 'Gun Carriage Wheels and Axles' has 2, other 11 sections have none — server reports 'Pre Service Sheet: 13 sections, 5 sub-checks'). Perrot machine 'P9 Pickenham 19HR144 510' currently has no history and is a good empty-state target. Perrot '1 A F Machinery 12541 450' now has 5 records incl. the TEST_ PSC. Backend base URL: https://core-checks-only.preview.emergentagent.com. shadcn Selects require clicking button[role=combobox] then get_by_role('option', name=..., exact=True) — coordinate clicks land on wrong options. Machine Name select needs ~1.5-2s after Make change before the option list is refreshed.",
+  "rca of the issue": "N/A - all three features implemented correctly."
+}

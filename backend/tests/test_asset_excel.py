@@ -73,6 +73,37 @@ def test_parse_workbook_daily_and_service_tabs():
     assert any("Pre Service Sheet: 3 sections" in s for s in parsed["processed_sheets"])
 
 
+def test_service_sheet_sub_items_third_column():
+    content = build_workbook(
+        [["Irrigator", "1 AF 450", "Perrot"]],
+        {
+            "Irrigators - Pre Service Sheet": [
+                [1, "Gun Carriage General", "Check frame for cracks"],
+                [None, None, "Check paint / corrosion"],
+                [2, "Gun Carriage Wheels and Axles", "Tyre pressure\nWheel nuts tight; Bearings"],
+                [3, "Gun and Nozel", None],
+            ],
+        },
+    )
+    svc = parse_asset_workbook(content)["service_templates"][0]
+    assert svc["sections"] == ["Gun Carriage General", "Gun Carriage Wheels and Axles", "Gun and Nozel"]
+    assert svc["section_details"] == [
+        {"name": "Gun Carriage General", "sub_items": ["Check frame for cracks", "Check paint / corrosion"]},
+        {"name": "Gun Carriage Wheels and Axles", "sub_items": ["Tyre pressure", "Wheel nuts tight", "Bearings"]},
+        {"name": "Gun and Nozel", "sub_items": []},
+    ]
+
+
+def test_service_sheet_with_header_row():
+    content = build_workbook(
+        [["Forklift", "DP30", "Cat"]],
+        {"Forklift - Pre Service Sheet": [["No", "Section", "Sub-checks"], [1, "Mast", "Chains"], [2, "Forks", None]]},
+    )
+    svc = parse_asset_workbook(content)["service_templates"][0]
+    assert svc["sections"] == ["Mast", "Forks"]
+    assert svc["section_details"][0]["sub_items"] == ["Chains"]
+
+
 def test_missing_columns_raises():
     wb = openpyxl.Workbook()
     wb.active.append(["Foo", "Bar"])
