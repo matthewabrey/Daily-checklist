@@ -4198,6 +4198,160 @@ from fastapi.responses import HTMLResponse
 IMPORTABLE_COLLECTIONS = ["assets", "checklist_templates", "staff", "repair_status", "checklists"]
 
 
+# ---- One-click copy of the live data from the old Emergent app ----
+# The old app's API is readable over the internet, so this server pulls the
+# records straight across rather than anyone shifting big files about. Safe to
+# run more than once: records are matched on their id and updated in place, so
+# a second run just tops up anything added since.
+
+EMERGENT_SOURCE_URL = os.environ.get("EMERGENT_SOURCE_URL", "https://checklist-capture.emergent.host")
+PULL_PAGE_SIZE = 200
+
+async def _pull_progress(**fields):
+    fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.pull_status.update_one({"key": "current"}, {"$set": fields}, upsert=True)
+
+async def _save_records(collection: str, records: list) -> int:
+    """Write records into a collection, matched on their id so re-runs update
+    rather than duplicate."""
+    saved = 0
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+        rec.pop("_id", None)
+        rid = rec.get("id")
+        if rid:
+            await db[collection].update_one({"id": rid}, {"$set": rec}, upsert=True)
+        else:
+            await db[collection].insert_one(rec)
+        saved += 1
+    return saved
+
+async def _run_emergent_pull(source: str, include_photos: bool):
+    started = datetime.now(timezone.utc).isoformat()
+    totals = {}
+    try:
+        await _pull_progress(state="running", started_at=started, source=source,
+                             totals={}, message="Starting…", error=None, finished_at=None)
+        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as hc:
+
+            # --- the simple one-request collections ---
+            simple = [
+                ("staff", "/api/staff"),
+                ("assets", "/api/assets"),
+                ("service_check_templates", "/api/service-check-templates"),
+                ("repair_status", "/api/repair-status/bulk"),
+                ("workplan_jobs", "/api/workplan/jobs"),
+                ("workplan_colors", "/api/workplan/colors"),
+            ]
+            for coll, path in simple:
+                await _pull_progress(message=f"Copying {coll}…", totals=totals)
+                try:
+                    r = await hc.get(f"{source}{path}")
+                    if r.status_code != 200:
+                        totals[coll] = f"skipped (source returned {r.status_code})"
+                        continue
+                    data = r.json()
+                    if isinstance(data, dict):
+                        # Either one record, or a map keyed by id (repair-status/bulk)
+                        if "id" in data or "check_type" in data:
+                            data = [data]
+                        else:
+                            data = [v for v in data.values() if isinstance(v, dict)]
+                    totals[coll] = await _save_records(coll, data if isinstance(data, list) else [])
+                except Exception as e:
+                    totals[coll] = f"failed ({str(e)[:80]})"
+                await _pull_progress(totals=totals)
+
+            # --- checklist templates: one request per check type ---
+            await _pull_progress(message="Copying checklist templates…", totals=totals)
+            try:
+                types = {a.get("check_type") for a in await db.assets.find({}, {"_id": 0, "check_type": 1}).to_list(length=10000)}
+                tcount = 0
+                for ct in types:
+                    if isinstance(ct, dict):
+                        ct = ct.get("check_type")
+                    if not ct:
+                        continue
+                    r = await hc.get(f"{source}/api/checklist-templates/{ct}")
+                    if r.status_code == 200:
+                        data = r.json()
+                        tcount += await _save_records("checklist_templates", data if isinstance(data, list) else [data])
+                totals["checklist_templates"] = tcount
+            except Exception as e:
+                totals["checklist_templates"] = f"failed ({str(e)[:80]})"
+            await _pull_progress(totals=totals)
+
+            # --- the big one: every check, a page at a time ---
+            skip, done, with_photos = 0, 0, []
+            while True:
+                await _pull_progress(message=f"Copying checks… {done} so far", totals=totals)
+                r = await hc.get(f"{source}/api/checklists", params={"limit": PULL_PAGE_SIZE, "skip": skip})
+                if r.status_code != 200:
+                    raise Exception(f"source returned {r.status_code} fetching checks")
+                page = r.json()
+                if not isinstance(page, list) or not page:
+                    break
+                done += await _save_records("checklists", page)
+                if include_photos:
+                    for rec in page:
+                        items = rec.get("checklist_items") or []
+                        has = any((i.get("photos") or []) for i in items) or (rec.get("workshop_photos") or [])
+                        if has and rec.get("id"):
+                            with_photos.append(rec["id"])
+                skip += PULL_PAGE_SIZE
+                totals["checklists"] = done
+                if len(page) < PULL_PAGE_SIZE:
+                    break
+
+            # --- photos: only for the checks that actually have them ---
+            if include_photos and with_photos:
+                got = 0
+                for i, cid in enumerate(with_photos):
+                    if i % 20 == 0:
+                        await _pull_progress(message=f"Copying photos… {i} of {len(with_photos)} checks", totals=totals)
+                    try:
+                        r = await hc.get(f"{source}/api/checklists/{cid}")
+                        if r.status_code == 200:
+                            rec = r.json()
+                            if isinstance(rec, dict):
+                                rec.pop("_id", None)
+                                await db.checklists.update_one({"id": cid}, {"$set": rec}, upsert=True)
+                                got += 1
+                    except Exception:
+                        pass
+                totals["checks_with_photos"] = got
+
+        try:
+            await invalidate_cache()
+        except Exception:
+            pass
+        await _pull_progress(state="finished", message="Done", totals=totals,
+                             finished_at=datetime.now(timezone.utc).isoformat())
+    except Exception as e:
+        await _pull_progress(state="failed", error=str(e)[:300], totals=totals,
+                             finished_at=datetime.now(timezone.utc).isoformat())
+
+@app.post("/api/admin/pull-from-emergent")
+async def pull_from_emergent(password: str = Form(...), include_photos: bool = Form(True),
+                             source: str = Form(None)):
+    """Copy the live records across from the old Emergent app."""
+    if not _admin_password_ok(password):
+        raise HTTPException(status_code=401, detail="Wrong admin password.")
+    current = await db.pull_status.find_one({"key": "current"}, {"_id": 0})
+    if current and current.get("state") == "running":
+        raise HTTPException(status_code=409, detail="A copy is already running — watch its progress below.")
+    src = (source or EMERGENT_SOURCE_URL).rstrip("/")
+    asyncio.create_task(_run_emergent_pull(src, include_photos))
+    return {"started": True, "source": src}
+
+@app.get("/api/admin/pull-status")
+async def pull_status():
+    """How the copy is getting on."""
+    doc = await db.pull_status.find_one({"key": "current"}, {"_id": 0})
+    return doc or {"state": "idle"}
+
+
 def _admin_password_ok(password: str) -> bool:
     expected = os.environ.get("REACT_APP_ADMIN_PASSWORD")
     return bool(expected) and password == expected

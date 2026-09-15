@@ -131,7 +131,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 4.0 &mdash; September 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 4.1 &mdash; September 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -978,6 +978,40 @@ function SharePointAdminComponent() {
   const [loading, setLoading] = useState(false);
   const [tractorReport, setTractorReport] = useState(null);
   const [tractorDragOver, setTractorDragOver] = useState(false);
+  const [pullPassword, setPullPassword] = useState('');
+  const [pullPhotos, setPullPhotos] = useState(true);
+  const [pullStatus, setPullStatus] = useState(null);
+  const [pullStarting, setPullStarting] = useState(false);
+
+  // While a copy is running, check on it every few seconds
+  useEffect(() => {
+    let stop = false;
+    const tick = async () => {
+      try {
+        const r = await fetch(`${API_BASE_URL}/api/admin/pull-status`);
+        if (r.ok && !stop) setPullStatus(await r.json());
+      } catch (e) { /* ignore */ }
+    };
+    tick();
+    const t = setInterval(tick, 4000);
+    return () => { stop = true; clearInterval(t); };
+  }, []);
+
+  const startPull = async () => {
+    if (!pullPassword) { toast.error('Enter the admin password first'); return; }
+    setPullStarting(true);
+    try {
+      const fd = new FormData();
+      fd.append('password', pullPassword);
+      fd.append('include_photos', pullPhotos ? 'true' : 'false');
+      const r = await fetch(`${API_BASE_URL}/api/admin/pull-from-emergent`, { method: 'POST', body: fd });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) { toast.success('Copy started — it will keep going in the background'); setPullPassword(''); }
+      else toast.error(d.detail || 'Could not start the copy');
+    } catch (e) {
+      toast.error('Could not start the copy');
+    } finally { setPullStarting(false); }
+  };
   const navigate = useNavigate();
 
   // Load the current tractor utilisation report info
@@ -1092,6 +1126,67 @@ function SharePointAdminComponent() {
           </div>
         </div>
       </div>
+
+      {/* Bring the live data across from the old Emergent app */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Database className="h-5 w-5 text-green-600" />
+            <span>Bring data across from the old app</span>
+          </CardTitle>
+          <CardDescription>
+            Copies every check, repair, machine and staff record from the old Emergent app into this one.
+            Safe to run more than once &mdash; it updates records rather than duplicating them, so you can
+            run it again on the day you switch over to catch anything new.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <input
+              type="password"
+              value={pullPassword}
+              onChange={(e) => setPullPassword(e.target.value)}
+              placeholder="Admin password"
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm sm:w-56"
+              data-testid="pull-password"
+            />
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" checked={pullPhotos} onChange={(e) => setPullPhotos(e.target.checked)} />
+              Include photos (slower)
+            </label>
+            <Button
+              onClick={startPull}
+              disabled={pullStarting || pullStatus?.state === 'running'}
+              className="bg-green-600 hover:bg-green-700 text-white"
+              data-testid="pull-start-btn"
+            >
+              {pullStatus?.state === 'running' ? 'Copying…' : 'Start copy'}
+            </Button>
+          </div>
+
+          {pullStatus && pullStatus.state && pullStatus.state !== 'idle' && (
+            <div className="mt-4 text-sm">
+              <p className="font-medium text-gray-900">
+                {pullStatus.state === 'running' && <>In progress &mdash; {pullStatus.message}</>}
+                {pullStatus.state === 'finished' && <span className="text-green-700">Finished</span>}
+                {pullStatus.state === 'failed' && <span className="text-red-600">Stopped: {pullStatus.error}</span>}
+              </p>
+              {pullStatus.totals && Object.keys(pullStatus.totals).length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 mt-2 text-xs text-gray-600">
+                  {Object.entries(pullStatus.totals).map(([k, v]) => (
+                    <span key={k}>{k.replace(/_/g, ' ')}: <b className="text-gray-900">{String(v)}</b></span>
+                  ))}
+                </div>
+              )}
+              {pullStatus.state === 'running' && (
+                <p className="text-xs text-gray-500 mt-2">
+                  You can leave this page &mdash; it carries on in the background. Come back to check.
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Tractor Utilisation upload */}
       <Card className="mb-6">
