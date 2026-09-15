@@ -39,11 +39,11 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   // Dashboard rotation state
-  const [activeSection, setActiveSection] = useState(0); // 0=stats, 1=workplan, 2=progress
+  const [activeSection, setActiveSection] = useState(0); // 0=workplan, 1=stats, 2=progress
   const [isPaused, setIsPaused] = useState(false);
   const rotationInterval = useRef(null);
   const ROTATION_DELAY = 60000; // 60 seconds
-  const SECTION_LABELS = ['Check Figures', 'Daily Work Plan', 'Work Progress', 'Field Maps', 'Farm', 'Graders', 'Stores', 'Tractors'];
+  const SECTION_LABELS = ['Daily Work Plan', 'Check Figures', 'Work Progress', 'Field Maps', 'Farm', 'Graders', 'Stores', 'Tractors'];
 
   // Auto-rotation effect
   useEffect(() => {
@@ -1123,7 +1123,7 @@ export default function Dashboard() {
           <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold mb-1">{t('dashboardSubtitle')}</p>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
           <div className="flex items-center space-x-2 mt-1">
-            <p className="text-xs text-gray-400">Version 4.0</p>
+            <p className="text-xs text-gray-400">Version 4.4</p>
             <span className="text-gray-300">•</span>
             <p className="text-xs text-gray-400">
               <RefreshCw className="h-3 w-3 inline mr-1" />
@@ -1290,8 +1290,8 @@ export default function Dashboard() {
         </span>
       </div>
 
-      {/* Section 0: Stats Cards */}
-      <div className={`transition-all duration-500 ${activeSection === 0 ? 'block opacity-100' : 'hidden opacity-0'}`}>
+      {/* Section 1: Check Figures (stats cards) */}
+      <div className={`transition-all duration-500 ${activeSection === 1 ? 'block opacity-100' : 'hidden opacity-0'}`}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           {/* Total Checks */}
           <Card data-testid="total-checks-card" className="flex flex-col">
@@ -1557,8 +1557,8 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Section 1: WorkplanBoard */}
-      <div className={`transition-all duration-500 ${activeSection === 1 ? 'block opacity-100' : 'hidden opacity-0'}`}>
+      {/* Section 0: WorkplanBoard — first tab, shown on load */}
+      <div className={`transition-all duration-500 ${activeSection === 0 ? 'block opacity-100' : 'hidden opacity-0'}`}>
 
       {/* HIDDEN FOR DEPLOYMENT - Second Row Stats - Near Misses, Suggestions & Accidents
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">

@@ -1607,6 +1607,13 @@ async def get_checks_by_day(days: int = 6):
     today_uk = datetime.now(uk).date()
     day_list = [today_uk - timedelta(days=i) for i in range(days - 1, -1, -1)]
     start_utc = datetime.combine(day_list[0], datetime.min.time(), tzinfo=uk).astimezone(timezone.utc)
+    # completed_at is stored as an ISO *string* on every record, so comparing it
+    # against a datetime in Mongo matches nothing at all — BSON never compares a
+    # String to a Date. Compare as a string, keeping the datetime arm for any
+    # record that was written as a real date. The bound is pulled back one day
+    # so late-evening UTC records belonging to a UK day aren't missed; the loop
+    # below discards anything outside the window.
+    start_str = (day_list[0] - timedelta(days=1)).isoformat()
 
     # Pseudo-checklists that aren't real machine checks
     excluded = {"MACHINE ADD", "NEW MACHINE"}
@@ -1614,7 +1621,10 @@ async def get_checks_by_day(days: int = 6):
     counts = {}
     day_totals = {d.isoformat(): 0 for d in day_list}
     cursor = db.checklists.find(
-        {"completed_at": {"$gte": start_utc}},
+        {"$or": [
+            {"completed_at": {"$gte": start_str}},
+            {"completed_at": {"$gte": start_utc}},
+        ]},
         {"_id": 0, "completed_at": 1, "check_type": 1},
     )
     async for doc in cursor:
