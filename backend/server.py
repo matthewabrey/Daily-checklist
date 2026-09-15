@@ -6,6 +6,7 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 import os
 import io
+import re
 from motor.motor_asyncio import AsyncIOMotorClient
 import uuid
 from bson import ObjectId
@@ -14,6 +15,9 @@ from sharepoint_integration import sharepoint_integration
 from sharepoint_auto_sync import sharepoint_auto_sync
 from cached_stats import get_cached_stats, invalidate_cache
 from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH, download_fieldmap, FIELDMAP_PATH
+from servicing_export import build_servicing_workbook
+from sync_utils import upsert_staff, upsert_assets, upsert_checklist_templates, upsert_service_check_templates, dedupe_collection
+from asset_excel import parse_asset_workbook
 import qrcode
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -194,6 +198,7 @@ class ChecklistItem(BaseModel):
     notes: Optional[str] = None
     photos: Optional[List[dict]] = []
     compulsory: bool = False  # If True, item cannot be marked unsatisfactory when signing off
+    sub_items: Optional[List[str]] = []  # Pre Service Sheet guidance bullets ("what to look at") for this section
     
 class ChecklistTemplateItem(BaseModel):
     item: str
@@ -204,16 +209,27 @@ class ChecklistTemplate(BaseModel):
     check_type: str  # "daily_check", "grader_startup", "workshop_service"
     items: List[ChecklistTemplateItem]  # Now includes compulsory flag per item
     
+class ServiceCheckTemplate(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    check_type: Optional[str] = None  # Asset check type this pre-service sheet applies to (e.g. "Irrigator")
+    make: Optional[str] = None  # Legacy: make-specific sheet (pre-Excel seeding)
+    name: str
+    sections: List[str]
+    section_details: List[dict] = []  # [{name, sub_items: [...]}] - sub-checks from the sheet's 3rd column
+    sheet_name: Optional[str] = None
+    updated_at: Optional[str] = None
+
 class Checklist(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     employee_number: str
     staff_name: str
     machine_make: str
     machine_model: str
-    check_type: str  # "daily_check", "grader_startup", "workshop_service", or "fuel_mileage"
+    check_type: str  # "daily_check", "grader_startup", "workshop_service", "fuel_mileage" or "pre_service_check"
     checklist_items: List[ChecklistItem] = []
     workshop_notes: Optional[str] = None
     workshop_photos: Optional[List[dict]] = []
+    parts_required: Optional[List[str]] = []
     # Fuel and Mileage fields
     fuel_mileage: Optional[str] = None
     fuel_added: Optional[str] = None
@@ -232,6 +248,7 @@ class ChecklistResponse(BaseModel):
     checklist_items: List[ChecklistItem]
     workshop_notes: Optional[str] = None
     workshop_photos: Optional[List[dict]] = []
+    parts_required: Optional[List[str]] = []
     # Fuel and Mileage fields
     fuel_mileage: Optional[str] = None
     fuel_added: Optional[str] = None
@@ -541,7 +558,7 @@ async def initialize_workplan_data():
             await db.workplan_colors.insert_one({"id": str(uuid.uuid4()), "name": name, "color": color, "order": i})
 
 @app.on_event("startup")
-async def startup_event():
+async def startup_data_init():
     await initialize_data()
     await initialize_workplan_data()
     await migrate_existing_checklists()
@@ -610,42 +627,6 @@ async def migrate_existing_checklists():
     except Exception as e:
         print(f"Migration error: {e}")
 
-async def cleanup_duplicate_staff():
-    """Remove duplicate staff entries, keeping the one with most permissions"""
-    try:
-        # Find all employee numbers with duplicates
-        pipeline = [
-            {"$group": {"_id": "$employee_number", "count": {"$sum": 1}, "ids": {"$push": "$id"}}},
-            {"$match": {"count": {"$gt": 1}}}
-        ]
-        duplicates = await db.staff.aggregate(pipeline).to_list(length=100)
-        
-        for dup in duplicates:
-            emp_num = dup["_id"]
-            if not emp_num:
-                continue
-                
-            # Get all records for this employee
-            records = await db.staff.find({"employee_number": emp_num}).to_list(length=100)
-            
-            # Keep the one with admin_control='yes' or workshop_control='yes', or the first one
-            best_record = None
-            for r in records:
-                if r.get("admin_control") == "yes" or r.get("workshop_control") == "yes":
-                    best_record = r
-                    break
-            if not best_record:
-                best_record = records[0]
-            
-            # Delete all except the best one
-            for r in records:
-                if r["_id"] != best_record["_id"]:
-                    await db.staff.delete_one({"_id": r["_id"]})
-            
-            print(f"Cleaned up duplicates for employee {emp_num}")
-    except Exception as e:
-        print(f"Duplicate cleanup error: {e}")
-
 # API Routes
 @app.get("/api/health")
 async def health_check():
@@ -697,6 +678,8 @@ async def employee_login(request: EmployeeLoginRequest):
             return result
         else:
             raise HTTPException(status_code=401, detail="Invalid employee number or account inactive")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Login failed: {str(e)}")
 
@@ -719,6 +702,8 @@ async def validate_employee(employee_number: str):
             }
         else:
             return {"valid": False}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Validation failed: {str(e)}")
 
@@ -820,19 +805,22 @@ async def get_employee_activity():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get employee activity: {str(e)}")
 
+ACTIVE_ASSETS = {"retired": {"$ne": True}}
+
 @app.get("/api/staff", response_model=List[Staff])
-async def get_staff():
-    staff_list = await db.staff.find({}, {"_id": 0}).to_list(length=1000)  # Max 1000 staff
+async def get_staff(include_inactive: bool = False):
+    query = {} if include_inactive else {"active": {"$ne": False}}
+    staff_list = await db.staff.find(query, {"_id": 0}).to_list(length=1000)  # Max 1000 staff
     return staff_list
 
 @app.get("/api/assets/makes", response_model=List[str])
 async def get_makes():
-    makes = await db.assets.distinct("make")
+    makes = await db.assets.distinct("make", ACTIVE_ASSETS)
     return sorted(makes)
 
 @app.get("/api/assets/names/{make}", response_model=List[str])
 async def get_names_by_make(make: str):
-    names = await db.assets.distinct("name", {"make": make})
+    names = await db.assets.distinct("name", {"make": make, **ACTIVE_ASSETS})
     return sorted(names)
 
 @app.get("/api/assets/checktype/{make}/{name:path}")
@@ -847,15 +835,36 @@ async def get_checktype_by_make_and_name(make: str, name: str):
     else:
         raise HTTPException(status_code=404, detail="Asset not found")
 
+@app.get("/api/service-check-templates", response_model=List[ServiceCheckTemplate])
+async def get_service_check_templates():
+    return await db.service_check_templates.find({}, {"_id": 0}).to_list(length=100)
+
+def _exact_ci(value: str) -> dict:
+    return {"$regex": f"^{re.escape(value.strip())}$", "$options": "i"}
+
+@app.get("/api/service-check-templates/for-asset", response_model=ServiceCheckTemplate)
+async def get_service_check_template_for_asset(check_type: str = "", make: str = ""):
+    """Pre Service Sheet for a machine: matched on its check type (from AssetList tabs), legacy make sheets as fallback"""
+    template = None
+    if check_type.strip():
+        template = await db.service_check_templates.find_one({"check_type": _exact_ci(check_type)}, {"_id": 0})
+    if not template and make.strip():
+        template = await db.service_check_templates.find_one(
+            {"check_type": {"$in": [None, ""]}, "make": _exact_ci(make)}, {"_id": 0}
+        )
+    if not template:
+        raise HTTPException(status_code=404, detail="No pre-service check template for this machine")
+    return template
+
 @app.get("/api/assets", response_model=List[Asset])
 async def get_all_assets():
-    assets = await db.assets.find({}, {"_id": 0}).to_list(length=1000)  # Max 1000 assets
+    assets = await db.assets.find(ACTIVE_ASSETS, {"_id": 0}).to_list(length=1000)  # Max 1000 assets
     return assets
 
 @app.get("/api/assets/qr-labels")
 async def get_all_qr_labels():
     """Get list of all assets with QR code URLs and print status for printing page"""
-    assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
+    assets = await db.assets.find(ACTIVE_ASSETS, {"_id": 0}).to_list(length=10000)
     
     # Add QR code URL to each asset and ensure qr_printed field exists
     for asset in assets:
@@ -1225,11 +1234,25 @@ def _match_vehicles_to_assets(rows, assets):
     checks can be cross-referenced later. Ambiguous or numeric-only
     vehicles are left as typed."""
     NO_MATCH = {"", "n/a", "na", "own", "qwn", "own transport", "-"}
+    # Words that describe a TYPE of machine, not a particular one — someone
+    # down as "Forklift" drives whichever forklift, so never rename these to
+    # a specific machine off the checklist list.
+    GENERIC = {
+        "forklift", "forklifts", "forklift - s", "tractor", "tractors",
+        "telehandler", "loader", "loadall", "digger", "lorry", "van", "car",
+        "hire", "hire forklift", "hire tractor", "hire trailer", "trailer",
+        "sprayer", "harvester", "mewp", "hgv",
+    }
     labels = []
     for a in assets:
         nm = (a.get("name") or "").strip()
         mk = (a.get("make") or "").strip()
-        full = f"{mk} {nm}".strip()
+        # Don't repeat the make when the name already carries it
+        # (e.g. make "Hire Forklift" + name "Hire Forklift")
+        if not mk or mk.lower() == nm.lower() or nm.lower().startswith(mk.lower()):
+            full = nm or mk
+        else:
+            full = f"{mk} {nm}".strip()
         labels.append((full.lower(), nm.lower(), full))
     matched = 0
     for row in rows:
@@ -1237,6 +1260,8 @@ def _match_vehicles_to_assets(rows, assets):
         vl = v.lower()
         if vl in NO_MATCH or not v:
             continue
+        if vl in GENERIC:
+            continue  # a category, not a specific machine — leave as typed
         # exact match against "Make Name" or just Name
         exact = [full for fl, nl, full in labels if fl == vl or nl == vl]
         if len(exact) >= 1:
@@ -1614,30 +1639,75 @@ async def get_checks_by_day(days: int = 6):
         "today_total": day_totals.get(today_key, 0),
     }
 
-@app.get("/api/checklists", response_model=List[ChecklistResponse])
-async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None):
-    """Get checklists with pagination - optimized for speed"""
-    # Build query filter
-    query = {}
+SERVICING_CHECK_TYPES = ["pre_service_check", "workshop_service"]
+
+def category_filter(category: Optional[str]) -> dict:
+    """'servicing' = service sheets + workshop services; 'checks' = everything else (GENERAL REPAIR lives on the Repairs page)"""
+    if category == "servicing":
+        return {"check_type": {"$in": SERVICING_CHECK_TYPES}}
+    if category == "checks":
+        return {"check_type": {"$nin": SERVICING_CHECK_TYPES + ["GENERAL REPAIR"]}}
+    return {}
+
+def build_checklist_query(category: Optional[str] = None, check_type: Optional[str] = None,
+                          make: Optional[str] = None, model: Optional[str] = None, today: bool = False,
+                          date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
+    """Shared Mongo filter for the checklist list + exports (check_type may be comma-separated;
+    date_from / date_to are inclusive YYYY-MM-DD strings compared against the ISO completed_at)"""
+    query = category_filter(category)
     if check_type:
-        if ',' in check_type:
-            check_types = [ct.strip() for ct in check_type.split(',')]
-            query["check_type"] = {"$in": check_types}
-        else:
-            query["check_type"] = check_type
+        check_types = [ct.strip() for ct in check_type.split(',') if ct.strip()]
+        query["check_type"] = {"$in": check_types} if len(check_types) > 1 else check_types[0]
+    if make:
+        query["machine_make"] = make
+    if model:
+        query["machine_model"] = model
+    if today:
+        query["completed_at"] = {"$regex": f"^{datetime.now(timezone.utc).date().isoformat()}"}
+    elif date_from or date_to:
+        date_query = {}
+        if date_from:
+            date_query["$gte"] = parse_iso_date(date_from).isoformat()
+        if date_to:
+            date_query["$lt"] = (parse_iso_date(date_to) + timedelta(days=1)).isoformat()
+        query["completed_at"] = date_query
+    return query
+
+def parse_iso_date(value: str):
+    try:
+        return datetime.strptime(value.strip(), "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid date '{value}' - use YYYY-MM-DD")
+
+# List endpoints never ship photo binaries (a single check can carry 10MB+ of base64) - photo
+# entries keep their id/timestamp so the UI can show a count; GET /api/checklists/{id} returns the full record.
+LIST_PROJECTION = {"_id": 0, "checklist_items.photos.data": 0, "workshop_photos.data": 0}
+NO_PHOTOS_PROJECTION = {"_id": 0, "checklist_items.photos": 0, "workshop_photos": 0}
+
+@app.get("/api/checklists/count")
+async def count_checklists(check_type: str = None, category: str = None, make: str = None, model: str = None, today: bool = False,
+                           date_from: str = None, date_to: str = None):
+    """Total number of records matching the same filters as the list / exports"""
+    return {"count": await db.checklists.count_documents(build_checklist_query(category, check_type, make, model, today, date_from, date_to))}
+
+@app.get("/api/checklists", response_model=List[ChecklistResponse])
+async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None, category: str = None,
+                         make: str = None, model: str = None, date_from: str = None, date_to: str = None):
+    """Get checklists with pagination - optimized for speed"""
+    query = build_checklist_query(category, check_type, make, model, False, date_from, date_to)
     
     # Enforce reasonable limits
     limit = min(limit, 500)  # Max 500 at a time
     
     try:
-        checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
+        checklists = await db.checklists.find(query, LIST_PROJECTION).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
         
         # Parse datetime strings - simplified
         for checklist in checklists:
             if checklist.get('completed_at') and isinstance(checklist['completed_at'], str):
                 try:
                     checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'].replace('Z', '+00:00'))
-                except:
+                except ValueError:
                     pass  # Keep as string if parsing fails
         
         return checklists
@@ -1646,14 +1716,14 @@ async def get_checklists(limit: int = 100, skip: int = 0, check_type: str = None
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/checklists/today")
-async def get_todays_checklists():
+async def get_todays_checklists(category: str = None):
     """Get today's checklists - fast dedicated endpoint"""
     today = datetime.now(timezone.utc).date().isoformat()
     
     # Use regex to match today's date regardless of time format
     checklists = await db.checklists.find(
-        {"completed_at": {"$regex": f"^{today}"}},
-        {"_id": 0}
+        {"completed_at": {"$regex": f"^{today}"}, **category_filter(category)},
+        LIST_PROJECTION
     ).sort("completed_at", -1).to_list(length=100)
     
     # Parse datetime strings
@@ -1661,7 +1731,7 @@ async def get_todays_checklists():
         if checklist.get('completed_at') and isinstance(checklist['completed_at'], str):
             try:
                 checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'].replace('Z', '+00:00'))
-            except:
+            except ValueError:
                 pass
     
     return checklists
@@ -1675,31 +1745,7 @@ async def get_checklists_by_machine(make: str = None, name: str = None, limit: i
     if name:
         query["machine_model"] = name
     
-    # Use projection to only get needed fields (faster)
-    projection = {
-        "_id": 0,
-        "id": 1,
-        "staff_name": 1,
-        "machine_make": 1,
-        "machine_model": 1,
-        "check_type": 1,
-        "completed_at": 1,
-        "status": 1,
-        "items_satisfactory": 1,
-        "items_unsatisfactory": 1,
-        "items_total": 1,
-        "notes_summary": 1,
-        "checklist_items": 1,
-        "workshop_notes": 1,
-        "workshop_photos": 1,
-        # Fuel and Mileage fields
-        "fuel_mileage": 1,
-        "fuel_added": 1,
-        "adblue_added": 1,
-        "fuel_notes": 1
-    }
-    
-    checklists = await db.checklists.find(query, projection).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
+    checklists = await db.checklists.find(query, LIST_PROJECTION).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
     
     # Get total count for pagination info
     total = await db.checklists.count_documents(query)
@@ -1710,6 +1756,27 @@ async def get_checklists_by_machine(make: str = None, name: str = None, limit: i
         "limit": limit,
         "skip": skip,
         "has_more": skip + len(checklists) < total
+    }
+
+@app.get("/api/checklists/machine-history")
+async def get_machine_history(make: str, model: str, limit: int = 30):
+    """Service history for one machine: Pre Service Checks, Workshop Services and any check that found a fault"""
+    query = {
+        "machine_make": make,
+        "machine_model": model,
+        "$or": [
+            {"check_type": {"$in": SERVICING_CHECK_TYPES}},
+            {"checklist_items": {"$elemMatch": {"status": "unsatisfactory"}}},
+        ],
+    }
+    limit = min(limit, 100)
+    records = await db.checklists.find(query, LIST_PROJECTION).sort("completed_at", -1).limit(limit).to_list(length=limit)
+    total = await db.checklists.count_documents(query)
+    last_service = next((r for r in records if r.get("check_type") in SERVICING_CHECK_TYPES), None)
+    return {
+        "records": records,
+        "total": total,
+        "last_service_at": last_service.get("completed_at") if last_service else None,
     }
 
 @app.get("/api/checklists/{checklist_id}", response_model=ChecklistResponse)
@@ -1735,7 +1802,7 @@ async def get_checklists_with_repairs(limit: int = 50, skip: int = 0):
         ]
     }
     
-    checklists = await db.checklists.find(query, {"_id": 0}).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
+    checklists = await db.checklists.find(query, LIST_PROJECTION).sort("completed_at", -1).skip(skip).limit(limit).to_list(length=limit)
     
     # Parse datetime strings
     for checklist in checklists:
@@ -1743,50 +1810,6 @@ async def get_checklists_with_repairs(limit: int = 50, skip: int = 0):
             checklist['completed_at'] = datetime.fromisoformat(checklist['completed_at'])
     
     return checklists
-
-@app.post("/api/admin/update-staff")
-async def update_staff_list(staff_names: List[str]):
-    """Update the staff list by replacing all existing staff with new list"""
-    try:
-        # Clear existing staff except admin (4444)
-        await db.staff.delete_many({"employee_number": {"$ne": "4444"}})
-        
-        # Add new staff
-        new_staff = []
-        for staff_name in staff_names:
-            staff = Staff(name=staff_name.strip())
-            new_staff.append(staff.dict())
-        
-        if new_staff:
-            await db.staff.insert_many(new_staff)
-        
-        return {"message": f"Successfully updated {len(new_staff)} staff members", "count": len(new_staff)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update staff list: {str(e)}")
-
-class AssetUpdate(BaseModel):
-    make: str
-    model: str
-
-@app.post("/api/admin/update-assets")
-async def update_asset_list(assets: List[AssetUpdate]):
-    """Update the asset list by replacing all existing assets with new list"""
-    try:
-        # Clear existing assets
-        await db.assets.delete_many({})
-        
-        # Add new assets
-        new_assets = []
-        for asset_data in assets:
-            asset = Asset(make=asset_data.make.strip(), model=asset_data.model.strip())
-            new_assets.append(asset.dict())
-        
-        if new_assets:
-            await db.assets.insert_many(new_assets)
-        
-        return {"message": f"Successfully updated {len(new_assets)} assets", "count": len(new_assets)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update asset list: {str(e)}")
 
 # ============ OLD SharePoint OAuth Endpoints (Deprecated) ============
 # These endpoints use user OAuth flow which requires manual authentication.
@@ -1905,17 +1928,14 @@ async def upload_staff_file(file: UploadFile = File(...)):
         if not staff_data:
             raise HTTPException(status_code=400, detail=f"No valid staff data found. Processed {rows_processed} rows but none had valid Name and Employee Number. Headers found: {headers}")
         
-        # Update database - preserve admin account (4444)
-        delete_result = await db.staff.delete_many({"employee_number": {"$ne": "4444"}})
-        print(f"[STAFF UPLOAD] Deleted {delete_result.deleted_count} existing staff records")
-        
-        new_staff = [Staff(**data).dict() for data in staff_data]
-        insert_result = await db.staff.insert_many(new_staff)
-        print(f"[STAFF UPLOAD] Inserted {len(insert_result.inserted_ids)} new staff records")
+        # Idempotent upsert - never hard-deletes; staff missing from the file are marked inactive
+        sync_stats = await upsert_staff(db, staff_data)
+        print(f"[STAFF UPLOAD] {sync_stats}")
         
         return {
-            "message": f"Successfully uploaded {len(staff_data)} staff members with employee numbers",
+            "message": f"Successfully uploaded {len(staff_data)} staff members ({sync_stats['added']} added, {sync_stats['updated']} updated, {sync_stats['deactivated']} deactivated)",
             "count": len(staff_data),
+            **sync_stats,
             "preview": staff_data[:5],
             "debug": {
                 "headers_found": headers,
@@ -1924,6 +1944,8 @@ async def upload_staff_file(file: UploadFile = File(...)):
             }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         print(f"[STAFF UPLOAD ERROR] {str(e)}")
@@ -2078,8 +2100,8 @@ async def get_sync_logs(limit: int = 10):
 async def get_template_diagnostics():
     """Diagnostic endpoint to verify template-to-asset mappings"""
     try:
-        # Get all unique check_types from assets
-        assets = await db.assets.find({}, {"_id": 0, "check_type": 1, "name": 1}).to_list(length=10000)
+        # Get all unique check_types from active assets
+        assets = await db.assets.find(ACTIVE_ASSETS, {"_id": 0, "check_type": 1, "name": 1}).to_list(length=10000)
         check_type_counts = {}
         for a in assets:
             ct = a.get('check_type', 'unknown')
@@ -2102,11 +2124,22 @@ async def get_template_diagnostics():
         # Find check_types with no template
         template_types = set(t.get('check_type') for t in templates)
         missing_templates = [ct for ct in check_type_counts if ct not in template_types]
+
+        service_templates = [{
+            'check_type': t.get('check_type') or f"make: {t.get('make')}",
+            'name': t.get('name'),
+            'sheet_name': t.get('sheet_name'),
+            'section_count': len(t.get('sections', [])),
+            'sections': t.get('sections', []),
+            'updated_at': t.get('updated_at'),
+            'assets_using_this': check_type_counts.get(t.get('check_type'), 0),
+        } async for t in db.service_check_templates.find({}, {"_id": 0})]
         
         return {
             'total_assets': len(assets),
             'check_type_counts': check_type_counts,
             'templates': template_info,
+            'service_templates': service_templates,
             'missing_templates': missing_templates
         }
     except Exception as e:
@@ -2114,183 +2147,39 @@ async def get_template_diagnostics():
 
 
 
-@app.post("/api/admin/upload-assets-file") 
+@app.post("/api/admin/upload-assets-file")
 async def upload_assets_file(file: UploadFile = File(...)):
-    """Upload and process assets from Excel file"""
+    """Upload AssetList.xlsx: assets + Daily Check / Pre Service Sheet templates per check type"""
     try:
-        import openpyxl
-        from io import BytesIO
-        
-        # Read file content
-        file_content = await file.read()
-        
-        # Load the Excel file
-        workbook = openpyxl.load_workbook(BytesIO(file_content))
-        sheet = workbook[workbook.sheetnames[0]]  # Use first sheet, not active
-        
-        # Get headers and find check_type, name, make columns
-        headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
-        check_type_col = None
-        name_col = None
-        make_col = None
-        
-        for i, header in enumerate(headers):
-            if header == 'check type' or 'checktype' in header:
-                check_type_col = i
-            elif header == 'namecolumn' or 'name' in header:
-                name_col = i
-            elif header == 'makecolumn' or 'make' in header:
-                make_col = i
-        
-        if check_type_col is None or name_col is None or make_col is None:
-            raise HTTPException(status_code=400, detail="Could not find Check Type, Name of Implement, and Make columns in the file")
-        
-        # Extract asset data
-        assets = []
-        for row in sheet.iter_rows(min_row=2, values_only=True):  # Skip header
-            if row and len(row) > max(check_type_col, name_col, make_col):
-                check_type = str(row[check_type_col]).strip() if row[check_type_col] else ''
-                name = str(row[name_col]).strip() if row[name_col] else ''
-                make = str(row[make_col]).strip() if row[make_col] else ''
-                
-                if check_type and name and make:
-                    assets.append({
-                        "check_type": check_type,
-                        "name": name, 
-                        "make": make
-                    })
-        
-        if not assets:
-            raise HTTPException(status_code=400, detail="No asset data found in the uploaded file")
-        
-        # Get existing assets to preserve QR print status
-        existing_assets = await db.assets.find({}, {"_id": 0}).to_list(length=10000)
-        existing_qr_status = {}
-        for ea in existing_assets:
-            # Key by make+name to match assets
-            key = f"{ea.get('make', '')}:{ea.get('name', '')}"
-            if ea.get('qr_printed'):
-                existing_qr_status[key] = {
-                    'qr_printed': ea.get('qr_printed', False),
-                    'qr_printed_at': ea.get('qr_printed_at')
-                }
-        
-        # Update assets database - preserve QR status for existing machines
-        await db.assets.delete_many({})
-        new_assets = []
-        for asset in assets:
-            asset_obj = Asset(**asset)
-            asset_dict = asset_obj.dict()
-            # Check if this asset had QR printed before
-            key = f"{asset_dict['make']}:{asset_dict['name']}"
-            if key in existing_qr_status:
-                asset_dict['qr_printed'] = existing_qr_status[key]['qr_printed']
-                asset_dict['qr_printed_at'] = existing_qr_status[key]['qr_printed_at']
-            new_assets.append(asset_dict)
-        await db.assets.insert_many(new_assets)
-        
-        # Process checklist sheets
-        checklist_templates = []
-        processed_sheets = []
-        
-        # Get all unique check types from assets
-        unique_check_types = set(asset['check_type'] for asset in assets)
-        
-        # Process each sheet in the workbook
-        for sheet_name in workbook.sheetnames:
-            sheet = workbook[sheet_name]
-            
-            # Skip the main asset sheet (first sheet)
-            if sheet_name == workbook.sheetnames[0]:
-                continue
-            
-            # Try to match sheet name with check types - improved matching
-            matching_check_type = None
-            sheet_name_clean = sheet_name.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
-            
-            # First try exact matches
-            for check_type in unique_check_types:
-                check_type_clean = check_type.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
-                if sheet_name_clean == check_type_clean or check_type.lower() == sheet_name.lower():
-                    matching_check_type = check_type
-                    break
-            
-            # If no exact match, try partial matches
-            if not matching_check_type:
-                for check_type in unique_check_types:
-                    check_type_clean = check_type.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
-                    if sheet_name_clean in check_type_clean or check_type_clean in sheet_name_clean:
-                        matching_check_type = check_type
-                        break
-            
-            # If still no match, use sheet name as check type
-            if not matching_check_type:
-                matching_check_type = sheet_name
-            
-            # Extract checklist items from this sheet
-            # First, find the header row and locate the "Compulsory" column
-            items = []
-            compulsory_col = None
-            item_col = 0  # Default to first column for item text
-            
-            # Get headers from first row to find Compulsory column
-            header_row = list(sheet.iter_rows(min_row=1, max_row=1, values_only=True))[0]
-            if header_row:
-                for col_idx, header in enumerate(header_row):
-                    if header:
-                        header_lower = str(header).strip().lower()
-                        if 'compulsory' in header_lower or 'compulsary' in header_lower:  # Handle common misspelling
-                            compulsory_col = col_idx
-                        elif 'item' in header_lower or 'task' in header_lower or 'check' in header_lower or 'description' in header_lower:
-                            item_col = col_idx
-            
-            for row_num, row in enumerate(sheet.iter_rows(values_only=True), 1):
-                if row_num == 1:  # Skip header row
-                    continue
-                    
-                if row and len(row) > item_col and row[item_col]:  # If item column has content
-                    item_text = str(row[item_col]).strip()
-                    # Skip obvious headers or empty items
-                    if (item_text and 
-                        item_text.lower() not in ['item', 'check', 'description', 'checklist', 'safety'] and
-                        len(item_text) > 3):  # Minimum length filter
-                        
-                        # Check if item is marked as compulsory
-                        is_compulsory = False
-                        if compulsory_col is not None and len(row) > compulsory_col and row[compulsory_col]:
-                            compulsory_value = str(row[compulsory_col]).strip().lower()
-                            is_compulsory = compulsory_value in ['yes', 'y', 'true', '1', 'x', 'compulsory']
-                        
-                        items.append({"item": item_text, "compulsory": is_compulsory})
-            
-            if items:
-                compulsory_count = sum(1 for item in items if item.get('compulsory', False))
-                template = {
-                    "id": str(uuid.uuid4()),
-                    "check_type": matching_check_type,
-                    "items": items
-                }
-                checklist_templates.append(template)
-                processed_sheets.append(f"{sheet_name} -> {matching_check_type} ({len(items)} items, {compulsory_count} compulsory)")
-        
-        # Update checklist templates in database
-        if checklist_templates:
-            # Clear ALL existing templates and insert new ones for complete refresh
-            await db.checklist_templates.delete_many({})
-            
-            # Insert new templates
-            await db.checklist_templates.insert_many(checklist_templates)
-        
-        return {
-            "message": f"Successfully uploaded {len(assets)} assets and {len(checklist_templates)} checklist templates", 
-            "count": len(assets),
-            "templates_created": len(checklist_templates),
-            "processed_sheets": processed_sheets,
-            "preview": assets[:5] if assets else []
-        }
-        
+        parsed = parse_asset_workbook(await file.read())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process assets file: {str(e)}")
+    assets = parsed["assets"]
+    if not assets:
+        raise HTTPException(status_code=400, detail="No asset data found in the uploaded file")
+
+    # Idempotent upserts - keeps ids + QR print status, retires assets missing from the file
+    asset_stats = await upsert_assets(db, assets)
+    if parsed["checklist_templates"]:
+        await upsert_checklist_templates(db, parsed["checklist_templates"])
+    if parsed["service_templates"]:
+        await upsert_service_check_templates(db, parsed["service_templates"])
+
+    return {
+        "message": (
+            f"Successfully uploaded {len(assets)} assets ({asset_stats['added']} added, {asset_stats['updated']} updated, "
+            f"{asset_stats['retired']} retired), {len(parsed['checklist_templates'])} daily check lists "
+            f"and {len(parsed['service_templates'])} pre service sheets"
+        ),
+        "count": len(assets),
+        **asset_stats,
+        "templates_created": len(parsed["checklist_templates"]),
+        "service_templates_created": len(parsed["service_templates"]),
+        "processed_sheets": parsed["processed_sheets"],
+        "preview": assets[:5],
+    }
 
 @app.post("/api/admin/upload-checklist-file/{check_type}")
 async def upload_checklist_file(check_type: str, file: UploadFile = File(...)):
@@ -2339,14 +2228,12 @@ async def upload_checklist_file(check_type: str, file: UploadFile = File(...)):
         if not items:
             raise HTTPException(status_code=400, detail="No checklist items found in the uploaded file")
         
-        # Update database
-        await db.checklist_templates.delete_many({"check_type": check_type})
-        
+        # Update database (upsert - replaces just this check type's template)
         template = ChecklistTemplate(
             check_type=check_type,
             items=items
         )
-        await db.checklist_templates.insert_one(template.dict())
+        await db.checklist_templates.replace_one({"check_type": check_type}, template.dict(), upsert=True)
         
         return {
             "message": f"Successfully uploaded {len(items)} items for {check_type}",
@@ -2355,8 +2242,19 @@ async def upload_checklist_file(check_type: str, file: UploadFile = File(...)):
             "preview": items[:5]
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process checklist file: {str(e)}")
+
+@app.post("/api/admin/dedupe-records")
+async def dedupe_records():
+    """One-off admin cleanup: drop duplicate staff (same employee number) / asset (same make + name) copies left by the old replace-style sync"""
+    removed = {
+        "staff": await dedupe_collection(db.staff, ["employee_number"]),
+        "assets": await dedupe_collection(db.assets, ["make", "name"]),
+    }
+    return {"success": True, "removed": removed}
 
 # OLD sync-checklists endpoint removed - now handled by sync_assets_list which processes
 # checklist templates from the AssetList.xlsx file sheets
@@ -2424,70 +2322,73 @@ async def get_checklist_template(check_type: str):
 
 # OLD SharePoint sync endpoint removed - using new sharepoint_auto_sync with client credentials flow
 
+EXPORT_HEADERS = ["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Satisfactory", "Unsatisfactory", "Total", "Needs Work / Repairs", "Notes", "Workshop Details", "Parts Required"]
+EXPORT_PROJECTION = NO_PHOTOS_PROJECTION
+
+def export_row(checklist: dict) -> list:
+    """Flatten a checklist into one export row (shared by CSV + Excel)"""
+    check_type = checklist.get('check_type', '')
+    items = checklist.get('checklist_items', []) or []
+    items_satisfactory = sum(1 for item in items if item.get('status') == 'satisfactory')
+    items_unsatisfactory = sum(1 for item in items if item.get('status') == 'unsatisfactory')
+    needs_work = [f"{item.get('item', '')}: {(item.get('notes') or '').strip() or 'no details'}" for item in items if item.get('status') == 'unsatisfactory']
+    notes_list = [f"{item.get('item', '')}: {item.get('notes', '').strip()}" for item in items if (item.get('notes') or '').strip()]
+    return [
+        checklist.get('id', ''),
+        checklist.get('staff_name', ''),
+        checklist.get('machine_make', ''),
+        checklist.get('machine_model', ''),
+        check_type,
+        str(checklist.get('completed_at', '')),
+        checklist.get('status', ''),
+        items_satisfactory,
+        items_unsatisfactory,
+        len(items),
+        "; ".join(needs_work)[:5000],
+        "; ".join(notes_list)[:5000],
+        (checklist.get('workshop_notes') or '')[:5000],
+        "; ".join(checklist.get('parts_required') or []),
+    ]
+
+def export_filename(category: Optional[str], ext: str, check_type: Optional[str] = None,
+                    make: Optional[str] = None, model: Optional[str] = None, today: bool = False,
+                    date_from: Optional[str] = None, date_to: Optional[str] = None) -> str:
+    parts = ["all", "servicing" if category == "servicing" else "checks"]
+    parts += [p for p in (check_type, make, model) if p]
+    if today:
+        parts.append("today")
+    elif date_from or date_to:
+        parts.append(f"{date_from or 'start'}_to_{date_to or 'now'}")
+    return re.sub(r"[^\w.-]+", "-", "_".join(parts)) + f".{ext}"
+
 @app.get("/api/checklists/export/csv")
-async def export_checklists_csv():
+async def export_checklists_csv(category: str = None, check_type: str = None, make: str = None, model: str = None, today: bool = False,
+                                date_from: str = None, date_to: str = None):
     """Fast CSV export - use this for very large datasets"""
     from fastapi.responses import StreamingResponse
     import io
     import csv
     
-    # Use projection for speed
-    projection = {
-        "_id": 0, "id": 1, "staff_name": 1, "machine_make": 1, "machine_model": 1,
-        "check_type": 1, "completed_at": 1, "status": 1, "checklist_items": 1, "workshop_notes": 1
-    }
-    
-    checklists = await db.checklists.find({}, projection).sort("completed_at", -1).limit(10000).to_list(length=10000)
+    query = build_checklist_query(category, check_type, make, model, today, date_from, date_to)
+    checklists = await db.checklists.find(query, EXPORT_PROJECTION).sort("completed_at", -1).limit(10000).to_list(length=10000)
     
     output = io.StringIO()
     writer = csv.writer(output)
-    
-    # Write header
-    writer.writerow(["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Satisfactory", "Unsatisfactory", "Total", "Notes", "Workshop Details"])
-    
-    # Write data
+    writer.writerow(EXPORT_HEADERS)
     for checklist in checklists:
-        check_type = checklist.get('check_type', '')
-        if check_type in ['daily_check', 'grader_startup']:
-            items = checklist.get('checklist_items', [])
-            items_satisfactory = sum(1 for item in items if item.get('status') == 'satisfactory')
-            items_unsatisfactory = sum(1 for item in items if item.get('status') == 'unsatisfactory')
-            items_total = len(items)
-            notes_list = [item.get('notes', '')[:100] for item in items if item.get('notes')]
-            notes = "; ".join(notes_list)[:500] if notes_list else ""
-            workshop_details = ""
-        else:
-            items_satisfactory = 0
-            items_unsatisfactory = 0
-            items_total = 0
-            notes = ""
-            workshop_details = (checklist.get('workshop_notes') or '')[:500]
-        
-        writer.writerow([
-            checklist.get('id', ''),
-            checklist.get('staff_name', ''),
-            checklist.get('machine_make', ''),
-            checklist.get('machine_model', ''),
-            check_type,
-            checklist.get('completed_at', ''),
-            checklist.get('status', ''),
-            items_satisfactory,
-            items_unsatisfactory,
-            items_total,
-            notes,
-            workshop_details
-        ])
+        writer.writerow(export_row(checklist))
     
     output.seek(0)
     
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode('utf-8')),
         media_type='text/csv',
-        headers={"Content-Disposition": "attachment; filename=all_checks.csv"}
+        headers={"Content-Disposition": f"attachment; filename={export_filename(category, 'csv', check_type, make, model, today, date_from, date_to)}"}
     )
 
 @app.get("/api/checklists/export/excel")
-async def export_checklists_excel():
+async def export_checklists_excel(category: str = None, check_type: str = None, make: str = None, model: str = None, today: bool = False,
+                                date_from: str = None, date_to: str = None):
     """Optimized Excel export for large datasets"""
     from fastapi.responses import StreamingResponse
     import io
@@ -2495,70 +2396,35 @@ async def export_checklists_excel():
     from openpyxl.styles import Font, PatternFill
     from openpyxl.utils import get_column_letter
     
-    # Use projection to only get fields we need (reduces memory)
-    projection = {
-        "_id": 0, "id": 1, "staff_name": 1, "machine_make": 1, "machine_model": 1,
-        "check_type": 1, "completed_at": 1, "status": 1, "checklist_items": 1, "workshop_notes": 1
-    }
+    query = build_checklist_query(category, check_type, make, model, today, date_from, date_to)
+    checklists = await db.checklists.find(query, EXPORT_PROJECTION).sort("completed_at", -1).limit(10000).to_list(length=10000)
     
-    # Stream data in batches to avoid memory issues
-    checklists = await db.checklists.find({}, projection).sort("completed_at", -1).limit(10000).to_list(length=10000)
+    if category == "servicing":
+        # Service-manager workbook: Action List (repairs / parts / other issues), Parts to Order, full Service Sheets
+        return StreamingResponse(
+            build_servicing_workbook(checklists),
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={"Content-Disposition": f"attachment; filename={export_filename(category, 'xlsx', check_type, make, model, today, date_from, date_to)}"}
+        )
     
     # Create workbook with optimized settings
     wb = Workbook(write_only=False)  # Can't use write_only with formatting
     ws = wb.active
     ws.title = "All Checks"
     
-    # Define headers and fixed column widths (skip auto-adjust which is slow)
-    headers = ["ID", "Staff Name", "Machine Make", "Machine Model", "Check Type", "Completed At", "Status", "Satisfactory", "Unsatisfactory", "Total", "Notes", "Workshop Details"]
-    col_widths = [38, 20, 20, 25, 15, 22, 12, 12, 14, 8, 50, 50]
-    
-    # Set column widths upfront (much faster than auto-adjust)
+    col_widths = [38, 20, 20, 25, 18, 22, 12, 12, 14, 8, 50, 50, 50, 40]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
     
-    # Write and format header
-    ws.append(headers)
+    ws.append(EXPORT_HEADERS)
     header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True)
     for cell in ws[1]:
         cell.fill = header_fill
         cell.font = header_font
     
-    # Process data in optimized way
     for checklist in checklists:
-        check_type = checklist.get('check_type', '')
-        
-        if check_type in ['daily_check', 'grader_startup']:
-            items = checklist.get('checklist_items', [])
-            items_satisfactory = sum(1 for item in items if item.get('status') == 'satisfactory')
-            items_unsatisfactory = sum(1 for item in items if item.get('status') == 'unsatisfactory')
-            items_total = len(items)
-            # Limit notes length to prevent huge cells
-            notes_list = [item.get('notes', '')[:100] for item in items if item.get('notes')]
-            notes = "; ".join(notes_list)[:500] if notes_list else ""
-            workshop_details = ""
-        else:
-            items_satisfactory = 0
-            items_unsatisfactory = 0
-            items_total = 0
-            notes = ""
-            workshop_details = (checklist.get('workshop_notes') or '')[:500]
-        
-        ws.append([
-            checklist.get('id', ''),
-            checklist.get('staff_name', ''),
-            checklist.get('machine_make', ''),
-            checklist.get('machine_model', ''),
-            check_type,
-            str(checklist.get('completed_at', '')),
-            checklist.get('status', ''),
-            items_satisfactory,
-            items_unsatisfactory,
-            items_total,
-            notes,
-            workshop_details
-        ])
+        ws.append(export_row(checklist))
     
     # Save to BytesIO
     output = io.BytesIO()
@@ -2568,46 +2434,25 @@ async def export_checklists_excel():
     return StreamingResponse(
         output,
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        headers={"Content-Disposition": "attachment; filename=all_checks.xlsx"}
+        headers={"Content-Disposition": f"attachment; filename={export_filename(category, 'xlsx', check_type, make, model, today, date_from, date_to)}"}
     )
 
 @app.get("/api/checklists/export/excel-by-machine")
-async def export_checklists_excel_by_machine(make: str = None, name: str = None):
-    """Export checklists to Excel - optimized for large datasets.
-    Uses CSV-style approach for speed, then converts to Excel."""
+async def export_checklists_excel_by_machine(make: str = None, name: str = None, model: str = None,
+                                             check_type: str = None, category: str = None, today: bool = False,
+                                             date_from: str = None, date_to: str = None):
+    """Detailed Excel export (one sheet per check type, one column per question) - honours the same filters as /api/checklists"""
     from fastapi.responses import StreamingResponse
     import io
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
     
-    # Build query
-    query = {}
-    if make:
-        query["machine_make"] = make
-    if name:
-        query["machine_model"] = name
+    query = build_checklist_query(category, check_type, make, model or name, today, date_from, date_to)
     
-    # Use projection to only get needed fields - MUCH faster
-    projection = {
-        "_id": 0,
-        "id": 1,
-        "staff_name": 1,
-        "machine_make": 1,
-        "machine_model": 1,
-        "check_type": 1,
-        "completed_at": 1,
-        "checklist_items": 1,
-        "workshop_notes": 1,
-        "notes_summary": 1,
-        "items_satisfactory": 1,
-        "items_unsatisfactory": 1,
-        "items_total": 1
-    }
-    
-    # Stream results in batches for memory efficiency
+    # Stream results in batches for memory efficiency (photos excluded - they are not exported)
     checklists = []
-    cursor = db.checklists.find(query, projection).sort("completed_at", -1)
+    cursor = db.checklists.find(query, NO_PHOTOS_PROJECTION).sort("completed_at", -1)
     async for doc in cursor:
         checklists.append(doc)
         if len(checklists) >= 10000:  # Cap at 10k for reasonable export time
@@ -2705,8 +2550,8 @@ async def export_checklists_excel_by_machine(make: str = None, name: str = None)
                 notes = []
                 for item in c.get('checklist_items', []):
                     status_map[item.get('item', '')] = item.get('status', '')
-                    if item.get('notes'):
-                        notes.append(item['notes'][:30])
+                    if (item.get('notes') or '').strip():
+                        notes.append(f"{item.get('item', '')}: {item['notes'].strip()}")
                 
                 # Add status for each question column
                 for item_name in all_items[:50]:
@@ -2758,7 +2603,7 @@ async def export_checklists_excel_by_machine(make: str = None, name: str = None)
     return StreamingResponse(
         output,
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        headers={"Content-Disposition": "attachment; filename=checklists_export.xlsx"}
+        headers={"Content-Disposition": f"attachment; filename={export_filename(category, 'xlsx', check_type, make, model or name, today).replace('all_', 'detailed_', 1)}"}
     )
 
 # Repair Status Management Endpoints

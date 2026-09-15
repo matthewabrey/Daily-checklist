@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { CheckCircle2, ArrowLeft, Upload, AlertCircle, AlertTriangle, Camera, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../lib/api';
+import { compressImage } from '../lib/images';
 
 // Repairs Needed Component
 export default function RepairsNeeded() {
@@ -407,10 +408,10 @@ export default function RepairsNeeded() {
         }
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
           const photoData = {
             id: Date.now(),
-            data: e.target.result,
+            data: await compressImage(e.target.result),
             timestamp: new Date().toISOString()
           };
           setRepairPhotos(prev => [...prev, photoData]);
@@ -456,7 +457,7 @@ export default function RepairsNeeded() {
     }
   };
 
-  const captureRepairPhoto = () => {
+  const captureRepairPhoto = async () => {
     try {
       const video = document.getElementById('repair-camera-video');
       if (!video || !video.videoWidth) {
@@ -464,15 +465,9 @@ export default function RepairsNeeded() {
         return;
       }
       
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      
       const photoData = {
         id: Date.now(),
-        data: canvas.toDataURL('image/jpeg', 0.8),
+        data: await compressImage(video),
         timestamp: new Date().toISOString()
       };
       
@@ -1014,7 +1009,7 @@ export default function RepairsNeeded() {
                                           saveProgressNote(repair.id);
                                         }}
                                         size="sm"
-                                        className="bg-blue-600 hover:bg-blue-700"
+                                        className="bg-gray-800 hover:bg-gray-800"
                                       >
                                         Save Note
                                       </Button>
@@ -1038,7 +1033,7 @@ export default function RepairsNeeded() {
                                     <p className="text-xs text-gray-400 italic">No progress notes yet</p>
                                   ) : (
                                     getProgressNotes(repair.id).map((note, idx) => (
-                                      <div key={idx} className="bg-blue-50 p-2 rounded text-xs border border-blue-200">
+                                      <div key={idx} className="bg-gray-50 p-2 rounded text-xs border border-gray-200">
                                         <p className="text-gray-700">{note.text}</p>
                                         <p className="text-gray-500 mt-1">
                                           {note.author} • {new Date(note.date).toLocaleString()}
@@ -1058,7 +1053,7 @@ export default function RepairsNeeded() {
                           }}
                           variant="outline"
                           size="sm"
-                          className="text-blue-600 border-blue-300 hover:bg-blue-50 flex-1 lg:flex-none lg:w-24"
+                          className="text-gray-800 border-gray-300 hover:bg-gray-50 flex-1 lg:flex-none lg:w-24"
                         >
                           View Details
                         </Button>

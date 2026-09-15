@@ -9,10 +9,85 @@ import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
 import { toast } from 'sonner';
 import { useTranslation } from '../LanguageContext';
-import { CheckCircle2, ClipboardList, Settings, ArrowLeft, User, Wrench, Database, Upload, Camera, X, QrCode, ScanLine, TrendingUp } from 'lucide-react';
+import { CheckCircle2, ClipboardList, ClipboardCheck, Settings, ArrowLeft, User, Wrench, Database, Upload, Camera, X, QrCode, ScanLine, TrendingUp } from 'lucide-react';
 import QRScanner from '../components/QRScanner';
+import { PreServiceCheckForm } from '../components/PreServiceCheckForm';
+import { ServiceHistoryPanel } from '../components/ServiceHistoryPanel';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../lib/api';
+import { compressImage } from '../lib/images';
+
+// Used when a machine's check type has no "<Check Type> - Pre Service Sheet" tab in AssetList.xlsx
+const GENERIC_SERVICE_TEMPLATE = {
+  name: 'General Pre Service Check',
+  sections: [],
+  generic: true,
+};
+
+const newServiceItem = (name, custom = false, subItems = []) => ({
+  item: name, status: 'unchecked', notes: '', compulsory: false, photos: [], custom, sub_items: subItems,
+});
+
+// Sections with their guidance sub-checks (older templates only have the names list)
+const templateSections = (template) => (
+  template.section_details?.length
+    ? template.section_details.map(d => ({ name: d.name, sub_items: d.sub_items || [] }))
+    : template.sections.map(name => ({ name, sub_items: [] }))
+);
+
+const DEFAULT_CHECKLIST_ITEMS = [
+  { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
+  { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
+  { item: "Hydraulic fluid level - Within acceptable range", status: "unchecked", notes: "" },
+  { item: "Battery condition - Terminals clean, voltage adequate", status: "unchecked", notes: "" },
+  { item: "Tire/track condition - No visible damage or excessive wear", status: "unchecked", notes: "" },
+  { item: "Safety guards in place - All protective covers secured", status: "unchecked", notes: "" },
+  { item: "Emergency stop function - Test emergency stop button", status: "unchecked", notes: "" },
+  { item: "Warning lights operational - All safety lights working", status: "unchecked", notes: "" },
+  { item: "Operator seat condition - Seat belt and controls functional", status: "unchecked", notes: "" },
+  { item: "Air filter condition - Clean and properly sealed", status: "unchecked", notes: "" },
+  { item: "Cooling system - Radiator clear, coolant level adequate", status: "unchecked", notes: "" },
+  { item: "Brake system function - Service and parking brakes operational", status: "unchecked", notes: "" },
+  { item: "Steering operation - Smooth operation, no excessive play", status: "unchecked", notes: "" },
+  { item: "Lights and signals - All operational lights working", status: "unchecked", notes: "" },
+  { item: "Fire extinguisher - Present and within service date", status: "unchecked", notes: "" }
+];
+
+const GRADER_STARTUP_CHECKLIST_ITEMS = [
+  { item: "Emergency stops working and present - Test all emergency stop buttons", status: "unchecked", notes: "" },
+  { item: "Walkways clear of debris and gates closed - All access areas safe", status: "unchecked", notes: "" },
+  { item: "Guards are all in place - All safety guards properly secured", status: "unchecked", notes: "" },
+  { item: "All personnel accounted for and out of reach of dangers - Safety zone clear", status: "unchecked", notes: "" },
+  { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
+  { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
+  { item: "Hydraulic fluid level - Within acceptable range", status: "unchecked", notes: "" },
+  { item: "Battery condition - Terminals clean, voltage adequate", status: "unchecked", notes: "" },
+  { item: "Track/blade condition - No visible damage or excessive wear", status: "unchecked", notes: "" },
+  { item: "Blade operation - Hydraulic lift and angle functions working", status: "unchecked", notes: "" },
+  { item: "Warning beacon - Rotating warning light operational", status: "unchecked", notes: "" },
+  { item: "Backup alarm - Reverse warning signal functional", status: "unchecked", notes: "" }
+];
+
+const loadChecklistTemplate = async (type) => {
+  const fallbackItems = type === 'daily_check' ? DEFAULT_CHECKLIST_ITEMS : GRADER_STARTUP_CHECKLIST_ITEMS;
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/checklist-templates/${encodeURIComponent(type)}`);
+    const template = await response.json();
+    if (response.ok && template.items) {
+      return template.items.map(templateItem => ({
+        item: typeof templateItem === 'string' ? templateItem : templateItem.item,
+        status: "unchecked",
+        notes: "",
+        compulsory: typeof templateItem === 'object' ? (templateItem.compulsory || false) : false,
+        photos: []
+      }));
+    }
+    return fallbackItems;
+  } catch (error) {
+    console.error('Error loading checklist template:', error);
+    return fallbackItems;
+  }
+};
 
 
 // New Checklist Component
@@ -28,6 +103,10 @@ export default function NewChecklist() {
   const [checklistItems, setChecklistItems] = useState([]);
   const [workshopNotes, setWorkshopNotes] = useState('');
   const [workshopPhotos, setWorkshopPhotos] = useState([]);
+  // Pre Service Check (make-specific service sheet, e.g. Perrot)
+  const [serviceTemplate, setServiceTemplate] = useState(null);
+  const [partsRequired, setPartsRequired] = useState([]);
+  const [partInput, setPartInput] = useState('');
   // Fuel and Mileage fields
   const [fuelMileage, setFuelMileage] = useState('');
   const [fuelAdded, setFuelAdded] = useState('');
@@ -75,38 +154,6 @@ export default function NewChecklist() {
     }
   }, [location.state]);
 
-  const defaultChecklistItems = [
-    { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
-    { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
-    { item: "Hydraulic fluid level - Within acceptable range", status: "unchecked", notes: "" },
-    { item: "Battery condition - Terminals clean, voltage adequate", status: "unchecked", notes: "" },
-    { item: "Tire/track condition - No visible damage or excessive wear", status: "unchecked", notes: "" },
-    { item: "Safety guards in place - All protective covers secured", status: "unchecked", notes: "" },
-    { item: "Emergency stop function - Test emergency stop button", status: "unchecked", notes: "" },
-    { item: "Warning lights operational - All safety lights working", status: "unchecked", notes: "" },
-    { item: "Operator seat condition - Seat belt and controls functional", status: "unchecked", notes: "" },
-    { item: "Air filter condition - Clean and properly sealed", status: "unchecked", notes: "" },
-    { item: "Cooling system - Radiator clear, coolant level adequate", status: "unchecked", notes: "" },
-    { item: "Brake system function - Service and parking brakes operational", status: "unchecked", notes: "" },
-    { item: "Steering operation - Smooth operation, no excessive play", status: "unchecked", notes: "" },
-    { item: "Lights and signals - All operational lights working", status: "unchecked", notes: "" },
-    { item: "Fire extinguisher - Present and within service date", status: "unchecked", notes: "" }
-  ];
-
-  const graderStartupChecklistItems = [
-    { item: "Emergency stops working and present - Test all emergency stop buttons", status: "unchecked", notes: "" },
-    { item: "Walkways clear of debris and gates closed - All access areas safe", status: "unchecked", notes: "" },
-    { item: "Guards are all in place - All safety guards properly secured", status: "unchecked", notes: "" },
-    { item: "All personnel accounted for and out of reach of dangers - Safety zone clear", status: "unchecked", notes: "" },
-    { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
-    { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
-    { item: "Hydraulic fluid level - Within acceptable range", status: "unchecked", notes: "" },
-    { item: "Battery condition - Terminals clean, voltage adequate", status: "unchecked", notes: "" },
-    { item: "Track/blade condition - No visible damage or excessive wear", status: "unchecked", notes: "" },
-    { item: "Blade operation - Hydraulic lift and angle functions working", status: "unchecked", notes: "" },
-    { item: "Warning beacon - Rotating warning light operational", status: "unchecked", notes: "" },
-    { item: "Backup alarm - Reverse warning signal functional", status: "unchecked", notes: "" }
-  ];
 
   // Handle QR code scan
   const handleQRScan = async (scannedData) => {
@@ -179,7 +226,9 @@ export default function NewChecklist() {
 
   useEffect(() => {
     if (selectedMake) {
+      setNames([]); // clear stale list until the new make's names arrive
       fetchNames(selectedMake);
+      setServiceTemplate(null);
       setSelectedName(''); // Reset name when make changes
       setMachineCheckType(''); // Reset check type
     }
@@ -191,37 +240,52 @@ export default function NewChecklist() {
     }
   }, [selectedMake, selectedName]);
 
+  // Pre Service Sheet is assigned per check type (AssetList tab "<Check Type> - Pre Service Sheet")
+  useEffect(() => {
+    if (selectedMake && machineCheckType) {
+      fetchServiceTemplate(machineCheckType, selectedMake);
+    }
+  }, [selectedMake, machineCheckType]);
+
   useEffect(() => {
     if (step === 3 && selectedCheckType === 'daily_check' && machineCheckType) {
-      loadChecklistTemplate(machineCheckType);
+      loadChecklistTemplate(machineCheckType).then(setChecklistItems);
     }
-  }, [step, selectedCheckType, machineCheckType]);
+    if (step === 3 && selectedCheckType === 'pre_service_check') {
+      setChecklistItems(templateSections(serviceTemplate || GENERIC_SERVICE_TEMPLATE).map(s => newServiceItem(s.name, false, s.sub_items)));
+    }
+  }, [step, selectedCheckType, machineCheckType, serviceTemplate]);
 
-  const loadChecklistTemplate = async (type) => {
+  const fetchServiceTemplate = async (checkType, make) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/checklist-templates/${encodeURIComponent(type)}`);
-      const template = await response.json();
-      
-      if (response.ok && template.items) {
-        const items = template.items.map(templateItem => ({
-          item: typeof templateItem === 'string' ? templateItem : templateItem.item,
-          status: "unchecked",
-          notes: "",
-          compulsory: typeof templateItem === 'object' ? (templateItem.compulsory || false) : false,
-          photos: []
-        }));
-        setChecklistItems(items);
-      } else {
-        // Fallback to default items if template not found
-        const fallbackItems = type === 'daily_check' ? defaultChecklistItems : graderStartupChecklistItems;
-        setChecklistItems(fallbackItems);
-      }
+      const params = new URLSearchParams({ check_type: checkType, make });
+      const response = await fetch(`${API_BASE_URL}/api/service-check-templates/for-asset?${params}`);
+      setServiceTemplate(response.ok ? await response.json() : GENERIC_SERVICE_TEMPLATE);
     } catch (error) {
-      console.error('Error loading checklist template:', error);
-      // Fallback to default items on error
-      const fallbackItems = type === 'daily_check' ? defaultChecklistItems : graderStartupChecklistItems;
-      setChecklistItems(fallbackItems);
+      console.error('Error fetching service template:', error);
+      setServiceTemplate(GENERIC_SERVICE_TEMPLATE);
     }
+  };
+
+  const addServiceSection = (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (checklistItems.some(i => i.item.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error('That part / area is already on the list');
+      return;
+    }
+    setChecklistItems(prev => [...prev, newServiceItem(trimmed, true)]);
+  };
+
+  const removeServiceSection = (index) => {
+    setChecklistItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addPartRequired = () => {
+    const part = partInput.trim();
+    if (!part) return;
+    setPartsRequired(prev => [...prev, part]);
+    setPartInput('');
   };
 
   // fetchStaff function removed - no longer needed since staff selection was replaced with employee authentication
@@ -282,7 +346,6 @@ export default function NewChecklist() {
           const video = document.getElementById('camera-video');
           if (video) {
             video.srcObject = stream;
-          } else {
           }
         }, 200);
         
@@ -307,13 +370,11 @@ export default function NewChecklist() {
     input.click();
   };
 
-  const handleFileSelect = (event, itemIndex) => {
+  const handleFileSelect = async (event, itemIndex) => {
     const file = event.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const photoData = e.target.result;
-        
+      const photoData = await compressImage(file);
+      {
         if (itemIndex === -1) {
           // Workshop photo
           setWorkshopPhotos(prev => [...prev, {
@@ -336,24 +397,16 @@ export default function NewChecklist() {
           setChecklistItems(updatedItems);
           toast.success('Photo added to checklist item!');
         }
-      };
-      reader.readAsDataURL(file);
+      }
     }
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     const video = document.getElementById('camera-video');
-    const canvas = document.createElement('canvas');
     
     if (video) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      
-      // Convert to base64
-      const photoData = canvas.toDataURL('image/jpeg', 0.8);
+      // Convert to a compressed base64 JPEG
+      const photoData = await compressImage(video);
       
       if (currentPhotoIndex === -1) {
         // Workshop photo
@@ -410,20 +463,19 @@ export default function NewChecklist() {
     input.accept = 'image/*';
     input.multiple = false;
     
-    input.onchange = (event) => {
+    input.onchange = async (event) => {
       const file = event.target.files[0];
       if (file) {
-        // Check file size (limit to 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error('File size must be less than 5MB');
+        // Check file size (limit to 20MB before compression)
+        if (file.size > 20 * 1024 * 1024) {
+          toast.error('File size must be less than 20MB');
           return;
         }
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
+        try {
           const photoData = {
             id: Date.now(),
-            data: e.target.result,
+            data: await compressImage(file),
             timestamp: new Date().toISOString()
           };
 
@@ -441,13 +493,9 @@ export default function NewChecklist() {
             setChecklistItems(updatedItems);
             toast.success('Photo uploaded for checklist item!');
           }
-        };
-        
-        reader.onerror = () => {
+        } catch (error) {
           toast.error('Error reading file. Please try again.');
-        };
-        
-        reader.readAsDataURL(file);
+        }
       }
     };
     
@@ -580,28 +628,37 @@ export default function NewChecklist() {
     }
 
     // Check for unsatisfactory items without explanations
-    if (selectedCheckType === 'daily_check') {
+    if (selectedCheckType === 'daily_check' || selectedCheckType === 'pre_service_check') {
       const unsatisfactoryWithoutNotes = checklistItems.find(item => 
         item.status === 'unsatisfactory' && (!item.notes || item.notes.trim() === '')
       );
       
       if (unsatisfactoryWithoutNotes) {
-        toast.error('Do not carry on with this check or until this issue is recorded and sorted.');
+        toast.error(selectedCheckType === 'pre_service_check'
+          ? 'Please describe the work needed for every section marked "Needs Work".'
+          : 'Do not carry on with this check or until this issue is recorded and sorted.');
         return;
       }
     }
 
+    if (selectedCheckType === 'pre_service_check' && checklistItems.length === 0 && !workshopNotes.trim() && workshopPhotos.length === 0 && partsRequired.length === 0) {
+      toast.error('Add at least one part / area you checked, a note, a photo or a part required before saving.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      const isPreService = selectedCheckType === 'pre_service_check';
       const checklist = {
         employee_number: employee.employee_number,
         staff_name: employee.name,
         machine_make: selectedMake,
         machine_model: selectedName,
         check_type: selectedCheckType,
-        checklist_items: selectedCheckType === 'daily_check' ? checklistItems : [],
-        workshop_notes: selectedCheckType === 'workshop_service' ? workshopNotes : null,
-        workshop_photos: selectedCheckType === 'workshop_service' ? workshopPhotos : [],
+        checklist_items: (selectedCheckType === 'daily_check' || isPreService) ? checklistItems : [],
+        workshop_notes: selectedCheckType === 'workshop_service' ? workshopNotes : (isPreService && workshopNotes.trim() ? workshopNotes : null),
+        workshop_photos: (selectedCheckType === 'workshop_service' || isPreService) ? workshopPhotos : [],
+        parts_required: isPreService ? partsRequired : [],
         // Fuel and Mileage fields
         fuel_mileage: selectedCheckType === 'fuel_mileage' ? fuelMileage : null,
         fuel_added: selectedCheckType === 'fuel_mileage' ? fuelAdded : null,
@@ -618,7 +675,7 @@ export default function NewChecklist() {
       });
 
       if (response.ok) {
-        toast.success('Checklist completed successfully!');
+        toast.success(selectedCheckType === 'pre_service_check' ? 'Pre Service Check saved successfully!' : 'Checklist completed successfully!');
         navigate('/');
       } else {
         // Parse error response from backend
@@ -644,11 +701,14 @@ export default function NewChecklist() {
     item.compulsory && item.status === 'unsatisfactory'
   );
 
+  const preServiceHasContent = selectedCheckType !== 'pre_service_check'
+    || checklistItems.length > 0 || workshopNotes.trim() !== '' || workshopPhotos.length > 0 || partsRequired.length > 0;
+
   const allItemsAddressed = selectedCheckType === 'workshop_service' 
     ? workshopNotes.trim() !== '' 
     : selectedCheckType === 'fuel_mileage'
     ? (fuelMileage.trim() !== '' || fuelAdded.trim() !== '' || adBlueAdded.trim() !== '')
-    : checklistItems.every(item => {
+    : preServiceHasContent && checklistItems.every(item => {
         // Must have a status (not unchecked)
         const hasStatus = item.status === 'satisfactory' || item.status === 'n/a' || item.status === 'unsatisfactory';
         
@@ -740,17 +800,19 @@ export default function NewChecklist() {
                 placeholder="Describe the issue and any immediate actions taken..."
                 className="min-h-[100px] border-red-300 focus:border-red-500"
                 autoFocus
+                data-testid="fault-explanation-textarea"
               />
             </div>
             
             <div className="flex justify-end space-x-3">
-              <Button variant="outline" onClick={closeFaultModal}>
+              <Button variant="outline" onClick={closeFaultModal} data-testid="fault-cancel-btn">
                 Cancel
               </Button>
               <Button 
                 onClick={handleFaultExplanation}
                 className="bg-red-600 hover:bg-red-700 text-white"
                 disabled={!faultExplanation.trim()}
+                data-testid="fault-record-btn"
               >
                 Record Fault
               </Button>
@@ -777,8 +839,8 @@ export default function NewChecklist() {
             </div>
             
             <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-blue-700 text-sm">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <p className="text-gray-800 text-sm">
                   This will create a "NEW MACHINE" record for review by administrators.
                 </p>
               </div>
@@ -919,20 +981,20 @@ export default function NewChecklist() {
           {step === 1 && (
             <div className="space-y-6">
               {/* Quick Scan Option */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 p-2 rounded-full">
-                      <QrCode className="h-6 w-6 text-blue-600" />
+                    <div className="bg-gray-100 p-2 rounded-full">
+                      <QrCode className="h-6 w-6 text-gray-800" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-blue-900">Quick Select with QR Code</h3>
-                      <p className="text-sm text-blue-700">Scan the QR code on the machine</p>
+                      <h3 className="font-semibold text-gray-900">Quick Select with QR Code</h3>
+                      <p className="text-sm text-gray-800">Scan the QR code on the machine</p>
                     </div>
                   </div>
                   <Button 
                     onClick={() => setShowQRScanner(true)}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-gray-800 hover:bg-gray-800"
                   >
                     <ScanLine className="h-4 w-4 mr-2" />
                     Scan Code
@@ -986,18 +1048,18 @@ export default function NewChecklist() {
               {/* Check Type Buttons - Show when machine is selected */}
               {selectedMake && selectedName && (
                 <div className="mt-6 space-y-4">
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <p className="text-sm font-medium text-blue-900">
-                      Selected: <span className="text-blue-700">{selectedMake} - {selectedName}</span>
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm font-medium text-gray-900">
+                      Selected: <span className="text-gray-800">{selectedMake} - {selectedName}</span>
                     </p>
                     {machineCheckType && (
-                      <p className="text-xs text-blue-600 mt-1">Uses "{machineCheckType}" checklist template</p>
+                      <p className="text-xs text-gray-800 mt-1">Uses "{machineCheckType}" checklist template</p>
                     )}
                   </div>
                   
                   <p className="text-gray-700 font-medium">Select check type:</p>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-4">
                     <Button 
                       onClick={() => {
                         setSelectedCheckType('daily_check');
@@ -1029,14 +1091,29 @@ export default function NewChecklist() {
                         setSelectedCheckType('fuel_mileage');
                         setStep(3);
                       }}
-                      className="h-auto py-4 bg-blue-600 hover:bg-blue-700 flex flex-col items-center gap-2"
+                      className="h-auto py-4 bg-gray-800 hover:bg-gray-800 flex flex-col items-center gap-2"
                       data-testid="fuel-mileage-btn"
                     >
                       <TrendingUp className="h-6 w-6" />
                       <span className="text-lg font-semibold">Fuel & Mileage</span>
                       <span className="text-xs opacity-90">Record fuel and mileage</span>
                     </Button>
+
+                    <Button 
+                      onClick={() => {
+                        setSelectedCheckType('pre_service_check');
+                        setStep(3);
+                      }}
+                      className="h-auto py-4 bg-green-700 hover:bg-green-800 flex flex-col items-center gap-2"
+                      data-testid="pre-service-check-btn"
+                    >
+                      <ClipboardCheck className="h-6 w-6" />
+                      <span className="text-lg font-semibold">Pre Service Check</span>
+                      <span className="text-xs opacity-90">{serviceTemplate && !serviceTemplate.generic ? `${serviceTemplate.sections.length}-section service sheet` : 'Whole-machine check & parts list'}</span>
+                    </Button>
                   </div>
+
+                  <ServiceHistoryPanel make={selectedMake} model={selectedName} />
                 </div>
               )}
 
@@ -1068,9 +1145,9 @@ export default function NewChecklist() {
                 <span className="font-medium">Machine: {selectedMake} - {selectedName}</span>
               </div>
               
-              <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                <p className="text-blue-900 font-medium">Checklist Type: {machineCheckType}</p>
-                <p className="text-blue-700 text-sm mt-1">This machine uses the "{machineCheckType}" checklist template</p>
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                <p className="text-gray-900 font-medium">Checklist Type: {machineCheckType}</p>
+                <p className="text-gray-800 text-sm mt-1">This machine uses the "{machineCheckType}" checklist template</p>
               </div>
               
               <div className="mb-4">
@@ -1121,7 +1198,7 @@ export default function NewChecklist() {
                 </Card>
 
                 <Card 
-                  className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-blue-400 border-2 ${selectedCheckType === 'fuel_mileage' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                  className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-blue-400 border-2 ${selectedCheckType === 'fuel_mileage' ? 'border-blue-500 bg-gray-50' : 'border-gray-200'}`}
                   onClick={() => {
                     setSelectedCheckType('fuel_mileage');
                     setStep(3);
@@ -1129,14 +1206,39 @@ export default function NewChecklist() {
                   data-testid="fuel-mileage-option"
                 >
                   <div className="flex items-center space-x-3 sm:space-x-4">
-                    <div className="p-3 bg-blue-100 rounded-lg">
-                      <TrendingUp className="h-6 w-6 text-blue-600" />
+                    <div className="p-3 bg-gray-100 rounded-lg">
+                      <TrendingUp className="h-6 w-6 text-gray-800" />
                     </div>
                     <div className="flex-1">
                       <h3 className="font-semibold text-lg sm:text-xl">Fuel and Mileage Recording</h3>
                       <p className="text-gray-600 text-sm sm:text-base">Record fuel, AdBlue and mileage</p>
                       <p className="text-xs sm:text-sm text-gray-500 mt-1">Track fuel consumption and vehicle mileage</p>
-                      <p className="text-sm text-blue-600 font-medium mt-2">Tap to start →</p>
+                      <p className="text-sm text-gray-800 font-medium mt-2">Tap to start →</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card 
+                  className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-purple-400 border-2 ${selectedCheckType === 'pre_service_check' ? 'border-purple-500 bg-green-50' : 'border-gray-200'}`}
+                  onClick={() => {
+                    setSelectedCheckType('pre_service_check');
+                    setStep(3);
+                  }}
+                  data-testid="pre-service-check-option"
+                >
+                  <div className="flex items-center space-x-3 sm:space-x-4">
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <ClipboardCheck className="h-6 w-6 text-green-700" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg sm:text-xl">Pre Service Check</h3>
+                      <p className="text-gray-600 text-sm sm:text-base">{(serviceTemplate || GENERIC_SERVICE_TEMPLATE).name}</p>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                        {serviceTemplate && !serviceTemplate.generic
+                          ? `End of season service sheet — ${serviceTemplate.sections.length} sections`
+                          : 'No set sheet for this machine type — check the whole machine, list parts and photograph issues'}
+                      </p>
+                      <p className="text-sm text-green-700 font-medium mt-2">Tap to start →</p>
                     </div>
                   </div>
                 </Card>
@@ -1164,12 +1266,12 @@ export default function NewChecklist() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <ClipboardList className="h-5 w-5 text-green-600" />
-                    <span className="font-medium">Check Type: {selectedCheckType === 'daily_check' ? `Daily Check (${machineCheckType})` : selectedCheckType === 'fuel_mileage' ? 'Fuel & Mileage Recording' : 'Workshop Service'}</span>
+                    <span className="font-medium">Check Type: {selectedCheckType === 'daily_check' ? `Daily Check (${machineCheckType})` : selectedCheckType === 'fuel_mileage' ? 'Fuel & Mileage Recording' : selectedCheckType === 'pre_service_check' ? 'Pre Service Check' : 'Workshop Service'}</span>
                   </div>
                 </div>
-                {selectedCheckType === 'daily_check' && (
-                  <Badge variant={allItemsAddressed ? "default" : "secondary"} className="px-3 py-1">
-                    {checklistItems.filter(item => item.status !== 'unchecked').length} / {checklistItems.length} Complete
+                {(selectedCheckType === 'daily_check' || selectedCheckType === 'pre_service_check') && (
+                  <Badge variant={allItemsAddressed ? "default" : "secondary"} className="px-3 py-1" data-testid="items-complete-badge">
+                    {checklistItems.filter(item => item.status !== 'unchecked').length} / {checklistItems.length} {checklistItems.length === 0 && selectedCheckType === 'pre_service_check' ? 'parts added' : 'Complete'}
                   </Badge>
                 )}
               </div>
@@ -1315,6 +1417,25 @@ export default function NewChecklist() {
                     </Card>
                   ))}
                 </div>
+              ) : selectedCheckType === 'pre_service_check' ? (
+                <PreServiceCheckForm
+                  template={serviceTemplate || GENERIC_SERVICE_TEMPLATE}
+                  items={checklistItems}
+                  onItemChange={handleItemChange}
+                  onAddSection={addServiceSection}
+                  onRemoveSection={removeServiceSection}
+                  takePhoto={takePhoto}
+                  uploadPhoto={uploadPhoto}
+                  deletePhoto={deletePhoto}
+                  notes={workshopNotes}
+                  setNotes={setWorkshopNotes}
+                  photos={workshopPhotos}
+                  partsRequired={partsRequired}
+                  setPartsRequired={setPartsRequired}
+                  partInput={partInput}
+                  setPartInput={setPartInput}
+                  addPart={addPartRequired}
+                />
               ) : selectedCheckType === 'workshop_service' ? (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Workshop Service Record</h3>
@@ -1450,8 +1571,8 @@ export default function NewChecklist() {
                     </div>
                   </Card>
                   
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-sm text-blue-800">
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <p className="text-sm text-gray-900">
                       <strong>Note:</strong> At least mileage OR fuel/AdBlue amount must be entered to save this record.
                     </p>
                   </div>
@@ -1459,12 +1580,12 @@ export default function NewChecklist() {
               ) : (
                 <div className="space-y-4">
                   {/* Mandatory photo notice */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center space-x-2">
-                      <Camera className="h-5 w-5 text-blue-600" />
-                      <h4 className="font-semibold text-blue-900">Photo Required for Each Item</h4>
+                      <Camera className="h-5 w-5 text-gray-800" />
+                      <h4 className="font-semibold text-gray-900">Photo Required for Each Item</h4>
                     </div>
-                    <p className="text-sm text-blue-700 mt-2">
+                    <p className="text-sm text-gray-800 mt-2">
                       📸 You must take at least one photo for every checklist item before you can submit. This provides visual documentation of the equipment condition.
                     </p>
                   </div>
@@ -1552,6 +1673,7 @@ export default function NewChecklist() {
                 >
                   {isSubmitting ? 'Saving...' : hasFailedCompulsoryItems ? 'Cannot Submit - Compulsory Check Failed' : `Complete ${
                     selectedCheckType === 'daily_check' ? 'Checklist' : 
+                    selectedCheckType === 'pre_service_check' ? 'Pre Service Check' :
                     'Service Record'
                   }`}
                 </Button>

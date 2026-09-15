@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, lazy } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -8,11 +8,26 @@ import { Textarea } from './components/ui/textarea';
 import { Badge } from './components/ui/badge';
 import { toast } from 'sonner';
 import { useTranslation } from './LanguageContext';
-import { CheckCircle2, ClipboardList, Settings, FileText, ArrowLeft, Download, User, Wrench, RefreshCw, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock, FileCheck, CalendarDays, MapPin } from 'lucide-react';
+
+const CHECK_TYPE_LABELS = {
+  daily_check: 'Daily Check',
+  grader_startup: 'Grader Startup',
+  workshop_service: 'Workshop Service',
+  fuel_mileage: 'Fuel & Mileage',
+  pre_service_check: 'Pre Service Check',
+  'NEW MACHINE': 'New Machine',
+  'REPAIR COMPLETED': 'Repair Completed',
+  'GENERAL REPAIR': 'General Repair',
+};
+// Local calendar day as YYYY-MM-DD (date inputs + date range filters)
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+import { CheckCircle2, ClipboardList, ClipboardCheck, Settings, FileText, ArrowLeft, Download, User, Wrench, RefreshCw, Database, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, Printer, ScanLine, CheckCircle, Loader2, RotateCcw, Plus, Trash2, TrendingUp, Target, Search, ShieldAlert, MessageSquare, Edit, Clock, FileCheck, CalendarDays, MapPin } from 'lucide-react';
 import WorkplanEditor from './pages/WorkplanEditor';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { API_BASE_URL } from './lib/api';
+import { API_BASE_URL, fetchChecklistDetail, hasMissingPhotoData } from './lib/api';
 import { passkeysSupported, hasRegisteredPasskey, loginWithPasskey } from './lib/passkeys';
+import { compressImage } from './lib/images';
+import { ChecklistPhotos } from './components/ChecklistPhotos';
 import Dashboard from './pages/Dashboard';
 import NewChecklist from './pages/NewChecklist';
 import RepairsNeeded from './pages/RepairsNeeded';
@@ -29,6 +44,29 @@ function EmployeeLogin() {
   const [isLoading, setIsLoading] = useState(false);
   const [faceIdBusy, setFaceIdBusy] = useState(false);
   const [canFaceId] = useState(() => passkeysSupported() && hasRegisteredPasskey());
+
+  // Offer Face ID automatically as soon as the login screen opens on a phone
+  // that's already set up for it — no button press needed.
+  useEffect(() => {
+    if (!canFaceId) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      if (cancelled) return;
+      setFaceIdBusy(true);
+      try {
+        const emp = await loginWithPasskey();
+        if (!cancelled) {
+          login(emp);
+          toast.success(`Welcome, ${emp.name}!`);
+        }
+      } catch (err) {
+        // Cancelled or failed — the employee-number box below still works
+      } finally {
+        if (!cancelled) setFaceIdBusy(false);
+      }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, []);
 
   const handleFaceIdLogin = async () => {
     setFaceIdBusy(true);
@@ -93,7 +131,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 3.2 &mdash; September 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 4.0 &mdash; September 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -143,7 +181,7 @@ function EmployeeLogin() {
                     Waiting for Face ID&hellip;
                   </>
                 ) : (
-                  <>Sign in with Face ID</>
+                  <>Try Face ID again</>
                 )}
               </Button>
             )}
@@ -907,6 +945,26 @@ function TemplateDiagnostics() {
                 </div>
               ))}
             </div>
+
+            <div className="pt-2" data-testid="service-templates-diagnostics">
+              <p className="text-sm font-medium text-purple-800">Pre Service Sheets ({diagnostics.service_templates?.length || 0})</p>
+              <p className="text-xs text-gray-500 mb-2">From AssetList tabs named "&lt;Check Type&gt; - Pre Service Sheet". Machines without one get the general whole-machine check.</p>
+              {diagnostics.service_templates?.map((t) => (
+                <div key={t.check_type} className="p-3 bg-white rounded-lg border border-purple-200 shadow-sm mb-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-sm">{t.check_type}</span>
+                      {t.sheet_name && <span className="text-xs text-gray-500 ml-2">(sheet: "{t.sheet_name}")</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{t.section_count} sections</span>
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">{t.assets_using_this} assets</span>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 truncate">{t.sections?.join(' · ')}</p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>
@@ -1244,6 +1302,16 @@ function SharePointAdminComponent() {
                 </p>
               )}
             </div>
+            {uploadResults.processed_sheets?.length > 0 && (
+              <div className="mt-3" data-testid="processed-sheets-list">
+                <p className="text-sm font-medium text-gray-700 mb-1">Excel tabs read:</p>
+                <ul className="text-xs text-gray-600 space-y-0.5 max-h-64 overflow-y-auto">
+                  {uploadResults.processed_sheets.map((line) => (
+                    <li key={line} className={line.includes('Pre Service Sheet') ? 'text-purple-700 font-medium' : line.includes('skipped') ? 'text-amber-700' : ''}>• {line}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -1401,6 +1469,12 @@ function Records() {
   const handleViewDetails = (checklist) => {
     setSelectedChecklist(checklist);
     setShowDetailModal(true);
+    // Lists omit photo binaries - pull the full record (with photos) for the modal
+    if (hasMissingPhotoData(checklist)) {
+      fetchChecklistDetail(checklist.id).then(full => {
+        if (full) setSelectedChecklist(prev => (prev && prev.id === full.id ? full : prev));
+      });
+    }
   };
 
   const closeDetailModal = () => {
@@ -1448,6 +1522,7 @@ function Records() {
                   <p className="text-lg">{selectedChecklist.check_type === 'daily_check' ? 'Daily Check' : 
                                           selectedChecklist.check_type === 'grader_startup' ? 'Grader Startup' : 
                                           selectedChecklist.check_type === 'workshop_service' ? 'Workshop Service' : 
+                                          selectedChecklist.check_type === 'pre_service_check' ? 'Pre Service Check' : 
                                           selectedChecklist.check_type === 'NEW MACHINE' ? 'New Machine' : 
                                           selectedChecklist.check_type === 'REPAIR COMPLETED' ? 'Repair Completed' : 
                                           selectedChecklist.check_type}</p>
@@ -1468,42 +1543,39 @@ function Records() {
                   <h3 className="text-lg font-semibold mb-3">Checklist Items</h3>
                   <div className="space-y-3">
                     {selectedChecklist.checklist_items.map((item, index) => (
-                      <div key={index} className={`p-4 rounded-lg border ${item.status === 'unsatisfactory' ? 'bg-red-50 border-red-200' : item.status === 'na' ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200'}`}>
+                      <div key={index} className={`p-4 rounded-lg border ${item.status === 'unsatisfactory' ? 'bg-red-50 border-red-200' : item.status === 'n/a' ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200'}`}>
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-2">
                               {item.status === 'satisfactory' && <CheckCircle2 className="h-5 w-5 text-green-600" />}
                               {item.status === 'unsatisfactory' && <X className="h-5 w-5 text-red-600" />}
-                              {item.status === 'na' && <span className="text-sm font-medium text-gray-600">N/A</span>}
+                              {item.status === 'n/a' && <span className="text-sm font-medium text-gray-600">N/A</span>}
                               <p className="font-medium">{tItem(item.item)}</p>
                             </div>
+                            {item.sub_items?.length > 0 && (
+                              <ul className="text-xs text-gray-500 list-disc list-inside mt-1">
+                                {item.sub_items.map((sub) => <li key={sub}>{sub}</li>)}
+                              </ul>
+                            )}
                             {item.notes && (
                               <p className="text-sm text-gray-700 mt-2 italic">"{item.notes}"</p>
                             )}
                           </div>
-                          <Badge variant={item.status === 'unsatisfactory' ? 'destructive' : item.status === 'na' ? 'secondary' : 'default'}>
+                          <Badge variant={item.status === 'unsatisfactory' ? 'destructive' : item.status === 'n/a' ? 'secondary' : 'default'}>
                             {item.status === 'satisfactory' ? 'OK' : item.status === 'unsatisfactory' ? 'Issue' : 'N/A'}
                           </Badge>
                         </div>
                         {/* Item Photos */}
                         {item.photos && item.photos.length > 0 && (
-                          <div className="mt-3 grid grid-cols-3 gap-2">
-                            {item.photos.map((photo, photoIndex) => (
-                              <img
-                                key={photoIndex}
-                                src={photo.data}
-                                alt={`${item.item} - Photo ${photoIndex + 1}`}
-                                className="w-full h-24 object-cover rounded cursor-pointer hover:opacity-75"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const photos = [{...photo, title: item.item, type: 'checklist_item'}];
-                                  setSelectedPhotos(photos);
-                                  setCurrentPhotoIndex(0);
-                                  setShowPhotoModal(true);
-                                }}
-                              />
-                            ))}
-                          </div>
+                          <ChecklistPhotos
+                            photos={item.photos}
+                            alt={`${item.item} - Photo`}
+                            onPhotoClick={(photo) => {
+                              setSelectedPhotos([{...photo, title: item.item, type: 'checklist_item'}]);
+                              setCurrentPhotoIndex(0);
+                              setShowPhotoModal(true);
+                            }}
+                          />
                         )}
                       </div>
                     ))}
@@ -1514,10 +1586,19 @@ function Records() {
               {/* Workshop Notes */}
               {selectedChecklist.workshop_notes && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Notes</h3>
+                  <h3 className="text-lg font-semibold mb-2">{selectedChecklist.check_type === 'pre_service_check' ? 'Any other Parts or Issues' : 'Notes'}</h3>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-gray-700 whitespace-pre-wrap">{selectedChecklist.workshop_notes}</p>
                   </div>
+                </div>
+              )}
+
+              {selectedChecklist.parts_required && selectedChecklist.parts_required.length > 0 && (
+                <div data-testid="detail-parts-required">
+                  <h3 className="text-lg font-semibold mb-2">Parts Required</h3>
+                  <ul className="list-decimal list-inside bg-purple-50 p-4 rounded-lg space-y-1 text-gray-800">
+                    {selectedChecklist.parts_required.map((part, i) => <li key={`${part}-${i}`}>{part}</li>)}
+                  </ul>
                 </div>
               )}
 
@@ -1557,22 +1638,17 @@ function Records() {
               {selectedChecklist.workshop_photos && selectedChecklist.workshop_photos.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Workshop Photos</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {selectedChecklist.workshop_photos.map((photo, index) => (
-                      <img
-                        key={index}
-                        src={photo.data}
-                        alt={`Workshop Photo ${index + 1}`}
-                        className="w-full h-32 object-cover rounded cursor-pointer hover:opacity-75"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedPhotos(selectedChecklist.workshop_photos.map(p => ({...p, title: 'Workshop Photo', type: 'workshop'})));
-                          setCurrentPhotoIndex(index);
-                          setShowPhotoModal(true);
-                        }}
-                      />
-                    ))}
-                  </div>
+                  <ChecklistPhotos
+                    photos={selectedChecklist.workshop_photos}
+                    alt="Workshop Photo"
+                    imgClassName="w-full h-32 object-cover rounded"
+                    gridClassName="grid grid-cols-2 md:grid-cols-3 gap-3"
+                    onPhotoClick={(photo, index, ready) => {
+                      setSelectedPhotos(ready.map(p => ({...p, title: 'Workshop Photo', type: 'workshop'})));
+                      setCurrentPhotoIndex(index);
+                      setShowPhotoModal(true);
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -1682,7 +1758,7 @@ function Records() {
                 const completedDate = new Date(checklist.completed_at);
                 let statusInfo;
                 
-                if (checklist.check_type === 'daily_check' || checklist.check_type === 'grader_startup') {
+                if (checklist.check_type === 'daily_check' || checklist.check_type === 'grader_startup' || checklist.check_type === 'pre_service_check') {
                   const itemsSatisfactory = checklist.checklist_items.filter(item => item.status === 'satisfactory').length;
                   const itemsUnsatisfactory = checklist.checklist_items.filter(item => item.status === 'unsatisfactory').length;
                   const totalItems = checklist.checklist_items.length;
@@ -1721,25 +1797,12 @@ function Records() {
                 } else {
                   statusInfo = (
                     <Badge variant="outline" className="mb-1">
-                      {checklist.check_type === 'NEW MACHINE' ? 'New Machine' : 
-                       checklist.check_type === 'REPAIR COMPLETED' ? 'Repair Completed' : 
-                       checklist.check_type === 'GENERAL REPAIR' ? 'General Repair' : 
-                       'Workshop Service'}
+                      {CHECK_TYPE_LABELS[checklist.check_type] || 'Check'}
                     </Badge>
                   );
                 }
 
-                const getCheckTypeDisplay = (type) => {
-                  switch(type) {
-                    case 'daily_check': return 'Daily check';
-                    case 'grader_startup': return 'Grader startup';
-                    case 'workshop_service': return 'Workshop service';
-                    case 'NEW MACHINE': return 'New Machine';
-                    case 'REPAIR COMPLETED': return 'Repair Completed';
-                    case 'GENERAL REPAIR': return 'General Repair';
-                    default: return 'Check';
-                  }
-                };
+                const getCheckTypeDisplay = (type) => CHECK_TYPE_LABELS[type] || 'Check';
 
                 const getIconAndColor = (type) => {
                   switch(type) {
@@ -1749,6 +1812,8 @@ function Records() {
                       return { bg: 'bg-orange-100', icon: <AlertCircle className="h-6 w-6 text-orange-600" /> };
                     case 'workshop_service': 
                       return { bg: 'bg-blue-100', icon: <Settings className="h-6 w-6 text-blue-600" /> };
+                    case 'pre_service_check': 
+                      return { bg: 'bg-purple-100', icon: <ClipboardCheck className="h-6 w-6 text-purple-700" /> };
                     case 'NEW MACHINE': 
                       return { bg: 'bg-purple-100', icon: <Database className="h-6 w-6 text-purple-600" /> };
                     case 'REPAIR COMPLETED': 
@@ -1884,11 +1949,14 @@ function AllChecksCompleted() {
   const [loadError, setLoadError] = useState(null);
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
+  const [selectedCheckType, setSelectedCheckType] = useState('');
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
   const [selectedChecklist, setSelectedChecklist] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(null);
+  const [otherTabCount, setOtherTabCount] = useState(null);
   const navigate = useNavigate();
   
   const ITEMS_PER_PAGE = 100;
@@ -1896,14 +1964,124 @@ function AllChecksCompleted() {
   // Check if we're filtering for today's checks
   const urlParams = new URLSearchParams(window.location.search);
   const filterToday = urlParams.get('filter') === 'today';
+  // 'checks' (daily / grader / fuel etc.) or 'servicing' (Pre Service Checks + Workshop Service)
+  const [viewMode, setViewMode] = useState(urlParams.get('view') === 'servicing' ? 'servicing' : 'checks');
+  const isServicing = viewMode === 'servicing';
+  const recordLabel = isServicing ? 'servicing records' : 'checks';
+
+  const switchView = (mode) => {
+    if (mode === viewMode) return;
+    setViewMode(mode);
+    setSelectedMake('');
+    setSelectedModel('');
+    setSelectedCheckType('');
+    setChecklists([]);
+    setFilteredChecklists([]);
+  };
+
+  // Date range (inclusive, YYYY-MM-DD) - ignored when the URL asks for today's checks
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const hasDateRange = Boolean(dateFrom || dateTo);
+  const setRange = (from, to) => { setDateFrom(from); setDateTo(to); };
+  const quickPicks = [
+    { id: 'this-week', label: 'This week', range: () => { const d = new Date(); const day = (d.getDay() + 6) % 7; const mon = new Date(d); mon.setDate(d.getDate() - day); return [isoDay(mon), isoDay(d)]; } },
+    { id: 'this-month', label: 'This month', range: () => { const d = new Date(); return [isoDay(new Date(d.getFullYear(), d.getMonth(), 1)), isoDay(d)]; } },
+    { id: 'last-30', label: 'Last 30 days', range: () => { const d = new Date(); const s = new Date(d); s.setDate(d.getDate() - 29); return [isoDay(s), isoDay(d)]; } },
+    { id: 'last-year', label: 'Last 12 months', range: () => { const d = new Date(); const s = new Date(d); s.setFullYear(d.getFullYear() - 1); return [isoDay(s), isoDay(d)]; } },
+  ];
+  const activeQuickPick = quickPicks.find(q => { const [f, t] = q.range(); return f === dateFrom && t === dateTo; })?.id;
+
+  // Query string describing the current tab + filters, shared by the list and all exports
+  const exportQuery = () => {
+    const params = new URLSearchParams({ category: viewMode });
+    if (selectedCheckType) params.set('check_type', selectedCheckType);
+    if (selectedMake) params.set('make', selectedMake);
+    if (selectedModel) params.set('model', selectedModel);
+    if (filterToday) params.set('today', 'true');
+    else {
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+    }
+    return params.toString();
+  };
+
+  const exportFilename = (ext) => {
+    const parts = ['all', viewMode];
+    if (selectedCheckType) parts.push(selectedCheckType);
+    if (selectedMake) parts.push(selectedMake);
+    if (selectedModel) parts.push(selectedModel);
+    if (filterToday) parts.push('today');
+    else if (hasDateRange) parts.push(`${dateFrom || 'start'}_to_${dateTo || 'now'}`);
+    parts.push(new Date().toISOString().split('T')[0]);
+    return `${parts.join('_').replace(/[^\w.-]+/g, '-')}.${ext}`;
+  };
+
+  const hasActiveFilter = Boolean(selectedMake || selectedModel || selectedCheckType || (!filterToday && hasDateRange));
+  const clearFilters = () => { setSelectedMake(''); setSelectedModel(''); setSelectedCheckType(''); setRange('', ''); };
+  const CHECKS_TAB_TYPES = ['daily_check', 'grader_startup', 'fuel_mileage', 'NEW MACHINE', 'REPAIR COMPLETED'];
+  const checkTypeOptions = isServicing ? ['pre_service_check', 'workshop_service'] : CHECKS_TAB_TYPES;
+
+  // Makes / models come from the asset register so any machine can be filtered, not just those on the loaded page
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/assets/makes`).then(r => r.ok ? r.json() : []).then(setMakes).catch(() => setMakes([]));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedMake) { setModels([]); return; }
+    fetch(`${API_BASE_URL}/api/assets/names/${encodeURIComponent(selectedMake)}`).then(r => r.ok ? r.json() : []).then(setModels).catch(() => setModels([]));
+  }, [selectedMake]);
 
   useEffect(() => {
     fetchChecklists();
-  }, [filterToday]); // Re-fetch when filter changes
+    setTotalCount(null);
+    setOtherTabCount(null);
+    fetch(`${API_BASE_URL}/api/checklists/count?${exportQuery()}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setTotalCount(d ? d.count : null))
+      .catch(() => setTotalCount(null));
+    if (hasActiveFilter) {
+      const otherParams = new URLSearchParams(exportQuery());
+      otherParams.set('category', isServicing ? 'checks' : 'servicing');
+      otherParams.delete('check_type');
+      fetch(`${API_BASE_URL}/api/checklists/count?${otherParams.toString()}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => setOtherTabCount(d ? d.count : null))
+        .catch(() => setOtherTabCount(null));
+    }
+  }, [filterToday, viewMode, selectedCheckType, selectedMake, selectedModel, dateFrom, dateTo]);
+
+  const filterChecklists = useCallback(() => {
+    let filtered = checklists;
+    
+    // Filter for today's checks if specified
+    if (filterToday) {
+      const today = new Date().toISOString().split('T')[0];
+      filtered = filtered.filter(c => c.completed_at && c.completed_at.startsWith(today));
+    } else if (dateFrom || dateTo) {
+      filtered = filtered.filter(c => {
+        const day = c.completed_at ? String(c.completed_at).slice(0, 10) : '';
+        return day && (!dateFrom || day >= dateFrom) && (!dateTo || day <= dateTo);
+      });
+    }
+
+    // Server already filters; this keeps the list consistent while a refetch is in flight
+    if (selectedCheckType) {
+      filtered = filtered.filter(c => c.check_type === selectedCheckType);
+    }
+    if (selectedMake) {
+      filtered = filtered.filter(c => c.machine_make === selectedMake);
+    }
+    if (selectedModel) {
+      filtered = filtered.filter(c => c.machine_model === selectedModel);
+    }
+    
+    setFilteredChecklists(filtered);
+  }, [checklists, filterToday, selectedCheckType, selectedMake, selectedModel, dateFrom, dateTo]);
 
   useEffect(() => {
     filterChecklists();
-  }, [selectedMake, selectedModel, checklists]);
+  }, [filterChecklists]);
 
   const fetchChecklists = async (append = false) => {
     try {
@@ -1917,7 +2095,7 @@ function AllChecksCompleted() {
       // Use dedicated today endpoint if filtering for today
       if (filterToday && !append) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/checklists/today`, {
+          const response = await fetch(`${API_BASE_URL}/api/checklists/today?category=${viewMode}`, {
             signal: controller.signal
           });
           clearTimeout(timeoutId);
@@ -1940,7 +2118,7 @@ function AllChecksCompleted() {
         try {
           const controller2 = new AbortController();
           const timeoutId2 = setTimeout(() => controller2.abort(), 30000);
-          const response = await fetch(`${API_BASE_URL}/api/checklists?limit=50`, {
+          const response = await fetch(`${API_BASE_URL}/api/checklists?limit=50&category=${viewMode}`, {
             signal: controller2.signal
           });
           clearTimeout(timeoutId2);
@@ -1967,7 +2145,7 @@ function AllChecksCompleted() {
       }
       
       const skip = append ? checklists.length : 0;
-      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}`, {
+      const response = await fetch(`${API_BASE_URL}/api/checklists?limit=${ITEMS_PER_PAGE}&skip=${skip}&${exportQuery()}`, {
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -1982,13 +2160,8 @@ function AllChecksCompleted() {
         setChecklists(regularChecks);
       }
       
-      // Extract unique makes and models
-      const allChecklists = append ? [...checklists, ...regularChecks] : regularChecks;
-      const uniqueMakes = [...new Set(allChecklists.map(c => c.machine_make))].sort();
-      setMakes(uniqueMakes);
-      
-      // Check if there are more items to load
-      setHasMore(regularChecks.length === ITEMS_PER_PAGE);
+      // Check if there are more items to load (based on the raw page size, before any client-side drop)
+      setHasMore(Array.isArray(data) && data.length === ITEMS_PER_PAGE);
       
     } catch (error) {
       console.error('Error fetching checklists:', error);
@@ -2006,41 +2179,20 @@ function AllChecksCompleted() {
   };
   
   const loadMore = () => {
-    if (!loadingMore && hasMore && !selectedMake && !selectedModel) {
+    if (!loadingMore && hasMore) {
       fetchChecklists(true);
     }
-  };
-
-  const filterChecklists = () => {
-    let filtered = checklists;
-    
-    // Filter for today's checks if specified
-    if (filterToday) {
-      const today = new Date().toISOString().split('T')[0];
-      filtered = filtered.filter(c => c.completed_at && c.completed_at.startsWith(today));
-    }
-    
-    if (selectedMake) {
-      filtered = filtered.filter(c => c.machine_make === selectedMake);
-      
-      // Update available models based on selected make
-      const availableModels = [...new Set(filtered.map(c => c.machine_model))].sort();
-      setModels(availableModels);
-    } else {
-      setModels([]);
-      setSelectedModel('');
-    }
-    
-    if (selectedModel) {
-      filtered = filtered.filter(c => c.machine_model === selectedModel);
-    }
-    
-    setFilteredChecklists(filtered);
   };
 
   const handleViewDetails = (checklist) => {
     setSelectedChecklist(checklist);
     setShowDetailModal(true);
+    // Lists omit photo binaries - pull the full record (with photos) for the modal
+    if (hasMissingPhotoData(checklist)) {
+      fetchChecklistDetail(checklist.id).then(full => {
+        if (full) setSelectedChecklist(prev => (prev && prev.id === full.id ? full : prev));
+      });
+    }
   };
 
   const closeDetailModal = () => {
@@ -2061,7 +2213,7 @@ function AllChecksCompleted() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
       
-      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel`, {
+      const response = await fetch(`${API_BASE_URL}/api/checklists/export/excel?${exportQuery()}`, {
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -2073,18 +2225,18 @@ function AllChecksCompleted() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `all_checks_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.download = exportFilename('xlsx');
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success('Checks exported successfully to Excel');
+      toast.success(`${hasActiveFilter ? 'Filtered ' : ''}${isServicing ? 'servicing records' : 'checks'} exported successfully to Excel`);
     } catch (error) {
       console.error('Export error:', error);
       if (error.name === 'AbortError') {
         toast.error('Export timed out. Try the faster CSV format instead.');
       } else {
-        toast.error('Failed to export checks. Try CSV format for large datasets.');
+        toast.error(`Failed to export ${recordLabel}. Try CSV format for large datasets.`);
       }
     }
   };
@@ -2092,7 +2244,7 @@ function AllChecksCompleted() {
   const handleExportCSV = async () => {
     try {
       toast.info('Generating CSV export...');
-      const response = await fetch(`${API_BASE_URL}/api/checklists/export/csv`);
+      const response = await fetch(`${API_BASE_URL}/api/checklists/export/csv?${exportQuery()}`);
       if (!response.ok) {
         throw new Error('Export failed');
       }
@@ -2100,15 +2252,15 @@ function AllChecksCompleted() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `all_checks_${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = exportFilename('csv');
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success('Checks exported successfully to CSV');
+      toast.success(`${hasActiveFilter ? 'Filtered ' : ''}${isServicing ? 'servicing records' : 'checks'} exported successfully to CSV`);
     } catch (error) {
       console.error('Export error:', error);
-      toast.error('Failed to export checks');
+      toast.error(`Failed to export ${recordLabel}`);
     }
   };
 
@@ -2117,7 +2269,7 @@ function AllChecksCompleted() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading checks...</p>
+          <p className="mt-2 text-gray-600">Loading {recordLabel}...</p>
         </div>
       </div>
     );
@@ -2130,7 +2282,7 @@ function AllChecksCompleted() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Check Details</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{selectedChecklist.check_type === 'pre_service_check' || selectedChecklist.check_type === 'workshop_service' ? 'Servicing Record' : 'Check Details'}</h2>
               <Button variant="ghost" size="sm" onClick={closeDetailModal}>
                 <X className="h-5 w-5" />
               </Button>
@@ -2146,6 +2298,7 @@ function AllChecksCompleted() {
                   <p className="text-lg">{selectedChecklist.check_type === 'daily_check' ? 'Daily Check' : 
                                           selectedChecklist.check_type === 'grader_startup' ? 'Grader Startup' : 
                                           selectedChecklist.check_type === 'workshop_service' ? 'Workshop Service' : 
+                                          selectedChecklist.check_type === 'pre_service_check' ? 'Pre Service Check' : 
                                           selectedChecklist.check_type}</p>
                 </div>
                 <div>
@@ -2163,34 +2316,30 @@ function AllChecksCompleted() {
                   <h3 className="text-lg font-semibold mb-3">Checklist Items</h3>
                   <div className="space-y-3">
                     {selectedChecklist.checklist_items.map((item, index) => (
-                      <div key={index} className={`p-4 rounded-lg border ${item.status === 'unsatisfactory' ? 'bg-red-50 border-red-200' : item.status === 'na' ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200'}`}>
+                      <div key={index} className={`p-4 rounded-lg border ${item.status === 'unsatisfactory' ? 'bg-red-50 border-red-200' : item.status === 'n/a' ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200'}`}>
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-2">
                               {item.status === 'satisfactory' && <CheckCircle2 className="h-5 w-5 text-green-600" />}
                               {item.status === 'unsatisfactory' && <X className="h-5 w-5 text-red-600" />}
-                              {item.status === 'na' && <span className="text-sm font-medium text-gray-600">N/A</span>}
+                              {item.status === 'n/a' && <span className="text-sm font-medium text-gray-600">N/A</span>}
                               <p className="font-medium">{tItem(item.item)}</p>
                             </div>
+                            {item.sub_items?.length > 0 && (
+                              <ul className="text-xs text-gray-500 list-disc list-inside mt-1">
+                                {item.sub_items.map((sub) => <li key={sub}>{sub}</li>)}
+                              </ul>
+                            )}
                             {item.notes && (
                               <p className="text-sm text-gray-700 mt-2 italic">"{item.notes}"</p>
                             )}
                           </div>
-                          <Badge variant={item.status === 'unsatisfactory' ? 'destructive' : item.status === 'na' ? 'secondary' : 'default'}>
+                          <Badge variant={item.status === 'unsatisfactory' ? 'destructive' : item.status === 'n/a' ? 'secondary' : 'default'}>
                             {item.status === 'satisfactory' ? 'OK' : item.status === 'unsatisfactory' ? 'Issue' : 'N/A'}
                           </Badge>
                         </div>
                         {item.photos && item.photos.length > 0 && (
-                          <div className="mt-3 grid grid-cols-3 gap-2">
-                            {item.photos.map((photo, photoIndex) => (
-                              <img
-                                key={photoIndex}
-                                src={photo.data}
-                                alt={`${item.item} - Photo ${photoIndex + 1}`}
-                                className="w-full h-24 object-cover rounded"
-                              />
-                            ))}
-                          </div>
+                          <ChecklistPhotos photos={item.photos} alt={`${item.item} - Photo`} />
                         )}
                       </div>
                     ))}
@@ -2200,26 +2349,32 @@ function AllChecksCompleted() {
 
               {selectedChecklist.workshop_notes && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Notes</h3>
+                  <h3 className="text-lg font-semibold mb-2">{selectedChecklist.check_type === 'pre_service_check' ? 'Any other Parts or Issues' : 'Notes'}</h3>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-gray-700 whitespace-pre-wrap">{selectedChecklist.workshop_notes}</p>
                   </div>
                 </div>
               )}
 
+              {selectedChecklist.parts_required && selectedChecklist.parts_required.length > 0 && (
+                <div data-testid="detail-parts-required">
+                  <h3 className="text-lg font-semibold mb-2">Parts Required</h3>
+                  <ul className="list-decimal list-inside bg-purple-50 p-4 rounded-lg space-y-1 text-gray-800">
+                    {selectedChecklist.parts_required.map((part, i) => <li key={`${part}-${i}`}>{part}</li>)}
+                  </ul>
+                </div>
+              )}
+
               {selectedChecklist.workshop_photos && selectedChecklist.workshop_photos.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Workshop Photos</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {selectedChecklist.workshop_photos.map((photo, index) => (
-                      <img
-                        key={index}
-                        src={photo.data}
-                        alt={`Workshop Photo ${index + 1}`}
-                        className="w-full h-32 object-cover rounded"
-                      />
-                    ))}
-                  </div>
+                  <ChecklistPhotos
+                    photos={selectedChecklist.workshop_photos}
+                    alt="Workshop Photo"
+                    imgClassName="w-full h-32 object-cover rounded"
+                    gridClassName="grid grid-cols-2 md:grid-cols-3 gap-3"
+                    onPhotoClick={(photo) => window.open(photo.data, '_blank')}
+                  />
                 </div>
               )}
             </div>
@@ -2233,13 +2388,17 @@ function AllChecksCompleted() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {filterToday ? "Today's Checks" : "All Checks Completed"}
+            <h1 className="text-3xl font-bold text-gray-900" data-testid="all-checks-title">
+              {isServicing
+                ? (filterToday ? "Today's Servicing" : 'All Servicing Records')
+                : (filterToday ? "Today's Checks" : 'All Checks Completed')}
             </h1>
-            <p className="text-gray-600 mt-2">
-              {filterToday 
-                ? `Checks completed today - ${filteredChecklists.length} records` 
-                : `View all equipment checks - ${filteredChecklists.length} records`
+            <p className="text-gray-600 mt-2" data-testid="all-checks-subtitle">
+              {isServicing
+                ? `Pre Service Checks & Workshop Service records${filterToday ? ' completed today' : ''} - ${totalCount ?? filteredChecklists.length} records`
+                : (filterToday 
+                  ? `Checks completed today - ${totalCount ?? filteredChecklists.length} records` 
+                  : `View all equipment checks - ${totalCount ?? filteredChecklists.length} records`)
               }
             </p>
           </div>
@@ -2250,6 +2409,7 @@ function AllChecksCompleted() {
             variant="outline"
             className="bg-green-600 hover:bg-green-700 text-white"
             title="Download as Excel file"
+            data-testid="export-excel-btn"
           >
             <Download className="mr-2 h-4 w-4" />
             Excel
@@ -2259,15 +2419,27 @@ function AllChecksCompleted() {
             variant="outline"
             className="bg-blue-600 hover:bg-blue-700 text-white"
             title="Faster for large datasets"
+            data-testid="export-csv-btn"
           >
             <Download className="mr-2 h-4 w-4" />
             CSV (Fast)
           </Button>
           <Button 
-            onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel`, '_blank')}
+            onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel-by-machine?${exportQuery()}`, '_blank')}
+            variant="outline"
+            className="border-emerald-500 text-emerald-700 hover:bg-emerald-50"
+            title="One sheet per check type with every question shown as ✓ / ✗ / N/A"
+            data-testid="export-detailed-btn"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Excel (Detailed)
+          </Button>
+          <Button 
+            onClick={() => window.open(`${API_BASE_URL}/api/checklists/export/excel?${exportQuery()}`, '_blank')}
             variant="outline"
             className="text-gray-600"
             title="Opens in new tab - use if other exports timeout"
+            data-testid="export-direct-link-btn"
           >
             <Download className="mr-2 h-4 w-4" />
             Direct Link
@@ -2275,19 +2447,79 @@ function AllChecksCompleted() {
         </div>
       </div>
 
+      {/* Checks / Servicing tabs */}
+      <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-1" role="tablist" data-testid="all-checks-view-tabs">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={!isServicing}
+          onClick={() => switchView('checks')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${!isServicing ? 'bg-white text-green-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+          data-testid="view-tab-checks"
+        >
+          <CheckCircle2 className="h-4 w-4" />
+          Checks
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={isServicing}
+          onClick={() => switchView('servicing')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${isServicing ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+          data-testid="view-tab-servicing"
+        >
+          <Wrench className="h-4 w-4" />
+          Servicing
+        </button>
+      </div>
+      {isServicing && (
+        <p className="text-sm text-purple-800 bg-purple-50 border border-purple-100 rounded-md px-3 py-2 -mt-2" data-testid="servicing-export-hint">
+          <span className="font-semibold">Excel</span> downloads the service manager report: an <span className="font-semibold">Action List</span> of every repair, part to order and other issue across all machines, a <span className="font-semibold">Parts to Order</span> sheet, and the full <span className="font-semibold">Service Sheets</span> with every section's status and notes.
+        </p>
+      )}
+
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Filter Checks</CardTitle>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <CardTitle>{isServicing ? 'Filter Servicing Records' : 'Filter Checks'}</CardTitle>
+            {hasActiveFilter ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-600" data-testid="export-filter-note">Excel / CSV will export only the filtered {recordLabel}</span>
+                <Button variant="ghost" size="sm" onClick={clearFilters} data-testid="clear-filters-btn">
+                  Clear filters
+                </Button>
+              </div>
+            ) : (
+              <span className="text-sm text-gray-500" data-testid="export-howto-note">
+                Want one make (e.g. Perrot)? Pick it under <span className="font-medium">Machine Make</span>, then press <span className="font-medium">Excel</span> or <span className="font-medium">CSV (Fast)</span>.
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Check Type</label>
+              <select
+                value={selectedCheckType}
+                onChange={(e) => setSelectedCheckType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                data-testid="check-type-filter"
+              >
+                <option value="">All Types</option>
+                {checkTypeOptions.map(type => (
+                  <option key={type} value={type}>{CHECK_TYPE_LABELS[type] || type}</option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Machine Make</label>
               <select
                 value={selectedMake}
                 onChange={(e) => handleMakeChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                data-testid="make-filter"
               >
                 <option value="">All Makes</option>
                 {makes.map(make => (
@@ -2302,6 +2534,7 @@ function AllChecksCompleted() {
                 onChange={(e) => setSelectedModel(e.target.value)}
                 disabled={!selectedMake}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                data-testid="model-filter"
               >
                 <option value="">All Models</option>
                 {models.map(model => (
@@ -2310,6 +2543,65 @@ function AllChecksCompleted() {
               </select>
             </div>
           </div>
+
+          {/* Date range */}
+          {filterToday ? (
+            <p className="mt-4 text-sm text-gray-500" data-testid="date-range-today-note">Showing today's {recordLabel} only. <button type="button" className="text-green-700 underline" onClick={() => navigate(`/all-checks${isServicing ? '?view=servicing' : ''}`)} data-testid="date-range-show-all-btn">Show all dates</button></p>
+          ) : (
+            <div className="mt-4 pt-4 border-t" data-testid="date-range-filter">
+              <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+                <div className="flex items-end gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">From</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      max={dateTo || undefined}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      data-testid="date-from-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">To</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      min={dateFrom || undefined}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      data-testid="date-to-input"
+                    />
+                  </div>
+                  {hasDateRange && (
+                    <Button variant="ghost" size="sm" className="mb-0.5" onClick={() => setRange('', '')} data-testid="date-range-clear-btn">
+                      <X className="h-4 w-4 mr-1" /> Clear dates
+                    </Button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2 lg:ml-2" data-testid="date-quick-picks">
+                  {quickPicks.map(q => (
+                    <Button
+                      key={q.id}
+                      type="button"
+                      size="sm"
+                      variant={activeQuickPick === q.id ? 'default' : 'outline'}
+                      className={activeQuickPick === q.id ? 'bg-green-600 hover:bg-green-700' : ''}
+                      onClick={() => setRange(...q.range())}
+                      data-testid={`quick-pick-${q.id}`}
+                    >
+                      {q.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              {hasDateRange && (
+                <p className="text-xs text-gray-500 mt-2" data-testid="date-range-note">
+                  Showing {recordLabel} {dateFrom ? `from ${dateFrom}` : ''}{dateFrom && dateTo ? ' ' : ''}{dateTo ? `to ${dateTo}` : ''} — Excel / CSV / Direct Link exports use the same dates.
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -2330,32 +2622,56 @@ function AllChecksCompleted() {
               </Button>
             </div>
           ) : filteredChecklists.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500" data-testid="all-checks-empty">
               <FileText className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-              <p>No checks found</p>
+              <p>No {recordLabel} found{hasActiveFilter ? ' for these filters' : ''}</p>
+              {hasActiveFilter && otherTabCount > 0 && (
+                <div className="mt-3" data-testid="other-tab-hint">
+                  <p className="text-sm">
+                    {selectedMake || 'This selection'} has <span className="font-semibold">{otherTabCount}</span> {isServicing ? 'check' : 'servicing record'}{otherTabCount > 1 ? 's' : ''} on the {isServicing ? 'Checks' : 'Servicing'} tab.
+                  </p>
+                  <Button variant="outline" size="sm" className="mt-2" onClick={() => { const keepMake = selectedMake; const keepModel = selectedModel; switchView(isServicing ? 'checks' : 'servicing'); setSelectedMake(keepMake); setSelectedModel(keepModel); }} data-testid="switch-tab-btn">
+                    Show them on the {isServicing ? 'Checks' : 'Servicing'} tab
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4" data-testid="all-checks-list">
               {filteredChecklists.map((checklist) => (
                 <Card
                   key={checklist.id}
                   className="hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => handleViewDetails(checklist)}
+                  data-testid={`check-row-${checklist.id}`}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="p-3 rounded-lg bg-green-100">
-                          <CheckCircle2 className="h-6 w-6 text-green-600" />
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center space-x-4 min-w-0 flex-1">
+                        <div className={`shrink-0 p-3 rounded-lg ${checklist.check_type === 'pre_service_check' ? 'bg-purple-100' : checklist.check_type === 'workshop_service' ? 'bg-orange-100' : 'bg-green-100'}`}>
+                          {checklist.check_type === 'pre_service_check'
+                            ? <ClipboardCheck className="h-6 w-6 text-purple-700" />
+                            : checklist.check_type === 'workshop_service'
+                            ? <Settings className="h-6 w-6 text-orange-600" />
+                            : <CheckCircle2 className="h-6 w-6 text-green-600" />}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <h3 className="font-semibold text-lg">{checklist.machine_make} {checklist.machine_model}</h3>
-                          <p className="text-gray-600">{checklist.check_type} by {checklist.staff_name}</p>
+                          <p className="text-gray-600">{CHECK_TYPE_LABELS[checklist.check_type] || checklist.check_type} by {checklist.staff_name}</p>
+                          {checklist.check_type === 'pre_service_check' && (
+                            <p className="text-sm text-purple-700" data-testid={`service-summary-${checklist.id}`}>
+                              ✓{(checklist.checklist_items || []).filter(i => i.status === 'satisfactory').length} ✗{(checklist.checklist_items || []).filter(i => i.status === 'unsatisfactory').length} of {(checklist.checklist_items || []).length} sections
+                              {checklist.parts_required?.length > 0 && ` · ${checklist.parts_required.length} part${checklist.parts_required.length > 1 ? 's' : ''} required`}
+                            </p>
+                          )}
+                          {checklist.check_type === 'workshop_service' && checklist.workshop_notes && (
+                            <p className="text-sm text-gray-500 italic truncate">{checklist.workshop_notes}</p>
+                          )}
                           <p className="text-sm text-gray-500">ID: {checklist.id.substring(0, 8)}...</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">
+                      <div className="text-right shrink-0">
+                        <p className="text-sm text-gray-500 whitespace-nowrap">
                           {new Date(checklist.completed_at).toLocaleDateString()} at {new Date(checklist.completed_at).toLocaleTimeString()}
                         </p>
                       </div>
@@ -2364,14 +2680,15 @@ function AllChecksCompleted() {
                 </Card>
               ))}
               
-              {/* Load More Button - only show when not filtering */}
-              {hasMore && filteredChecklists.length > 0 && !selectedMake && !selectedModel && (
+              {/* Load More Button */}
+              {hasMore && filteredChecklists.length > 0 && !filterToday && (
                 <div className="mt-6 text-center">
                   <Button 
                     onClick={loadMore} 
                     disabled={loadingMore}
                     variant="outline"
                     className="w-full sm:w-auto"
+                    data-testid="load-more-btn"
                   >
                     {loadingMore ? (
                       <>
@@ -2379,17 +2696,16 @@ function AllChecksCompleted() {
                         Loading more...
                       </>
                     ) : (
-                      `Load More Checks (${ITEMS_PER_PAGE} at a time)`
+                      `Load More ${isServicing ? 'Servicing Records' : 'Checks'} (${ITEMS_PER_PAGE} at a time)`
                     )}
                   </Button>
-                  <p className="text-sm text-gray-500 mt-2">Showing {filteredChecklists.length} checks</p>
+                  <p className="text-sm text-gray-500 mt-2" data-testid="showing-count">Showing {filteredChecklists.length}{totalCount != null ? ` of ${totalCount}` : ''} {recordLabel}{hasActiveFilter ? ' — exports include all of them' : ''}</p>
                 </div>
               )}
               
-              {/* Info message when filtering */}
-              {(selectedMake || selectedModel) && (
-                <div className="mt-4 text-center text-sm text-gray-500">
-                  <p>Filtering applied. Clear filters to load more records.</p>
+              {hasActiveFilter && !hasMore && filteredChecklists.length > 0 && (
+                <div className="mt-4 text-center text-sm text-gray-500" data-testid="filter-complete-note">
+                  <p>All {totalCount ?? filteredChecklists.length} matching {recordLabel} loaded — Excel / CSV export exactly this list.</p>
                 </div>
               )}
             </div>
@@ -2421,9 +2737,30 @@ function RepairsCompletedPage() {
     fetchRepairs();
   }, []);
 
+  const filterRepairs = useCallback(() => {
+    let filtered = repairs;
+    
+    if (selectedMake) {
+      filtered = filtered.filter(r => r.machine_make === selectedMake);
+      
+      // Update available models
+      const availableModels = [...new Set(filtered.map(r => r.machine_model))].sort();
+      setModels(availableModels);
+    } else {
+      setModels([]);
+      setSelectedModel('');
+    }
+    
+    if (selectedModel) {
+      filtered = filtered.filter(r => r.machine_model === selectedModel);
+    }
+    
+    setFilteredRepairs(filtered);
+  }, [repairs, selectedMake, selectedModel]);
+
   useEffect(() => {
     filterRepairs();
-  }, [selectedMake, selectedModel, repairs]);
+  }, [filterRepairs]);
 
   const fetchRepairs = async (append = false) => {
     try {
@@ -2465,27 +2802,6 @@ function RepairsCompletedPage() {
     }
   };
 
-  const filterRepairs = () => {
-    let filtered = repairs;
-    
-    if (selectedMake) {
-      filtered = filtered.filter(r => r.machine_make === selectedMake);
-      
-      // Update available models
-      const availableModels = [...new Set(filtered.map(r => r.machine_model))].sort();
-      setModels(availableModels);
-    } else {
-      setModels([]);
-      setSelectedModel('');
-    }
-    
-    if (selectedModel) {
-      filtered = filtered.filter(r => r.machine_model === selectedModel);
-    }
-    
-    setFilteredRepairs(filtered);
-  };
-
   const handleMakeChange = (make) => {
     setSelectedMake(make);
     setSelectedModel('');
@@ -2494,6 +2810,11 @@ function RepairsCompletedPage() {
   const handleViewDetails = (repair) => {
     setSelectedRepair(repair);
     setShowDetailModal(true);
+    if (hasMissingPhotoData(repair)) {
+      fetchChecklistDetail(repair.id).then(full => {
+        if (full) setSelectedRepair(prev => (prev && prev.id === full.id ? full : prev));
+      });
+    }
   };
 
   const closeDetailModal = () => {
@@ -2560,17 +2881,13 @@ function RepairsCompletedPage() {
               {selectedRepair.workshop_photos && selectedRepair.workshop_photos.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Photos</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {selectedRepair.workshop_photos.map((photo, index) => (
-                      <img
-                        key={index}
-                        src={photo.data}
-                        alt={`Repair Photo ${index + 1}`}
-                        className="w-full h-32 object-cover rounded cursor-pointer hover:opacity-75"
-                        onClick={() => window.open(photo.data, '_blank')}
-                      />
-                    ))}
-                  </div>
+                  <ChecklistPhotos
+                    photos={selectedRepair.workshop_photos}
+                    alt="Repair Photo"
+                    imgClassName="w-full h-32 object-cover rounded"
+                    gridClassName="grid grid-cols-2 md:grid-cols-3 gap-3"
+                    onPhotoClick={(photo) => window.open(photo.data, '_blank')}
+                  />
                 </div>
               )}
             </div>
@@ -5377,10 +5694,10 @@ function GeneralRepairRecord() {
         }
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
           const photoData = {
             id: Date.now(),
-            data: e.target.result,
+            data: await compressImage(e.target.result),
             timestamp: new Date().toISOString()
           };
           setRepairPhotos(prev => [...prev, photoData]);
@@ -5404,16 +5721,10 @@ function GeneralRepairRecord() {
       const video = document.getElementById('camera-video');
       video.srcObject = stream;
       
-      setTimeout(() => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0);
-        
+      setTimeout(async () => {
         const photoData = {
           id: Date.now(),
-          data: canvas.toDataURL('image/jpeg', 0.8),
+          data: await compressImage(video),
           timestamp: new Date().toISOString()
         };
         
@@ -6492,15 +6803,7 @@ function AppContent() {
                     <CalendarDays className="h-4 w-4 mr-1" /> Workplan
                   </Link>
                 )}
-                {/* Cropping Map button - opens Map-only view */}
-                <button
-                  onClick={() => window.open(`${API_BASE_URL}/api/fieldmap`, '_blank')}
-                  className="text-gray-200 hover:text-green-400 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors inline-flex items-center"
-                  data-testid="nav-cropping-map"
-                >
-                  <MapPin className="h-4 w-4 mr-1" /> Map
-                </button>
-                
+
                 {/* User info and logout */}
                 {isAuthenticated && employee && (
                   <div className="flex items-center space-x-2 border-l border-gray-600 pl-2 sm:pl-4 ml-2 sm:ml-4">

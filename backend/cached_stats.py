@@ -41,7 +41,7 @@ async def compute_simple_stats(db):
     
     # All counts run in parallel for speed
     total_completed = await db.checklists.count_documents({
-        "check_type": {"$in": ["daily_check", "grader_startup", "workshop_service"]}
+        "check_type": {"$in": ["daily_check", "grader_startup", "workshop_service", "pre_service_check"]}
     })
     
     # For today's count, use regex to match the date part regardless of time format
