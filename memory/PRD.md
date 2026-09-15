@@ -133,13 +133,26 @@ QR code-based machine checklist application with health, safety, and work manage
 - [x] Login/validate/upload endpoints now re-raise HTTPException (401 for inactive employee instead of 400)
 - Verified: testing agent iteration_14 (17 idempotency tests + regressions, frontend smoke) + `tests/test_sync_utils.py`; leftover TEST_ data purged
 
+## AssetList-driven Pre Service Sheets + Generic Pre Service Check (June 2026)
+- [x] Pre Service Check sheets are now assigned per CHECK TYPE from AssetList.xlsx tabs (user's design): `<Check Type> - Daily Check` = daily list, `<Check Type> - Pre Service Sheet` (also "Service Sheet"/"Pre Service Check") = service sections, plain `<Check Type>` tab = daily list (legacy). Matching is case/punctuation/plural-insensitive (`Irrigators` → `Irrigator`); partial matches never overwrite an exact one (`Tractor Hire` no longer clobbers `Tractor`). Header row optional (service tab is `number | section`)
+- [x] Shared parser `backend/asset_excel.py` (`parse_asset_workbook`) used by BOTH admin `POST /api/admin/upload-assets-file` and the SharePoint daily sync (`sharepoint_auto_sync._parse_assets_excel`). Hard-coded Perrot seed + `PERROT_SERVICE_SECTIONS` removed; `sync_utils.upsert_service_check_templates` upserts by check_type and drops sheets no longer in the workbook (incl. legacy make-only ones)
+- [x] `ServiceCheckTemplate` now `{check_type, make(legacy), name, sections, sheet_name, updated_at}`. `GET /api/service-check-templates/by-make/{make}` REMOVED → `GET /api/service-check-templates/for-asset?check_type=&make=` (check_type first, legacy make fallback, 404 otherwise). Template diagnostics return `service_templates`; upload response has `service_templates_created` + `processed_sheets`
+- [x] Current data (user's AssetList.xlsx uploaded to preview): check type `Irrigator` = 92 machines (Perrot 57, Briggs 33, Bauer 2); 13-section sheet (Gun Carriage General … Intake Pipe Work) + 5-item Irrigator daily check
+- [x] GENERIC Pre Service Check: the purple button now shows for EVERY machine. If the check type has no sheet → "General Pre Service Check": user adds their own parts/areas (add-service-section-input, removable custom cards), OK / Needs Work / N/A, photos, "Any other Parts or Issues" notes/photos, Parts required (name + part number). Submit blocked until at least one part, note, photo or part-required exists. Templated sheets also allow adding extra parts
+- [x] Admin UI: upload results list "Excel tabs read" (purple = Pre Service Sheet, amber = skipped); Template Diagnostics shows "Pre Service Sheets (n)" with sections + asset counts
+- [x] Fault modal test ids (`fault-explanation-textarea`, `fault-record-btn`, `fault-cancel-btn`); machine name list cleared while a new make's names load
+- Verified by testing agent: backend 100%, frontend Irrigator + Generic flows end-to-end, regressions pass (/app/test_reports/iteration_16.json). Tests: `backend/tests/test_asset_excel.py`, `test_pre_service_check.py` (updated to 13 sections)
+- NOTE for user/live app: after deploying, re-upload AssetList.xlsx in Admin (or wait for the 9 AM SharePoint sync) so the Irrigator sheet exists; until then irrigators get the generic check
+
 ## Pending / Backlog
-- [ ] P1: Pre Service Check admin editor: choose which makes/check types get a service sheet, edit sections & add sub-items (user: "then we can add the functionality of which checks from where later")
-- [ ] P1: Continue App.js modularization (~6,480 lines remain: Records, AllChecksCompleted, Training, Accidents, etc.)
+- [ ] P1: Continue App.js modularization (~6,500 lines remain: Records, AllChecksCompleted, Training, Accidents, etc.)
+- [x] ~~P1: Pre Service Check admin editor~~ → superseded: sheets are configured in AssetList.xlsx tabs (June 2026)
 - [x] ~~P1: Fix React Hook dependencies~~ (DONE June 2026 — rules now enforced via .eslintrc.json)
-- [ ] P1: Refactor `upload_assets_file()` (175 lines, complexity 63) and `upload_staff_file()` (124 lines)
+- [x] ~~P1: Refactor `upload_assets_file()`~~ (DONE — now 30 lines using `asset_excel.parse_asset_workbook`)
+- [ ] P1: Refactor `upload_staff_file()` (124 lines)
 - [ ] P1: Replace array index keys with unique IDs (remaining instances)
 - [ ] P1: Restore hidden features when ready
+- [ ] P2: `test_sync_idempotency.py` test_01 cases flaky when leftover TEST_ rows exist in DB (pre-existing)
 - [ ] P2: Trace background HTTP 422 seen in console (non-blocking)
 - [ ] P2: Date range filter for "All Checks Overview"
 - [ ] P2: Add type hints to Python files (currently 32.9% coverage)

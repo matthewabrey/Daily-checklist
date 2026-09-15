@@ -881,6 +881,26 @@ function TemplateDiagnostics() {
                 </div>
               ))}
             </div>
+
+            <div className="pt-2" data-testid="service-templates-diagnostics">
+              <p className="text-sm font-medium text-purple-800">Pre Service Sheets ({diagnostics.service_templates?.length || 0})</p>
+              <p className="text-xs text-gray-500 mb-2">From AssetList tabs named "&lt;Check Type&gt; - Pre Service Sheet". Machines without one get the general whole-machine check.</p>
+              {diagnostics.service_templates?.map((t) => (
+                <div key={t.check_type} className="p-3 bg-white rounded-lg border border-purple-200 shadow-sm mb-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-sm">{t.check_type}</span>
+                      {t.sheet_name && <span className="text-xs text-gray-500 ml-2">(sheet: "{t.sheet_name}")</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{t.section_count} sections</span>
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">{t.assets_using_this} assets</span>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 truncate">{t.sections?.join(' · ')}</p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>
@@ -1131,6 +1151,16 @@ function SharePointAdminComponent() {
                 </p>
               )}
             </div>
+            {uploadResults.processed_sheets?.length > 0 && (
+              <div className="mt-3" data-testid="processed-sheets-list">
+                <p className="text-sm font-medium text-gray-700 mb-1">Excel tabs read:</p>
+                <ul className="text-xs text-gray-600 space-y-0.5 max-h-64 overflow-y-auto">
+                  {uploadResults.processed_sheets.map((line) => (
+                    <li key={line} className={line.includes('Pre Service Sheet') ? 'text-purple-700 font-medium' : line.includes('skipped') ? 'text-amber-700' : ''}>• {line}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

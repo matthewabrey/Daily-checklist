@@ -16,7 +16,8 @@ from sharepoint_auto_sync import sharepoint_auto_sync
 from cached_stats import get_cached_stats, invalidate_cache
 from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH
 from servicing_export import build_servicing_workbook
-from sync_utils import upsert_staff, upsert_assets, upsert_checklist_templates, dedupe_collection
+from sync_utils import upsert_staff, upsert_assets, upsert_checklist_templates, upsert_service_check_templates, dedupe_collection
+from asset_excel import parse_asset_workbook
 import qrcode
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -192,9 +193,12 @@ class ChecklistTemplate(BaseModel):
     
 class ServiceCheckTemplate(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    make: str  # Asset make this pre-service sheet applies to (e.g. "Perrot")
+    check_type: Optional[str] = None  # Asset check type this pre-service sheet applies to (e.g. "Irrigator")
+    make: Optional[str] = None  # Legacy: make-specific sheet (pre-Excel seeding)
     name: str
     sections: List[str]
+    sheet_name: Optional[str] = None
+    updated_at: Optional[str] = None
 
 class Checklist(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -534,27 +538,9 @@ async def initialize_workplan_data():
         for i, (name, color) in enumerate(default_colors):
             await db.workplan_colors.insert_one({"id": str(uuid.uuid4()), "name": name, "color": color, "order": i})
 
-PERROT_SERVICE_SECTIONS = [
-    "Gun Carriage General",
-    "Gun Carriage Wheels and Axles",
-    "Gun",
-    "Hydraulic Rams",
-    "Drum",
-    "Guards",
-    "Computer/Computer Box",
-]
-
-async def initialize_service_check_templates():
-    """Seed the Perrot pre-service sheet once (idempotent)"""
-    if await db.service_check_templates.count_documents({"make": "Perrot"}) == 0:
-        template = ServiceCheckTemplate(make="Perrot", name="Perrot Irrigator Pre Service Check", sections=PERROT_SERVICE_SECTIONS)
-        await db.service_check_templates.insert_one(template.dict())
-        logger.info("Seeded Perrot pre-service check template")
-
 @app.on_event("startup")
 async def startup_data_init():
     await initialize_data()
-    await initialize_service_check_templates()
     await initialize_workplan_data()
     await migrate_existing_checklists()
     await ensure_indexes()
@@ -834,13 +820,21 @@ async def get_checktype_by_make_and_name(make: str, name: str):
 async def get_service_check_templates():
     return await db.service_check_templates.find({}, {"_id": 0}).to_list(length=100)
 
-@app.get("/api/service-check-templates/by-make/{make}", response_model=ServiceCheckTemplate)
-async def get_service_check_template_by_make(make: str):
-    template = await db.service_check_templates.find_one(
-        {"make": {"$regex": f"^{re.escape(make)}$", "$options": "i"}}, {"_id": 0}
-    )
+def _exact_ci(value: str) -> dict:
+    return {"$regex": f"^{re.escape(value.strip())}$", "$options": "i"}
+
+@app.get("/api/service-check-templates/for-asset", response_model=ServiceCheckTemplate)
+async def get_service_check_template_for_asset(check_type: str = "", make: str = ""):
+    """Pre Service Sheet for a machine: matched on its check type (from AssetList tabs), legacy make sheets as fallback"""
+    template = None
+    if check_type.strip():
+        template = await db.service_check_templates.find_one({"check_type": _exact_ci(check_type)}, {"_id": 0})
+    if not template and make.strip():
+        template = await db.service_check_templates.find_one(
+            {"check_type": {"$in": [None, ""]}, "make": _exact_ci(make)}, {"_id": 0}
+        )
     if not template:
-        raise HTTPException(status_code=404, detail="No pre-service check template for this make")
+        raise HTTPException(status_code=404, detail="No pre-service check template for this machine")
     return template
 
 @app.get("/api/assets", response_model=List[Asset])
@@ -1407,11 +1401,22 @@ async def get_template_diagnostics():
         # Find check_types with no template
         template_types = set(t.get('check_type') for t in templates)
         missing_templates = [ct for ct in check_type_counts if ct not in template_types]
+
+        service_templates = [{
+            'check_type': t.get('check_type') or f"make: {t.get('make')}",
+            'name': t.get('name'),
+            'sheet_name': t.get('sheet_name'),
+            'section_count': len(t.get('sections', [])),
+            'sections': t.get('sections', []),
+            'updated_at': t.get('updated_at'),
+            'assets_using_this': check_type_counts.get(t.get('check_type'), 0),
+        } async for t in db.service_check_templates.find({}, {"_id": 0})]
         
         return {
             'total_assets': len(assets),
             'check_type_counts': check_type_counts,
             'templates': template_info,
+            'service_templates': service_templates,
             'missing_templates': missing_templates
         }
     except Exception as e:
@@ -1419,159 +1424,39 @@ async def get_template_diagnostics():
 
 
 
-@app.post("/api/admin/upload-assets-file") 
+@app.post("/api/admin/upload-assets-file")
 async def upload_assets_file(file: UploadFile = File(...)):
-    """Upload and process assets from Excel file"""
+    """Upload AssetList.xlsx: assets + Daily Check / Pre Service Sheet templates per check type"""
     try:
-        import openpyxl
-        from io import BytesIO
-        
-        # Read file content
-        file_content = await file.read()
-        
-        # Load the Excel file
-        workbook = openpyxl.load_workbook(BytesIO(file_content))
-        sheet = workbook[workbook.sheetnames[0]]  # Use first sheet, not active
-        
-        # Get headers and find check_type, name, make columns
-        headers = [str(cell.value).strip().lower() if cell.value else '' for cell in sheet[1]]
-        check_type_col = None
-        name_col = None
-        make_col = None
-        
-        for i, header in enumerate(headers):
-            if header == 'check type' or 'checktype' in header:
-                check_type_col = i
-            elif header == 'namecolumn' or 'name' in header:
-                name_col = i
-            elif header == 'makecolumn' or 'make' in header:
-                make_col = i
-        
-        if check_type_col is None or name_col is None or make_col is None:
-            raise HTTPException(status_code=400, detail="Could not find Check Type, Name of Implement, and Make columns in the file")
-        
-        # Extract asset data
-        assets = []
-        for row in sheet.iter_rows(min_row=2, values_only=True):  # Skip header
-            if row and len(row) > max(check_type_col, name_col, make_col):
-                check_type = str(row[check_type_col]).strip() if row[check_type_col] else ''
-                name = str(row[name_col]).strip() if row[name_col] else ''
-                make = str(row[make_col]).strip() if row[make_col] else ''
-                
-                if check_type and name and make:
-                    assets.append({
-                        "check_type": check_type,
-                        "name": name, 
-                        "make": make
-                    })
-        
-        if not assets:
-            raise HTTPException(status_code=400, detail="No asset data found in the uploaded file")
-        
-        # Idempotent upsert - keeps ids + QR print status, retires assets missing from the file
-        asset_stats = await upsert_assets(db, assets)
-        
-        # Process checklist sheets
-        checklist_templates = []
-        processed_sheets = []
-        
-        # Get all unique check types from assets
-        unique_check_types = set(asset['check_type'] for asset in assets)
-        
-        # Process each sheet in the workbook
-        for sheet_name in workbook.sheetnames:
-            sheet = workbook[sheet_name]
-            
-            # Skip the main asset sheet (first sheet)
-            if sheet_name == workbook.sheetnames[0]:
-                continue
-            
-            # Try to match sheet name with check types - improved matching
-            matching_check_type = None
-            sheet_name_clean = sheet_name.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
-            
-            # First try exact matches
-            for check_type in unique_check_types:
-                check_type_clean = check_type.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
-                if sheet_name_clean == check_type_clean or check_type.lower() == sheet_name.lower():
-                    matching_check_type = check_type
-                    break
-            
-            # If no exact match, try partial matches
-            if not matching_check_type:
-                for check_type in unique_check_types:
-                    check_type_clean = check_type.lower().replace('/', '').replace(' ', '').replace('_', '').replace('-', '').replace('checklist', '')
-                    if sheet_name_clean in check_type_clean or check_type_clean in sheet_name_clean:
-                        matching_check_type = check_type
-                        break
-            
-            # If still no match, use sheet name as check type
-            if not matching_check_type:
-                matching_check_type = sheet_name
-            
-            # Extract checklist items from this sheet
-            # First, find the header row and locate the "Compulsory" column
-            items = []
-            compulsory_col = None
-            item_col = 0  # Default to first column for item text
-            
-            # Get headers from first row to find Compulsory column
-            header_row = list(sheet.iter_rows(min_row=1, max_row=1, values_only=True))[0]
-            if header_row:
-                for col_idx, header in enumerate(header_row):
-                    if header:
-                        header_lower = str(header).strip().lower()
-                        if 'compulsory' in header_lower or 'compulsary' in header_lower:  # Handle common misspelling
-                            compulsory_col = col_idx
-                        elif 'item' in header_lower or 'task' in header_lower or 'check' in header_lower or 'description' in header_lower:
-                            item_col = col_idx
-            
-            for row_num, row in enumerate(sheet.iter_rows(values_only=True), 1):
-                if row_num == 1:  # Skip header row
-                    continue
-                    
-                if row and len(row) > item_col and row[item_col]:  # If item column has content
-                    item_text = str(row[item_col]).strip()
-                    # Skip obvious headers or empty items
-                    if (item_text and 
-                        item_text.lower() not in ['item', 'check', 'description', 'checklist', 'safety'] and
-                        len(item_text) > 3):  # Minimum length filter
-                        
-                        # Check if item is marked as compulsory
-                        is_compulsory = False
-                        if compulsory_col is not None and len(row) > compulsory_col and row[compulsory_col]:
-                            compulsory_value = str(row[compulsory_col]).strip().lower()
-                            is_compulsory = compulsory_value in ['yes', 'y', 'true', '1', 'x', 'compulsory']
-                        
-                        items.append({"item": item_text, "compulsory": is_compulsory})
-            
-            if items:
-                compulsory_count = sum(1 for item in items if item.get('compulsory', False))
-                template = {
-                    "id": str(uuid.uuid4()),
-                    "check_type": matching_check_type,
-                    "items": items
-                }
-                checklist_templates.append(template)
-                processed_sheets.append(f"{sheet_name} -> {matching_check_type} ({len(items)} items, {compulsory_count} compulsory)")
-        
-        # Update checklist templates in database (upsert per check type - nothing is wiped)
-        if checklist_templates:
-            await upsert_checklist_templates(db, checklist_templates)
-        
-        return {
-            "message": f"Successfully uploaded {len(assets)} assets ({asset_stats['added']} added, {asset_stats['updated']} updated, {asset_stats['retired']} retired) and {len(checklist_templates)} checklist templates", 
-            "count": len(assets),
-            **asset_stats,
-            "templates_created": len(checklist_templates),
-            "processed_sheets": processed_sheets,
-            "preview": assets[:5] if assets else []
-        }
-        
-    except HTTPException:
-        raise
+        parsed = parse_asset_workbook(await file.read())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process assets file: {str(e)}")
+    assets = parsed["assets"]
+    if not assets:
+        raise HTTPException(status_code=400, detail="No asset data found in the uploaded file")
+
+    # Idempotent upserts - keeps ids + QR print status, retires assets missing from the file
+    asset_stats = await upsert_assets(db, assets)
+    if parsed["checklist_templates"]:
+        await upsert_checklist_templates(db, parsed["checklist_templates"])
+    if parsed["service_templates"]:
+        await upsert_service_check_templates(db, parsed["service_templates"])
+
+    return {
+        "message": (
+            f"Successfully uploaded {len(assets)} assets ({asset_stats['added']} added, {asset_stats['updated']} updated, "
+            f"{asset_stats['retired']} retired), {len(parsed['checklist_templates'])} daily check lists "
+            f"and {len(parsed['service_templates'])} pre service sheets"
+        ),
+        "count": len(assets),
+        **asset_stats,
+        "templates_created": len(parsed["checklist_templates"]),
+        "service_templates_created": len(parsed["service_templates"]),
+        "processed_sheets": parsed["processed_sheets"],
+        "preview": assets[:5],
+    }
 
 @app.post("/api/admin/upload-checklist-file/{check_type}")
 async def upload_checklist_file(check_type: str, file: UploadFile = File(...)):

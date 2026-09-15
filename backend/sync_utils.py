@@ -104,3 +104,17 @@ async def upsert_checklist_templates(db, templates: List[Dict]) -> int:
         await db.checklist_templates.replace_one({"check_type": t["check_type"]}, t, upsert=True)
     logger.info(f"Checklist templates sync: {len(templates)} templates upserted")
     return len(templates)
+
+
+async def upsert_service_check_templates(db, templates: List[Dict]) -> int:
+    """Pre Service Sheets are driven entirely by the AssetList tabs: upsert by check_type and drop
+    sheets (incl. legacy make-only ones) that are no longer in the workbook."""
+    if not templates:
+        return 0
+    now = datetime.now(timezone.utc).isoformat()
+    for t in templates:
+        t["updated_at"] = now
+        await db.service_check_templates.replace_one({"check_type": t["check_type"]}, t, upsert=True)
+    removed = await db.service_check_templates.delete_many({"check_type": {"$nin": [t["check_type"] for t in templates]}})
+    logger.info(f"Service check templates sync: {len(templates)} upserted, {removed.deleted_count} removed")
+    return len(templates)

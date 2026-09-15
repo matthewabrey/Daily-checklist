@@ -16,6 +16,17 @@ import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../lib/api';
 import { compressImage } from '../lib/images';
 
+// Used when a machine's check type has no "<Check Type> - Pre Service Sheet" tab in AssetList.xlsx
+const GENERIC_SERVICE_TEMPLATE = {
+  name: 'General Pre Service Check',
+  sections: [],
+  generic: true,
+};
+
+const newServiceItem = (name, custom = false) => ({
+  item: name, status: 'unchecked', notes: '', compulsory: false, photos: [], custom,
+});
+
 const DEFAULT_CHECKLIST_ITEMS = [
   { item: "Oil level check - Engine oil at correct level", status: "unchecked", notes: "" },
   { item: "Fuel level check - Adequate fuel for operation", status: "unchecked", notes: "" },
@@ -207,8 +218,9 @@ export default function NewChecklist() {
 
   useEffect(() => {
     if (selectedMake) {
+      setNames([]); // clear stale list until the new make's names arrive
       fetchNames(selectedMake);
-      fetchServiceTemplate(selectedMake);
+      setServiceTemplate(null);
       setSelectedName(''); // Reset name when make changes
       setMachineCheckType(''); // Reset check type
     }
@@ -220,25 +232,45 @@ export default function NewChecklist() {
     }
   }, [selectedMake, selectedName]);
 
+  // Pre Service Sheet is assigned per check type (AssetList tab "<Check Type> - Pre Service Sheet")
+  useEffect(() => {
+    if (selectedMake && machineCheckType) {
+      fetchServiceTemplate(machineCheckType, selectedMake);
+    }
+  }, [selectedMake, machineCheckType]);
+
   useEffect(() => {
     if (step === 3 && selectedCheckType === 'daily_check' && machineCheckType) {
       loadChecklistTemplate(machineCheckType).then(setChecklistItems);
     }
-    if (step === 3 && selectedCheckType === 'pre_service_check' && serviceTemplate) {
-      setChecklistItems(serviceTemplate.sections.map(section => ({
-        item: section, status: 'unchecked', notes: '', compulsory: false, photos: []
-      })));
+    if (step === 3 && selectedCheckType === 'pre_service_check') {
+      setChecklistItems((serviceTemplate || GENERIC_SERVICE_TEMPLATE).sections.map(section => newServiceItem(section)));
     }
   }, [step, selectedCheckType, machineCheckType, serviceTemplate]);
 
-  const fetchServiceTemplate = async (make) => {
+  const fetchServiceTemplate = async (checkType, make) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/service-check-templates/by-make/${encodeURIComponent(make)}`);
-      setServiceTemplate(response.ok ? await response.json() : null);
+      const params = new URLSearchParams({ check_type: checkType, make });
+      const response = await fetch(`${API_BASE_URL}/api/service-check-templates/for-asset?${params}`);
+      setServiceTemplate(response.ok ? await response.json() : GENERIC_SERVICE_TEMPLATE);
     } catch (error) {
       console.error('Error fetching service template:', error);
-      setServiceTemplate(null);
+      setServiceTemplate(GENERIC_SERVICE_TEMPLATE);
     }
+  };
+
+  const addServiceSection = (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (checklistItems.some(i => i.item.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error('That part / area is already on the list');
+      return;
+    }
+    setChecklistItems(prev => [...prev, newServiceItem(trimmed, true)]);
+  };
+
+  const removeServiceSection = (index) => {
+    setChecklistItems(prev => prev.filter((_, i) => i !== index));
   };
 
   const addPartRequired = () => {
@@ -601,6 +633,11 @@ export default function NewChecklist() {
       }
     }
 
+    if (selectedCheckType === 'pre_service_check' && checklistItems.length === 0 && !workshopNotes.trim() && workshopPhotos.length === 0 && partsRequired.length === 0) {
+      toast.error('Add at least one part / area you checked, a note, a photo or a part required before saving.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const isPreService = selectedCheckType === 'pre_service_check';
@@ -656,11 +693,14 @@ export default function NewChecklist() {
     item.compulsory && item.status === 'unsatisfactory'
   );
 
+  const preServiceHasContent = selectedCheckType !== 'pre_service_check'
+    || checklistItems.length > 0 || workshopNotes.trim() !== '' || workshopPhotos.length > 0 || partsRequired.length > 0;
+
   const allItemsAddressed = selectedCheckType === 'workshop_service' 
     ? workshopNotes.trim() !== '' 
     : selectedCheckType === 'fuel_mileage'
     ? (fuelMileage.trim() !== '' || fuelAdded.trim() !== '' || adBlueAdded.trim() !== '')
-    : checklistItems.every(item => {
+    : preServiceHasContent && checklistItems.every(item => {
         // Must have a status (not unchecked)
         const hasStatus = item.status === 'satisfactory' || item.status === 'n/a' || item.status === 'unsatisfactory';
         
@@ -752,17 +792,19 @@ export default function NewChecklist() {
                 placeholder="Describe the issue and any immediate actions taken..."
                 className="min-h-[100px] border-red-300 focus:border-red-500"
                 autoFocus
+                data-testid="fault-explanation-textarea"
               />
             </div>
             
             <div className="flex justify-end space-x-3">
-              <Button variant="outline" onClick={closeFaultModal}>
+              <Button variant="outline" onClick={closeFaultModal} data-testid="fault-cancel-btn">
                 Cancel
               </Button>
               <Button 
                 onClick={handleFaultExplanation}
                 className="bg-red-600 hover:bg-red-700 text-white"
                 disabled={!faultExplanation.trim()}
+                data-testid="fault-record-btn"
               >
                 Record Fault
               </Button>
@@ -1009,7 +1051,7 @@ export default function NewChecklist() {
                   
                   <p className="text-gray-700 font-medium">Select check type:</p>
                   
-                  <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${serviceTemplate ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-4">
                     <Button 
                       onClick={() => {
                         setSelectedCheckType('daily_check');
@@ -1049,20 +1091,18 @@ export default function NewChecklist() {
                       <span className="text-xs opacity-90">Record fuel and mileage</span>
                     </Button>
 
-                    {serviceTemplate && (
-                      <Button 
-                        onClick={() => {
-                          setSelectedCheckType('pre_service_check');
-                          setStep(3);
-                        }}
-                        className="h-auto py-4 bg-purple-700 hover:bg-purple-800 flex flex-col items-center gap-2"
-                        data-testid="pre-service-check-btn"
-                      >
-                        <ClipboardCheck className="h-6 w-6" />
-                        <span className="text-lg font-semibold">Pre Service Check</span>
-                        <span className="text-xs opacity-90">End of season service sheet</span>
-                      </Button>
-                    )}
+                    <Button 
+                      onClick={() => {
+                        setSelectedCheckType('pre_service_check');
+                        setStep(3);
+                      }}
+                      className="h-auto py-4 bg-purple-700 hover:bg-purple-800 flex flex-col items-center gap-2"
+                      data-testid="pre-service-check-btn"
+                    >
+                      <ClipboardCheck className="h-6 w-6" />
+                      <span className="text-lg font-semibold">Pre Service Check</span>
+                      <span className="text-xs opacity-90">{serviceTemplate && !serviceTemplate.generic ? `${serviceTemplate.sections.length}-section service sheet` : 'Whole-machine check & parts list'}</span>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -1168,28 +1208,30 @@ export default function NewChecklist() {
                   </div>
                 </Card>
 
-                {serviceTemplate && (
-                  <Card 
-                    className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-purple-400 border-2 ${selectedCheckType === 'pre_service_check' ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}`}
-                    onClick={() => {
-                      setSelectedCheckType('pre_service_check');
-                      setStep(3);
-                    }}
-                    data-testid="pre-service-check-option"
-                  >
-                    <div className="flex items-center space-x-3 sm:space-x-4">
-                      <div className="p-3 bg-purple-100 rounded-lg">
-                        <ClipboardCheck className="h-6 w-6 text-purple-700" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg sm:text-xl">Pre Service Check</h3>
-                        <p className="text-gray-600 text-sm sm:text-base">{serviceTemplate.name}</p>
-                        <p className="text-xs sm:text-sm text-gray-500 mt-1">End of season service sheet — {serviceTemplate.sections.length} sections</p>
-                        <p className="text-sm text-purple-700 font-medium mt-2">Tap to start →</p>
-                      </div>
+                <Card 
+                  className={`p-4 sm:p-6 cursor-pointer transition-all hover:shadow-lg hover:border-purple-400 border-2 ${selectedCheckType === 'pre_service_check' ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}`}
+                  onClick={() => {
+                    setSelectedCheckType('pre_service_check');
+                    setStep(3);
+                  }}
+                  data-testid="pre-service-check-option"
+                >
+                  <div className="flex items-center space-x-3 sm:space-x-4">
+                    <div className="p-3 bg-purple-100 rounded-lg">
+                      <ClipboardCheck className="h-6 w-6 text-purple-700" />
                     </div>
-                  </Card>
-                )}
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg sm:text-xl">Pre Service Check</h3>
+                      <p className="text-gray-600 text-sm sm:text-base">{(serviceTemplate || GENERIC_SERVICE_TEMPLATE).name}</p>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                        {serviceTemplate && !serviceTemplate.generic
+                          ? `End of season service sheet — ${serviceTemplate.sections.length} sections`
+                          : 'No set sheet for this machine type — check the whole machine, list parts and photograph issues'}
+                      </p>
+                      <p className="text-sm text-purple-700 font-medium mt-2">Tap to start →</p>
+                    </div>
+                  </div>
+                </Card>
               </div>
               
               <div className="flex justify-start pt-6">
@@ -1219,7 +1261,7 @@ export default function NewChecklist() {
                 </div>
                 {(selectedCheckType === 'daily_check' || selectedCheckType === 'pre_service_check') && (
                   <Badge variant={allItemsAddressed ? "default" : "secondary"} className="px-3 py-1" data-testid="items-complete-badge">
-                    {checklistItems.filter(item => item.status !== 'unchecked').length} / {checklistItems.length} Complete
+                    {checklistItems.filter(item => item.status !== 'unchecked').length} / {checklistItems.length} {checklistItems.length === 0 && selectedCheckType === 'pre_service_check' ? 'parts added' : 'Complete'}
                   </Badge>
                 )}
               </div>
@@ -1365,11 +1407,13 @@ export default function NewChecklist() {
                     </Card>
                   ))}
                 </div>
-              ) : selectedCheckType === 'pre_service_check' && serviceTemplate ? (
+              ) : selectedCheckType === 'pre_service_check' ? (
                 <PreServiceCheckForm
-                  template={serviceTemplate}
+                  template={serviceTemplate || GENERIC_SERVICE_TEMPLATE}
                   items={checklistItems}
                   onItemChange={handleItemChange}
+                  onAddSection={addServiceSection}
+                  onRemoveSection={removeServiceSection}
                   takePhoto={takePhoto}
                   uploadPhoto={uploadPhoto}
                   deletePhoto={deletePhoto}

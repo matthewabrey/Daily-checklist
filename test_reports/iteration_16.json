@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 16 - AssetList-driven Pre Service Check templates: backend 100% pass (all new-feature endpoints), frontend Irrigator + Generic flows both work end-to-end. Regression suites also pass (except 3 pre-existing sync_idempotency flaky tests unrelated to new feature).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/service-check-templates/for-asset (list)", "issue": "Response JSON includes `make: null` field on templates. Not a bug per se but the field is redundant now that templates are keyed by check_type; consider removing from ServiceCheckTemplate serialization to avoid confusion."},
+      {"endpoint": "/api/admin/upload-staff-file & /api/admin/upload-assets-file (idempotency)", "issue": "Pre-existing failures in test_sync_idempotency.py test_01_upload_with_extra_row (expects added>=1 but got 0 because a prior test-run soft-deleted TEST_Sync Person still exists and is only 'updated/un-retired' instead of 'added'). Same for asset test_01. This is legacy test flakiness caused by test data leaked by earlier iterations, NOT a new-feature bug."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "NewChecklist / Make+Name Select", "issue": "When user rapidly changes 'Machine Make' and immediately opens 'Machine Name' before fetchNames() resolves, the stale previous list can still be shown and a stale name selection maps to a machine of the previous make (observed: after Perrot, selecting JCB then quickly picking name[0] returned a Bauer machine). Add loading state / disable name select until names refresh.", "selector": "name-select combobox", "priority": "LOW"},
+      {"component": "Fault Explanation Modal (NewChecklist.js:757-811)", "issue": "Modal textarea and 'Record Fault' button have no data-testid, making automated testing brittle. Also this modal is not [role=dialog]. Add data-testid='fault-explanation-textarea' and data-testid='fault-record-btn'.", "selector": "modal textarea/buttons", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter16_service_templates.py",
+    "/app/backend/tests/test_pre_service_check.py",
+    "/app/backend/tests/test_asset_excel.py",
+    "/app/test_reports/pytest/iter16_new.xml",
+    "/app/test_reports/pytest/iter16_regression.xml"
+  ],
+  "action_items": [
+    "(Optional) Add data-testid to Fault Explanation Modal textarea + Record Fault button",
+    "(Optional) Disable Machine Name select or clear its combobox display until fetchNames() resolves to prevent stale selection after fast make switching",
+    "(Optional) Remove redundant `make: null` field from ServiceCheckTemplate serialization"
+  ],
+  "critical_code_review_comments": [
+    "NewChecklist.js is 1675 lines - consider splitting the Fault Modal, Add Machine Modal, and the daily/pre-service/fuel step-3 forms into separate components (>700 line threshold).",
+    "fetchServiceTemplate silently falls back to GENERIC_SERVICE_TEMPLATE on network error - error is only logged; user has no signal. A subtle toast would be useful.",
+    "sync_idempotency.py tests are stateful and require a clean DB baseline every run; consider a proper setup fixture that first ensures the TEST_ rows are gone (upload baseline once) before the additive test."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter16_service_templates.py (new)"
+  ],
+  "success_rate": {"backend": "100% (15/15 new + 63/66 regression; 3 sync_idempotency failures are pre-existing state issues)", "frontend": "100% of critical flows verified (Irrigator PSC full flow, Generic PSC full flow, Admin Template Diagnostics, /all-checks?view=servicing)"},
+  "test_credentials": "1234 (Matthew Abrey), 4444 (Admin User) - per /app/memory/test_credentials.md",
+  "seed_data_creation": "Created TEST_ prefixed pre_service_check records (Perrot Machine 1 / Bauer P16 / JCB TEST_Fastrac 4220 / Bowser 1000l) via backend + frontend flows. All contain TEST_ prefix in notes/parts. No DELETE endpoint exists so records remain in DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend URL: REACT_APP_BACKEND_URL=https://core-checks-only.preview.emergentagent.com. AssetList2.xlsx already uploaded (idempotent). One Irrigator service template (13 sections, 92 assets). Fault Modal has no data-testid (use placeholder='Describe the issue and any immediate actions taken...' to target the textarea and get_by_role('button', name='Record Fault') for the button). Machine Name select must be given ~1.5-2s to refresh after make change or you can accidentally pick a stale machine from previous make. shadcn Selects use button[role=combobox]; not all data-testid on the Select root reaches the combobox button.",
+  "rca of the issue": "N/A - feature implemented correctly. The 3 sync_idempotency failures RCA: previous test runs added 'TEST_Sync Person' (staff) and 'TEST_Sync Machine' (asset), then soft-deleted/retired them. The test's first upload expects added>=1 but soft-deleted rows are un-retired (updated) instead of newly added, so added=0. Mitigation: modify the test to first hard-remove or accept `added>=1 OR updated>=1`."
+}

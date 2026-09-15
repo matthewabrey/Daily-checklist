@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Textarea } from './ui/textarea';
@@ -38,13 +39,20 @@ const PhotoRow = ({ photos, onTake, onUpload, onDelete, testId }) => (
   </div>
 );
 
-const SectionCard = ({ item, index, onItemChange, takePhoto, uploadPhoto, deletePhoto }) => (
+const SectionCard = ({ item, index, onItemChange, onRemove, takePhoto, uploadPhoto, deletePhoto }) => (
   <Card className={`p-4 ${item.status === 'unsatisfactory' ? 'border-l-4 border-l-red-500 bg-red-50/30' : item.status === 'satisfactory' ? 'border-l-4 border-l-green-500' : ''}`} data-testid={`service-section-${index}`}>
     <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-      <div className="flex-1">
-        <p className={`text-base font-semibold ${item.status === 'unsatisfactory' ? 'text-red-700' : item.status === 'n/a' ? 'text-gray-500' : 'text-gray-900'}`}>{item.item}</p>
-        {item.status === 'unsatisfactory' && <p className="mt-1 text-xs text-red-600 font-medium">⚠ Needs work - describe what is required below</p>}
-        {item.status === 'n/a' && <p className="mt-1 text-xs text-gray-500 font-medium">ℹ Not Applicable</p>}
+      <div className="flex-1 flex items-start gap-2">
+        {item.custom && (
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50 shrink-0" onClick={onRemove} title="Remove this part / area" data-testid={`service-section-${index}-remove`}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+        <div>
+          <p className={`text-base font-semibold ${item.status === 'unsatisfactory' ? 'text-red-700' : item.status === 'n/a' ? 'text-gray-500' : 'text-gray-900'}`}>{item.item}</p>
+          {item.status === 'unsatisfactory' && <p className="mt-1 text-xs text-red-600 font-medium">⚠ Needs work - describe what is required below</p>}
+          {item.status === 'n/a' && <p className="mt-1 text-xs text-gray-500 font-medium">ℹ Not Applicable</p>}
+        </div>
       </div>
       <div className="flex gap-2 shrink-0">
         {STATUS_BUTTONS.map(({ value, label, active, idle }) => (
@@ -82,12 +90,34 @@ const SectionCard = ({ item, index, onItemChange, takePhoto, uploadPhoto, delete
   </Card>
 );
 
+const AddSectionRow = ({ onAdd, generic }) => {
+  const [value, setValue] = useState('');
+  const submit = () => { onAdd(value); setValue(''); };
+  return (
+    <Card className={`p-4 border-dashed ${generic ? 'border-purple-300 bg-purple-50/30' : 'border-gray-300'}`} data-testid="add-service-section-card">
+      <label className="text-sm font-medium block mb-1">{generic ? 'Add a part / area you checked' : 'Add another part / area (optional)'}</label>
+      <div className="flex gap-2">
+        <Input
+          placeholder="e.g. Gearbox, Hydraulic hoses, Main bearing"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
+          data-testid="add-service-section-input"
+        />
+        <Button type="button" variant="outline" onClick={submit} disabled={!value.trim()} data-testid="add-service-section-btn">
+          <Plus className="h-4 w-4 mr-1" /> Add
+        </Button>
+      </div>
+    </Card>
+  );
+};
+
 const PartsRequiredList = ({ partsRequired, setPartsRequired, partInput, setPartInput, addPart }) => (
   <div className="space-y-2">
-    <label className="text-sm font-medium block">Parts required</label>
+    <label className="text-sm font-medium block">Parts required (name + part number)</label>
     <div className="flex gap-2">
       <Input
-        placeholder="e.g. Gun carriage tyre 10.0/75-15.3"
+        placeholder="e.g. Gun carriage tyre 10.0/75-15.3 — part no. 12345"
         value={partInput}
         onChange={(e) => setPartInput(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPart(); } }}
@@ -112,21 +142,32 @@ const PartsRequiredList = ({ partsRequired, setPartsRequired, partInput, setPart
   </div>
 );
 
+const Intro = ({ template }) => (
+  <div>
+    <h3 className="text-lg font-semibold">{template.name}</h3>
+    {template.generic ? (
+      <p className="text-sm text-gray-600" data-testid="generic-service-intro">
+        There is no set service sheet for this machine type, so work around the <span className="font-semibold">whole machine</span>: add each part or area you check, mark it <span className="font-semibold text-green-700">OK</span>, <span className="font-semibold text-red-600">Needs Work</span> or <span className="font-semibold text-gray-600">N/A</span>, take photos of any issues, and list the part numbers needed for replacements below.
+      </p>
+    ) : (
+      <p className="text-sm text-gray-600">Go through each section of the machine. Mark it <span className="font-semibold text-green-700">OK</span>, <span className="font-semibold text-red-600">Needs Work</span> or <span className="font-semibold text-gray-600">N/A</span>, then add notes and photos where useful.</p>
+    )}
+  </div>
+);
+
 export const PreServiceCheckForm = ({
-  template, items, onItemChange, takePhoto, uploadPhoto, deletePhoto,
+  template, items, onItemChange, onAddSection, onRemoveSection, takePhoto, uploadPhoto, deletePhoto,
   notes, setNotes, photos, partsRequired, setPartsRequired, partInput, setPartInput, addPart,
 }) => (
   <div className="space-y-4" data-testid="pre-service-check-form">
-    <div>
-      <h3 className="text-lg font-semibold">{template.name}</h3>
-      <p className="text-sm text-gray-600">Go through each section of the machine. Mark it <span className="font-semibold text-green-700">OK</span>, <span className="font-semibold text-red-600">Needs Work</span> or <span className="font-semibold text-gray-600">N/A</span>, then add notes and photos where useful.</p>
-    </div>
+    <Intro template={template} />
     {items.map((item, index) => (
-      <SectionCard key={item.item} item={item} index={index} onItemChange={onItemChange} takePhoto={takePhoto} uploadPhoto={uploadPhoto} deletePhoto={deletePhoto} />
+      <SectionCard key={item.item} item={item} index={index} onItemChange={onItemChange} onRemove={() => onRemoveSection(index)} takePhoto={takePhoto} uploadPhoto={uploadPhoto} deletePhoto={deletePhoto} />
     ))}
+    <AddSectionRow onAdd={onAddSection} generic={template.generic} />
     <Card className="p-4 border-purple-200 bg-purple-50/40" data-testid="other-parts-issues-card">
       <h4 className="text-base font-semibold text-purple-900">Any other Parts or Issues</h4>
-      <p className="text-xs text-gray-600 mb-3">Anything not covered by the sections above, plus a list of parts that need ordering.</p>
+      <p className="text-xs text-gray-600 mb-3">Anything not covered above, photos of issues across the machine, plus the parts that need ordering.</p>
       <Textarea
         placeholder="Describe any other issues found on this machine..."
         value={notes}
