@@ -1123,7 +1123,7 @@ export default function Dashboard() {
           <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold mb-1">{t('dashboardSubtitle')}</p>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
           <div className="flex items-center space-x-2 mt-1">
-            <p className="text-xs text-gray-400">Version 4.4</p>
+            <p className="text-xs text-gray-400">Version 4.5</p>
             <span className="text-gray-300">•</span>
             <p className="text-xs text-gray-400">
               <RefreshCw className="h-3 w-3 inline mr-1" />
@@ -2126,7 +2126,9 @@ export default function Dashboard() {
             {tractorReport && tractorReport.rows && tractorReport.rows.length > 0 && (
               <p className="text-xs text-gray-500 mt-0.5">
                 {tractorReport.machine_count} machines
-                {tractorReport.report_end_date ? ` · week ending ${tractorReport.report_end_date}` : ''}
+                {tractorReport.report_start_date && tractorReport.report_end_date
+                  ? ` · ${tractorReport.report_start_date} to ${tractorReport.report_end_date}`
+                  : (tractorReport.report_end_date ? ` · to ${tractorReport.report_end_date}` : '')}
               </p>
             )}
           </div>
@@ -2143,7 +2145,7 @@ export default function Dashboard() {
           return (
             <Card>
               <CardContent className="p-4 overflow-x-auto">
-                <table className="w-full text-sm" style={{ minWidth: 700 }}>
+                <table className="w-full text-sm" style={{ minWidth: 820 }}>
                   <thead>
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-2 pr-3 text-xs uppercase tracking-wider text-gray-500 font-semibold whitespace-nowrap">Machine</th>
@@ -2153,7 +2155,8 @@ export default function Dashboard() {
                       <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Transport (h)</th>
                       <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Total (h)</th>
                       <th className="text-left py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold" style={{ minWidth: 200 }}>Breakdown</th>
-                      <th className="text-right py-2 pl-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Work%</th>
+                      <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Work%</th>
+                      <th className="text-right py-2 pl-2 text-xs uppercase tracking-wider text-gray-500 font-semibold whitespace-nowrap">Lifetime (h)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2176,7 +2179,10 @@ export default function Dashboard() {
                               <div title={`Idle ${pI}%`} style={{ width: `${pI}%`, background: '#e67e22' }}></div>
                             </div>
                           </td>
-                          <td className="py-1.5 pl-2 text-right font-bold" style={{ color: workColour(pW) }}>{pW}%</td>
+                          <td className="py-1.5 px-2 text-right font-bold" style={{ color: workColour(pW) }}>{pW}%</td>
+                          <td className="py-1.5 pl-2 text-right text-gray-600 whitespace-nowrap">
+                            {r.lifetime_h ? Math.round(r.lifetime_h).toLocaleString() : '—'}
+                          </td>
                         </tr>
                       );
                     })}
@@ -2193,7 +2199,8 @@ export default function Dashboard() {
                           <div style={{ width: `${pctOf(tI, tTot)}%`, background: '#e67e22' }}></div>
                         </div>
                       </td>
-                      <td className="py-2 pl-2 text-right" style={{ color: workColour(tpW) }}>{tpW}%</td>
+                      <td className="py-2 px-2 text-right" style={{ color: workColour(tpW) }}>{tpW}%</td>
+                      <td className="py-2 pl-2 text-right">&nbsp;</td>
                     </tr>
                   </tbody>
                 </table>
@@ -2201,6 +2208,7 @@ export default function Dashboard() {
                   <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#7DB82B' }}></span>Working</span>
                   <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#2980b9' }}></span>Transport</span>
                   <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#e67e22' }}></span>Idle</span>
+                  <span className="text-gray-400 hidden sm:inline">Total = working + transport + idle</span>
                   {tractorReport.uploaded_at && (
                     <span className="ml-auto text-gray-400">Uploaded {new Date(tractorReport.uploaded_at).toLocaleDateString()}</span>
                   )}
@@ -2211,7 +2219,7 @@ export default function Dashboard() {
         })() : (
           <div className="flex flex-col items-center justify-center h-48 text-gray-500 gap-1">
             <p>No utilisation report uploaded yet</p>
-            <p className="text-xs">An admin can upload the weekly CSV on the Admin page (drag and drop)</p>
+            <p className="text-xs">An admin can drag the telematics export (.xlsx or .csv) onto the Admin page</p>
           </div>
         )}
       </div>

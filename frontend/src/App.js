@@ -131,7 +131,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 4.4 &mdash; September 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 4.5 &mdash; September 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -1026,8 +1026,8 @@ function SharePointAdminComponent() {
 
   const uploadTractorFile = async (file) => {
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      toast.error('That needs to be a .csv file — the weekly export from the telematics system');
+    if (!/\.(xlsx|xlsm|csv)$/i.test(file.name)) {
+      toast.error('That needs to be the telematics export — a .xlsx spreadsheet or a .csv');
       return;
     }
     const fd = new FormData();
@@ -1038,9 +1038,12 @@ function SharePointAdminComponent() {
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setTractorReport(data);
-        toast.success(`Tractor utilisation updated — ${data.machine_count} machines${data.report_end_date ? `, week ending ${data.report_end_date}` : ''}`);
+        const period = data.report_start_date && data.report_end_date
+          ? `, ${data.report_start_date} to ${data.report_end_date}`
+          : (data.report_end_date ? `, to ${data.report_end_date}` : '');
+        toast.success(`Tractor utilisation updated — ${data.machine_count} machines${period}`);
       } else {
-        toast.error(data.detail || 'Could not read that CSV');
+        toast.error(data.detail || 'Could not read that file');
       }
     } catch (e) {
       toast.error('Upload failed. Please try again.');
@@ -1199,7 +1202,7 @@ function SharePointAdminComponent() {
             <span>Tractor Utilisation</span>
           </CardTitle>
           <CardDescription>
-            Drop in the weekly utilisation CSV from the telematics system — the report shows on the dashboard's Tractors tab for everyone
+            Drop in the Machine Analyzer export from the telematics system (.xlsx or .csv) — the report shows on the dashboard's Tractors tab for everyone
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1214,12 +1217,12 @@ function SharePointAdminComponent() {
             data-testid="tractor-drop-zone"
           >
             <Upload className="h-8 w-8 mx-auto text-green-600 mb-2" />
-            <p className="text-sm font-semibold text-gray-900">Drop utilisation CSV here</p>
-            <p className="text-xs text-gray-500 mt-1">or click to browse</p>
+            <p className="text-sm font-semibold text-gray-900">Drop the utilisation export here</p>
+            <p className="text-xs text-gray-500 mt-1">or click to browse &mdash; .xlsx or .csv</p>
             <input
               type="file"
               id="tractor-csv-admin-input"
-              accept=".csv"
+              accept=".xlsx,.xlsm,.csv"
               className="hidden"
               onChange={(e) => { uploadTractorFile(e.target.files && e.target.files[0]); e.target.value = ''; }}
             />
@@ -1227,7 +1230,9 @@ function SharePointAdminComponent() {
           {tractorReport && tractorReport.rows && tractorReport.rows.length > 0 && (
             <p className="text-xs text-gray-600 mt-3">
               Current report: <b>{tractorReport.machine_count} machines</b>
-              {tractorReport.report_end_date ? <> &middot; week ending <b>{tractorReport.report_end_date}</b></> : null}
+              {tractorReport.report_start_date && tractorReport.report_end_date
+                ? <> &middot; <b>{tractorReport.report_start_date}</b> to <b>{tractorReport.report_end_date}</b></>
+                : (tractorReport.report_end_date ? <> &middot; to <b>{tractorReport.report_end_date}</b></> : null)}
               {tractorReport.uploaded_at ? <> &middot; uploaded {new Date(tractorReport.uploaded_at).toLocaleDateString()}</> : null}
             </p>
           )}

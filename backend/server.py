@@ -1371,56 +1371,164 @@ async def sync_workplan_from_excel(file: UploadFile = File(None)):
 
 # ---- Tractor Utilisation (weekly telematics CSV, uploaded by a manager) ----
 
-@app.post("/api/tractor-utilisation/upload")
-async def upload_tractor_utilisation(file: UploadFile = File(...)):
-    """Parse and save the weekly tractor utilisation CSV. Columns are read by
-    NAME (order doesn't matter): Nickname, Model, Idle (h), Working (h),
-    Transport (h), Total Hours, Report End Date."""
+def _tractor_num(v):
+    """A number out of whatever the export put in the cell."""
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return float(str(v).replace(",", "").replace("%", "").strip())
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _tractor_date(v):
+    """'15/09/2026, 23:59:59' -> '15/09/2026'; a real date -> dd/mm/yyyy."""
+    from datetime import date as _date
+    if v in (None, ""):
+        return ""
+    if isinstance(v, (datetime, _date)):
+        return v.strftime("%d/%m/%Y")
+    return str(v).split(",")[0].strip()
+
+
+def _tractor_read_table(raw: bytes, filename: str):
+    """Return (header, rows) from either a spreadsheet or a CSV. Kept as raw
+    lists rather than dicts because the John Deere Machine Analyzer export
+    repeats column names ('Utilization Working' twice, 'Unit' six times),
+    which a dict reader would silently collapse."""
+    is_xlsx = filename.lower().endswith((".xlsx", ".xlsm", ".xltx")) or raw[:2] == b"PK"
+    if is_xlsx:
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(raw), data_only=True, read_only=True)
+        ws = wb[wb.sheetnames[0]]
+        table = [list(r) for r in ws.iter_rows(values_only=True)]
+        wb.close()
+        # Skip any blank or title lines above the real header
+        while table and not any(
+            isinstance(c, str) and c.strip().lower() in
+            ("machine", "nickname", "name", "machine name") for c in table[0]
+        ):
+            if len(table) == 1:
+                break
+            table.pop(0)
+        if not table:
+            return [], []
+        return [("" if c is None else str(c).strip()) for c in table[0]], table[1:]
+
     import csv as _csv
-    raw = await file.read()
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
         text = raw.decode("latin-1")
-    reader = _csv.DictReader(io.StringIO(text))
+    table = [r for r in _csv.reader(io.StringIO(text))]
+    if not table:
+        return [], []
+    return [c.strip() for c in table[0]], table[1:]
 
-    def num(v):
-        try:
-            return float(str(v).replace(",", "").strip())
-        except (TypeError, ValueError):
-            return 0.0
+
+def _tractor_col(header, rows, names, prefer_unit=None):
+    """Index of the first matching column. Where a name appears more than once
+    (the Machine Analyzer gives hours AND percent under the same heading) the
+    one whose neighbouring 'Unit' column reads e.g. 'hr' wins, so we always
+    take hours rather than percentages."""
+    lower = [h.strip().lower() for h in header]
+    for want in names:
+        hits = [i for i, h in enumerate(lower) if h == want.strip().lower()]
+        if not hits:
+            continue
+        if prefer_unit and len(hits) > 1:
+            for i in hits:
+                unit_i = i + 1
+                if unit_i < len(lower) and lower[unit_i] == "unit":
+                    for r in rows[:5]:
+                        if unit_i < len(r) and str(r[unit_i]).strip().lower() == prefer_unit:
+                            return i
+        return hits[0]
+    return None
+
+
+@app.post("/api/tractor-utilisation/upload")
+async def upload_tractor_utilisation(file: UploadFile = File(...)):
+    """Parse and save the tractor utilisation report. Takes either the John
+    Deere Machine Analyzer spreadsheet export (.xlsx — Machine, Model,
+    Engine Hours Lifetime/Period, Utilization Working/Transport/Idle, with
+    Start/End Date) or the older CSV (Nickname, Model, Idle (h), Working (h),
+    Transport (h), Total Hours). Columns are matched by NAME, so column order
+    doesn't matter."""
+    raw = await file.read()
+    header, table = _tractor_read_table(raw, file.filename or "")
+    if not header:
+        raise HTTPException(status_code=400, detail="That file has no readable header row.")
+
+    i_name = _tractor_col(header, table, ["Machine", "Nickname", "Machine Name", "Name"])
+    i_model = _tractor_col(header, table, ["Model"])
+    i_work = _tractor_col(header, table, ["Utilization Working", "Utilisation Working", "Working (h)", "Working"], prefer_unit="hr")
+    i_trans = _tractor_col(header, table, ["Utilization Transport", "Utilisation Transport", "Transport (h)", "Transport"], prefer_unit="hr")
+    i_idle = _tractor_col(header, table, ["Utilization Idle", "Utilisation Idle", "Idle (h)", "Idle"], prefer_unit="hr")
+    i_period = _tractor_col(header, table, ["Engine Hours Period"], prefer_unit="hr")
+    i_life = _tractor_col(header, table, ["Engine Hours Lifetime"], prefer_unit="hr")
+    i_total = _tractor_col(header, table, ["Total Hours"], prefer_unit="hr")
+    i_start = _tractor_col(header, table, ["Start Date", "Report Start Date"])
+    i_end = _tractor_col(header, table, ["End Date", "Report End Date"])
+
+    if i_name is None or (i_work is None and i_total is None):
+        raise HTTPException(
+            status_code=400,
+            detail="Couldn't find the columns I need. Expected either the Machine Analyzer "
+                   "export (Machine, Model, Utilization Working / Transport / Idle) or the "
+                   "older CSV (Nickname, Working (h), Transport (h), Idle (h), Total Hours). "
+                   "Found: " + ", ".join(h for h in header if h)[:400],
+        )
+
+    def cell(row, idx):
+        if idx is None or idx >= len(row):
+            return None
+        return row[idx]
 
     rows = []
+    report_start = ""
     report_end = ""
-    for r in reader:
-        nick = (r.get("Nickname") or "").strip()
-        if not nick or nick == "---":
+    for r in table:
+        if not r:
             continue
-        idle = num(r.get("Idle (h)"))
-        work = num(r.get("Working (h)"))
-        trans = num(r.get("Transport (h)"))
-        total = num(r.get("Total Hours"))
-        if idle == 0 and work == 0 and trans == 0 and total == 0:
+        nick = str(cell(r, i_name) or "").strip()
+        if not nick or nick in ("---", "None"):
             continue
+        work = _tractor_num(cell(r, i_work))
+        trans = _tractor_num(cell(r, i_trans))
+        idle = _tractor_num(cell(r, i_idle))
+        period = _tractor_num(cell(r, i_period))
+        life = _tractor_num(cell(r, i_life))
+        # Total is the three states added up, which is what the export's own
+        # percentages are worked out from. Engine hours for the period are
+        # carried separately (they run a shade higher).
+        total = round(work + trans + idle, 2)
+        if total == 0:
+            total = _tractor_num(cell(r, i_total))
+        if work == 0 and trans == 0 and idle == 0 and total == 0 and period == 0:
+            continue
+        if not report_start:
+            report_start = _tractor_date(cell(r, i_start))
         if not report_end:
-            report_end = (r.get("Report End Date") or "").strip()
+            report_end = _tractor_date(cell(r, i_end))
         rows.append({
             "nickname": nick,
-            "model": (r.get("Model") or "").strip(),
+            "model": str(cell(r, i_model) or "").strip(),
             "idle_h": round(idle, 1),
             "working_h": round(work, 1),
             "transport_h": round(trans, 1),
             "total_h": round(total, 1),
+            "engine_h": round(period, 1),
+            "lifetime_h": round(life, 1),
         })
+
     if not rows:
-        raise HTTPException(
-            status_code=400,
-            detail="No machine rows found — check this is the weekly utilisation CSV "
-                   "with columns: Nickname, Model, Idle (h), Working (h), Transport (h), Total Hours",
-        )
+        raise HTTPException(status_code=400, detail="No machine rows found in that file.")
+
     rows.sort(key=lambda x: -x["total_h"])
     doc = {
         "rows": rows,
+        "report_start_date": report_start,
         "report_end_date": report_end,
         "machine_count": len(rows),
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
