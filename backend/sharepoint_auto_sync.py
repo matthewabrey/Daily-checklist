@@ -463,7 +463,26 @@ class SharePointAutoSync:
                 }
             except Exception as e:
                 result['files']['assets'] = {'status': 'not_found', 'error': str(e)}
-            
+
+            # Check the workplan file too — it lives in the same folder and is
+            # the third of the three the app relies on
+            workplan_filename = os.environ.get('SHAREPOINT_WORKPLAN_FILENAME', 'DailyWorkPlanApp.xlsx')
+            try:
+                wp_item_id = self._find_file(drive_id, workplan_filename)
+                url = f"{self.graph_url}/drives/{drive_id}/items/{wp_item_id}"
+                wp_info = self._make_graph_request(url)
+                result['files']['workplan'] = {
+                    'file_name': wp_info.get('name'),
+                    'file_size': wp_info.get('size'),
+                    'last_modified': wp_info.get('lastModifiedDateTime'),
+                    'status': 'found'
+                }
+            except Exception as e:
+                result['files']['workplan'] = {'status': 'not_found', 'error': str(e)}
+
+            result['all_three_found'] = all(
+                f.get('status') == 'found' for f in result['files'].values()
+            )
             return result
         except Exception as e:
             return {
