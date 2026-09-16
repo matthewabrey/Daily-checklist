@@ -4,6 +4,7 @@ Uses client credentials flow (app-only authentication) for scheduled background 
 """
 
 import os
+import asyncio
 import requests
 import logging
 from typing import List, Dict, Tuple
@@ -25,7 +26,9 @@ class SharePointAutoSync:
         self.site_url = os.environ.get('SHAREPOINT_SITE_URL', 'https://rgafarms.sharepoint.com/sites/Crops')
         self.staff_filename = os.environ.get('SHAREPOINT_STAFF_FILENAME', 'Name List.xlsx')
         self.assets_filename = os.environ.get('SHAREPOINT_ASSETS_FILENAME', 'AssetList.xlsx')
-        self.folder_path = 'General/Apps/Checklist App'  # Folder path within the document library
+        # Folder path within the document library (override if IT put the
+        # files somewhere else, e.g. SHAREPOINT_FOLDER_PATH=Shared/Apps)
+        self.folder_path = os.environ.get('SHAREPOINT_FOLDER_PATH', 'General/Apps/Checklist App')
         
         self.token_url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
         self.graph_url = "https://graph.microsoft.com/v1.0"
@@ -243,22 +246,24 @@ class SharePointAutoSync:
         logger.info(f"Parsed {len(staff_data)} staff members from Excel")
         return staff_data
     
+    def _fetch_and_parse_staff(self) -> List[Dict]:
+        """Blocking half of the staff sync — network and Excel parsing only, so
+        it can be run off the event loop."""
+        site_id = self._get_site_id()
+        drive_id = self._get_drive_id(site_id)
+        item_id = self._find_file(drive_id, self.staff_filename)
+        file_content = self._download_file(drive_id, item_id)
+        return self._parse_staff_excel(file_content)
+
     async def sync_staff_list(self, db) -> Dict:
         """Main sync function - downloads staff list from SharePoint and updates database"""
         try:
             logger.info(f"Starting SharePoint staff sync at {datetime.now()}")
-            
-            # Get site and drive info
-            site_id = self._get_site_id()
-            drive_id = self._get_drive_id(site_id)
-            
-            # Find and download the staff file
-            item_id = self._find_file(drive_id, self.staff_filename)
-            file_content = self._download_file(drive_id, item_id)
-            
-            # Parse the Excel file
-            staff_data = self._parse_staff_excel(file_content)
-            
+
+            # Download and parse in a worker thread — this runs hourly now, and
+            # blocking the event loop for it would freeze the app for everyone
+            staff_data = await asyncio.to_thread(self._fetch_and_parse_staff)
+
             if not staff_data:
                 raise Exception("No valid staff data found in Excel file")
             
@@ -293,23 +298,24 @@ class SharePointAutoSync:
             logger.info(f"Template sheet: {line}")
         return parsed
     
+    def _fetch_and_parse_assets(self) -> Dict:
+        """Blocking half of the asset sync — network and Excel parsing only."""
+        site_id = self._get_site_id()
+        drive_id = self._get_drive_id(site_id)
+        item_id = self._find_file(drive_id, self.assets_filename)
+        file_content = self._download_file(drive_id, item_id)
+        return self._parse_assets_excel(file_content)
+
     async def sync_assets_list(self, db) -> Dict:
         """Sync assets and checklist templates from SharePoint"""
         try:
             logger.info(f"Starting SharePoint assets sync at {datetime.now()}")
-            
-            # Get site and drive info
-            site_id = self._get_site_id()
-            drive_id = self._get_drive_id(site_id)
-            
-            # Find and download the assets file
-            item_id = self._find_file(drive_id, self.assets_filename)
-            file_content = self._download_file(drive_id, item_id)
-            
-            # Parse the Excel file
-            parsed = self._parse_assets_excel(file_content)
+
+            # Off the event loop — AssetList is the big one, with every
+            # Pre Service Sheet tab in it
+            parsed = await asyncio.to_thread(self._fetch_and_parse_assets)
             assets = parsed['assets']
-            
+
             if not assets:
                 raise Exception("No valid asset data found in Excel file")
             

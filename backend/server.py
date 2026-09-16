@@ -112,19 +112,56 @@ async def scheduled_fieldplan_sync():
     except Exception as e:
         logger.error(f"Scheduled FieldMap sync error: {str(e)}")
 
+# Scheduled DailyWorkPlan pull
+async def scheduled_workplan_sync():
+    """Pull DailyWorkPlanApp.xlsx from SharePoint every hour and publish this
+    week's plan. Failures are logged and nothing is overwritten — a missing
+    file, an unreachable SharePoint or a workbook with no rows for this week
+    all leave the live plan exactly as it was."""
+    try:
+        content = await asyncio.to_thread(_fetch_workplan_from_sharepoint)
+    except Exception as e:
+        logger.warning(f"Hourly workplan sync: couldn't fetch from SharePoint - {e}")
+        await db.sync_logs.insert_one({
+            'type': 'scheduled_workplan',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'success': False,
+            'message': f"Couldn't fetch {WORKPLAN_XLSX_FILENAME} from SharePoint: {e}",
+        })
+        return
+    try:
+        result = await _import_workplan(content, f"SharePoint ({WORKPLAN_XLSX_FILENAME}), hourly")
+        logger.info(f"Hourly workplan sync: {result['people']} people, week {result['week_start']}")
+        await db.sync_logs.insert_one({
+            'type': 'scheduled_workplan',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'success': True,
+            'message': f"Workplan updated: {result['people']} people, week starting {result['week_start']}",
+        })
+    except ValueError as e:
+        logger.warning(f"Hourly workplan sync skipped: {e}")
+        await db.sync_logs.insert_one({
+            'type': 'scheduled_workplan',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'success': False,
+            'message': f"Left the current plan alone: {e}",
+        })
+    except Exception as e:
+        logger.error(f"Hourly workplan sync error: {e}")
+
 # Setup scheduler on startup
 @app.on_event("startup")
 async def startup_event():
     """Start the scheduler when the app starts"""
-    # Schedule daily sync at 9:00 AM UK time
+    # Name List + AssetList from SharePoint, every hour at :05
     scheduler.add_job(
         scheduled_sharepoint_sync,
-        CronTrigger(hour=9, minute=0, timezone="Europe/London"),
+        CronTrigger(minute=5, timezone="Europe/London"),
         id="daily_staff_sync",
-        name="Daily SharePoint Staff Sync",
+        name="Hourly SharePoint Staff + Asset Sync",
         replace_existing=True
     )
-    # Refresh the FieldPlan/FieldMap copies every hour (they change often)
+    # Refresh the FieldPlan/FieldMap copies every hour at :15
     scheduler.add_job(
         scheduled_fieldplan_sync,
         CronTrigger(minute=15, timezone="Europe/London"),
@@ -132,8 +169,17 @@ async def startup_event():
         name="Hourly FieldPlan/FieldMap Download",
         replace_existing=True
     )
+    # DailyWorkPlan from SharePoint, every hour at :35 — staggered so the
+    # three downloads don't all land on the same minute
+    scheduler.add_job(
+        scheduled_workplan_sync,
+        CronTrigger(minute=35, timezone="Europe/London"),
+        id="hourly_workplan_sync",
+        name="Hourly DailyWorkPlan Sync",
+        replace_existing=True
+    )
     scheduler.start()
-    logger.info("Scheduler started - Daily staff sync scheduled for 9:00 AM UK time")
+    logger.info("Scheduler started - staff/assets :05, maps :15, workplan :35, every hour (UK time)")
     # If a data copy was running when the server last stopped, it died with it —
     # say so plainly instead of leaving the panel stuck on "running".
     try:
@@ -1293,42 +1339,34 @@ def _match_vehicles_to_assets(rows, assets):
     return matched
 
 
-@app.post("/api/workplan/sync-from-excel")
-async def sync_workplan_from_excel(file: UploadFile = File(None)):
-    """Update the workplan from the DailyWorkPlan Excel. If a file is
-    uploaded, use it; otherwise fetch the latest copy from SharePoint
-    (same connection as the staff/assets sync). Imports the current week
-    and publishes it immediately."""
+def _fetch_workplan_from_sharepoint() -> bytes:
+    """Download the current DailyWorkPlan workbook from SharePoint. Raises on
+    any failure so the caller can decide what to tell the user."""
+    site_id = sharepoint_auto_sync._get_site_id()
+    drive_id = sharepoint_auto_sync._get_drive_id(site_id)
+    item_id = sharepoint_auto_sync._find_file(drive_id, WORKPLAN_XLSX_FILENAME)
+    return sharepoint_auto_sync._download_file(drive_id, item_id)
+
+
+async def _import_workplan(content: bytes, source: str) -> dict:
+    """Parse the workbook and publish this week's plan. Raises ValueError with
+    a plain-English message if the workbook can't be used — callers turn that
+    into either an HTTP error or a log line. Nothing is written unless the
+    parse produced rows, so a bad or empty workbook leaves the live plan
+    alone rather than wiping it."""
     from zoneinfo import ZoneInfo
     uk_today = datetime.now(ZoneInfo("Europe/London")).date()
     week_start = uk_today - timedelta(days=uk_today.weekday())  # Monday
 
-    if file is not None and file.filename:
-        content = await file.read()
-        source = f"uploaded file ({file.filename})"
-    else:
-        try:
-            token_site = sharepoint_auto_sync._get_site_id()
-            drive_id = sharepoint_auto_sync._get_drive_id(token_site)
-            item_id = sharepoint_auto_sync._find_file(drive_id, WORKPLAN_XLSX_FILENAME)
-            content = sharepoint_auto_sync._download_file(drive_id, item_id)
-            source = f"SharePoint ({WORKPLAN_XLSX_FILENAME})"
-        except Exception as e:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Couldn't fetch {WORKPLAN_XLSX_FILENAME} from SharePoint ({str(e)}). "
-                       "You can drag the Excel file into the box instead.",
-            )
-
     try:
         rows = _parse_workplan_excel(content, week_start)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Couldn't read that Excel file: {str(e)}")
+        raise ValueError(f"Couldn't read that Excel file: {str(e)}")
 
     if not rows:
-        raise HTTPException(status_code=400, detail="No people with jobs found for this week in the Excel file")
+        raise ValueError("No people with jobs found for this week in the Excel file")
 
     assets = await db.assets.find({}, {"_id": 0, "name": 1, "make": 1}).to_list(length=5000)
     vehicles_matched = _match_vehicles_to_assets(rows, assets)
@@ -1368,6 +1406,32 @@ async def sync_workplan_from_excel(file: UploadFile = File(None)):
         "source": source,
         "published_at": now,
     }
+
+
+@app.post("/api/workplan/sync-from-excel")
+async def sync_workplan_from_excel(file: UploadFile = File(None)):
+    """Update the workplan from the DailyWorkPlan Excel. If a file is
+    uploaded, use it; otherwise fetch the latest copy from SharePoint
+    (same connection as the staff/assets sync). Imports the current week
+    and publishes it immediately."""
+    if file is not None and file.filename:
+        content = await file.read()
+        source = f"uploaded file ({file.filename})"
+    else:
+        try:
+            content = _fetch_workplan_from_sharepoint()
+            source = f"SharePoint ({WORKPLAN_XLSX_FILENAME})"
+        except Exception as e:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Couldn't fetch {WORKPLAN_XLSX_FILENAME} from SharePoint ({str(e)}). "
+                       "You can drag the Excel file into the box instead.",
+            )
+
+    try:
+        return await _import_workplan(content, source)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # ---- Tractor Utilisation (weekly telematics CSV, uploaded by a manager) ----
 
@@ -2111,8 +2175,26 @@ async def debug_sharepoint_env():
         "AZURE_TENANT_ID_LENGTH": len(os.environ.get('AZURE_TENANT_ID', '')),
         "SHAREPOINT_SITE_URL": os.environ.get('SHAREPOINT_SITE_URL', 'NOT SET'),
         "SHAREPOINT_STAFF_FILENAME": os.environ.get('SHAREPOINT_STAFF_FILENAME', 'NOT SET'),
-        "SHAREPOINT_ASSETS_FILENAME": os.environ.get('SHAREPOINT_ASSETS_FILENAME', 'NOT SET')
+        "SHAREPOINT_ASSETS_FILENAME": os.environ.get('SHAREPOINT_ASSETS_FILENAME', 'NOT SET'),
+        "SHAREPOINT_WORKPLAN_FILENAME": os.environ.get('SHAREPOINT_WORKPLAN_FILENAME', 'NOT SET'),
+        "IN_USE": {
+            "site_url": sharepoint_auto_sync.site_url,
+            "folder_path": sharepoint_auto_sync.folder_path,
+            "staff_file": sharepoint_auto_sync.staff_filename,
+            "assets_file": sharepoint_auto_sync.assets_filename,
+            "workplan_file": WORKPLAN_XLSX_FILENAME,
+        },
+        "SCHEDULE": "Name List + AssetList hourly at :05, FieldPlan/FieldMap at :15, DailyWorkPlan at :35 (UK time)",
     }
+
+
+@app.get("/api/admin/sync-log")
+async def get_recent_sync_log(limit: int = 20):
+    """The last few automatic syncs — what ran, when, and whether it worked.
+    Handy for checking the hourly jobs are actually firing."""
+    limit = max(1, min(limit, 100))
+    logs = await db.sync_logs.find({}, {"_id": 0}).sort("timestamp", -1).to_list(length=limit)
+    return {"count": len(logs), "logs": logs}
 
 @app.post("/api/admin/sharepoint/sync-now")
 async def trigger_sharepoint_sync():
