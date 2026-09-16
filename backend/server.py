@@ -1331,21 +1331,24 @@ def _parse_workplan_excel(content: bytes, week_start):
         raise ValueError(f"No columns found for the week beginning {week_start.strftime('%d %b %Y')}{span}")
 
     def day_block(c):
-        """(am_col, pm_col, time_col) for the day whose date sits at column c."""
+        """(am_col, pm_col, time_col) for the day whose date sits at column c.
+
+        A day reads [Start Time][AM][PM]: the date sits in row 2 of the AM
+        column, and that day's Start Time column comes immediately BEFORE it
+        — which is how the row-1 day banners are merged (e.g. Thursday spans
+        MC:ME = time, AM, PM). Only treated as a time column if row 2 there
+        actually says 'Start Time', so the older two-column days, where the
+        preceding column is the previous day's PM job, are unaffected."""
         after = [x for x in ordered_cols if x > c]
-        stop = after[0] if after else c + 3
-        span = list(range(c, min(stop, ws.max_column + 1)))
+        stop = after[0] if after else c + 2
+        am_col = c
+        pm_col = c + 1 if c + 1 < stop or not after else c + 1
+        if pm_col > ws.max_column:
+            pm_col = None
         time_col = None
-        for x in span:
-            if _wp_norm_header(ws.cell(row=HEADER_ROW, column=x).value) == "starttime":
-                time_col = x
-                break
-        job_cols = [x for x in span if x != time_col]
-        return (
-            job_cols[0] if len(job_cols) > 0 else None,
-            job_cols[1] if len(job_cols) > 1 else None,
-            time_col,
-        )
+        if c - 1 >= 1 and _wp_norm_header(ws.cell(row=HEADER_ROW, column=c - 1).value) == "starttime":
+            time_col = c - 1
+        return am_col, pm_col, time_col
 
     blocks = {d: day_block(date_cols[d]) for d in week if d in date_cols}
 
