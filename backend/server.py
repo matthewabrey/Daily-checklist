@@ -2180,6 +2180,7 @@ async def debug_sharepoint_env():
         "IN_USE": {
             "site_url": sharepoint_auto_sync.site_url,
             "folder_path": sharepoint_auto_sync.folder_path,
+            "library_name": os.environ.get('SHAREPOINT_LIBRARY_NAME', '(Documents, by default)'),
             "staff_file": sharepoint_auto_sync.staff_filename,
             "assets_file": sharepoint_auto_sync.assets_filename,
             "workplan_file": WORKPLAN_XLSX_FILENAME,

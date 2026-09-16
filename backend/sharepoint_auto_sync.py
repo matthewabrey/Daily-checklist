@@ -106,26 +106,61 @@ class SharePointAutoSync:
         return site_id
     
     def _get_drive_id(self, site_id: str) -> str:
-        """Get the default document library drive ID for the site"""
-        url = f"{self.graph_url}/sites/{site_id}/drives"
-        drives = self._make_graph_request(url)
-        
-        if not drives.get('value'):
+        """Get the document library holding the three spreadsheets. A Teams-
+        connected site often has several libraries and Graph doesn't promise
+        any particular order, so pick by NAME rather than taking whatever
+        comes back first — otherwise we can end up confidently searching the
+        wrong library and reporting the files missing."""
+        wanted = os.environ.get('SHAREPOINT_LIBRARY_NAME', '').strip().lower()
+        try:
+            drives = self._make_graph_request(f"{self.graph_url}/sites/{site_id}/drives")
+            values = drives.get('value') or []
+        except Exception as e:
+            logger.warning(f"Could not list document libraries: {e}")
+            values = []
+
+        names = [d.get('name') for d in values]
+        if names:
+            logger.info(f"Document libraries on this site: {names}")
+
+        candidates = [wanted] if wanted else ['documents', 'shared documents']
+        for want in candidates:
+            for d in values:
+                if (d.get('name') or '').strip().lower() == want:
+                    logger.info(f"Using document library '{d.get('name')}' ({d['id']})")
+                    return d['id']
+
+        if wanted:
+            raise Exception(
+                f"No document library called '{wanted}' on this site. "
+                f"Libraries found: {names or 'none'}"
+            )
+
+        # Fall back to the site's default library, then to the first listed
+        try:
+            default_drive = self._make_graph_request(f"{self.graph_url}/sites/{site_id}/drive")
+            if default_drive.get('id'):
+                logger.info(f"Using the site's default library '{default_drive.get('name')}'")
+                return default_drive['id']
+        except Exception as e:
+            logger.warning(f"Could not get the site's default library: {e}")
+
+        if not values:
             raise Exception("No document libraries found in the site")
-        
-        # Use the first drive (usually "Documents")
-        drive_id = drives['value'][0]['id']
-        logger.info(f"Found drive ID: {drive_id}")
-        return drive_id
+        logger.warning(f"Falling back to the first library listed: '{names[0]}'")
+        return values[0]['id']
     
     def _find_file(self, drive_id: str, filename: str) -> str:
         """Find a file in the drive by name, checking specific folder first"""
         
-        # First try the specific folder path (Shared Documents/General)
+        folder_contents = None
+
+        # First try the specific folder path (Shared Documents/General/...)
         try:
             folder_url = f"{self.graph_url}/drives/{drive_id}/root:/{self.folder_path}:/children"
             items = self._make_graph_request(folder_url)
-            
+            folder_contents = [i.get('name') for i in items.get('value', [])]
+
             for item in items.get('value', []):
                 if item['name'].lower() == filename.lower():
                     logger.info(f"Found file in {self.folder_path}: {item['name']} (ID: {item['id']})")
@@ -157,7 +192,18 @@ class SharePointAutoSync:
         except Exception as e:
             logger.warning(f"Search failed: {e}")
         
-        raise Exception(f"File '{filename}' not found in SharePoint")
+        # Say what we could actually see — far quicker to diagnose than
+        # "not found" on its own (usually a renamed file or a spelling slip)
+        if folder_contents is None:
+            raise Exception(
+                f"File '{filename}' not found, and the folder "
+                f"'{self.folder_path}' couldn't be opened at all — check "
+                "SHAREPOINT_FOLDER_PATH and the app's permission on this site."
+            )
+        raise Exception(
+            f"File '{filename}' not found. '{self.folder_path}' contains: "
+            + (", ".join(folder_contents) if folder_contents else "nothing")
+        )
     
     def _download_file(self, drive_id: str, item_id: str) -> bytes:
         """Download file content from SharePoint"""
