@@ -1123,7 +1123,7 @@ export default function Dashboard() {
           <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold mb-1">{t('dashboardSubtitle')}</p>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
           <div className="flex items-center space-x-2 mt-1">
-            <p className="text-xs text-gray-400">Version 4.8</p>
+            <p className="text-xs text-gray-400">Version 5.0</p>
             <span className="text-gray-300">•</span>
             <p className="text-xs text-gray-400">
               <RefreshCw className="h-3 w-3 inline mr-1" />
@@ -2129,6 +2129,7 @@ export default function Dashboard() {
                 {tractorReport.report_start_date && tractorReport.report_end_date
                   ? ` · ${tractorReport.report_start_date} to ${tractorReport.report_end_date}`
                   : (tractorReport.report_end_date ? ` · to ${tractorReport.report_end_date}` : '')}
+                {' · most idle first'}
               </p>
             )}
           </div>
@@ -2142,14 +2143,17 @@ export default function Dashboard() {
           const tTot = rows.reduce((a, r) => a + r.total_h, 0);
           const tpW = pctOf(tW, tTot);
           const workColour = (p) => (p >= 50 ? '#5D8F1C' : p >= 30 ? '#e67e22' : '#e74c3c');
+          // Idle reads the other way round — the more of it, the worse
+          const idleColour = (p) => (p >= 30 ? '#e74c3c' : p >= 20 ? '#e67e22' : '#5D8F1C');
           return (
             <Card>
               <CardContent className="p-4 overflow-x-auto">
-                <table className="w-full text-sm" style={{ minWidth: 820 }}>
+                <table className="w-full text-sm" style={{ minWidth: 900 }}>
                   <thead>
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-2 pr-3 text-xs uppercase tracking-wider text-gray-500 font-semibold whitespace-nowrap">Machine</th>
                       <th className="text-left py-2 pr-3 text-xs uppercase tracking-wider text-gray-500 font-semibold">Model</th>
+                      <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Idle %</th>
                       <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Idle (h)</th>
                       <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Working (h)</th>
                       <th className="text-right py-2 px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Transport (h)</th>
@@ -2164,10 +2168,15 @@ export default function Dashboard() {
                       const pW = pctOf(r.working_h, r.total_h);
                       const pI = pctOf(r.idle_h, r.total_h);
                       const pT = pctOf(r.transport_h, r.total_h);
+                      const quiet = r.low_hours;
                       return (
-                        <tr key={r.nickname} className="border-b border-gray-100">
-                          <td className="py-1.5 pr-3 font-semibold text-gray-900 whitespace-nowrap">{r.nickname}</td>
+                        <tr key={r.nickname} className={`border-b border-gray-100 ${quiet ? 'opacity-60' : ''}`}>
+                          <td className="py-1.5 pr-3 font-semibold text-gray-900 whitespace-nowrap">
+                            {r.nickname}
+                            {quiet && <span className="ml-2 text-[10px] uppercase tracking-wider text-gray-400 font-normal">barely used</span>}
+                          </td>
                           <td className="py-1.5 pr-3 text-gray-600">{r.model}</td>
+                          <td className="py-1.5 px-2 text-right font-bold" style={{ color: quiet ? '#9ca3af' : idleColour(pI) }}>{pI}%</td>
                           <td className="py-1.5 px-2 text-right">{r.idle_h.toFixed(1)}</td>
                           <td className="py-1.5 px-2 text-right">{r.working_h.toFixed(1)}</td>
                           <td className="py-1.5 px-2 text-right">{r.transport_h.toFixed(1)}</td>
@@ -2188,6 +2197,7 @@ export default function Dashboard() {
                     })}
                     <tr className="border-t-2 border-gray-200 font-bold">
                       <td className="py-2 pr-3" colSpan={2}>FLEET TOTAL ({rows.length} machines)</td>
+                      <td className="py-2 px-2 text-right" style={{ color: idleColour(pctOf(tI, tTot)) }}>{pctOf(tI, tTot)}%</td>
                       <td className="py-2 px-2 text-right">{tI.toFixed(1)}</td>
                       <td className="py-2 px-2 text-right">{tW.toFixed(1)}</td>
                       <td className="py-2 px-2 text-right">{tT.toFixed(1)}</td>
@@ -2208,7 +2218,7 @@ export default function Dashboard() {
                   <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#7DB82B' }}></span>Working</span>
                   <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#2980b9' }}></span>Transport</span>
                   <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#e67e22' }}></span>Idle</span>
-                  <span className="text-gray-400 hidden sm:inline">Total = working + transport + idle</span>
+                  <span className="text-gray-400 hidden sm:inline">Total = working + transport + idle &middot; machines under 10h are listed last, their percentages mean little</span>
                   {tractorReport.uploaded_at && (
                     <span className="ml-auto text-gray-400">Uploaded {new Date(tractorReport.uploaded_at).toLocaleDateString()}</span>
                   )}

@@ -65,7 +65,7 @@ export const managerTint = (name, light = 94) => {
 };
 
 const emptyDays = () =>
-  Array.from({ length: 7 }, () => ({ am: { job: '', color_id: null }, pm: { job: '', color_id: null } }));
+  Array.from({ length: 7 }, () => ({ am: { job: '', color_id: null }, pm: { job: '', color_id: null }, start: '' }));
 
 const newRow = () => ({
   id: (crypto?.randomUUID && crypto.randomUUID()) || `r-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -99,6 +99,8 @@ const normalizeRow = (r) => {
     normalizedDays = r.days.map((d) => ({
       am: { job: d?.am?.job || '', color_id: d?.am?.color_id ?? null, color: d?.am?.color || '' },
       pm: { job: d?.pm?.job || '', color_id: d?.pm?.color_id ?? null, color: d?.pm?.color || '' },
+      // each day's own start time from the spreadsheet — must survive an edit
+      start: d?.start || '',
     }));
   } else if (r.days && typeof r.days === 'object' && !Array.isArray(r.days)) {
     normalizedDays = [0, 1, 2, 3, 4, 5, 6].map((d) => {
@@ -106,6 +108,7 @@ const normalizeRow = (r) => {
       return {
         am: { job: src?.am?.job || '', color_id: src?.am?.color_id ?? null, color: src?.am?.color || '' },
         pm: { job: src?.pm?.job || '', color_id: src?.pm?.color_id ?? null, color: src?.pm?.color || '' },
+        start: src?.start || '',
       };
     });
   } else {

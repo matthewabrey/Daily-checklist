@@ -59,6 +59,8 @@ const Chip = ({ label, cell, colorsById, mobile = false }) => {
 
 // Mobile-optimized teammate card
 const TeammateCard = ({ row, day, colorsById, accent }) => {
+  // The day's own start time, falling back to the person-level one
+  const start = day?.start || row.start_time;
   return (
     <div
       className="rounded-lg p-3 bg-white border"
@@ -66,9 +68,9 @@ const TeammateCard = ({ row, day, colorsById, accent }) => {
     >
       <div className="flex items-center justify-between mb-2">
         <span className="font-semibold text-sm text-gray-900">{row.employee_name}</span>
-        {row.start_time && (
+        {start && (
           <span className="inline-flex items-center text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded">
-            <Clock className="h-3 w-3 mr-1" /> {row.start_time}
+            <Clock className="h-3 w-3 mr-1" /> {start}
           </span>
         )}
       </div>
@@ -299,9 +301,9 @@ export default function WorkplanBoard() {
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
               <span className="font-bold text-lg text-gray-900">{userRow.employee_name}</span>
-              {userRow.start_time && (
+              {(userDay?.start || userRow.start_time) && (
                 <span className="inline-flex items-center text-base font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-lg w-fit">
-                  <Clock className="h-4 w-4 mr-1.5" /> Start: {userRow.start_time}
+                  <Clock className="h-4 w-4 mr-1.5" /> Start: {userDay?.start || userRow.start_time}
                 </span>
               )}
             </div>
@@ -402,9 +404,9 @@ export default function WorkplanBoard() {
                     <div className="flex items-center justify-between mb-0.5">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-sm text-gray-900">{row.employee_name}</span>
-                        {row.start_time && (
+                        {(row.days?.[selectedIdx]?.start || row.start_time) && (
                           <span className="inline-flex items-center text-sm font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded">
-                            <Clock className="h-3.5 w-3.5 mr-1" /> Start: {row.start_time}
+                            <Clock className="h-3.5 w-3.5 mr-1" /> Start: {row.days?.[selectedIdx]?.start || row.start_time}
                           </span>
                         )}
                       </div>

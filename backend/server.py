@@ -1218,71 +1218,183 @@ async def passkey_login_verify(req: PasskeyLoginVerifyRequest):
 
 WORKPLAN_XLSX_FILENAME = os.environ.get("SHAREPOINT_WORKPLAN_FILENAME", "DailyWorkPlanApp.xlsx")
 
-def _parse_workplan_excel(content: bytes, week_start):
-    """Parse the DailyWorkPlanApp.xlsx 'Main Sheet': one row per person
-    (vehicle, name, manager, start time, field/jobs note) with two columns
-    per dated day (AM job, PM job). Returns app-shaped workplan rows for the
-    week beginning week_start (a Monday)."""
-    import openpyxl as _openpyxl
+def _wp_norm_header(v):
+    """Squash a header cell down to something comparable."""
+    return re.sub(r"[^a-z0-9]+", "", str(v or "").lower())
+
+
+def _wp_time_str(v):
+    """A 'HH:MM' out of a time, a datetime, or text like '6:30' / '06:30:00'."""
     from datetime import time as _time
+    if v is None or v == "":
+        return ""
+    if isinstance(v, (datetime, _time)):
+        return v.strftime("%H:%M")
+    s = str(v).strip()
+    m = re.match(r"^(\d{1,2})[:.](\d{2})", s)
+    if m:
+        return f"{int(m.group(1)):02d}:{m.group(2)}"
+    return s[:5]
+
+
+def _parse_workplan_excel(content: bytes, week_start):
+    """Parse the DailyWorkPlanApp.xlsx 'Main Sheet' into app-shaped workplan
+    rows for the week beginning week_start (a Monday).
+
+    The sheet's shape has changed twice now, so nothing here is hard-coded to
+    a column letter:
+
+    * The person columns (Vehicle, Name, Reportable to on the Day, Field and
+      Jobs) are found by their ROW 2 HEADINGS, anywhere left of the dates.
+      'Daily Checks' is deliberately ignored — the app fills that idea in
+      itself, it isn't read from the spreadsheet.
+    * Each day's block runs from its date column up to the next date column,
+      so two-column days (AM, PM) and three-column days (AM, PM, Start Time)
+      both read correctly — including a week that mixes the two, as the week
+      of 14 Sep 2026 does.
+    * A 'Start Time' column inside a day's block gives that day its own start
+      time; days without one fall back to blank.
+    """
+    import openpyxl as _openpyxl
+    from datetime import date as _date
 
     wb = _openpyxl.load_workbook(io.BytesIO(content), data_only=True)
     if "Main Sheet" not in wb.sheetnames:
         raise ValueError("Couldn't find the 'Main Sheet' tab in the Excel file")
     ws = wb["Main Sheet"]
 
+    HEADER_ROW = 2
+    FIRST_PERSON_ROW = 3
+
+    # --- the dated day columns -------------------------------------------
     date_cols = {}
     for c in range(1, ws.max_column + 1):
-        v = ws.cell(row=2, column=c).value
+        v = ws.cell(row=HEADER_ROW, column=c).value
         if isinstance(v, datetime):
             date_cols[v.date()] = c
+        elif isinstance(v, _date):
+            date_cols[v] = c
+    if not date_cols:
+        raise ValueError("No dates found in row 2 of the 'Main Sheet' tab")
 
+    first_date_col = min(date_cols.values())
+    ordered_cols = sorted(date_cols.values())
+
+    # --- the person columns, by heading ----------------------------------
+    headings = {}
+    for c in range(1, first_date_col):
+        key = _wp_norm_header(ws.cell(row=HEADER_ROW, column=c).value)
+        if key and key not in headings:
+            headings[key] = c
+
+    def heading_col(names, what):
+        for n in names:
+            c = headings.get(_wp_norm_header(n))
+            if c:
+                return c
+        raise ValueError(
+            f"Couldn't find the '{what}' column in row 2 of the Main Sheet. "
+            f"Headings found: " + ", ".join(
+                str(ws.cell(row=HEADER_ROW, column=c).value)
+                for c in range(1, first_date_col)
+                if ws.cell(row=HEADER_ROW, column=c).value
+            )
+        )
+
+    col_name = heading_col(["Name", "Employee", "Employee Name"], "Name")
+    col_vehicle = heading_col(["Vehicle", "Machine"], "Vehicle")
+    try:
+        col_manager = heading_col(
+            ["Reportable to on the Day", "Reportable to", "Manager", "Mgr", "Reporting to"],
+            "manager")
+    except ValueError:
+        col_manager = None
+    try:
+        col_notes = heading_col(
+            ["Field and Jobs", "Field & Jobs", "Fields and Jobs", "Field/Jobs", "Notes"],
+            "Field and Jobs")
+    except ValueError:
+        col_notes = None
+    # Older versions of the sheet carried ONE start time per person rather than
+    # one per day. Kept as a fallback so an older file still reads correctly.
+    try:
+        col_start_person = heading_col(["Start Time", "Start"], "Start Time")
+    except ValueError:
+        col_start_person = None
+
+    # --- work out each day's block ---------------------------------------
     week = [week_start + timedelta(days=i) for i in range(7)]
     if not any(d in date_cols for d in week):
-        span = ""
-        if date_cols:
-            all_dates = sorted(date_cols)
-            span = f" (the file covers {all_dates[0].strftime('%d %b %Y')} to {all_dates[-1].strftime('%d %b %Y')})"
+        all_dates = sorted(date_cols)
+        span = (f" (the file covers {all_dates[0].strftime('%d %b %Y')} to "
+                f"{all_dates[-1].strftime('%d %b %Y')})")
         raise ValueError(f"No columns found for the week beginning {week_start.strftime('%d %b %Y')}{span}")
 
+    def day_block(c):
+        """(am_col, pm_col, time_col) for the day whose date sits at column c."""
+        after = [x for x in ordered_cols if x > c]
+        stop = after[0] if after else c + 3
+        span = list(range(c, min(stop, ws.max_column + 1)))
+        time_col = None
+        for x in span:
+            if _wp_norm_header(ws.cell(row=HEADER_ROW, column=x).value) == "starttime":
+                time_col = x
+                break
+        job_cols = [x for x in span if x != time_col]
+        return (
+            job_cols[0] if len(job_cols) > 0 else None,
+            job_cols[1] if len(job_cols) > 1 else None,
+            time_col,
+        )
+
+    blocks = {d: day_block(date_cols[d]) for d in week if d in date_cols}
+
     def cellv(r, c):
+        if not c:
+            return ""
         v = ws.cell(row=r, column=c).value
         return str(v).strip() if v is not None else ""
 
     rows = []
-    for r in range(3, ws.max_row + 1):
-        name = cellv(r, 6)
+    for r in range(FIRST_PERSON_ROW, ws.max_row + 1):
+        name = cellv(r, col_name)
         if not name:
             continue
-        st = ws.cell(row=r, column=8).value
-        if isinstance(st, datetime):
-            start = st.strftime("%H:%M")
-        elif isinstance(st, _time):
-            start = st.strftime("%H:%M")
-        else:
-            start = str(st)[:5] if st else ""
         days = []
         has_job = False
+        first_time = ""
         for d in week:
-            c = date_cols.get(d)
-            am = cellv(r, c) if c else ""
-            pm = cellv(r, c + 1) if c else ""
+            am_c, pm_c, t_c = blocks.get(d, (None, None, None))
+            am = cellv(r, am_c)
+            pm = cellv(r, pm_c)
+            start = _wp_time_str(ws.cell(row=r, column=t_c).value) if t_c else ""
             if am or pm:
                 has_job = True
+            if start and not first_time:
+                first_time = start
             days.append({
                 "am": {"job": am, "color_id": None} if am else None,
                 "pm": {"job": pm, "color_id": None} if pm else None,
+                "start": start,
             })
         if not has_job:
             continue  # only import people with work this week
+        if not first_time and col_start_person:
+            # Older one-time-per-person sheet: use it for every day
+            first_time = _wp_time_str(ws.cell(row=r, column=col_start_person).value)
+            if first_time:
+                for d_entry in days:
+                    d_entry["start"] = first_time
         rows.append({
             "id": str(uuid.uuid4()),
             "employee_name": name,
-            "vehicle": cellv(r, 5),
+            "vehicle": cellv(r, col_vehicle),
             "implement": "",
-            "manager": cellv(r, 7),
-            "start_time": start,
-            "notes": cellv(r, 10),
+            "manager": cellv(r, col_manager),
+            # Kept for the editor and anything reading the old shape; the day's
+            # own time is what the app shows
+            "start_time": first_time,
+            "notes": cellv(r, col_notes),
             "group_color": None,
             "left": False,
             "days": days,
@@ -1433,7 +1545,12 @@ async def sync_workplan_from_excel(file: UploadFile = File(None)):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# ---- Tractor Utilisation (weekly telematics CSV, uploaded by a manager) ----
+# ---- Tractor Utilisation (telematics export, uploaded by a manager) ----
+
+# Below this many hours in the period, a machine's percentages tell you
+# nothing useful, so it's listed separately rather than topping the idle table
+TRACTOR_LOW_HOURS = 10.0
+
 
 def _tractor_num(v):
     """A number out of whatever the export put in the cell."""
@@ -1584,12 +1701,19 @@ async def upload_tractor_utilisation(file: UploadFile = File(...)):
             "total_h": round(total, 1),
             "engine_h": round(period, 1),
             "lifetime_h": round(life, 1),
+            "idle_pct": round(idle / total * 100) if total else 0,
+            "working_pct": round(work / total * 100) if total else 0,
+            # A machine that barely ran has meaningless percentages — 69% idle
+            # of 2.6 hours isn't a problem worth chasing, so these drop to the
+            # bottom of the list rather than heading it
+            "low_hours": total < TRACTOR_LOW_HOURS,
         })
 
     if not rows:
         raise HTTPException(status_code=400, detail="No machine rows found in that file.")
 
-    rows.sort(key=lambda x: -x["total_h"])
+    # Worst idling first; barely-used machines kept together at the bottom
+    rows.sort(key=lambda x: (0 if x["low_hours"] else 1, x["idle_pct"], x["idle_h"]), reverse=True)
     doc = {
         "rows": rows,
         "report_start_date": report_start,
