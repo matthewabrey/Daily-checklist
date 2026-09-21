@@ -10,6 +10,7 @@ import { useTranslation } from '../LanguageContext';
 import { ClipboardList, FileText, Download, Calendar, Wrench, RefreshCw, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, CheckCircle, Target, Search, ShieldAlert } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import WorkplanBoard from '../components/WorkplanBoard';
+import NewsBanner from '../components/NewsBanner';
 import QRScanner from '../components/QRScanner';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../lib/api';
@@ -1118,12 +1119,15 @@ export default function Dashboard() {
         </div>
       )}
       
+      {/* News ticker — sits above the Dashboard heading; renders nothing when there's no news */}
+      <NewsBanner className="mb-4" />
+
       <div className="text-center sm:text-left">
         <div>
           <p className="text-[10px] sm:text-xs tracking-[3px] uppercase text-green-700 font-extrabold mb-1">{t('dashboardSubtitle')}</p>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
           <div className="flex items-center space-x-2 mt-1">
-            <p className="text-xs text-gray-400">Version 5.1</p>
+            <p className="text-xs text-gray-400">Version 5.2</p>
             <span className="text-gray-300">•</span>
             <p className="text-xs text-gray-400">
               <RefreshCw className="h-3 w-3 inline mr-1" />

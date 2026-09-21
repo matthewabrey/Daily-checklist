@@ -1895,6 +1895,99 @@ async def get_stock_summary():
 
     return {"stores": stores, "graders": graders}
 
+# ---- News banner (rolling ticker on the dashboard and login screen) ----
+
+NEWS_STYLES = {"normal", "good", "celebrate", "grow", "flash", "urgent"}
+
+
+def _news_live(items):
+    """Only what should be rolling right now: ticked on, and not past its
+    finish date (UK date, finish day inclusive)."""
+    from zoneinfo import ZoneInfo
+    today = datetime.now(ZoneInfo("Europe/London")).date().isoformat()
+    live = []
+    for it in items or []:
+        if not it.get("active", True):
+            continue
+        if not (it.get("text") or "").strip():
+            continue
+        ends = (it.get("ends_on") or "").strip()
+        if ends and ends < today:
+            continue
+        live.append({
+            "id": it.get("id"),
+            "text": it["text"].strip(),
+            "style": it.get("style") if it.get("style") in NEWS_STYLES else "normal",
+        })
+    return live
+
+
+@app.get("/api/news-banner")
+async def get_news_banner():
+    """What the ticker should show. Deliberately open — the login screen
+    shows it too, before anyone has signed in."""
+    doc = await db.news_banner.find_one({"key": "current"}, {"_id": 0})
+    items = _news_live((doc or {}).get("items", []))
+    return {"items": items, "updated_at": (doc or {}).get("updated_at")}
+
+
+@app.get("/api/news-banner/all")
+async def get_news_banner_all():
+    """Everything for the editor, expired and switched-off included."""
+    doc = await db.news_banner.find_one({"key": "current"}, {"_id": 0})
+    return {
+        "items": (doc or {}).get("items", []),
+        "updated_at": (doc or {}).get("updated_at"),
+        "updated_by": (doc or {}).get("updated_by"),
+    }
+
+
+class NewsBannerItem(BaseModel):
+    id: Optional[str] = None
+    text: str = ""
+    style: str = "normal"
+    active: bool = True
+    ends_on: Optional[str] = None  # YYYY-MM-DD, inclusive; blank = runs until switched off
+
+
+class NewsBannerSave(BaseModel):
+    items: List[NewsBannerItem] = []
+    updated_by: Optional[str] = None
+
+
+@app.post("/api/news-banner")
+async def save_news_banner(payload: NewsBannerSave):
+    """Replace the whole list — the editor saves all rows at once."""
+    cleaned = []
+    for it in payload.items[:60]:
+        text = (it.text or "").strip()[:300]
+        if not text:
+            continue
+        ends = (it.ends_on or "").strip()
+        if ends:
+            try:
+                ends = parse_iso_date(ends).isoformat()
+            except Exception:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"'{it.ends_on}' isn't a date I can read — use the date picker.",
+                )
+        cleaned.append({
+            "id": it.id or str(uuid.uuid4()),
+            "text": text,
+            "style": it.style if it.style in NEWS_STYLES else "normal",
+            "active": bool(it.active),
+            "ends_on": ends or None,
+        })
+    now = datetime.now(timezone.utc).isoformat()
+    await db.news_banner.update_one(
+        {"key": "current"},
+        {"$set": {"items": cleaned, "updated_at": now, "updated_by": payload.updated_by}},
+        upsert=True,
+    )
+    return {"success": True, "saved": len(cleaned), "live_now": len(_news_live(cleaned)), "updated_at": now}
+
+
 @app.get("/api/dashboard/checks-by-day")
 async def get_checks_by_day(days: int = 6):
     """Counts of completed checks per check type per day, for the last <days>

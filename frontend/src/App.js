@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { Button } from './components/ui/button';
+import NewsBanner from './components/NewsBanner';
+import NewsBannerEditor from './components/NewsBannerEditor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Select } from './components/ui/select';
 import { Checkbox } from './components/ui/checkbox';
@@ -120,7 +122,8 @@ function EmployeeLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md mb-4"><NewsBanner /></div>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-3">
@@ -131,7 +134,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 5.1 &mdash; September 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 5.2 &mdash; September 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -6778,6 +6781,9 @@ function ManagerPage() {
           </div>
         </div>
       </div>
+
+      {/* News banner — managers and admins can post */}
+      <NewsBannerEditor employeeName={employee?.name || employee?.employee_number} />
 
       {/* Workplan update from the DailyWorkPlan Excel */}
       <Card>
