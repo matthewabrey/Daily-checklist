@@ -1486,6 +1486,17 @@ async def _import_workplan(content: bytes, source: str) -> dict:
     assets = await db.assets.find({}, {"_id": 0, "name": 1, "make": 1}).to_list(length=5000)
     vehicles_matched = _match_vehicles_to_assets(rows, assets)
 
+    # Next week too, if the spreadsheet has columns for it. Without this the
+    # men can only ever see the rest of the current week — and on a Sunday
+    # that means today and nothing else.
+    next_start = week_start + timedelta(days=7)
+    try:
+        next_rows = _parse_workplan_excel(content, next_start)
+        _match_vehicles_to_assets(next_rows, assets)
+    except Exception as e:
+        logger.info(f"No next week in the workplan file ({next_start}): {e}")
+        next_rows = []
+
     ws_iso = week_start.isoformat()
     now = datetime.now(timezone.utc).isoformat()
 
@@ -1510,6 +1521,10 @@ async def _import_workplan(content: bytes, source: str) -> dict:
             "published_at": now,
             "imported_from_excel_at": now,
             "import_source": source,
+            # kept separate from the current week so the editor's Publish,
+            # which only deals with draft_rows, never disturbs it
+            "next_week_start": next_start.isoformat() if next_rows else None,
+            "next_published_rows": next_rows,
         }},
         upsert=True,
     )
@@ -4220,14 +4235,18 @@ async def workplan_presence_leave(req: PresenceRequest):
 
 @app.get("/api/workplan/published")
 async def get_published_workplan():
-    """Return the published workplan for the staff dashboard view."""
+    """Return the published workplan for the staff dashboard view — this week
+    and, when the spreadsheet had it, next week as well."""
     doc = await db.workplan.find_one({"key": "current"}, {"_id": 0})
     if not doc or not doc.get("published_rows"):
-        return {"week_start": None, "rows": [], "published_at": None}
+        return {"week_start": None, "rows": [], "published_at": None,
+                "next_week_start": None, "next_rows": []}
     return {
         "week_start": doc.get("published_week_start"),
         "rows": doc.get("published_rows", []),
-        "published_at": doc.get("published_at")
+        "published_at": doc.get("published_at"),
+        "next_week_start": doc.get("next_week_start"),
+        "next_rows": doc.get("next_published_rows", []) or [],
     }
 
 @app.get("/api/workplan/jobs")

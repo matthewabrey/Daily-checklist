@@ -130,16 +130,33 @@ export default function WorkplanBoard() {
   const colorsById = Object.fromEntries(colors.map((c) => [c.id, c]));
   const todayISO = toISO(new Date());
 
-  // build day list (only days within the published week, today onwards)
-  const dayList = [];
-  for (let i = 0; i < 7; i++) {
-    const iso = toISO(addDays(data.week_start, i));
-    if (iso >= todayISO) dayList.push({ iso, index: i });
+  // This week and, when the import found it, next week too. Without the
+  // second one a Sunday shows exactly one day and a Saturday shows two.
+  const weeks = [{ start: data.week_start, rows: data.rows }];
+  if (data.next_week_start && data.next_rows && data.next_rows.length) {
+    weeks.push({ start: data.next_week_start, rows: data.next_rows });
   }
-  if (dayList.length === 0) return null; // whole published week is in the past
 
-  const selected = activeDay && dayList.find((d) => d.iso === activeDay) ? activeDay : dayList[0].iso;
-  const selectedIdx = dayList.find((d) => d.iso === selected).index;
+  // Every day from today forwards, across both weeks, up to a week ahead
+  const DAYS_AHEAD = 7;
+  const dayList = [];
+  weeks.forEach((wk, w) => {
+    for (let i = 0; i < 7; i++) {
+      const iso = toISO(addDays(wk.start, i));
+      if (iso >= todayISO && !dayList.some((d) => d.iso === iso)) {
+        dayList.push({ iso, index: i, w });
+      }
+    }
+  });
+  dayList.sort((a, b) => (a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : 0));
+  dayList.length = Math.min(dayList.length, DAYS_AHEAD + 1);
+  if (dayList.length === 0) return null; // everything published is in the past
+
+  const selectedDay = (activeDay && dayList.find((d) => d.iso === activeDay)) || dayList[0];
+  const selected = selectedDay.iso;
+  const selectedIdx = selectedDay.index;
+  // rows belong to whichever week the chosen day falls in
+  const dayRows = weeks[selectedDay.w].rows || [];
 
   // Normalize function for name matching - remove spaces for flexible matching
   const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '').trim();
@@ -151,7 +168,7 @@ export default function WorkplanBoard() {
     let bestMatch = null;
     let bestScore = 0;
     
-    for (const row of data.rows) {
+    for (const row of dayRows) {
       const day = row.days?.[selectedIdx];
       const hasWork = day && (day.am?.job || day.pm?.job);
       if (!hasWork) continue;
@@ -198,7 +215,7 @@ export default function WorkplanBoard() {
     return false;
   };
 
-  const teammates = userManager ? data.rows.filter((row) => {
+  const teammates = userManager ? dayRows.filter((row) => {
     if (isCurrentUser(row.employee_name)) return false; // exclude self
     const day = row.days?.[selectedIdx];
     const hasWork = day && (day.am?.job || day.pm?.job);
@@ -209,7 +226,7 @@ export default function WorkplanBoard() {
   // For non-personal users (admin viewing), build groups - preserve original order
   const groups = {};
   const rowOrder = {}; // track original order
-  data.rows.forEach((row, originalIndex) => {
+  dayRows.forEach((row, originalIndex) => {
     if (!row.employee_name) return;
     const day = row.days?.[selectedIdx];
     const hasWork = day && (day.am?.job || day.pm?.job);
@@ -239,8 +256,9 @@ export default function WorkplanBoard() {
   // Short label for mobile
   const dayLabelShort = (iso, idx) => {
     const d = new Date(iso + 'T00:00:00');
-    const isToday = iso === todayISO;
-    return isToday ? 'Today' : `${DAY_NAMES[idx]} ${d.getDate()}`;
+    if (iso === todayISO) return 'Today';
+    if (iso === toISO(addDays(todayISO, 1))) return 'Tomorrow';
+    return `${DAY_NAMES[idx]} ${d.getDate()}`;
   };
 
   const userDay = userRow?.days?.[selectedIdx];
@@ -268,7 +286,7 @@ export default function WorkplanBoard() {
             className={`whitespace-nowrap px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-colors flex-shrink-0 ${
               d.iso === selected ? 'bg-green-600 text-white' : 'bg-white text-green-700 border border-green-200'
             }`}
-            data-testid={`wp-day-tab-${d.index}`}
+            data-testid={`wp-day-tab-${d.iso}`}
           >
             <span className="hidden sm:inline">{dayLabel(d.iso, d.index)}</span>
             <span className="sm:hidden">{dayLabelShort(d.iso, d.index)}</span>
