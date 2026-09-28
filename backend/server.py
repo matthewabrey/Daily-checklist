@@ -10,9 +10,11 @@ import re
 from motor.motor_asyncio import AsyncIOMotorClient
 import uuid
 from bson import ObjectId
+from pymongo import UpdateOne
 from dotenv import load_dotenv
 from sharepoint_integration import sharepoint_integration
 from sharepoint_auto_sync import sharepoint_auto_sync
+import telematics as tele
 from cached_stats import get_cached_stats, invalidate_cache
 from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH, download_fieldmap, FIELDMAP_PATH
 from servicing_export import build_servicing_workbook
@@ -178,8 +180,17 @@ async def startup_event():
         name="Hourly DailyWorkPlan Sync",
         replace_existing=True
     )
+    # John Deere telematics inbox, every hour at :45
+    scheduler.add_job(
+        scheduled_telematics_ingest,
+        CronTrigger(minute=45, timezone="Europe/London"),
+        id="hourly_telematics_ingest",
+        name="Hourly John Deere Telematics Ingest",
+        replace_existing=True
+    )
     scheduler.start()
-    logger.info("Scheduler started - staff/assets :05, maps :15, workplan :35, every hour (UK time)")
+    logger.info("Scheduler started - staff/assets :05, maps :15, workplan :35, "
+                "telematics :45, every hour (UK time)")
     # If a data copy was running when the server last stopped, it died with it —
     # say so plainly instead of leaving the panel stuck on "running".
     try:
@@ -1535,6 +1546,9 @@ async def _import_workplan(content: bytes, source: str) -> dict:
         "vehicles_matched": vehicles_matched,
         "source": source,
         "published_at": now,
+        # so the manager can see at a glance whether next week came through
+        "next_week_start": next_start.isoformat() if next_rows else None,
+        "next_people": len(next_rows),
     }
 
 
@@ -1909,6 +1923,164 @@ async def get_stock_summary():
         graders = []
 
     return {"stores": stores, "graders": graders}
+
+# ---- John Deere telematics (daily hours + fuel per machine) ----------------
+#
+# Power Automate drops each morning's Utilization email into the SharePoint
+# "Telematics Inbox" as .html. The email holds a DOWNLOAD LINK, not an
+# attachment, so we pull the link out here and fetch the CSV ourselves.
+# Links expire after 7 days, so a failure needs to be visible, not silent.
+
+async def _process_telematics_file(drive_id, item):
+    """One saved email -> machine-day records. Returns a status dict."""
+    name = item["name"]
+    try:
+        raw = await asyncio.to_thread(sharepoint_auto_sync.read_file, drive_id, item["id"])
+        html = raw.decode("utf-8", errors="replace")
+        url = tele.extract_csv_url(html)
+        if not url:
+            return {"name": name, "status": "no_link",
+                    "message": "No CSV download link found in that email"}
+
+        text = await asyncio.to_thread(tele.fetch_csv, url)
+        rows, report_date, skipped = tele.parse_utilization_csv(text)
+        if not rows:
+            return {"name": name, "status": "empty",
+                    "message": f"No machine moved that day ({skipped} stood still)",
+                    "date": report_date}
+
+        now = datetime.now(timezone.utc).isoformat()
+        ops = []
+        for r in rows:
+            if not r.get("date") or not r.get("serial"):
+                continue
+            ops.append(UpdateOne(
+                {"serial": r["serial"], "date": r["date"]},
+                {"$set": {**r, "source_file": name, "loaded_at": now}},
+                upsert=True,
+            ))
+        if ops:
+            await db.machine_days.bulk_write(ops, ordered=False)
+        return {"name": name, "status": "ok", "date": report_date,
+                "machines": len(ops), "stood_still": skipped,
+                "message": f"{len(ops)} machines for {report_date}"}
+    except Exception as e:
+        logger.error(f"Telematics {name}: {e}")
+        return {"name": name, "status": "error", "message": str(e)[:300]}
+
+
+async def _run_telematics_ingest(force: bool = False):
+    """Read anything new in the Telematics Inbox. Files already done are
+    skipped unless force=True."""
+    try:
+        drive_id, items = await asyncio.to_thread(
+            sharepoint_auto_sync.list_folder, tele.TELEMATICS_FOLDER)
+    except Exception as e:
+        logger.warning(f"Telematics inbox unreachable: {e}")
+        return {"success": False, "message": f"Couldn't read the Telematics Inbox: {e}",
+                "results": []}
+
+    done = set()
+    if not force:
+        async for d in db.telematics_files.find({"status": "ok"}, {"_id": 0, "name": 1}):
+            done.add(d["name"])
+
+    results = []
+    for item in items:
+        if not item["name"].lower().endswith((".html", ".htm")):
+            continue
+        if item["name"] in done:
+            continue
+        res = await _process_telematics_file(drive_id, item)
+        res["processed_at"] = datetime.now(timezone.utc).isoformat()
+        await db.telematics_files.update_one(
+            {"name": res["name"]}, {"$set": res}, upsert=True)
+        results.append(res)
+
+    ok = sum(1 for r in results if r["status"] == "ok")
+    if results:
+        await db.sync_logs.insert_one({
+            "type": "scheduled_telematics",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "success": ok > 0,
+            "message": f"{ok} of {len(results)} new telematics file(s) read",
+        })
+    return {"success": True, "new_files": len(results), "loaded": ok, "results": results}
+
+
+async def scheduled_telematics_ingest():
+    try:
+        out = await _run_telematics_ingest()
+        if out.get("new_files"):
+            logger.info(f"Telematics: {out['loaded']} of {out['new_files']} file(s) loaded")
+    except Exception as e:
+        logger.error(f"Telematics ingest error: {e}")
+
+
+@app.post("/api/admin/telematics/process-now")
+async def telematics_process_now(force: bool = False):
+    """Read the inbox on demand rather than waiting for the hour."""
+    return await _run_telematics_ingest(force=force)
+
+
+@app.get("/api/admin/telematics/inbox")
+async def telematics_inbox():
+    """What the app can actually see in the Telematics Inbox, and what it has
+    made of each file. First stop when something looks wrong."""
+    try:
+        drive_id, items = await asyncio.to_thread(
+            sharepoint_auto_sync.list_folder, tele.TELEMATICS_FOLDER)
+    except Exception as e:
+        return {"folder": tele.TELEMATICS_FOLDER, "reachable": False, "error": str(e)[:300]}
+    seen = {d["name"]: d async for d in db.telematics_files.find({}, {"_id": 0})}
+    return {
+        "folder": tele.TELEMATICS_FOLDER,
+        "reachable": True,
+        "files": [{
+            "name": i["name"], "size": i["size"], "modified": i["modified"],
+            "status": seen.get(i["name"], {}).get("status", "not read yet"),
+            "message": seen.get(i["name"], {}).get("message"),
+            "date": seen.get(i["name"], {}).get("date"),
+        } for i in items],
+        "machine_days_stored": await db.machine_days.count_documents({}),
+    }
+
+
+@app.get("/api/telematics/daily")
+async def telematics_daily(date: str = None):
+    """Hours and fuel per machine for one day. Defaults to the most recent
+    day we hold, which is normally yesterday."""
+    if not date:
+        latest = await db.machine_days.find_one({}, {"_id": 0, "date": 1}, sort=[("date", -1)])
+        if not latest:
+            return {"date": None, "machines": [], "totals": {}}
+        date = latest["date"]
+    rows = await db.machine_days.find({"date": date}, {"_id": 0}).to_list(length=1000)
+    rows.sort(key=lambda r: -(r.get("total_l") or 0))
+    th = sum(r.get("total_h") or 0 for r in rows)
+    tl = sum(r.get("total_l") or 0 for r in rows)
+    ti = sum(r.get("idle_h") or 0 for r in rows)
+    return {
+        "date": date,
+        "machines": rows,
+        "totals": {
+            "machines": len(rows),
+            "hours": round(th, 2),
+            "litres": round(tl, 1),
+            "l_per_h": round(tl / th, 2) if th else None,
+            "idle_pct": round(ti / th * 100) if th else None,
+        },
+    }
+
+
+@app.get("/api/telematics/machine/{serial}")
+async def telematics_machine(serial: str, days: int = 30):
+    """One machine's recent days, newest first."""
+    days = max(1, min(days, 365))
+    rows = await db.machine_days.find({"serial": serial}, {"_id": 0}) \
+        .sort("date", -1).to_list(length=days)
+    return {"serial": serial, "days": rows}
+
 
 # ---- News banner (rolling ticker on the dashboard and login screen) ----
 

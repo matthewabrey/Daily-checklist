@@ -205,6 +205,30 @@ class SharePointAutoSync:
             + (", ".join(folder_contents) if folder_contents else "nothing")
         )
     
+    def list_folder(self, folder_path: str):
+        """Everything sitting in a folder, newest last. Used for the
+        Telematics Inbox that Power Automate drops John Deere emails into."""
+        site_id = self._get_site_id()
+        drive_id = self._get_drive_id(site_id)
+        url = f"{self.graph_url}/drives/{drive_id}/root:/{folder_path}:/children"
+        items = self._make_graph_request(url)
+        out = []
+        for it in items.get("value", []):
+            if "folder" in it:
+                continue
+            out.append({
+                "id": it.get("id"),
+                "name": it.get("name"),
+                "size": it.get("size"),
+                "modified": it.get("lastModifiedDateTime"),
+            })
+        out.sort(key=lambda x: x.get("modified") or "")
+        return drive_id, out
+
+    def read_file(self, drive_id: str, item_id: str) -> bytes:
+        """Public wrapper so callers don't reach into the private one."""
+        return self._download_file(drive_id, item_id)
+
     def _download_file(self, drive_id: str, item_id: str) -> bytes:
         """Download file content from SharePoint"""
         url = f"{self.graph_url}/drives/{drive_id}/items/{item_id}/content"
