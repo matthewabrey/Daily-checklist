@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 import os
 import io
 import re
+import csv
 from motor.motor_asyncio import AsyncIOMotorClient
 import uuid
 from bson import ObjectId
@@ -15,6 +16,8 @@ from dotenv import load_dotenv
 from sharepoint_integration import sharepoint_integration
 from sharepoint_auto_sync import sharepoint_auto_sync
 import telematics as tele
+import go2clock as g2c
+import payroll as pyr
 from cached_stats import get_cached_stats, invalidate_cache
 from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH, download_fieldmap, FIELDMAP_PATH
 from servicing_export import build_servicing_workbook
@@ -78,6 +81,7 @@ async def scheduled_sharepoint_sync():
     logger.info("Starting scheduled SharePoint sync (staff + assets)...")
     try:
         result = await sharepoint_auto_sync.sync_all(db)
+        await _save_job_lists()
         # Log the sync result
         await db.sync_logs.insert_one({
             'type': 'scheduled',
@@ -665,7 +669,21 @@ async def ensure_indexes():
         await db.repair_status.create_index([("repair_id", 1)])
         await db.repair_status.create_index([("acknowledged", 1)])
         await db.repair_status.create_index([("completed", 1)])
-        
+
+        # Payroll hours from Go2Clock
+        await db.timesheet_days.create_index([("key", 1), ("date", 1)], unique=True)
+        await db.timesheet_days.create_index([("employee_number", 1), ("date", -1)])
+        await db.timesheet_days.create_index([("week_start", 1)])
+        await db.timesheet_weeks.create_index([("key", 1), ("week_start", 1)], unique=True)
+        await db.timesheet_weeks.create_index([("week_start", -1)])
+        await db.timesheet_links.create_index([("key", 1)], unique=True)
+
+        # Payroll cost
+        await db.payroll_people.create_index(
+            [("period_start", 1), ("payroll_id", 1)], unique=True)
+        await db.payroll_people.create_index([("employee_number", 1)])
+        await db.payroll_periods.create_index([("period_start", -1)], unique=True)
+
         print("Database indexes ensured successfully")
     except Exception as e:
         print(f"Warning: Could not create some indexes: {e}")
@@ -1924,6 +1942,51 @@ async def get_stock_summary():
 
     return {"stores": stores, "graders": graders}
 
+# ---- Job and Crop/Department lists (Name List.xlsx -> Departments tab) ----
+#
+# Matthew maintains both lists on the spreadsheet, so they come across with
+# the hourly Name List sync rather than being typed into the app. Add a job
+# there and it's on everyone's phone within the hour.
+
+async def _save_job_lists():
+    """Store whatever the last Name List sync read off the Departments tab.
+    An empty read means the tab was missing or unreadable — the lists
+    already stored are left alone rather than being wiped."""
+    lists = getattr(sharepoint_auto_sync, "last_lists", None) or {}
+    jobs = lists.get("jobs") or []
+    depts = lists.get("departments") or []
+    if not jobs and not depts:
+        return {"saved": False, "reason": "nothing read from the Departments tab"}
+    now = datetime.now(timezone.utc).isoformat()
+    await db.job_lists.update_one(
+        {"key": "current"},
+        {"$set": {"jobs": jobs, "departments": depts, "updated_at": now}},
+        upsert=True,
+    )
+    logger.info(f"Job lists updated: {len(jobs)} jobs, {len(depts)} crop/departments")
+    return {"saved": True, "jobs": len(jobs), "departments": len(depts)}
+
+
+@app.get("/api/job-lists")
+async def get_job_lists():
+    """The Job and Crop/Department lists for the job record page."""
+    doc = await db.job_lists.find_one({"key": "current"}, {"_id": 0})
+    return doc or {"jobs": [], "departments": [], "updated_at": None}
+
+
+@app.post("/api/admin/job-lists/refresh")
+async def refresh_job_lists():
+    """Re-read the Departments tab now instead of waiting for the hour."""
+    try:
+        _, lists = await asyncio.to_thread(sharepoint_auto_sync._fetch_and_parse_staff)
+        sharepoint_auto_sync.last_lists = lists
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Couldn't read Name List.xlsx: {e}")
+    saved = await _save_job_lists()
+    return {**saved, "jobs_list": lists.get("jobs", []),
+            "departments_list": lists.get("departments", [])}
+
+
 # ---- John Deere telematics (daily hours + fuel per machine) ----------------
 #
 # Power Automate drops each morning's Utilization email into the SharePoint
@@ -1997,6 +2060,8 @@ async def _run_telematics_ingest(force: bool = False):
             {"name": res["name"]}, {"$set": res}, upsert=True)
         results.append(res)
 
+    await _link_telematics_machines()
+
     ok = sum(1 for r in results if r["status"] == "ok")
     if results:
         await db.sync_logs.insert_one({
@@ -2015,6 +2080,83 @@ async def scheduled_telematics_ingest():
             logger.info(f"Telematics: {out['loaded']} of {out['new_files']} file(s) loaded")
     except Exception as e:
         logger.error(f"Telematics ingest error: {e}")
+
+
+async def _link_telematics_machines(relink: bool = False):
+    """Tie each telematics serial to an asset. Done once per machine and
+    stored against the SERIAL, so it survives every future name change —
+    which is why AssetList needs no serial column."""
+    q = {} if relink else {"confirmed": {"$ne": True}}
+    known = {d["serial"]: d async for d in db.machine_links.find({}, {"_id": 0})}
+
+    serials = await db.machine_days.distinct("serial")
+    todo = [s for s in serials if relink or s not in known
+            or known[s].get("confidence") in ("none", "ambiguous")]
+    if not todo:
+        return {"linked": 0, "checked": 0}
+
+    assets = await db.assets.find(ACTIVE_ASSETS, {"_id": 0, "name": 1, "make": 1}).to_list(length=5000)
+    index = tele.build_asset_index(assets)
+    now = datetime.now(timezone.utc).isoformat()
+
+    linked = 0
+    for serial in todo:
+        if known.get(serial, {}).get("confirmed"):
+            continue  # a human has set this one; leave it alone
+        row = await db.machine_days.find_one({"serial": serial}, {"_id": 0, "nickname": 1},
+                                             sort=[("date", -1)])
+        nickname = (row or {}).get("nickname", "")
+        m = tele.match_machine(nickname, index)
+        await db.machine_links.update_one(
+            {"serial": serial},
+            {"$set": {"serial": serial, "nickname": nickname, **m, "updated_at": now}},
+            upsert=True,
+        )
+        if m.get("asset_name"):
+            linked += 1
+    return {"linked": linked, "checked": len(todo)}
+
+
+@app.get("/api/admin/telematics/links")
+async def telematics_links():
+    """Which telematics machine is which asset — and which couldn't be worked
+    out. Anything listed under `needs_attention` wants a human decision."""
+    links = await db.machine_links.find({}, {"_id": 0}).to_list(length=1000)
+    links.sort(key=lambda l: (l.get("confidence") != "none", l.get("nickname") or ""))
+    good = [l for l in links if l.get("asset_name")]
+    bad = [l for l in links if not l.get("asset_name")]
+    return {
+        "total": len(links),
+        "matched": len(good),
+        "needs_attention": bad,
+        "links": good,
+    }
+
+
+class MachineLink(BaseModel):
+    serial: str
+    asset_make: str
+    asset_name: str
+
+
+@app.post("/api/admin/telematics/link")
+async def telematics_set_link(payload: MachineLink):
+    """Set a link by hand. Marked confirmed, so the matcher never overrides it."""
+    now = datetime.now(timezone.utc).isoformat()
+    await db.machine_links.update_one(
+        {"serial": payload.serial},
+        {"$set": {"serial": payload.serial, "asset_make": payload.asset_make,
+                  "asset_name": payload.asset_name, "matched_by": "set by hand",
+                  "confidence": "high", "confirmed": True, "updated_at": now}},
+        upsert=True,
+    )
+    return {"success": True, "serial": payload.serial, "asset_name": payload.asset_name}
+
+
+@app.post("/api/admin/telematics/relink")
+async def telematics_relink():
+    """Re-run the matcher over every machine (leaves hand-set links alone)."""
+    return await _link_telematics_machines(relink=True)
 
 
 @app.post("/api/admin/telematics/process-now")
@@ -2056,6 +2198,12 @@ async def telematics_daily(date: str = None):
             return {"date": None, "machines": [], "totals": {}}
         date = latest["date"]
     rows = await db.machine_days.find({"date": date}, {"_id": 0}).to_list(length=1000)
+    links = {l["serial"]: l async for l in db.machine_links.find({}, {"_id": 0})}
+    for r in rows:
+        link = links.get(r.get("serial")) or {}
+        r["asset_make"] = link.get("asset_make")
+        r["asset_name"] = link.get("asset_name")
+        r["matched_by"] = link.get("matched_by")
     rows.sort(key=lambda r: -(r.get("total_l") or 0))
     th = sum(r.get("total_h") or 0 for r in rows)
     tl = sum(r.get("total_l") or 0 for r in rows)
@@ -2080,6 +2228,627 @@ async def telematics_machine(serial: str, days: int = 30):
     rows = await db.machine_days.find({"serial": serial}, {"_id": 0}) \
         .sort("date", -1).to_list(length=days)
     return {"serial": serial, "days": rows}
+
+
+# ---- Go2Clock payroll hours (weekly CSV, dropped in by an admin) -----------
+#
+# Go2Clock and the Name List do NOT agree about employee numbers: on the
+# 21-27 Sep file twelve people who had worked all week were in Go2Clock under
+# a newer clock number than the app holds. Joining on number alone would have
+# thrown away 988 hours in a single week, so every person is matched on number
+# first and name second, and anything that still can't be placed is listed on
+# screen rather than dropped quietly.
+
+
+def _ts_key(p):
+    """A stable id for a Go2Clock person. Payroll number where there is one,
+    otherwise the clock id (contractors are on the clock with no payroll
+    number at all)."""
+    return (p.get("payroll_no") or "").strip() or f"C{(p.get('clock_id') or '').strip()}"
+
+
+async def _ts_staff_index():
+    staff = await db.staff.find(
+        {}, {"_id": 0, "employee_number": 1, "name": 1}).to_list(length=5000)
+    return g2c.build_staff_index(staff)
+
+
+@app.post("/api/timesheets/upload")
+async def upload_timesheet(file: UploadFile = File(...)):
+    """Read a Go2Clock weekly timesheet export and store the hours."""
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="That file came through empty.")
+
+    try:
+        people, week_start, week_end = await asyncio.to_thread(g2c.parse_timesheet, raw)
+    except Exception as e:
+        logger.exception("timesheet parse failed")
+        raise HTTPException(status_code=400, detail=f"Couldn't read that file: {e}")
+
+    if not people or not week_start:
+        raise HTTPException(
+            status_code=400,
+            detail="No employee blocks found — is that the Go2Clock timesheet "
+                   "export rather than another report?")
+
+    index = await _ts_staff_index()
+    confirmed = {d["key"]: d async for d in db.timesheet_links.find({}, {"_id": 0})}
+
+    now = datetime.now(timezone.utc).isoformat()
+    day_ops, week_ops, link_ops = [], [], []
+    unmatched, renumbered = [], []
+    worked = 0
+    total_hours = 0.0
+
+    for p in people:
+        key = _ts_key(p)
+        if not key:
+            continue
+        name = p.get("name") or ""
+
+        link = confirmed.get(key)
+        if link and link.get("confirmed"):
+            m = {"employee_number": link.get("employee_number"),
+                 "staff_name": link.get("staff_name"),
+                 "matched_by": "set by hand", "confidence": "high"}
+        else:
+            m = g2c.match_person(p.get("payroll_no"), name, index)
+            link_ops.append(UpdateOne(
+                {"key": key},
+                {"$set": {"key": key, "g2c_name": name,
+                          "payroll_no": p.get("payroll_no"),
+                          "clock_id": p.get("clock_id"),
+                          "dept": p.get("dept"),
+                          "employee_number": m.get("employee_number"),
+                          "staff_name": m.get("staff_name"),
+                          "matched_by": m.get("matched_by"),
+                          "confidence": m.get("confidence"),
+                          "note": m.get("note"),
+                          "updated_at": now}},
+                upsert=True))
+
+        hours = p.get("total_hours") or 0.0
+        total_hours += hours
+        if hours > 0:
+            worked += 1
+            if not m.get("employee_number"):
+                unmatched.append({"key": key, "name": name, "dept": p.get("dept"),
+                                  "hours": round(hours, 2), "note": m.get("note")})
+            elif m.get("matched_by") == "name":
+                renumbered.append({"name": name, "go2clock": p.get("payroll_no"),
+                                   "app": m.get("employee_number"),
+                                   "hours": round(hours, 2)})
+
+        common = {
+            "key": key, "g2c_name": name, "payroll_no": p.get("payroll_no"),
+            "clock_id": p.get("clock_id"), "dept": p.get("dept"),
+            "employee_number": m.get("employee_number"),
+            "staff_name": m.get("staff_name"),
+            "matched_by": m.get("matched_by"),
+        }
+
+        for d in p.get("days", []):
+            if not d.get("date"):
+                continue
+            day_ops.append(UpdateOne(
+                {"key": key, "date": d["date"]},
+                {"$set": {**common, "date": d["date"], "dow": d.get("dow"),
+                          "hours": d.get("hours") or 0.0,
+                          "pairs": d.get("pairs", []),
+                          "tardy": d.get("tardy"),
+                          "week_start": week_start,
+                          "updated_at": now}},
+                upsert=True))
+
+        week_ops.append(UpdateOne(
+            {"key": key, "week_start": week_start},
+            {"$set": {**common, "week_start": week_start, "week_end": week_end,
+                      "total_hours": round(hours, 2),
+                      "contract_hours": p.get("contract_hours"),
+                      "overtime": p.get("overtime", {}),
+                      "absence": p.get("absence", {}),
+                      "approved": bool(p.get("approved")),
+                      "updated_at": now}},
+            upsert=True))
+
+    if day_ops:
+        await db.timesheet_days.bulk_write(day_ops, ordered=False)
+    if week_ops:
+        await db.timesheet_weeks.bulk_write(week_ops, ordered=False)
+    if link_ops:
+        await db.timesheet_links.bulk_write(link_ops, ordered=False)
+
+    await db.sync_logs.insert_one({
+        "type": "timesheet_upload",
+        "timestamp": now,
+        "success": True,
+        "message": f"{worked} people, {round(total_hours, 2)} hours, "
+                   f"week of {week_start}",
+    })
+
+    unmatched.sort(key=lambda u: -u["hours"])
+    return {
+        "success": True,
+        "week_start": week_start,
+        "week_end": week_end,
+        "people": len(people),
+        "worked": worked,
+        "total_hours": round(total_hours, 2),
+        "unmatched_hours": round(sum(u["hours"] for u in unmatched), 2),
+        "unmatched": unmatched,
+        "renumbered": sorted(renumbered, key=lambda r: -r["hours"]),
+    }
+
+
+@app.get("/api/timesheets/weeks")
+async def timesheet_weeks():
+    """Which weeks have been uploaded, newest first."""
+    weeks = await db.timesheet_weeks.distinct("week_start")
+    return {"weeks": sorted([w for w in weeks if w], reverse=True)}
+
+
+@app.get("/api/timesheets/week")
+async def timesheet_week(week_start: str = None):
+    """Everyone's hours for one week. Defaults to the latest week held."""
+    if not week_start:
+        latest = await db.timesheet_weeks.find_one(
+            {}, {"_id": 0, "week_start": 1}, sort=[("week_start", -1)])
+        if not latest:
+            return {"week_start": None, "people": [], "totals": {}}
+        week_start = latest["week_start"]
+
+    rows = await db.timesheet_weeks.find(
+        {"week_start": week_start}, {"_id": 0}).to_list(length=2000)
+    days = await db.timesheet_days.find(
+        {"week_start": week_start}, {"_id": 0}).to_list(length=20000)
+
+    by_key = {}
+    for d in days:
+        by_key.setdefault(d["key"], []).append(
+            {"date": d["date"], "dow": d.get("dow"), "hours": d.get("hours") or 0.0})
+    for r in rows:
+        r["days"] = sorted(by_key.get(r["key"], []), key=lambda d: d["date"])
+
+    rows = [r for r in rows if (r.get("total_hours") or 0) > 0]
+    rows.sort(key=lambda r: -(r.get("total_hours") or 0))
+    total = sum(r.get("total_hours") or 0 for r in rows)
+    return {
+        "week_start": week_start,
+        "week_end": rows[0].get("week_end") if rows else None,
+        "people": rows,
+        "totals": {
+            "people": len(rows),
+            "hours": round(total, 2),
+            "matched": sum(1 for r in rows if r.get("employee_number")),
+            "approved": sum(1 for r in rows if r.get("approved")),
+        },
+    }
+
+
+@app.get("/api/timesheets/person/{employee_number}")
+async def timesheet_person(employee_number: str, weeks: int = 8):
+    """One person's recent weeks and days — the payroll side of their costings."""
+    weeks = max(1, min(weeks, 52))
+    wk = await db.timesheet_weeks.find(
+        {"employee_number": employee_number}, {"_id": 0}) \
+        .sort("week_start", -1).to_list(length=weeks)
+    starts = [w["week_start"] for w in wk]
+    days = await db.timesheet_days.find(
+        {"employee_number": employee_number, "week_start": {"$in": starts}},
+        {"_id": 0}).sort("date", -1).to_list(length=weeks * 7 + 10)
+    return {"employee_number": employee_number, "weeks": wk, "days": days}
+
+
+@app.get("/api/admin/timesheets/unmatched")
+async def timesheet_unmatched():
+    """Who the app couldn't place, and who it placed by name because their
+    number has changed. Both want tidying up on the Name List eventually."""
+    links = await db.timesheet_links.find({}, {"_id": 0}).to_list(length=5000)
+    hours = {}
+    async for w in db.timesheet_weeks.find({}, {"_id": 0, "key": 1, "total_hours": 1}):
+        hours[w["key"]] = hours.get(w["key"], 0) + (w.get("total_hours") or 0)
+    for l in links:
+        l["hours_held"] = round(hours.get(l["key"], 0), 2)
+    missing = [l for l in links if not l.get("employee_number")]
+    by_name = [l for l in links if l.get("matched_by") == "name"]
+    missing.sort(key=lambda l: -l["hours_held"])
+    by_name.sort(key=lambda l: -l["hours_held"])
+    return {"total": len(links), "not_matched": missing, "matched_by_name": by_name}
+
+
+class TimesheetLink(BaseModel):
+    key: str
+    employee_number: str
+
+
+@app.post("/api/admin/timesheets/link")
+async def timesheet_set_link(payload: TimesheetLink):
+    """Tie a Go2Clock person to a member of staff by hand. Marked confirmed,
+    so a later upload never overrides it."""
+    staff = await db.staff.find_one(
+        {"employee_number": payload.employee_number}, {"_id": 0, "name": 1})
+    if not staff:
+        raise HTTPException(status_code=404,
+                            detail=f"No one on the Name List with number {payload.employee_number}")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.timesheet_links.update_one(
+        {"key": payload.key},
+        {"$set": {"key": payload.key, "employee_number": payload.employee_number,
+                  "staff_name": staff.get("name"), "matched_by": "set by hand",
+                  "confidence": "high", "confirmed": True, "note": None,
+                  "updated_at": now}},
+        upsert=True)
+    await db.timesheet_days.update_many(
+        {"key": payload.key},
+        {"$set": {"employee_number": payload.employee_number,
+                  "staff_name": staff.get("name"), "matched_by": "set by hand"}})
+    await db.timesheet_weeks.update_many(
+        {"key": payload.key},
+        {"$set": {"employee_number": payload.employee_number,
+                  "staff_name": staff.get("name"), "matched_by": "set by hand"}})
+    return {"success": True, "key": payload.key, "staff_name": staff.get("name")}
+
+
+# ---- List feeds for the Excel work plan ------------------------------------
+#
+# The Daily Work Plan's dropdowns have to stay in step with the Name List, the
+# AssetList and the FieldPlan without anyone copying and pasting. The app
+# already syncs all three from SharePoint every hour, so it serves them here
+# as plain CSV and Excel pulls them in with Power Query.
+#
+# These are NOT open. Employee numbers are the login, so the feed needs a key:
+# set LISTS_KEY in Railway and put it on the end of the URL.
+
+LISTS_KEY = os.environ.get("LISTS_KEY", "")
+
+MACHINE_TYPES = {"tractor", "forklift", "forklifts", "forklift - s", "harvester",
+                 "cars/vans", "car/van", "hgv", "mewp", "loadall", "telehandler"}
+IMPLEMENT_TYPES = {"trailed implement", "mounted implement", "hire trailer",
+                   "trailed", "mounted"}
+
+
+def _csv_response(rows, filename):
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    for r in rows:
+        w.writerow(r)
+    return StreamingResponse(
+        io.BytesIO(buf.getvalue().encode("utf-8-sig")),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+async def _fieldplan_rows():
+    """Every field with its estate, hectares and this year's crop, read out of
+    the synced FieldPlan page."""
+    try:
+        html = await asyncio.to_thread(
+            lambda: open(FIELDPLAN_PATH, encoding="utf-8", errors="ignore").read())
+    except Exception:
+        return []
+    i = html.find("const F=[")
+    if i == -1:
+        return []
+    import json as _json
+    try:
+        data = _json.loads(html[i + len("const F="):html.find("];", i) + 1])
+    except Exception:
+        return []
+    year = str(datetime.now(timezone.utc).year)
+    rows = []
+    for f in data:
+        estate = (f.get("estate") or "").strip()
+        name = (f.get("field") or "").strip()
+        if not name:
+            continue
+        crop = (f.get("history") or {}).get(year) or (f.get("plan") or {}).get(year) or ""
+        rows.append([f"{estate} — {name}" if estate else name,
+                     estate, name, f.get("ha") or "", crop])
+    rows.sort(key=lambda r: r[0])
+    return rows
+
+
+@app.get("/api/lists/{which}.csv")
+async def list_feed(which: str, key: str = ""):
+    """One list as CSV, for the work plan's dropdowns to refresh from."""
+    if not LISTS_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="LISTS_KEY is not set on the server, so these feeds are switched off.")
+    if key != LISTS_KEY:
+        raise HTTPException(status_code=403, detail="Wrong or missing key.")
+
+    which = (which or "").lower()
+
+    if which == "names":
+        staff = await db.staff.find(
+            {}, {"_id": 0, "employee_number": 1, "name": 1}).to_list(length=5000)
+        rows = [["Name", "Employee No", "App key"]]
+        seen = set()
+        for s in staff:
+            num = str(s.get("employee_number") or "").strip()
+            key_nm = (s.get("name") or "").strip()
+            if not num or not key_nm or num in seen:
+                continue
+            seen.add(num)
+            pretty = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", key_nm).replace("- ", "-")
+            rows.append([pretty, num, key_nm])
+        rows[1:] = sorted(rows[1:], key=lambda r: r[0].lower())
+        return _csv_response(rows, "names.csv")
+
+    if which in ("jobs", "departments"):
+        doc = await db.job_lists.find_one({"key": "current"}, {"_id": 0}) or {}
+        vals = doc.get("jobs" if which == "jobs" else "departments", [])
+        head = "Job" if which == "jobs" else "Crop / Department"
+        return _csv_response([[head]] + [[v] for v in vals], f"{which}.csv")
+
+    if which in ("machines", "implements"):
+        assets = await db.assets.find(
+            {}, {"_id": 0, "make": 1, "name": 1, "check_type": 1}).to_list(length=5000)
+        want = MACHINE_TYPES if which == "machines" else IMPLEMENT_TYPES
+        out = sorted({f"{(a.get('make') or '').strip()} {(a.get('name') or '').strip()}".strip()
+                      for a in assets
+                      if (a.get("check_type") or "").strip().lower() in want})
+        head = "Machine" if which == "machines" else "Implement"
+        extra = ([["No machine"], ["Own machine (contractor)"], ["Hire tractor"]]
+                 if which == "machines" else [["Nothing on the back"]])
+        return _csv_response([[head]] + extra + [[o] for o in out], f"{which}.csv")
+
+    if which == "fields":
+        rows = await _fieldplan_rows()
+        return _csv_response(
+            [["Field", "Estate", "Name", "Hectares", "Crop"]] + rows, "fields.csv")
+
+    raise HTTPException(
+        status_code=404,
+        detail="Unknown list. Try names, jobs, departments, machines, implements or fields.")
+
+
+@app.get("/api/lists")
+async def list_feeds_index(key: str = ""):
+    """What each feed currently holds — a quick way to check they're alive."""
+    if not LISTS_KEY or key != LISTS_KEY:
+        raise HTTPException(status_code=403, detail="Wrong or missing key.")
+    doc = await db.job_lists.find_one({"key": "current"}, {"_id": 0}) or {}
+    assets = await db.assets.find({}, {"_id": 0, "check_type": 1}).to_list(length=5000)
+    types = [(a.get("check_type") or "").strip().lower() for a in assets]
+    return {
+        "names": await db.staff.count_documents({}),
+        "jobs": len(doc.get("jobs", [])),
+        "departments": len(doc.get("departments", [])),
+        "machines": sum(1 for t in types if t in MACHINE_TYPES),
+        "implements": sum(1 for t in types if t in IMPLEMENT_TYPES),
+        "fields": len(await _fieldplan_rows()),
+        "asset_check_types": sorted(set(types)),
+    }
+
+
+# ---- Payroll cost (Standard Payroll Summary Report, 4-weekly) -------------
+#
+# Go2Clock says how long someone worked. This says what it cost. Divide one
+# by the other over the SAME period and you have a real £ per hour per
+# person, which is the only honest way to put money against a job record.
+#
+#     cost = Total Gross Pay + Employer NICs + Employer Net Pension
+#
+# The hours MUST come from the same dates as the payroll run. Dividing a
+# four-week cost by one week's hours produces nonsense — it made one man
+# look like £63 an hour because he happened to be off that week. So the
+# rates endpoint reports which weeks are missing rather than guessing.
+
+
+async def _payroll_indexes():
+    """Lookups for matching a payroll row: everyone on the clock, and
+    everyone on the Name List."""
+    links = await db.timesheet_links.find({}, {"_id": 0}).to_list(length=5000)
+    by_key, by_name = {}, {}
+    for l in links:
+        entry = {"key": l["key"], "employee_number": l.get("employee_number"),
+                 "staff_name": l.get("staff_name")}
+        by_key[l["key"]] = entry
+        bare = pyr.base_id(l["key"])
+        if bare:
+            by_key.setdefault(bare, entry)
+        for nm in (l.get("g2c_name"), l.get("staff_name")):
+            k = pyr.clean_name(nm)
+            if k:
+                by_name.setdefault(k, [])
+                if entry not in by_name[k]:
+                    by_name[k].append(entry)
+    staff = await db.staff.find(
+        {}, {"_id": 0, "employee_number": 1, "name": 1}).to_list(length=5000)
+    return {"key": by_key, "name": by_name}, g2c.build_staff_index(staff)
+
+
+@app.post("/api/payroll/upload")
+async def upload_payroll(file: UploadFile = File(...)):
+    """Read a Standard Payroll Summary Report and store what each person cost."""
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="That file came through empty.")
+    if not (file.filename or "").lower().endswith((".xlsx", ".xlsm")):
+        raise HTTPException(
+            status_code=400,
+            detail="That needs to be the payroll summary spreadsheet (.xlsx).")
+
+    try:
+        people, start, end, warnings = await asyncio.to_thread(
+            pyr.parse_payroll_summary, raw)
+    except Exception as e:
+        logger.exception("payroll parse failed")
+        raise HTTPException(status_code=400, detail=f"Couldn't read that file: {e}")
+
+    if not people:
+        raise HTTPException(status_code=400,
+                            detail="No people found on that report.")
+    if not start or not end:
+        raise HTTPException(
+            status_code=400,
+            detail="Couldn't read the pay period off the report, so the hours "
+                   "can't be lined up with it. Check the dates line at the top.")
+
+    ts_index, staff_index = await _payroll_indexes()
+    now = datetime.now(timezone.utc).isoformat()
+
+    ops, unmatched = [], []
+    total = {"gross": 0.0, "employer_nic": 0.0, "employer_pension": 0.0, "cost": 0.0}
+    for p in people:
+        m = pyr.match_payroll_person(p, ts_index, staff_index)
+        for k in total:
+            total[k] += p.get(k) or 0.0
+        if not m.get("key") and (p.get("cost") or 0) > 0:
+            unmatched.append({"payroll_id": p["payroll_id"], "name": p["name"],
+                              "dept": p["payroll_dept"], "cost": p["cost"],
+                              "note": m.get("note")})
+        ops.append(UpdateOne(
+            {"period_start": start, "payroll_id": p["payroll_id"]},
+            {"$set": {**p, "period_start": start, "period_end": end,
+                      "timesheet_key": m.get("key"),
+                      "employee_number": m.get("employee_number"),
+                      "staff_name": m.get("staff_name"),
+                      "matched_by": m.get("matched_by"),
+                      "confidence": m.get("confidence"),
+                      "note": m.get("note"), "updated_at": now}},
+            upsert=True))
+
+    await db.payroll_people.bulk_write(ops, ordered=False)
+    await db.payroll_periods.update_one(
+        {"period_start": start},
+        {"$set": {"period_start": start, "period_end": end,
+                  "people": len(people),
+                  "gross": round(total["gross"], 2),
+                  "employer_nic": round(total["employer_nic"], 2),
+                  "employer_pension": round(total["employer_pension"], 2),
+                  "cost": round(total["cost"], 2),
+                  "warnings": warnings, "uploaded_at": now}},
+        upsert=True)
+    await db.sync_logs.insert_one({
+        "type": "payroll_upload", "timestamp": now, "success": True,
+        "message": f"{len(people)} people, £{round(total['cost'], 2)}, {start} to {end}",
+    })
+
+    unmatched.sort(key=lambda u: -u["cost"])
+    return {
+        "success": True, "period_start": start, "period_end": end,
+        "people": len(people),
+        "gross": round(total["gross"], 2),
+        "employer_nic": round(total["employer_nic"], 2),
+        "employer_pension": round(total["employer_pension"], 2),
+        "cost": round(total["cost"], 2),
+        "matched": len(people) - len(unmatched),
+        "unmatched": unmatched,
+        "unmatched_cost": round(sum(u["cost"] for u in unmatched), 2),
+        "warnings": warnings,
+    }
+
+
+@app.get("/api/payroll/periods")
+async def payroll_periods():
+    """Which pay runs have been uploaded, newest first."""
+    rows = await db.payroll_periods.find({}, {"_id": 0}) \
+        .sort("period_start", -1).to_list(length=200)
+    return {"periods": rows}
+
+
+@app.get("/api/payroll/rates")
+async def payroll_rates(period_start: str = None):
+    """Real £ per hour per person for one pay run.
+
+    Cost comes from the payroll report; hours come from the Go2Clock days
+    covering EXACTLY the same dates. Where a week is missing the person is
+    listed under `no_hours` rather than being given a made-up rate."""
+    if not period_start:
+        latest = await db.payroll_periods.find_one(
+            {}, {"_id": 0}, sort=[("period_start", -1)])
+        if not latest:
+            return {"period_start": None, "people": [], "totals": {},
+                    "message": "No payroll report has been uploaded yet."}
+        period_start = latest["period_start"]
+
+    period = await db.payroll_periods.find_one({"period_start": period_start}, {"_id": 0})
+    if not period:
+        raise HTTPException(status_code=404, detail="No pay run stored for that date.")
+    end = period["period_end"]
+
+    rows = await db.payroll_people.find(
+        {"period_start": period_start}, {"_id": 0}).to_list(length=5000)
+
+    hours = {}
+    async for d in db.timesheet_days.find(
+            {"date": {"$gte": period_start, "$lte": end}},
+            {"_id": 0, "key": 1, "hours": 1}):
+        hours[d["key"]] = hours.get(d["key"], 0) + (d.get("hours") or 0)
+
+    # which weeks of the run we actually hold
+    held = set(await db.timesheet_days.distinct(
+        "date", {"date": {"$gte": period_start, "$lte": end}}))
+    want = set()
+    d0 = parse_iso_date(period_start)
+    d1 = parse_iso_date(end)
+    while d0 <= d1:
+        want.add(d0.isoformat())
+        d0 += timedelta(days=1)
+    missing_days = sorted(want - held)
+
+    people, no_hours = [], []
+    for r in rows:
+        h = round(hours.get(r.get("timesheet_key") or "", 0), 2)
+        out = {"payroll_id": r["payroll_id"], "name": r.get("name"),
+               "staff_name": r.get("staff_name"),
+               "employee_number": r.get("employee_number"),
+               "dept": r.get("payroll_dept"), "cost": r.get("cost"),
+               "gross": r.get("gross"), "employer_nic": r.get("employer_nic"),
+               "employer_pension": r.get("employer_pension"),
+               "hours": h, "rate": round(r["cost"] / h, 2) if h else None,
+               "matched_by": r.get("matched_by")}
+        (people if h else no_hours).append(out)
+
+    people.sort(key=lambda p: -(p["rate"] or 0))
+    no_hours.sort(key=lambda p: -(p["cost"] or 0))
+    th = sum(p["hours"] for p in people)
+    tc = sum(p["cost"] for p in people)
+    return {
+        "period_start": period_start, "period_end": end,
+        "people": people, "no_hours": no_hours,
+        "missing_days": missing_days,
+        "complete": not missing_days,
+        "totals": {
+            "people": len(people), "hours": round(th, 2),
+            "cost": round(tc, 2),
+            "blended_rate": round(tc / th, 2) if th else None,
+            "cost_without_hours": round(sum(p["cost"] or 0 for p in no_hours), 2),
+        },
+        "warning": (
+            f"{len(missing_days)} day(s) of the pay run have no clock records, "
+            "so these rates are too high by however many hours are missing. "
+            "Upload the Go2Clock weeks covering " f"{period_start} to {end}."
+        ) if missing_days else None,
+    }
+
+
+@app.get("/api/payroll/rate-card")
+async def payroll_rate_card(period_start: str = None):
+    """The costing rates, boiled down: a £/hr for each person we can work
+    one out for, a department fallback, and a blended rate for anyone else."""
+    data = await payroll_rates(period_start)
+    if not data.get("period_start"):
+        return data
+    by_person, dept_h, dept_c = {}, {}, {}
+    for p in data["people"]:
+        if p["employee_number"] and p["rate"]:
+            by_person[p["employee_number"]] = p["rate"]
+        d = p.get("dept") or "—"
+        dept_h[d] = dept_h.get(d, 0) + p["hours"]
+        dept_c[d] = dept_c.get(d, 0) + p["cost"]
+    return {
+        "period_start": data["period_start"], "period_end": data["period_end"],
+        "complete": data["complete"], "warning": data.get("warning"),
+        "by_person": by_person,
+        "by_department": {d: round(dept_c[d] / dept_h[d], 2)
+                          for d in dept_h if dept_h[d]},
+        "blended": data["totals"]["blended_rate"],
+    }
 
 
 # ---- News banner (rolling ticker on the dashboard and login screen) ----

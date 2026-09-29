@@ -132,7 +132,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 5.6 &mdash; September 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 6.1 &mdash; September 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -979,6 +979,13 @@ function SharePointAdminComponent() {
   const [loading, setLoading] = useState(false);
   const [tractorReport, setTractorReport] = useState(null);
   const [tractorDragOver, setTractorDragOver] = useState(false);
+  const [timesheet, setTimesheet] = useState(null);
+  const [timesheetResult, setTimesheetResult] = useState(null);
+  const [timesheetDragOver, setTimesheetDragOver] = useState(false);
+  const [payrollPeriod, setPayrollPeriod] = useState(null);
+  const [payrollResult, setPayrollResult] = useState(null);
+  const [payrollRates, setPayrollRates] = useState(null);
+  const [payrollDragOver, setPayrollDragOver] = useState(false);
   const [pullPassword, setPullPassword] = useState('');
   const [pullPhotos, setPullPhotos] = useState(false);
   const [pullStatus, setPullStatus] = useState(null);
@@ -1058,6 +1065,101 @@ function SharePointAdminComponent() {
     setTractorDragOver(false);
     const file = e.dataTransfer.files && e.dataTransfer.files[0];
     uploadTractorFile(file);
+  };
+
+  // Load which payroll week the app is already holding
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/timesheets/week`);
+        if (res.ok) setTimesheet(await res.json());
+      } catch (e) { /* non-fatal */ }
+    })();
+  }, []);
+
+  const uploadTimesheetFile = async (file) => {
+    if (!file) return;
+    if (!/\.csv$/i.test(file.name)) {
+      toast.error('That needs to be the Go2Clock timesheet export — a .csv file');
+      return;
+    }
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      setLoading(true);
+      setTimesheetResult(null);
+      const res = await fetch(`${API_BASE_URL}/api/timesheets/upload`, { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setTimesheetResult(data);
+        toast.success(`Payroll hours loaded — ${data.worked} people, ${data.total_hours} hours, week of ${data.week_start}`);
+        try {
+          const r2 = await fetch(`${API_BASE_URL}/api/timesheets/week`);
+          if (r2.ok) setTimesheet(await r2.json());
+        } catch (e) { /* non-fatal */ }
+      } else {
+        toast.error(data.detail || 'Could not read that file');
+      }
+    } catch (e) {
+      toast.error('Upload failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTimesheetDrop = (e) => {
+    e.preventDefault();
+    setTimesheetDragOver(false);
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    uploadTimesheetFile(file);
+  };
+
+  // Which pay run the app is holding, and what it works out per hour
+  const loadPayroll = async () => {
+    try {
+      const r1 = await fetch(`${API_BASE_URL}/api/payroll/periods`);
+      if (r1.ok) {
+        const d = await r1.json();
+        setPayrollPeriod((d.periods || [])[0] || null);
+      }
+      const r2 = await fetch(`${API_BASE_URL}/api/payroll/rates`);
+      if (r2.ok) setPayrollRates(await r2.json());
+    } catch (e) { /* non-fatal */ }
+  };
+  useEffect(() => { loadPayroll(); }, []);
+
+  const uploadPayrollFile = async (file) => {
+    if (!file) return;
+    if (!/\.(xlsx|xlsm)$/i.test(file.name)) {
+      toast.error('That needs to be the payroll summary spreadsheet (.xlsx)');
+      return;
+    }
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      setLoading(true);
+      setPayrollResult(null);
+      const res = await fetch(`${API_BASE_URL}/api/payroll/upload`, { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setPayrollResult(data);
+        toast.success(`Payroll loaded — ${data.people} people, £${Math.round(data.cost).toLocaleString()} for ${data.period_start} to ${data.period_end}`);
+        loadPayroll();
+      } else {
+        toast.error(data.detail || 'Could not read that file');
+      }
+    } catch (e) {
+      toast.error('Upload failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePayrollDrop = (e) => {
+    e.preventDefault();
+    setPayrollDragOver(false);
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    uploadPayrollFile(file);
   };
 
   const handleFileUpload = async (event, type) => {
@@ -1236,6 +1338,188 @@ function SharePointAdminComponent() {
                 : (tractorReport.report_end_date ? <> &middot; to <b>{tractorReport.report_end_date}</b></> : null)}
               {tractorReport.uploaded_at ? <> &middot; uploaded {new Date(tractorReport.uploaded_at).toLocaleDateString()}</> : null}
             </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Go2Clock payroll hours upload */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Clock className="h-5 w-5 text-green-600" />
+            <span>Payroll Hours (Go2Clock)</span>
+          </CardTitle>
+          <CardDescription>
+            Drop in the weekly timesheet export from Go2Clock (.csv) — hours go against each person day by day, ready to sit alongside the job records
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div
+            onDragOver={(e) => { e.preventDefault(); setTimesheetDragOver(true); }}
+            onDragLeave={() => setTimesheetDragOver(false)}
+            onDrop={handleTimesheetDrop}
+            onClick={() => document.getElementById('timesheet-csv-admin-input').click()}
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+              timesheetDragOver ? 'border-green-600 bg-green-50' : 'border-gray-300 hover:border-green-400'
+            }`}
+            data-testid="timesheet-drop-zone"
+          >
+            <Upload className="h-8 w-8 mx-auto text-green-600 mb-2" />
+            <p className="text-sm font-semibold text-gray-900">Drop the weekly timesheet here</p>
+            <p className="text-xs text-gray-500 mt-1">or click to browse &mdash; .csv from Go2Clock</p>
+            <input
+              type="file"
+              id="timesheet-csv-admin-input"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => { uploadTimesheetFile(e.target.files && e.target.files[0]); e.target.value = ''; }}
+            />
+          </div>
+
+          {timesheet && timesheet.week_start && (
+            <p className="text-xs text-gray-600 mt-3">
+              Latest week held: <b>{timesheet.week_start}</b>
+              {timesheet.week_end ? <> to <b>{timesheet.week_end}</b></> : null}
+              {' '}&middot; <b>{timesheet.totals?.people}</b> people &middot; <b>{timesheet.totals?.hours}</b> hours
+            </p>
+          )}
+
+          {timesheetResult && (
+            <div className="mt-4 space-y-3">
+              <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-900">
+                Week of <b>{timesheetResult.week_start}</b> to <b>{timesheetResult.week_end}</b> &mdash;{' '}
+                <b>{timesheetResult.worked}</b> people worked, <b>{timesheetResult.total_hours}</b> hours in total.
+              </div>
+
+              {timesheetResult.renumbered && timesheetResult.renumbered.length > 0 && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                  <p className="text-sm font-semibold text-amber-900">
+                    {timesheetResult.renumbered.length} matched by name &mdash; their Go2Clock number doesn't match the Name List
+                  </p>
+                  <p className="text-xs text-amber-800 mt-1">
+                    Their hours are safe. Worth tidying the numbers up at some point so the two systems agree.
+                  </p>
+                  <ul className="mt-2 space-y-0.5 text-xs text-amber-900">
+                    {timesheetResult.renumbered.map((r, i) => (
+                      <li key={i}>
+                        {r.name} &mdash; Go2Clock <b>{r.go2clock || 'none'}</b>, app <b>{r.app}</b> ({r.hours} hrs)
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {timesheetResult.unmatched && timesheetResult.unmatched.length > 0 && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                  <p className="text-sm font-semibold text-red-900">
+                    {timesheetResult.unmatched.length} couldn't be matched &mdash; {timesheetResult.unmatched_hours} hours
+                  </p>
+                  <p className="text-xs text-red-800 mt-1">
+                    These people aren't on the Name List. Their hours are stored but won't line up with a job record until they're added.
+                  </p>
+                  <ul className="mt-2 space-y-0.5 text-xs text-red-900">
+                    {timesheetResult.unmatched.map((u, i) => (
+                      <li key={i}>
+                        {u.name} &mdash; {u.dept || 'no department'} ({u.hours} hrs)
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(!timesheetResult.unmatched || timesheetResult.unmatched.length === 0) && (
+                <p className="text-xs text-green-700">Everyone was matched to someone on the Name List.</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Payroll cost upload */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <TrendingUp className="h-5 w-5 text-green-600" />
+            <span>Payroll Cost</span>
+          </CardTitle>
+          <CardDescription>
+            Drop in the Standard Payroll Summary Report (.xlsx) for the pay run &mdash; gross pay + employer NICs + employer net pension, divided by the clocked hours for the same dates, gives a real cost per hour for each person
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div
+            onDragOver={(e) => { e.preventDefault(); setPayrollDragOver(true); }}
+            onDragLeave={() => setPayrollDragOver(false)}
+            onDrop={handlePayrollDrop}
+            onClick={() => document.getElementById('payroll-admin-input').click()}
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+              payrollDragOver ? 'border-green-600 bg-green-50' : 'border-gray-300 hover:border-green-400'
+            }`}
+            data-testid="payroll-drop-zone"
+          >
+            <Upload className="h-8 w-8 mx-auto text-green-600 mb-2" />
+            <p className="text-sm font-semibold text-gray-900">Drop the payroll summary here</p>
+            <p className="text-xs text-gray-500 mt-1">or click to browse &mdash; .xlsx</p>
+            <input
+              type="file"
+              id="payroll-admin-input"
+              accept=".xlsx,.xlsm"
+              className="hidden"
+              onChange={(e) => { uploadPayrollFile(e.target.files && e.target.files[0]); e.target.value = ''; }}
+            />
+          </div>
+
+          {payrollPeriod && (
+            <p className="text-xs text-gray-600 mt-3">
+              Latest pay run: <b>{payrollPeriod.period_start}</b> to <b>{payrollPeriod.period_end}</b>
+              {' '}&middot; <b>{payrollPeriod.people}</b> people &middot; <b>£{Math.round(payrollPeriod.cost).toLocaleString()}</b>
+              {payrollRates && payrollRates.totals && payrollRates.totals.blended_rate
+                ? <> &middot; <b>£{payrollRates.totals.blended_rate}</b> per hour across everyone</>
+                : null}
+            </p>
+          )}
+
+          {payrollRates && payrollRates.warning && (
+            <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">
+              <b>The hours don't cover the whole pay run.</b> {payrollRates.warning}
+            </div>
+          )}
+
+          {payrollResult && (
+            <div className="mt-4 space-y-3">
+              <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-900">
+                <b>{payrollResult.period_start}</b> to <b>{payrollResult.period_end}</b> &mdash;{' '}
+                <b>{payrollResult.people}</b> people.<br />
+                Gross £{Math.round(payrollResult.gross).toLocaleString()} + employer NICs
+                £{Math.round(payrollResult.employer_nic).toLocaleString()} + employer net pension
+                £{Math.round(payrollResult.employer_pension).toLocaleString()} ={' '}
+                <b>£{Math.round(payrollResult.cost).toLocaleString()}</b>
+              </div>
+
+              {payrollResult.warnings && payrollResult.warnings.length > 0 && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+                  {payrollResult.warnings.map((w, i) => <p key={i}>{w}</p>)}
+                </div>
+              )}
+
+              {payrollResult.unmatched && payrollResult.unmatched.length > 0 && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                  <p className="text-sm font-semibold text-amber-900">
+                    {payrollResult.unmatched.length} not found on the clock &mdash; £{Math.round(payrollResult.unmatched_cost).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-amber-800 mt-1">
+                    Their cost is stored but can't be turned into an hourly rate. Directors and office staff who don't clock in are expected here.
+                  </p>
+                  <ul className="mt-2 space-y-0.5 text-xs text-amber-900">
+                    {payrollResult.unmatched.map((u, i) => (
+                      <li key={i}>
+                        {u.name} ({u.payroll_id}) &mdash; {u.dept || 'no department'}, £{Math.round(u.cost).toLocaleString()}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
