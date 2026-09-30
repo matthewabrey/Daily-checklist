@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile, Form
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel, Field
@@ -8,6 +8,7 @@ import os
 import io
 import re
 import csv
+import secrets
 from motor.motor_asyncio import AsyncIOMotorClient
 import uuid
 from bson import ObjectId
@@ -18,6 +19,7 @@ from sharepoint_auto_sync import sharepoint_auto_sync
 import telematics as tele
 import go2clock as g2c
 import payroll as pyr
+import backup as bk
 from cached_stats import get_cached_stats, invalidate_cache
 from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH, download_fieldmap, FIELDMAP_PATH
 from servicing_export import build_servicing_workbook
@@ -51,6 +53,41 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---- Admin-only gate --------------------------------------------------------
+#
+# The API had no authentication of any kind: every one of its endpoints
+# answered whoever typed the address, and the login screen only ever decided
+# what the APP chose to show. That was survivable while it held checklists.
+# It is not survivable now that it holds what each person is paid, so
+# everything to do with wages, hours and costings sits behind this.
+#
+# The password travels in a header, never in the address, so it stays out of
+# browser history, server logs and anything sitting in between.
+
+
+# PAYROLL_PASSWORD, deliberately NOT anything beginning REACT_APP_.
+#
+# The app's existing admin password is REACT_APP_ADMIN_PASSWORD, which Create
+# React App compiles INTO THE BROWSER BUNDLE — so it is served to everyone who
+# loads the site and can be read out of the JavaScript in a few seconds. It
+# also falls back to a value hardcoded in a public repo. It is a doorplate,
+# not a lock, and reusing it here would have published the wages with it.
+#
+# This one is read only by the server and never reaches the frontend build.
+
+def require_admin(x_admin_password: Optional[str] = Header(None)):
+    expected = os.environ.get("PAYROLL_PASSWORD") or ""
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="PAYROLL_PASSWORD is not set on the server, so the wages and "
+                   "costings pages are switched off. Set it in Railway — and do "
+                   "not reuse REACT_APP_ADMIN_PASSWORD, which is public.")
+    if not x_admin_password or not secrets.compare_digest(str(x_admin_password), expected):
+        raise HTTPException(status_code=401, detail="That needs the admin password.")
+    return True
+
 
 # MongoDB setup with connection pooling and timeouts
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
@@ -192,9 +229,26 @@ async def startup_event():
         name="Hourly John Deere Telematics Ingest",
         replace_existing=True
     )
+    # The job and crop lists are read on the way up, not only on the hour —
+    # otherwise a deploy leaves them empty until five past
+    try:
+        out = await _save_job_lists()
+        logger.info("Job lists at startup: %s", out)
+    except Exception as e:
+        logger.warning("Job lists not loaded at startup: %s", e)
+
+    # Backup to SharePoint, once a night at 01:20 — after the day's data has
+    # landed and well clear of the hourly syncs
+    scheduler.add_job(
+        scheduled_backup,
+        CronTrigger(hour=1, minute=20, timezone="Europe/London"),
+        id="nightly_backup",
+        name="Nightly database backup to SharePoint",
+        replace_existing=True
+    )
     scheduler.start()
     logger.info("Scheduler started - staff/assets :05, maps :15, workplan :35, "
-                "telematics :45, every hour (UK time)")
+                "telematics :45, every hour (UK time); backup 01:20 nightly")
     # If a data copy was running when the server last stopped, it died with it —
     # say so plainly instead of leaving the panel stuck on "running".
     try:
@@ -1948,13 +2002,33 @@ async def get_stock_summary():
 # the hourly Name List sync rather than being typed into the app. Add a job
 # there and it's on everyone's phone within the hour.
 
-async def _save_job_lists():
+async def _save_job_lists(fetch_if_empty: bool = True):
     """Store whatever the last Name List sync read off the Departments tab.
     An empty read means the tab was missing or unreadable — the lists
-    already stored are left alone rather than being wiped."""
+    already stored are left alone rather than being wiped.
+
+    `last_lists` lives in memory on the running instance, so a deploy wipes
+    it and it only refills when the hourly sync next runs. On a day of
+    several deploys that meant the lists were never stored at all, which is
+    exactly what happened: job-lists sat empty with updated_at null while the
+    parser itself was working perfectly. So if there is nothing in memory,
+    go and read the Departments tab directly rather than give up."""
     lists = getattr(sharepoint_auto_sync, "last_lists", None) or {}
     jobs = lists.get("jobs") or []
     depts = lists.get("departments") or []
+
+    if not jobs and not depts and fetch_if_empty:
+        try:
+            _staff, fresh = await asyncio.to_thread(
+                sharepoint_auto_sync._fetch_and_parse_staff)
+            sharepoint_auto_sync.last_lists = fresh
+            jobs = fresh.get("jobs") or []
+            depts = fresh.get("departments") or []
+            logger.info("Job lists read straight from the Departments tab: "
+                        "%d jobs, %d departments", len(jobs), len(depts))
+        except Exception as e:
+            logger.warning("Couldn't read the Departments tab directly: %s", e)
+
     if not jobs and not depts:
         return {"saved": False, "reason": "nothing read from the Departments tab"}
     now = datetime.now(timezone.utc).isoformat()
@@ -2254,7 +2328,7 @@ async def _ts_staff_index():
 
 
 @app.post("/api/timesheets/upload")
-async def upload_timesheet(file: UploadFile = File(...)):
+async def upload_timesheet(file: UploadFile = File(...), _: bool = Depends(require_admin)):
     """Read a Go2Clock weekly timesheet export and store the hours."""
     raw = await file.read()
     if not raw:
@@ -2382,14 +2456,14 @@ async def upload_timesheet(file: UploadFile = File(...)):
 
 
 @app.get("/api/timesheets/weeks")
-async def timesheet_weeks():
+async def timesheet_weeks(_: bool = Depends(require_admin)):
     """Which weeks have been uploaded, newest first."""
     weeks = await db.timesheet_weeks.distinct("week_start")
     return {"weeks": sorted([w for w in weeks if w], reverse=True)}
 
 
 @app.get("/api/timesheets/week")
-async def timesheet_week(week_start: str = None):
+async def timesheet_week(week_start: str = None, _: bool = Depends(require_admin)):
     """Everyone's hours for one week. Defaults to the latest week held."""
     if not week_start:
         latest = await db.timesheet_weeks.find_one(
@@ -2427,7 +2501,7 @@ async def timesheet_week(week_start: str = None):
 
 
 @app.get("/api/timesheets/person/{employee_number}")
-async def timesheet_person(employee_number: str, weeks: int = 8):
+async def timesheet_person(employee_number: str, weeks: int = 8, _: bool = Depends(require_admin)):
     """One person's recent weeks and days — the payroll side of their costings."""
     weeks = max(1, min(weeks, 52))
     wk = await db.timesheet_weeks.find(
@@ -2441,7 +2515,7 @@ async def timesheet_person(employee_number: str, weeks: int = 8):
 
 
 @app.get("/api/admin/timesheets/unmatched")
-async def timesheet_unmatched():
+async def timesheet_unmatched(_: bool = Depends(require_admin)):
     """Who the app couldn't place, and who it placed by name because their
     number has changed. Both want tidying up on the Name List eventually."""
     links = await db.timesheet_links.find({}, {"_id": 0}).to_list(length=5000)
@@ -2463,7 +2537,7 @@ class TimesheetLink(BaseModel):
 
 
 @app.post("/api/admin/timesheets/link")
-async def timesheet_set_link(payload: TimesheetLink):
+async def timesheet_set_link(payload: TimesheetLink, _: bool = Depends(require_admin)):
     """Tie a Go2Clock person to a member of staff by hand. Marked confirmed,
     so a later upload never overrides it."""
     staff = await db.staff.find_one(
@@ -2488,6 +2562,114 @@ async def timesheet_set_link(payload: TimesheetLink):
         {"$set": {"employee_number": payload.employee_number,
                   "staff_name": staff.get("name"), "matched_by": "set by hand"}})
     return {"success": True, "key": payload.key, "staff_name": staff.get("name")}
+
+
+
+# ---- Nightly backup --------------------------------------------------------
+
+
+APP_VERSION = "6.5"
+
+
+async def _run_backup(include_photos: bool = False, to_sharepoint: bool = True):
+    """Build the zip and, if asked, push it into SharePoint."""
+    started = datetime.now(timezone.utc)
+    data, manifest = await bk.build_zip(db, include_photos, APP_VERSION)
+    name = bk.filename(started, include_photos)
+    result = {"file": name, "bytes": len(data), "manifest": manifest,
+              "saved_to_sharepoint": False, "error": None}
+
+    if to_sharepoint:
+        try:
+            await asyncio.to_thread(
+                sharepoint_auto_sync.upload_file, bk.BACKUP_FOLDER, name, data)
+            result["saved_to_sharepoint"] = True
+        except Exception as e:
+            result["error"] = str(e)[:400]
+            logger.error("backup upload failed: %s", e)
+
+    await db.backup_runs.insert_one({
+        "taken_at": started.isoformat(),
+        "file": name,
+        "bytes": len(data),
+        "documents": manifest.get("total_documents"),
+        "include_photos": include_photos,
+        "saved_to_sharepoint": result["saved_to_sharepoint"],
+        "error": result["error"],
+        "notes": manifest.get("notes", []),
+    })
+    # keep the log tidy — 400 runs is over a year of nightlies
+    old = await db.backup_runs.count_documents({})
+    if old > 400:
+        cut = await db.backup_runs.find({}, {"_id": 1}).sort("taken_at", 1) \
+            .to_list(length=old - 400)
+        if cut:
+            await db.backup_runs.delete_many({"_id": {"$in": [c["_id"] for c in cut]}})
+    return result
+
+
+async def scheduled_backup():
+    try:
+        out = await _run_backup(include_photos=False, to_sharepoint=True)
+        if out["saved_to_sharepoint"]:
+            logger.info("Backup saved: %s (%s bytes)", out["file"], out["bytes"])
+        else:
+            logger.error("Backup BUILT but NOT SAVED: %s", out["error"])
+    except Exception as e:
+        logger.error("scheduled backup failed: %s", e)
+        await db.backup_runs.insert_one({
+            "taken_at": datetime.now(timezone.utc).isoformat(),
+            "file": None, "bytes": 0, "saved_to_sharepoint": False,
+            "error": f"failed before it started: {str(e)[:300]}",
+        })
+
+
+@app.get("/api/admin/backup")
+async def download_backup(photos: bool = False, _: bool = Depends(require_admin)):
+    """Download a backup right now. `?photos=true` includes the photo data,
+    which makes it very much bigger."""
+    data, manifest = await bk.build_zip(db, photos, APP_VERSION)
+    name = bk.filename(include_photos=photos)
+    await db.backup_runs.insert_one({
+        "taken_at": datetime.now(timezone.utc).isoformat(),
+        "file": name, "bytes": len(data),
+        "documents": manifest.get("total_documents"),
+        "include_photos": photos, "saved_to_sharepoint": False,
+        "error": None, "notes": ["downloaded by hand"],
+    })
+    return StreamingResponse(
+        io.BytesIO(data), media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.post("/api/admin/backup/run-now")
+async def backup_run_now(photos: bool = False, _: bool = Depends(require_admin)):
+    """Do tonight's backup now, into SharePoint. Good for proving it works."""
+    return await _run_backup(include_photos=photos, to_sharepoint=True)
+
+
+@app.get("/api/admin/backup/status")
+async def backup_status(_: bool = Depends(require_admin)):
+    """Has it actually been running? First thing to check."""
+    runs = await db.backup_runs.find({}, {"_id": 0}) \
+        .sort("taken_at", -1).to_list(length=30)
+    saved = [r for r in runs if r.get("saved_to_sharepoint")]
+    counts = {}
+    for name in bk.COLLECTIONS:
+        try:
+            counts[name] = await db[name].count_documents({})
+        except Exception:
+            counts[name] = None
+    return {
+        "folder": bk.BACKUP_FOLDER,
+        "last_run": runs[0] if runs else None,
+        "last_saved_to_sharepoint": saved[0] if saved else None,
+        "healthy": bool(saved) and saved[0]["taken_at"] > (
+            datetime.now(timezone.utc) - timedelta(days=2)).isoformat(),
+        "recent": runs,
+        "documents_now": counts,
+        "total_documents_now": sum(v or 0 for v in counts.values()),
+    }
 
 
 # ---- List feeds for the Excel work plan ------------------------------------
@@ -2579,6 +2761,10 @@ async def list_feed(which: str, key: str = ""):
 
     if which in ("jobs", "departments"):
         doc = await db.job_lists.find_one({"key": "current"}, {"_id": 0}) or {}
+        if not (doc.get("jobs") or doc.get("departments")):
+            # never hand back an empty list just because the app restarted
+            await _save_job_lists()
+            doc = await db.job_lists.find_one({"key": "current"}, {"_id": 0}) or {}
         vals = doc.get("jobs" if which == "jobs" else "departments", [])
         head = "Job" if which == "jobs" else "Crop / Department"
         return _csv_response([[head]] + [[v] for v in vals], f"{which}.csv")
@@ -2679,7 +2865,7 @@ async def _payroll_indexes():
 
 
 @app.post("/api/payroll/upload")
-async def upload_payroll(file: UploadFile = File(...)):
+async def upload_payroll(file: UploadFile = File(...), _: bool = Depends(require_admin)):
     """Read a Standard Payroll Summary Report and store what each person cost."""
     raw = await file.read()
     if not raw:
@@ -2761,7 +2947,7 @@ async def upload_payroll(file: UploadFile = File(...)):
 
 
 @app.get("/api/payroll/periods")
-async def payroll_periods():
+async def payroll_periods(_: bool = Depends(require_admin)):
     """Which pay runs have been uploaded, newest first."""
     rows = await db.payroll_periods.find({}, {"_id": 0}) \
         .sort("period_start", -1).to_list(length=200)
@@ -2769,7 +2955,7 @@ async def payroll_periods():
 
 
 @app.get("/api/payroll/rates")
-async def payroll_rates(period_start: str = None):
+async def payroll_rates(period_start: str = None, _: bool = Depends(require_admin)):
     """Real £ per hour per person for one pay run.
 
     Cost comes from the payroll report; hours come from the Go2Clock days
@@ -2845,10 +3031,10 @@ async def payroll_rates(period_start: str = None):
 
 
 @app.get("/api/payroll/rate-card")
-async def payroll_rate_card(period_start: str = None):
+async def payroll_rate_card(period_start: str = None, _: bool = Depends(require_admin)):
     """The costing rates, boiled down: a £/hr for each person we can work
     one out for, a department fallback, and a blended rate for anyone else."""
-    data = await payroll_rates(period_start)
+    data = await payroll_rates(period_start, _=True)
     if not data.get("period_start"):
         return data
     by_person, dept_h, dept_c = {}, {}, {}

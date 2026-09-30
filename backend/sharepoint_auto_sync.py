@@ -33,6 +33,7 @@ class SharePointAutoSync:
         self.token_url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
         self.graph_url = "https://graph.microsoft.com/v1.0"
         self.access_token = None
+        self.last_lists = {"jobs": [], "departments": []}
         
     def _get_access_token(self) -> str:
         """Get access token using client credentials flow (app-only)"""
@@ -225,6 +226,84 @@ class SharePointAutoSync:
         out.sort(key=lambda x: x.get("modified") or "")
         return drive_id, out
 
+    def upload_file(self, folder_path: str, filename: str, content: bytes):
+        """Put a file into a SharePoint folder. Used for the nightly backup.
+
+        Needs the Azure app registration to hold **Files.ReadWrite.All**, not
+        just read. If it only has read, Graph answers 403 and that is said
+        plainly rather than swallowed — a backup you think is running and
+        isn't is worse than none.
+
+        Files up to 4MB go in one request; anything larger goes through an
+        upload session in 10MB slices, which is Graph's own rule.
+        """
+        import math
+        site_id = self._get_site_id()
+        drive_id = self._get_drive_id(site_id)
+        safe = filename.replace("'", "")
+        base = f"{self.graph_url}/drives/{drive_id}/root:/{folder_path}/{safe}"
+
+        if not self.access_token:
+            self._get_access_token()
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+
+        SMALL = 4 * 1024 * 1024
+        if len(content) <= SMALL:
+            r = requests.put(base + ":/content", headers=headers,
+                             data=content, timeout=180)
+            # A token is minted with whatever permissions existed at the time,
+            # and this class holds onto it. So the first attempt after someone
+            # grants Files.ReadWrite.All in Azure can still be refused by an
+            # old token. Throw the token away and try once more before
+            # believing the refusal — otherwise it looks like the Azure change
+            # didn't work when it did.
+            if r.status_code in (401, 403):
+                self.access_token = None
+                self._get_access_token()
+                headers["Authorization"] = f"Bearer {self.access_token}"
+                r = requests.put(base + ":/content", headers=headers,
+                                 data=content, timeout=180)
+            if r.status_code == 403:
+                raise PermissionError(
+                    "SharePoint refused the write, twice, with a fresh token. "
+                    "The Azure app registration needs Files.ReadWrite.All as an "
+                    "APPLICATION permission (not delegated), and someone has to "
+                    "press Grant admin consent — read alone cannot save a backup.")
+            r.raise_for_status()
+            return r.json()
+
+        # large file: an upload session, 10MB at a time
+        r = requests.post(base + ":/createUploadSession", headers=headers,
+                          json={"item": {"@microsoft.graph.conflictBehavior": "replace"}},
+                          timeout=60)
+        if r.status_code in (401, 403):
+            self.access_token = None
+            self._get_access_token()
+            headers["Authorization"] = f"Bearer {self.access_token}"
+            r = requests.post(base + ":/createUploadSession", headers=headers,
+                              json={"item": {"@microsoft.graph.conflictBehavior": "replace"}},
+                              timeout=60)
+        if r.status_code == 403:
+            raise PermissionError(
+                "SharePoint refused to start an upload session. The Azure app "
+                "registration needs Files.ReadWrite.All with admin consent.")
+        r.raise_for_status()
+        url = r.json()["uploadUrl"]
+
+        CHUNK = 10 * 1024 * 1024
+        total = len(content)
+        for i in range(math.ceil(total / CHUNK)):
+            lo = i * CHUNK
+            hi = min(lo + CHUNK, total) - 1
+            cr = requests.put(url, timeout=300, data=content[lo:hi + 1], headers={
+                "Content-Length": str(hi - lo + 1),
+                "Content-Range": f"bytes {lo}-{hi}/{total}",
+            })
+            if cr.status_code not in (200, 201, 202):
+                cr.raise_for_status()
+            last = cr
+        return last.json() if last.content else {"name": safe, "size": total}
+
     def read_file(self, drive_id: str, item_id: str) -> bytes:
         """Public wrapper so callers don't reach into the private one."""
         return self._download_file(drive_id, item_id)
@@ -316,6 +395,67 @@ class SharePointAutoSync:
         logger.info(f"Parsed {len(staff_data)} staff members from Excel")
         return staff_data
     
+    def _parse_departments_sheet(self, file_content: bytes) -> Dict:
+        """The 'Departments' tab of Name List.xlsx holds two lists side by
+        side — Job and Crop/Department. Columns are found by their HEADING,
+        not their position, because the work plan taught us that a sheet
+        which moves silently is worse than one that breaks loudly.
+        Returns empty lists if the tab isn't there; it's optional."""
+        import re as _re
+
+        def norm(v):
+            return _re.sub(r"[^a-z]", "", str(v or "").lower())
+
+        try:
+            wb = openpyxl.load_workbook(BytesIO(file_content), data_only=True)
+        except Exception as e:
+            logger.warning(f"Couldn't open the workbook for departments: {e}")
+            return {"jobs": [], "departments": []}
+
+        sheet = None
+        for name in wb.sheetnames:
+            if norm(name) in ("departments", "department"):
+                sheet = wb[name]
+                break
+        if sheet is None:
+            logger.info("No Departments tab in Name List.xlsx — lists left as they were")
+            return {"jobs": [], "departments": []}
+
+        job_col = dept_col = header_row = None
+        for r in range(1, min(sheet.max_row, 10) + 1):
+            for c in range(1, min(sheet.max_column, 12) + 1):
+                key = norm(sheet.cell(r, c).value)
+                if key == "job":
+                    job_col, header_row = c, r
+                elif key in ("cropdepartment", "crop", "department", "cropdept"):
+                    dept_col, header_row = c, r
+            if job_col or dept_col:
+                break
+
+        if not header_row:
+            logger.warning("Departments tab found but no 'Job' / 'Crop/Department' headings")
+            return {"jobs": [], "departments": []}
+
+        def column(col):
+            if not col:
+                return []
+            seen, out = set(), []
+            for r in range(header_row + 1, sheet.max_row + 1):
+                v = sheet.cell(r, col).value
+                if v in (None, ""):
+                    continue
+                v = str(v).strip()
+                # the sheet has 'Band Spraying' twice — keep the first only
+                if v.lower() in seen:
+                    continue
+                seen.add(v.lower())
+                out.append(v)
+            return out
+
+        jobs, depts = column(job_col), column(dept_col)
+        logger.info(f"Departments tab: {len(jobs)} jobs, {len(depts)} crop/departments")
+        return {"jobs": jobs, "departments": depts}
+
     def _fetch_and_parse_staff(self) -> List[Dict]:
         """Blocking half of the staff sync — network and Excel parsing only, so
         it can be run off the event loop."""
@@ -323,7 +463,7 @@ class SharePointAutoSync:
         drive_id = self._get_drive_id(site_id)
         item_id = self._find_file(drive_id, self.staff_filename)
         file_content = self._download_file(drive_id, item_id)
-        return self._parse_staff_excel(file_content)
+        return self._parse_staff_excel(file_content), self._parse_departments_sheet(file_content)
 
     async def sync_staff_list(self, db) -> Dict:
         """Main sync function - downloads staff list from SharePoint and updates database"""
@@ -332,7 +472,7 @@ class SharePointAutoSync:
 
             # Download and parse in a worker thread — this runs hourly now, and
             # blocking the event loop for it would freeze the app for everyone
-            staff_data = await asyncio.to_thread(self._fetch_and_parse_staff)
+            staff_data, self.last_lists = await asyncio.to_thread(self._fetch_and_parse_staff)
 
             if not staff_data:
                 raise Exception("No valid staff data found in Excel file")

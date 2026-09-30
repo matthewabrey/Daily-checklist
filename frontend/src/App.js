@@ -132,7 +132,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 6.2 &mdash; September 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 6.5 &mdash; October 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -986,6 +986,14 @@ function SharePointAdminComponent() {
   const [payrollResult, setPayrollResult] = useState(null);
   const [payrollRates, setPayrollRates] = useState(null);
   const [payrollDragOver, setPayrollDragOver] = useState(false);
+  // The admin password for the wages pages. Held in memory for this page only
+  // — deliberately NOT in localStorage, because it is a credential.
+  const [adminPw, setAdminPw] = useState('');
+  const [adminPwInput, setAdminPwInput] = useState('');
+  const [payrollUnlocked, setPayrollUnlocked] = useState(false);
+  const [payrollChecking, setPayrollChecking] = useState(false);
+  const [backupStatus, setBackupStatus] = useState(null);
+  const [backupBusy, setBackupBusy] = useState(false);
   const [pullPassword, setPullPassword] = useState('');
   const [pullPhotos, setPullPhotos] = useState(false);
   const [pullStatus, setPullStatus] = useState(null);
@@ -1067,15 +1075,102 @@ function SharePointAdminComponent() {
     uploadTractorFile(file);
   };
 
-  // Load which payroll week the app is already holding
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/timesheets/week`);
-        if (res.ok) setTimesheet(await res.json());
-      } catch (e) { /* non-fatal */ }
-    })();
-  }, []);
+  const adminHeaders = (pw) => ({ 'X-Admin-Password': pw || adminPw });
+
+  const loadTimesheet = async (pw) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/timesheets/week`, { headers: adminHeaders(pw) });
+      if (res.ok) setTimesheet(await res.json());
+    } catch (e) { /* non-fatal */ }
+  };
+
+  const unlockPayroll = async () => {
+    const pw = adminPwInput;
+    if (!pw) return;
+    setPayrollChecking(true);
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/payroll/periods`, {
+        headers: { 'X-Admin-Password': pw },
+      });
+      if (r.status === 401) { toast.error('That password was not accepted'); return; }
+      if (r.status === 503) {
+        toast.error('PAYROLL_PASSWORD is not set in Railway yet');
+        return;
+      }
+      if (!r.ok) { toast.error('Could not check that just now'); return; }
+      setAdminPw(pw);
+      setAdminPwInput('');
+      setPayrollUnlocked(true);
+      const d = await r.json();
+      setPayrollPeriod((d.periods || [])[0] || null);
+      loadTimesheet(pw);
+      loadPayroll(pw);
+      loadBackupStatus(pw);
+    } catch (e) {
+      toast.error('Could not check that just now');
+    } finally {
+      setPayrollChecking(false);
+    }
+  };
+
+  const loadBackupStatus = async (pw) => {
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/admin/backup/status`, { headers: adminHeaders(pw) });
+      if (r.ok) setBackupStatus(await r.json());
+    } catch (e) { /* non-fatal */ }
+  };
+
+  const runBackupNow = async () => {
+    setBackupBusy(true);
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/admin/backup/run-now`, {
+        method: 'POST', headers: adminHeaders(),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.saved_to_sharepoint) {
+        toast.success(`Saved ${d.file} to SharePoint — ${d.manifest?.total_documents?.toLocaleString()} records`);
+      } else if (r.ok) {
+        toast.error(`Backup built but NOT saved: ${d.error || 'unknown reason'}`);
+      } else {
+        toast.error(d.detail || 'Backup failed');
+      }
+      loadBackupStatus();
+    } catch (e) {
+      toast.error('Backup failed');
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const downloadBackup = async (withPhotos) => {
+    setBackupBusy(true);
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/admin/backup?photos=${withPhotos ? 'true' : 'false'}`,
+        { headers: adminHeaders() });
+      if (!r.ok) { toast.error('Could not build the backup'); return; }
+      const blob = await r.blob();
+      const cd = r.headers.get('Content-Disposition') || '';
+      const m = cd.match(/filename="([^"]+)"/);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = m ? m[1] : 'abreys-backup.zip';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
+      loadBackupStatus();
+    } catch (e) {
+      toast.error('Could not build the backup');
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const lockPayroll = () => {
+    setAdminPw('');
+    setPayrollUnlocked(false);
+    setTimesheet(null); setTimesheetResult(null);
+    setPayrollPeriod(null); setPayrollResult(null); setPayrollRates(null);
+    setBackupStatus(null);
+  };
 
   const uploadTimesheetFile = async (file) => {
     if (!file) return;
@@ -1088,15 +1183,12 @@ function SharePointAdminComponent() {
     try {
       setLoading(true);
       setTimesheetResult(null);
-      const res = await fetch(`${API_BASE_URL}/api/timesheets/upload`, { method: 'POST', body: fd });
+      const res = await fetch(`${API_BASE_URL}/api/timesheets/upload`, { method: 'POST', body: fd, headers: adminHeaders() });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setTimesheetResult(data);
         toast.success(`Payroll hours loaded — ${data.worked} people, ${data.total_hours} hours, week of ${data.week_start}`);
-        try {
-          const r2 = await fetch(`${API_BASE_URL}/api/timesheets/week`);
-          if (r2.ok) setTimesheet(await r2.json());
-        } catch (e) { /* non-fatal */ }
+        loadTimesheet();
       } else {
         toast.error(data.detail || 'Could not read that file');
       }
@@ -1115,18 +1207,17 @@ function SharePointAdminComponent() {
   };
 
   // Which pay run the app is holding, and what it works out per hour
-  const loadPayroll = async () => {
+  const loadPayroll = async (pw) => {
     try {
-      const r1 = await fetch(`${API_BASE_URL}/api/payroll/periods`);
+      const r1 = await fetch(`${API_BASE_URL}/api/payroll/periods`, { headers: adminHeaders(pw) });
       if (r1.ok) {
         const d = await r1.json();
         setPayrollPeriod((d.periods || [])[0] || null);
       }
-      const r2 = await fetch(`${API_BASE_URL}/api/payroll/rates`);
+      const r2 = await fetch(`${API_BASE_URL}/api/payroll/rates`, { headers: adminHeaders(pw) });
       if (r2.ok) setPayrollRates(await r2.json());
     } catch (e) { /* non-fatal */ }
   };
-  useEffect(() => { loadPayroll(); }, []);
 
   const uploadPayrollFile = async (file) => {
     if (!file) return;
@@ -1139,7 +1230,7 @@ function SharePointAdminComponent() {
     try {
       setLoading(true);
       setPayrollResult(null);
-      const res = await fetch(`${API_BASE_URL}/api/payroll/upload`, { method: 'POST', body: fd });
+      const res = await fetch(`${API_BASE_URL}/api/payroll/upload`, { method: 'POST', body: fd, headers: adminHeaders() });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setPayrollResult(data);
@@ -1342,6 +1433,101 @@ function SharePointAdminComponent() {
         </CardContent>
       </Card>
 
+      {/* ---- Costings & Payroll — behind the admin password ---------------- */}
+      <Card className="mb-6 border-2 border-green-200">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <TrendingUp className="h-5 w-5 text-green-700" />
+            <span>Costings &amp; Payroll</span>
+          </CardTitle>
+          <CardDescription>
+            Wages, clocked hours and cost per field. Kept separate and password-protected &mdash; this is the only part of the app that holds what people are paid.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!payrollUnlocked ? (
+            <div className="max-w-sm">
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Admin password</label>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={adminPwInput}
+                  onChange={(e) => setAdminPwInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') unlockPayroll(); }}
+                  placeholder="Not the same as the admin password"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  data-testid="payroll-password"
+                />
+                <Button onClick={unlockPayroll} disabled={!adminPwInput || payrollChecking}
+                        className="bg-green-700 hover:bg-green-800">
+                  {payrollChecking ? 'Checking…' : 'Unlock'}
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Set as PAYROLL_PASSWORD in Railway. Deliberately not the admin password &mdash;
+                that one is built into the page everyone downloads. Asked once each time you open
+                the app, and never written to this device.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-gray-200">
+                <p className="text-xs text-green-800 font-semibold">Unlocked</p>
+                <button onClick={lockPayroll} className="text-xs text-gray-500 underline">Lock again</button>
+              </div>
+
+              {/* Backup */}
+              <div className="rounded-xl border border-gray-200 p-4">
+                <div className="flex items-start justify-between flex-wrap gap-2">
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Database backup</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Runs itself every night at 01:20 into SharePoint &rarr; Apps &rarr; Checklist App &rarr; Backups
+                    </p>
+                  </div>
+                  {backupStatus && (
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                      backupStatus.healthy ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {backupStatus.healthy ? 'Backed up' : 'NOT backed up'}
+                    </span>
+                  )}
+                </div>
+
+                {backupStatus && (
+                  <p className="text-xs text-gray-600 mt-2">
+                    {backupStatus.last_saved_to_sharepoint ? (
+                      <>Last saved <b>{new Date(backupStatus.last_saved_to_sharepoint.taken_at).toLocaleString()}</b>
+                        {' · '}{(backupStatus.last_saved_to_sharepoint.documents || 0).toLocaleString()} records
+                        {' · '}{Math.round((backupStatus.last_saved_to_sharepoint.bytes || 0) / 1024 / 1024 * 10) / 10} MB</>
+                    ) : (
+                      <span className="text-red-700 font-semibold">Nothing has ever been saved to SharePoint.</span>
+                    )}
+                    {' '}Holding <b>{(backupStatus.total_documents_now || 0).toLocaleString()}</b> records now.
+                  </p>
+                )}
+
+                {backupStatus && backupStatus.last_run && backupStatus.last_run.error && (
+                  <div className="mt-2 rounded-lg bg-red-50 border border-red-200 p-2.5 text-xs text-red-900">
+                    <b>Last attempt failed:</b> {backupStatus.last_run.error}
+                  </div>
+                )}
+
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  <Button onClick={runBackupNow} disabled={backupBusy}
+                          className="bg-green-700 hover:bg-green-800 text-xs">
+                    {backupBusy ? 'Working…' : 'Back up now'}
+                  </Button>
+                  <Button onClick={() => downloadBackup(false)} disabled={backupBusy}
+                          variant="outline" className="text-xs">Download a copy</Button>
+                  <Button onClick={() => downloadBackup(true)} disabled={backupBusy}
+                          variant="outline" className="text-xs">Download with photos</Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  The nightly one leaves photos out &mdash; they are stored inside each check and would
+                  make the file enormous. Use &ldquo;with photos&rdquo; now and again and keep it somewhere safe.
+                </p>
+              </div>
       {/* Go2Clock payroll hours upload */}
       <Card className="mb-6">
         <CardHeader>
@@ -1519,6 +1705,10 @@ function SharePointAdminComponent() {
                   </ul>
                 </div>
               )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
             </div>
           )}
         </CardContent>
