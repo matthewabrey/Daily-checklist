@@ -2587,13 +2587,30 @@ async def list_feed(which: str, key: str = ""):
         assets = await db.assets.find(
             {}, {"_id": 0, "make": 1, "name": 1, "check_type": 1}).to_list(length=5000)
         want = MACHINE_TYPES if which == "machines" else IMPLEMENT_TYPES
-        out = sorted({f"{(a.get('make') or '').strip()} {(a.get('name') or '').strip()}".strip()
-                      for a in assets
-                      if (a.get("check_type") or "").strip().lower() in want})
+        picked = [(( a.get("make") or "").strip(), (a.get("name") or "").strip())
+                  for a in assets
+                  if (a.get("check_type") or "").strip().lower() in want]
+        picked = sorted({p for p in picked if p[1]})
+
+        # The dropdown shows the AssetList name EXACTLY as it is written there,
+        # so the two always read the same. The make is only bolted on the front
+        # when a bare name would otherwise be ambiguous — which means the asset
+        # list has two of them, and that is worth knowing about.
+        counts = {}
+        for _, nm in picked:
+            counts[nm] = counts.get(nm, 0) + 1
+        rows = []
+        for make, nm in picked:
+            label = nm if counts[nm] == 1 else (f"{make} {nm}".strip() if make else nm)
+            rows.append([label, make, nm])
+        rows.sort(key=lambda r: r[0].lower())
+
         head = "Machine" if which == "machines" else "Implement"
-        extra = ([["No machine"], ["Own machine (contractor)"], ["Hire tractor"]]
-                 if which == "machines" else [["Nothing on the back"]])
-        return _csv_response([[head]] + extra + [[o] for o in out], f"{which}.csv")
+        extra = ([["No machine", "", ""], ["Own machine (contractor)", "", ""],
+                  ["Hire tractor", "", ""]]
+                 if which == "machines" else [["Nothing on the back", "", ""]])
+        return _csv_response([[head, "Make", "AssetList name"]] + extra + rows,
+                             f"{which}.csv")
 
     if which == "fields":
         rows = await _fieldplan_rows()
