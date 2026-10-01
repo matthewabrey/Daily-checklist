@@ -2568,7 +2568,7 @@ async def timesheet_set_link(payload: TimesheetLink, _: bool = Depends(require_a
 # ---- Nightly backup --------------------------------------------------------
 
 
-APP_VERSION = "6.5"
+APP_VERSION = "6.6"
 
 
 async def _run_backup(include_photos: bool = False, to_sharepoint: bool = True):
@@ -2770,8 +2770,14 @@ async def list_feed(which: str, key: str = ""):
         return _csv_response([[head]] + [[v] for v in vals], f"{which}.csv")
 
     if which in ("machines", "implements"):
+        # Renaming a machine on the AssetList does NOT remove the old record:
+        # the sync upserts on make+name and marks whatever vanished as
+        # `retired` instead of deleting it. So "AFM 26" existed twice — once
+        # under its old name and once under the new one — and the dropdown
+        # offered both. Retired assets are left out here.
         assets = await db.assets.find(
-            {}, {"_id": 0, "make": 1, "name": 1, "check_type": 1}).to_list(length=5000)
+            {"retired": {"$ne": True}},
+            {"_id": 0, "make": 1, "name": 1, "check_type": 1}).to_list(length=5000)
         want = MACHINE_TYPES if which == "machines" else IMPLEMENT_TYPES
         picked = [(( a.get("make") or "").strip(), (a.get("name") or "").strip())
                   for a in assets
@@ -2814,7 +2820,8 @@ async def list_feeds_index(key: str = ""):
     if not LISTS_KEY or key != LISTS_KEY:
         raise HTTPException(status_code=403, detail="Wrong or missing key.")
     doc = await db.job_lists.find_one({"key": "current"}, {"_id": 0}) or {}
-    assets = await db.assets.find({}, {"_id": 0, "check_type": 1}).to_list(length=5000)
+    assets = await db.assets.find({"retired": {"$ne": True}},
+                                  {"_id": 0, "check_type": 1}).to_list(length=5000)
     types = [(a.get("check_type") or "").strip().lower() for a in assets]
     return {
         "names": await db.staff.count_documents({}),
@@ -2824,6 +2831,7 @@ async def list_feeds_index(key: str = ""):
         "implements": sum(1 for t in types if t in IMPLEMENT_TYPES),
         "fields": len(await _fieldplan_rows()),
         "asset_check_types": sorted(set(types)),
+        "retired_assets_hidden": await db.assets.count_documents({"retired": True}),
     }
 
 
