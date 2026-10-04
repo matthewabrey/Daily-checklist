@@ -2568,7 +2568,7 @@ async def timesheet_set_link(payload: TimesheetLink, _: bool = Depends(require_a
 # ---- Nightly backup --------------------------------------------------------
 
 
-APP_VERSION = "6.6"
+APP_VERSION = "6.7"
 
 
 async def _run_backup(include_photos: bool = False, to_sharepoint: bool = True):
@@ -2684,6 +2684,22 @@ async def backup_status(_: bool = Depends(require_admin)):
 
 LISTS_KEY = os.environ.get("LISTS_KEY", "")
 
+# which departments are a crop in their own right — the rest are places or
+# activities (Estate Maintance, Onion Grader) with no crop of their own
+DEPT_CROPS = {
+    "Potatoes": ["Potatoes", "Seed Potatoes"],
+    "Salad Potatoes": ["Salad Potatoes"],
+    "Onions": ["Onions"],
+    "Wheat": ["Wheat"],
+    "AD Maize": ["Maize"],
+    "AD Rye": ["Rye"],
+    "Rye": ["Rye"],
+    "Beans": ["Beans"],
+    "Sugar Beet": ["Sugarbeet"],
+    "Carrots": ["Carrots"],
+    "Parsnips": ["Parsnips"],
+}
+
 MACHINE_TYPES = {"tractor", "forklift", "forklifts", "forklift - s", "harvester",
                  "cars/vans", "car/van", "hgv", "mewp", "loadall", "telehandler"}
 IMPLEMENT_TYPES = {"trailed implement", "mounted implement", "hire trailer",
@@ -2766,8 +2782,20 @@ async def list_feed(which: str, key: str = ""):
             await _save_job_lists()
             doc = await db.job_lists.find_one({"key": "current"}, {"_id": 0}) or {}
         vals = doc.get("jobs" if which == "jobs" else "departments", [])
-        head = "Job" if which == "jobs" else "Crop / Department"
-        return _csv_response([[head]] + [[v] for v in vals], f"{which}.csv")
+
+        # A SECOND COLUMN, on purpose. These two lists are one column of
+        # words, so the file contained no commas at all — and Excel's Get
+        # Data, finding no comma to split on, guessed SPACE instead. That
+        # tore "Salad Potatoes" into two cells and turned the heading
+        # "Crop / Department" into three columns. A real comma on every line
+        # leaves nothing to guess at.
+        if which == "jobs":
+            return _csv_response(
+                [["Job", "Notes"]] + [[v, ""] for v in vals], "jobs.csv")
+
+        crops = {c for cl in DEPT_CROPS.values() for c in cl}
+        rows = [[v, "Crop" if v in DEPT_CROPS else "Department"] for v in vals]
+        return _csv_response([["Department", "Kind"]] + rows, "departments.csv")
 
     if which in ("machines", "implements"):
         # Renaming a machine on the AssetList does NOT remove the old record:
