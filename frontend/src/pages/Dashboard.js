@@ -7,7 +7,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { useTranslation } from '../LanguageContext';
-import { ClipboardList, FileText, Download, Calendar, Wrench, RefreshCw, Upload, AlertCircle, AlertTriangle, Camera, X, Truck, QrCode, CheckCircle, Target, Search, ShieldAlert } from 'lucide-react';
+import { ClipboardList, FileText, Download, Calendar, Wrench, RefreshCw, Upload, AlertCircle, AlertTriangle, Camera, X, QrCode, CheckCircle, Target, Search, ShieldAlert } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import WorkplanBoard from '../components/WorkplanBoard';
 import NewsBanner from '../components/NewsBanner';
@@ -1486,28 +1486,8 @@ export default function Dashboard() {
           </div>
         </Card>
 
-        {/* 2. New Machines Added - Second */}
-        <Card className="hover:shadow-lg transition-shadow border-blue-200 bg-blue-50" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-900">New Machines Added</CardTitle>
-            <Truck className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <div style={{display: 'flex', flexDirection: 'column', flex: 1, padding: '0 1.5rem 1.5rem 1.5rem'}}>
-            <div style={{flex: 1}}>
-              <div className="text-2xl font-bold text-blue-600">{stats.pendingMachineAdditions}</div>
-              <p className="text-xs text-blue-700">Pending review</p>
-            </div>
-            <Button 
-              onClick={() => navigate('/machine-additions')}
-              variant="outline"
-              size="sm"
-              className="w-full border-blue-300 text-blue-700 hover:bg-blue-100"
-              style={{marginTop: 'auto'}}
-            >
-              View Machine Requests
-            </Button>
-          </div>
-        </Card>
+        {/* New Machines Added moved to the Admin page (v7.1) — it was
+            getting lost among the dashboard cards */}
 
         {/* 3. Repairs Due - Third */}
         <Card className="hover:shadow-lg transition-shadow" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>

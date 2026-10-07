@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { Button } from './components/ui/button';
 import NewsBannerEditor from './components/NewsBannerEditor';
+import CostingsPanel from './components/CostingsPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Select } from './components/ui/select';
 import { Checkbox } from './components/ui/checkbox';
@@ -132,7 +133,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 7.0 &mdash; October 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 7.1 &mdash; October 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -997,41 +998,25 @@ function SharePointAdminComponent() {
   const [dataMap, setDataMap] = useState(null);
   const [telGaps, setTelGaps] = useState(null);
   const [telBusy, setTelBusy] = useState(false);
-  const [pullPassword, setPullPassword] = useState('');
-  const [pullPhotos, setPullPhotos] = useState(false);
-  const [pullStatus, setPullStatus] = useState(null);
-  const [pullStarting, setPullStarting] = useState(false);
+  // Which group of cards is on screen. The page had grown to nine cards in one
+  // column, which is why the New Machines panel was getting lost.
+  const [tab, setTab] = useState('machines');
+  const [machineAdds, setMachineAdds] = useState(null);
 
-  // While a copy is running, check on it every few seconds
-  useEffect(() => {
-    let stop = false;
-    const tick = async () => {
-      try {
-        const r = await fetch(`${API_BASE_URL}/api/admin/pull-status`);
-        if (r.ok && !stop) setPullStatus(await r.json());
-      } catch (e) { /* ignore */ }
-    };
-    tick();
-    const t = setInterval(tick, 4000);
-    return () => { stop = true; clearInterval(t); };
-  }, []);
-
-  const startPull = async () => {
-    if (!pullPassword) { toast.error('Enter the admin password first'); return; }
-    setPullStarting(true);
-    try {
-      const fd = new FormData();
-      fd.append('password', pullPassword);
-      fd.append('include_photos', pullPhotos ? 'true' : 'false');
-      const r = await fetch(`${API_BASE_URL}/api/admin/pull-from-emergent`, { method: 'POST', body: fd });
-      const d = await r.json().catch(() => ({}));
-      if (r.ok) { toast.success('Copy started — it will keep going in the background'); setPullPassword(''); }
-      else toast.error(d.detail || 'Could not start the copy');
-    } catch (e) {
-      toast.error('Could not start the copy');
-    } finally { setPullStarting(false); }
-  };
   const navigate = useNavigate();
+
+  // How many new-machine requests are waiting
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
+        if (r.ok) {
+          const d = await r.json();
+          setMachineAdds(d.machine_additions_count ?? null);
+        }
+      } catch (e) { /* non-fatal */ }
+    })();
+  }, []);
 
   // Load the current tractor utilisation report info
   useEffect(() => {
@@ -1365,69 +1350,69 @@ function SharePointAdminComponent() {
         </div>
       </div>
 
-      {/* Bring the live data across from the old Emergent app */}
-      <Card className="mb-6">
+      {/* --- tabs: the page had grown to nine cards in one column --- */}
+      <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
+        {[
+          ['machines', 'Machines'],
+          ['costings', 'Costings & Payroll'],
+          ['lists', 'Lists & Sync'],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              tab === key
+                ? 'bg-green-600 text-white shadow'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+            data-testid={`admin-tab-${key}`}
+          >
+            {label}
+            {key === 'machines' && machineAdds ? (
+              <span className={`ml-2 px-1.5 py-0.5 rounded text-xs ${tab === key ? 'bg-white text-green-700' : 'bg-blue-600 text-white'}`}>
+                {machineAdds}
+              </span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'machines' && (<>
+      {/* New machine requests waiting — moved here off the dashboard */}
+      <Card className="mb-6 border-blue-200 bg-blue-50">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <Database className="h-5 w-5 text-green-600" />
-            <span>Bring data across from the old app</span>
+            <Truck className="h-5 w-5 text-blue-600" />
+            <span>New Machines Added</span>
           </CardTitle>
           <CardDescription>
-            Copies every check, repair, machine and staff record from the old Emergent app into this one.
-            Safe to run more than once &mdash; it updates records rather than duplicating them, so you can
-            run it again on the day you switch over to catch anything new.
+            Machines someone has added from their phone, waiting to be checked over and given a QR label
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-            <input
-              type="password"
-              value={pullPassword}
-              onChange={(e) => setPullPassword(e.target.value)}
-              placeholder="Admin password"
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm sm:w-56"
-              data-testid="pull-password"
-            />
-            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-              <input type="checkbox" checked={pullPhotos} onChange={(e) => setPullPhotos(e.target.checked)} />
-              Include photos (much slower, far more storage)
-            </label>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div className="text-3xl font-bold text-blue-700">
+                {machineAdds === null ? '—' : machineAdds}
+              </div>
+              <p className="text-xs text-blue-800">
+                {machineAdds === null ? 'Checking…'
+                  : machineAdds === 0 ? 'Nothing waiting'
+                  : machineAdds === 1 ? '1 waiting to be reviewed'
+                  : `${machineAdds} waiting to be reviewed`}
+              </p>
+            </div>
             <Button
-              onClick={startPull}
-              disabled={pullStarting || pullStatus?.state === 'running'}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              data-testid="pull-start-btn"
+              onClick={() => navigate('/machine-additions')}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              data-testid="admin-machine-additions-btn"
             >
-              {pullStatus?.state === 'running' ? 'Copying…'
-                : (pullStatus?.state === 'interrupted' || pullStatus?.state === 'failed') ? 'Carry on'
-                : 'Start copy'}
+              View Machine Requests
             </Button>
           </div>
-
-          {pullStatus && pullStatus.state && pullStatus.state !== 'idle' && (
-            <div className="mt-4 text-sm">
-              <p className="font-medium text-gray-900">
-                {pullStatus.state === 'running' && <>In progress &mdash; {pullStatus.message}</>}
-                {pullStatus.state === 'finished' && <span className="text-green-700">Finished</span>}
-                {pullStatus.state === 'failed' && <span className="text-red-600">Stopped: {pullStatus.error}</span>}
-                {pullStatus.state === 'interrupted' && <span className="text-orange-600">Interrupted &mdash; {pullStatus.message}</span>}
-              </p>
-              {pullStatus.totals && Object.keys(pullStatus.totals).length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 mt-2 text-xs text-gray-600">
-                  {Object.entries(pullStatus.totals).map(([k, v]) => (
-                    <span key={k}>{k.replace(/_/g, ' ')}: <b className="text-gray-900">{String(v)}</b></span>
-                  ))}
-                </div>
-              )}
-              {pullStatus.state === 'running' && (
-                <p className="text-xs text-gray-500 mt-2">
-                  You can leave this page &mdash; it carries on in the background. Come back to check.
-                </p>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
+
 
       {/* Tractor Utilisation upload */}
       <Card className="mb-6">
@@ -1474,6 +1459,9 @@ function SharePointAdminComponent() {
         </CardContent>
       </Card>
 
+      </>)}
+
+      {tab === 'costings' && (<>
       {/* ---- Costings & Payroll — behind the admin password ---------------- */}
       <Card className="mb-6 border-2 border-green-200">
         <CardHeader>
@@ -1516,6 +1504,9 @@ function SharePointAdminComponent() {
                 <p className="text-xs text-green-800 font-semibold">Unlocked</p>
                 <button onClick={lockPayroll} className="text-xs text-gray-500 underline">Lock again</button>
               </div>
+
+              {/* Costings — the whole point of the hours, fuel and payroll feeds */}
+              <CostingsPanel adminPw={adminPw} />
 
               {/* Telematics days */}
               <div className="rounded-xl border border-gray-200 p-4">
@@ -1886,6 +1877,9 @@ function SharePointAdminComponent() {
         </CardContent>
       </Card>
 
+      </>)}
+
+      {tab === 'machines' && (<>
       {/* QR Code Labels Section */}
       <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 mb-6">
         <CardHeader>
@@ -1947,6 +1941,9 @@ function SharePointAdminComponent() {
         </CardContent>
       </Card>
 
+      </>)}
+
+      {tab === 'lists' && (<>
       {/* SharePoint Auto-Sync */}
       <Card data-testid="sharepoint-sync-card" className="border-purple-200 bg-purple-50">
         <CardHeader>
@@ -2065,6 +2062,8 @@ function SharePointAdminComponent() {
           </CardContent>
         </Card>
       )}
+      </>)}
+
     </div>
   );
 }
@@ -7482,11 +7481,30 @@ function ManagerPage() {
             </div>
           </div>
           {wpResult && (
-            <p className="text-xs text-gray-600 mt-3">
-              Updated from {wpResult.source}: <b>{wpResult.people} people</b> for the week beginning <b>{wpResult.week_start}</b>
-              {typeof wpResult.vehicles_matched === 'number' ? <> &middot; {wpResult.vehicles_matched} vehicles matched to the machine list</> : null}
-              &nbsp;&middot; published to the dashboard
-            </p>
+            <div className="mt-3 space-y-2">
+              <p className="text-xs text-gray-600">
+                Updated from {wpResult.source}: <b>{wpResult.people} people</b> for the week beginning <b>{wpResult.week_start}</b>
+                {typeof wpResult.vehicles_matched === 'number' ? <> &middot; {wpResult.vehicles_matched} vehicles matched to the machine list</> : null}
+                &nbsp;&middot; published to the dashboard
+              </p>
+              {typeof wpResult.with_number === 'number' && (
+                <div className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1">
+                  <p className="font-semibold text-gray-900">What of this can be costed</p>
+                  <p className="text-gray-700">
+                    <b>{wpResult.with_number}</b> of {wpResult.people} rows have an employee number
+                    {wpResult.numbers_filled_from_name_list ? <> ({wpResult.numbers_filled_from_name_list} filled in from the Name List)</> : null}
+                    {' '}&middot; <b>{wpResult.with_department}</b> have a crop/department
+                    {' '}&middot; <b>{wpResult.with_field}</b> have a field
+                  </p>
+                  {wpResult.names_not_on_name_list && wpResult.names_not_on_name_list.length > 0 && (
+                    <p className="text-amber-700">
+                      No employee number for: {wpResult.names_not_on_name_list.join(', ')}
+                      {' '}&mdash; hours and wages can&rsquo;t be tied to these rows.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

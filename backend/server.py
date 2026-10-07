@@ -1320,90 +1320,183 @@ def _wp_time_str(v):
     return s[:5]
 
 
+def _wp_find_sheet(wb):
+    """The tab holding the plan. The rebuilt workbook calls it 'Work Plan';
+    the old one called it 'Main Sheet'. Anything else, fall back to the first
+    tab that actually has dates across the top."""
+    for want in ("Work Plan", "Main Sheet", "WorkPlan", "Daily Work Plan", "Plan"):
+        for nm in wb.sheetnames:
+            if _wp_norm_header(nm) == _wp_norm_header(want):
+                return wb[nm]
+    from datetime import date as _date
+    for nm in wb.sheetnames:
+        ws = wb[nm]
+        for r in range(1, 5):
+            dates = sum(
+                1 for c in range(1, min(ws.max_column, 200) + 1)
+                if isinstance(ws.cell(row=r, column=c).value, (datetime, _date))
+            )
+            if dates >= 3:
+                return ws
+    raise ValueError(
+        "Couldn't find the work plan tab. Expected 'Work Plan' (or the older "
+        "'Main Sheet'). Tabs in the file: " + ", ".join(wb.sheetnames))
+
+
+# What each heading inside a day block means. Checked longest-first so
+# 'Field 1' never gets read as 'Field'.
+_WP_DAY_ROLES = [
+    ("start", ("starttime", "start", "time", "startt")),
+    ("am", ("am", "ammorning", "morning", "amjob")),
+    ("pm", ("pm", "pmafternoon", "afternoon", "pmjob")),
+    ("dept", ("cropdept", "cropdepartment", "crop", "department", "dept",
+              "cropdeptartment")),
+    ("field", ("field1", "field2", "field3", "field4", "field", "fields")),
+]
+
+
+def _wp_role_of(heading):
+    """Which slot a day-block column heading is, or None."""
+    k = _wp_norm_header(heading)
+    if not k:
+        return None
+    for role, keys in _WP_DAY_ROLES:
+        if k in keys:
+            return role
+    # 'field1'..'field9' and anything starting 'field'
+    if k.startswith("field"):
+        return "field"
+    if k.startswith("crop") or k.startswith("depart"):
+        return "dept"
+    if k.startswith("start"):
+        return "start"
+    return None
+
+
 def _parse_workplan_excel(content: bytes, week_start):
-    """Parse the DailyWorkPlanApp.xlsx 'Main Sheet' into app-shaped workplan
-    rows for the week beginning week_start (a Monday).
+    """Parse the Daily Work Plan workbook into app-shaped rows for the week
+    beginning week_start (a Monday).
 
-    The sheet's shape has changed twice now, so nothing here is hard-coded to
-    a column letter:
+    The sheet's shape has changed three times now, so nothing here is tied to
+    a column letter. BOTH layouts read correctly, because the live file and
+    the rebuilt one will overlap for a while:
 
-    * The person columns (Vehicle, Name, Reportable to on the Day, Field and
-      Jobs) are found by their ROW 2 HEADINGS, anywhere left of the dates.
-      'Daily Checks' is deliberately ignored — the app fills that idea in
-      itself, it isn't read from the spreadsheet.
-    * Each day's block runs from its date column up to the next date column,
-      so two-column days (AM, PM) and three-column days (AM, PM, Start Time)
-      both read correctly — including a week that mixes the two, as the week
-      of 14 Sep 2026 does.
-    * A 'Start Time' column inside a day's block gives that day its own start
-      time; days without one fall back to blank.
+      old:  [Start Time] [AM] [PM]
+      new:  [Start] [AM] [PM] [Crop / Dept] [Field 1] [Field 2] [Field 3]
+
+    How it works out which is which:
+
+    * The DATE row is whichever of the top four rows carries the most real
+      dates. Each day's block runs from its date column up to the next date
+      column, so a 3-column day and a 7-column day both read — including a
+      week that mixes them.
+    * Inside a block, every column is labelled by its own HEADING (the date
+      row or the row under it): Start / AM / PM / Crop / Field. Only if no
+      AM heading is found does it fall back to position, which is what the
+      old sheet needs (date sits on the AM column, Start Time immediately
+      before it).
+    * The person columns (Name, Employee No, Machine, Implement, Reports to,
+      Notes) are found by heading too, anywhere left of the first date.
+      'Daily Checks' is deliberately ignored — the app fills that in itself.
     """
     import openpyxl as _openpyxl
     from datetime import date as _date
 
     wb = _openpyxl.load_workbook(io.BytesIO(content), data_only=True)
-    if "Main Sheet" not in wb.sheetnames:
-        raise ValueError("Couldn't find the 'Main Sheet' tab in the Excel file")
-    ws = wb["Main Sheet"]
+    ws = _wp_find_sheet(wb)
 
-    HEADER_ROW = 2
-    FIRST_PERSON_ROW = 3
+    # --- which row holds the dates ---------------------------------------
+    def dates_in_row(r):
+        found = {}
+        for c in range(1, ws.max_column + 1):
+            v = ws.cell(row=r, column=c).value
+            if isinstance(v, datetime):
+                found.setdefault(v.date(), c)
+            elif isinstance(v, _date):
+                found.setdefault(v, c)
+        return found
 
-    # --- the dated day columns -------------------------------------------
-    date_cols = {}
-    for c in range(1, ws.max_column + 1):
-        v = ws.cell(row=HEADER_ROW, column=c).value
-        if isinstance(v, datetime):
-            date_cols[v.date()] = c
-        elif isinstance(v, _date):
-            date_cols[v] = c
+    date_row, date_cols = 0, {}
+    for r in range(1, 5):
+        got = dates_in_row(r)
+        if len(got) > len(date_cols):
+            date_row, date_cols = r, got
     if not date_cols:
-        raise ValueError("No dates found in row 2 of the 'Main Sheet' tab")
+        raise ValueError(
+            f"No dates found across the top of the '{ws.title}' tab")
 
+    HEADER_ROW = date_row
     first_date_col = min(date_cols.values())
     ordered_cols = sorted(date_cols.values())
 
+    def head(r, c):
+        return ws.cell(row=r, column=c).value
+
+    # Sub-headings (Start / AM / PM / Crop / Field) normally sit on the date
+    # row itself; where the days are bannered across row 1 they sit on the row
+    # below. Only treat the next row as headings if it really looks like them —
+    # otherwise it is the first person's row and must not be skipped.
+    probe_to = min(first_date_col + 14, ws.max_column)
+    sub_roles = sum(
+        1 for c in range(first_date_col, probe_to + 1)
+        if _wp_role_of(head(date_row + 1, c))
+    )
+    SUB_ROW = date_row + 1 if sub_roles >= 2 else date_row
+
+    def heading_text(c):
+        """The best heading for a day-block column: its own cell on the date
+        row, or the row beneath if that cell is the date itself or blank."""
+        v = head(HEADER_ROW, c)
+        if isinstance(v, (datetime, _date)) or v in (None, ""):
+            v = head(SUB_ROW, c)
+        return v
+
     # --- the person columns, by heading ----------------------------------
+    # Look on the date row and the one under it, so a workbook that banners
+    # the days on row 1 and heads the setup columns on row 2 still reads.
     headings = {}
     for c in range(1, first_date_col):
-        key = _wp_norm_header(ws.cell(row=HEADER_ROW, column=c).value)
-        if key and key not in headings:
-            headings[key] = c
+        for r in (HEADER_ROW, SUB_ROW, 1, 2):
+            key = _wp_norm_header(head(r, c))
+            if key and key not in headings:
+                headings[key] = c
 
-    def heading_col(names, what):
+    def heading_col(names, what, required=True):
         for n in names:
             c = headings.get(_wp_norm_header(n))
             if c:
                 return c
+        if not required:
+            return None
+        shown = []
+        for c in range(1, first_date_col):
+            for r in (HEADER_ROW, SUB_ROW, 1, 2):
+                v = head(r, c)
+                if v not in (None, ""):
+                    shown.append(str(v))
+                    break
         raise ValueError(
-            f"Couldn't find the '{what}' column in row 2 of the Main Sheet. "
-            f"Headings found: " + ", ".join(
-                str(ws.cell(row=HEADER_ROW, column=c).value)
-                for c in range(1, first_date_col)
-                if ws.cell(row=HEADER_ROW, column=c).value
-            )
-        )
+            f"Couldn't find the '{what}' column in the '{ws.title}' tab. "
+            f"Headings found: " + ", ".join(shown))
 
     col_name = heading_col(["Name", "Employee", "Employee Name"], "Name")
-    col_vehicle = heading_col(["Vehicle", "Machine"], "Vehicle")
-    try:
-        col_manager = heading_col(
-            ["Reportable to on the Day", "Reportable to", "Manager", "Mgr", "Reporting to"],
-            "manager")
-    except ValueError:
-        col_manager = None
-    try:
-        col_notes = heading_col(
-            ["Field and Jobs", "Field & Jobs", "Fields and Jobs", "Field/Jobs", "Notes"],
-            "Field and Jobs")
-    except ValueError:
-        col_notes = None
-    # Older versions of the sheet carried ONE start time per person rather than
-    # one per day. Kept as a fallback so an older file still reads correctly.
-    try:
-        col_start_person = heading_col(["Start Time", "Start"], "Start Time")
-    except ValueError:
-        col_start_person = None
+    col_number = heading_col(
+        ["Employee No", "Employee Number", "Employee No.", "Emp No", "No"],
+        "Employee No", required=False)
+    col_vehicle = heading_col(["Machine", "Vehicle"], "Machine")
+    col_implement = heading_col(
+        ["Implement", "Implements", "Attachment"], "Implement", required=False)
+    col_manager = heading_col(
+        ["Reports to", "Reportable to on the Day", "Reportable to", "Reporting to",
+         "Manager", "Mgr"], "manager", required=False)
+    col_notes = heading_col(
+        ["Notes", "Field and Jobs", "Field & Jobs", "Fields and Jobs",
+         "Field/Jobs", "Comments"], "Notes", required=False)
+    # Older sheets carried ONE start time per person rather than one per day.
+    col_start_person = None
+    if col_name and first_date_col > 1:
+        c = headings.get(_wp_norm_header("Start Time")) or headings.get("start")
+        col_start_person = c
 
     # --- work out each day's block ---------------------------------------
     week = [week_start + timedelta(days=i) for i in range(7)]
@@ -1411,35 +1504,53 @@ def _parse_workplan_excel(content: bytes, week_start):
         all_dates = sorted(date_cols)
         span = (f" (the file covers {all_dates[0].strftime('%d %b %Y')} to "
                 f"{all_dates[-1].strftime('%d %b %Y')})")
-        raise ValueError(f"No columns found for the week beginning {week_start.strftime('%d %b %Y')}{span}")
+        raise ValueError(
+            f"No columns found for the week beginning "
+            f"{week_start.strftime('%d %b %Y')}{span}")
 
     def day_block(c):
-        """(am_col, pm_col, time_col) for the day whose date sits at column c.
-
-        A day reads [Start Time][AM][PM]: the date sits in row 2 of the AM
-        column, and that day's Start Time column comes immediately BEFORE it
-        — which is how the row-1 day banners are merged (e.g. Thursday spans
-        MC:ME = time, AM, PM). Only treated as a time column if row 2 there
-        actually says 'Start Time', so the older two-column days, where the
-        preceding column is the previous day's PM job, are unaffected."""
+        """{'start','am','pm','dept','fields'} column numbers for the day whose
+        date sits at column c."""
         after = [x for x in ordered_cols if x > c]
-        stop = after[0] if after else c + 2
-        am_col = c
-        pm_col = c + 1 if c + 1 < stop or not after else c + 1
-        if pm_col > ws.max_column:
-            pm_col = None
-        time_col = None
-        if c - 1 >= 1 and _wp_norm_header(ws.cell(row=HEADER_ROW, column=c - 1).value) == "starttime":
-            time_col = c - 1
-        return am_col, pm_col, time_col
+        stop = after[0] if after else min(c + 7, ws.max_column + 1)
+        block = {"start": None, "am": None, "pm": None, "dept": None, "fields": []}
+
+        for cc in range(c, stop):
+            role = _wp_role_of(heading_text(cc))
+            if role == "field":
+                block["fields"].append(cc)
+            elif role and block.get(role) is None:
+                block[role] = cc
+
+        if block["am"] is None:
+            # No headings to go on — the OLD sheet. The date sits on the AM
+            # column, PM is the next one, and a Start Time column sits
+            # immediately BEFORE the date (that's how the day banners merge).
+            block["am"] = c
+            pm = c + 1
+            if block["pm"] is None and pm <= ws.max_column and (pm < stop or not after):
+                block["pm"] = pm
+            if c - 1 >= 1 and _wp_norm_header(head(HEADER_ROW, c - 1)) == "starttime":
+                block["start"] = c - 1
+        elif block["start"] is None:
+            # Headed block, but the Start column sits outside it (before the
+            # date) — same trick as the old sheet.
+            if c - 1 >= 1 and _wp_role_of(heading_text(c - 1)) == "start":
+                block["start"] = c - 1
+        return block
 
     blocks = {d: day_block(date_cols[d]) for d in week if d in date_cols}
+    FIRST_PERSON_ROW = max(SUB_ROW, HEADER_ROW) + 1
 
     def cellv(r, c):
         if not c:
             return ""
         v = ws.cell(row=r, column=c).value
-        return str(v).strip() if v is not None else ""
+        if v is None:
+            return ""
+        if isinstance(v, float) and v == int(v):
+            return str(int(v))
+        return str(v).strip()
 
     rows = []
     for r in range(FIRST_PERSON_ROW, ws.max_row + 1):
@@ -1450,9 +1561,16 @@ def _parse_workplan_excel(content: bytes, week_start):
         has_job = False
         first_time = ""
         for d in week:
-            am_c, pm_c, t_c = blocks.get(d, (None, None, None))
-            am = cellv(r, am_c)
-            pm = cellv(r, pm_c)
+            b = blocks.get(d) or {}
+            am = cellv(r, b.get("am"))
+            pm = cellv(r, b.get("pm"))
+            dept = cellv(r, b.get("dept"))
+            fields = []
+            for fc in b.get("fields") or []:
+                f = cellv(r, fc)
+                if f and f not in fields:
+                    fields.append(f)
+            t_c = b.get("start")
             start = _wp_time_str(ws.cell(row=r, column=t_c).value) if t_c else ""
             if am or pm:
                 has_job = True
@@ -1462,6 +1580,9 @@ def _parse_workplan_excel(content: bytes, week_start):
                 "am": {"job": am, "color_id": None} if am else None,
                 "pm": {"job": pm, "color_id": None} if pm else None,
                 "start": start,
+                # new in v7.1 — what the costings page needs
+                "department": dept,
+                "fields": fields,
             })
         if not has_job:
             continue  # only import people with work this week
@@ -1471,11 +1592,15 @@ def _parse_workplan_excel(content: bytes, week_start):
             if first_time:
                 for d_entry in days:
                     d_entry["start"] = first_time
+        number = cellv(r, col_number)
+        if number and not re.match(r"^[0-9]+[A-Za-z]?$", number):
+            number = ""  # a stale '#N/A' or a formula Excel never calculated
         rows.append({
             "id": str(uuid.uuid4()),
             "employee_name": name,
+            "employee_number": number,
             "vehicle": cellv(r, col_vehicle),
-            "implement": "",
+            "implement": cellv(r, col_implement),
             "manager": cellv(r, col_manager),
             # Kept for the editor and anything reading the old shape; the day's
             # own time is what the app shows
@@ -1537,6 +1662,40 @@ def _match_vehicles_to_assets(rows, assets):
     return matched
 
 
+def _wp_name_key(s):
+    """A name squashed for comparison. The work plan and the Name List
+    disagree about spaces after hyphens ('Adelin- Gabriel Iovu' vs
+    'Adelin-GabrielIovu'), so neither spaces nor hyphens count."""
+    return re.sub(r"[^a-z0-9]+", "", str(s or "").lower())
+
+
+async def _fill_workplan_numbers(rows):
+    """Employee No on the sheet is a formula, so if Excel hasn't saved a
+    calculated value the cell reads blank. The number is THE join to Go2Clock
+    and payroll, so fill any blanks from the Name List here. Never overwrite a
+    number that is on the sheet, and never guess where a squashed name matches
+    two people."""
+    staff = await db.staff.find({}, {"_id": 0, "name": 1, "employee_number": 1}).to_list(length=5000)
+    by_key = {}
+    for s in staff:
+        k = _wp_name_key(s.get("name"))
+        if not k:
+            continue
+        by_key.setdefault(k, set()).add(str(s.get("employee_number") or "").strip())
+    filled, unknown = 0, []
+    for row in rows:
+        if row.get("employee_number"):
+            continue
+        nums = by_key.get(_wp_name_key(row.get("employee_name")))
+        nums = {n for n in (nums or set()) if n}
+        if len(nums) == 1:
+            row["employee_number"] = next(iter(nums))
+            filled += 1
+        else:
+            unknown.append(row.get("employee_name"))
+    return filled, unknown
+
+
 def _fetch_workplan_from_sharepoint() -> bytes:
     """Download the current DailyWorkPlan workbook from SharePoint. Raises on
     any failure so the caller can decide what to tell the user."""
@@ -1566,8 +1725,10 @@ async def _import_workplan(content: bytes, source: str) -> dict:
     if not rows:
         raise ValueError("No people with jobs found for this week in the Excel file")
 
-    assets = await db.assets.find({}, {"_id": 0, "name": 1, "make": 1}).to_list(length=5000)
+    assets = await db.assets.find(
+        {"retired": {"$ne": True}}, {"_id": 0, "name": 1, "make": 1}).to_list(length=5000)
     vehicles_matched = _match_vehicles_to_assets(rows, assets)
+    numbers_filled, numbers_unknown = await _fill_workplan_numbers(rows)
 
     # Next week too, if the spreadsheet has columns for it. Without this the
     # men can only ever see the rest of the current week — and on a Sunday
@@ -1576,6 +1737,7 @@ async def _import_workplan(content: bytes, source: str) -> dict:
     try:
         next_rows = _parse_workplan_excel(content, next_start)
         _match_vehicles_to_assets(next_rows, assets)
+        await _fill_workplan_numbers(next_rows)
     except Exception as e:
         logger.info(f"No next week in the workplan file ({next_start}): {e}")
         next_rows = []
@@ -1616,6 +1778,14 @@ async def _import_workplan(content: bytes, source: str) -> dict:
         "week_start": ws_iso,
         "people": len(rows),
         "vehicles_matched": vehicles_matched,
+        # how much of this import can actually be costed
+        "with_number": sum(1 for r in rows if r.get("employee_number")),
+        "numbers_filled_from_name_list": numbers_filled,
+        "names_not_on_name_list": sorted(set(n for n in numbers_unknown if n))[:40],
+        "with_department": sum(
+            1 for r in rows if any((d or {}).get("department") for d in r.get("days", []))),
+        "with_field": sum(
+            1 for r in rows if any((d or {}).get("fields") for d in r.get("days", []))),
         "source": source,
         "published_at": now,
         # so the manager can see at a glance whether next week came through
@@ -2774,7 +2944,7 @@ async def data_map(_: bool = Depends(require_admin)):
 # ---- Nightly backup --------------------------------------------------------
 
 
-APP_VERSION = "7.0"
+APP_VERSION = "7.1"
 
 
 async def _run_backup(include_photos: bool = False, to_sharepoint: bool = True):
@@ -3304,6 +3474,434 @@ async def payroll_rate_card(period_start: str = None, _: bool = Depends(require_
         "by_department": {d: round(dept_c[d] / dept_h[d], 2)
                           for d in dept_h if dept_h[d]},
         "blended": data["totals"]["blended_rate"],
+    }
+
+
+
+# ---- Costings: hours, fuel and money against crop, field, job and machine --
+#
+# Three readings meet here, and none of them was collected for this purpose:
+#
+#   the Daily Work Plan   says WHO was on WHAT job, in WHICH field, for which
+#                         crop, on which machine — per half day
+#   Go2Clock              says how many hours each person was actually PAID for
+#   John Deere telematics says how many hours and litres each MACHINE used
+#
+# The rules, agreed with Matthew and deliberately dull:
+#
+#   * A person's PAID hours for a day are split across the jobs they booked
+#     that day, in proportion to the halves booked. Paid, not booked — the
+#     figure should be what it actually took, not what somebody estimated.
+#   * A machine's hours and fuel for a day are split EVENLY across the jobs it
+#     was booked on, and the row is tagged `split` so an estimate is never
+#     mistaken for a reading.
+#   * Where a day names more than one field, that day's share is divided
+#     evenly between them. Also tagged.
+#   * Anything nobody booked goes to Unallocated. It is never spread about
+#     quietly, because that number is the measure of whether the plan is being
+#     filled in.
+#   * Money is a real £/hr per person off the payroll report. Where there
+#     isn't one, the person's department rate is used, then the blended rate,
+#     and the response says how much of the cost rests on each.
+
+def _cost_norm(s):
+    return re.sub(r"\s+", " ", str(s or "").strip())
+
+
+def _cost_key(s):
+    return re.sub(r"[^a-z0-9]+", "", str(s or "").lower())
+
+
+class _Bucket:
+    __slots__ = ("labour_h", "labour_cost", "machine_h", "idle_h", "fuel_l",
+                 "booked_halves", "estimated", "people", "machines", "children")
+
+    def __init__(self):
+        self.labour_h = 0.0
+        self.labour_cost = 0.0
+        self.machine_h = 0.0
+        self.idle_h = 0.0
+        self.fuel_l = 0.0
+        self.booked_halves = 0.0
+        self.estimated = False      # any part of this came from an even split
+        self.people = set()
+        self.machines = set()
+        self.children = {}
+
+    def add(self, labour_h=0.0, labour_cost=0.0, machine_h=0.0, idle_h=0.0,
+            fuel_l=0.0, halves=0.0, estimated=False, person=None, machine=None):
+        self.labour_h += labour_h
+        self.labour_cost += labour_cost
+        self.machine_h += machine_h
+        self.idle_h += idle_h
+        self.fuel_l += fuel_l
+        self.booked_halves += halves
+        if estimated:
+            self.estimated = True
+        if person:
+            self.people.add(person)
+        if machine:
+            self.machines.add(machine)
+
+    def child(self, name):
+        return self.children.setdefault(name, _Bucket())
+
+    def out(self, name, total_h, total_l, with_children=None):
+        d = {
+            "name": name,
+            "labour_h": round(self.labour_h, 2),
+            "machine_h": round(self.machine_h, 2),
+            "idle_h": round(self.idle_h, 2),
+            "fuel_l": round(self.fuel_l, 1),
+            "people": len(self.people),
+            "machines": len(self.machines),
+            "half_days": round(self.booked_halves, 1),
+            "estimated": self.estimated,
+            "pct_hours": round(self.labour_h / total_h * 100, 1) if total_h else 0,
+            "pct_fuel": round(self.fuel_l / total_l * 100, 1) if total_l else 0,
+            "l_per_h": round(self.fuel_l / self.machine_h, 2) if self.machine_h else None,
+            "idle_pct": round(self.idle_h / self.machine_h * 100) if self.machine_h else None,
+            "labour_cost": round(self.labour_cost, 2),
+        }
+        if with_children:
+            d[with_children] = sorted(
+                (c.out(n, total_h, total_l) for n, c in self.children.items()),
+                key=lambda x: -x["labour_h"])
+        return d
+
+
+async def _costings_workplan_days(fd, ud):
+    """Every work-plan row inside the range, as (date, row) pairs. Reads the
+    live week, next week and the archive, so a range can cross weeks."""
+    docs = []
+    cur = await db.workplan.find_one({"key": "current"}, {"_id": 0})
+    if cur:
+        rows = cur.get("published_rows") or cur.get("draft_rows") or []
+        if rows and cur.get("week_start"):
+            docs.append((cur["week_start"], rows))
+        nxt = cur.get("next_published_rows") or []
+        if nxt and cur.get("next_week_start"):
+            docs.append((cur["next_week_start"], nxt))
+    async for a in db.workplan_archive.find({}, {"_id": 0}):
+        if a.get("week_start") and a.get("rows"):
+            docs.append((a["week_start"], a["rows"]))
+
+    out = []
+    seen = set()
+    for ws, rows in docs:
+        try:
+            monday = parse_iso_date(ws)
+        except Exception:
+            continue
+        for row in rows:
+            if row.get("left"):
+                continue
+            days = row.get("days") or []
+            if isinstance(days, dict):
+                days = [days.get(str(i)) or days.get(i) for i in range(7)]
+            for i, day in enumerate(days[:7]):
+                if not day:
+                    continue
+                d = (monday + timedelta(days=i)).isoformat()
+                if d < fd or d > ud:
+                    continue
+                # the live week and the archive can both hold the same week
+                k = (d, row.get("employee_number") or "",
+                     _cost_key(row.get("employee_name")))
+                if k in seen:
+                    continue
+                seen.add(k)
+                out.append((d, row, day))
+    return out
+
+
+@app.get("/api/costings")
+async def costings(from_date: str = None, until_date: str = None,
+                   period_start: str = None, _: bool = Depends(require_admin)):
+    """Hours, fuel and real cost against crop/department, field, job, machine
+    and person, for any span of dates.
+
+    Admin-gated: the cost columns are individual wages.
+    """
+    from zoneinfo import ZoneInfo
+    today = datetime.now(ZoneInfo("Europe/London")).date()
+
+    def pick(s, fallback):
+        try:
+            return parse_iso_date(s) if s else fallback
+        except Exception:
+            return fallback
+
+    ud = pick(until_date, today - timedelta(days=1))
+    fd = pick(from_date, ud - timedelta(days=6))
+    if fd > ud:
+        fd, ud = ud, fd
+    fds, uds = fd.isoformat(), ud.isoformat()
+
+    # ---- the rate card -----------------------------------------------------
+    rates = {"by_person": {}, "by_department": {}, "blended": None}
+    try:
+        rc = await payroll_rate_card(period_start, _=True)
+        if rc.get("period_start"):
+            rates = rc
+    except Exception as e:
+        logger.info(f"Costings: no rate card ({e})")
+
+    def rate_for(number, dept):
+        r = rates["by_person"].get(number or "")
+        if r:
+            return r, "person"
+        r = rates.get("by_department", {}).get(dept or "")
+        if r:
+            return r, "department"
+        return rates.get("blended"), "blended"
+
+    # ---- paid hours per person per day ------------------------------------
+    paid = {}          # (number|key, date) -> hours
+    paid_by_name = {}  # (name key, date) -> hours
+    person_dept = {}
+    person_name = {}
+    async for d in db.timesheet_days.find(
+            {"date": {"$gte": fds, "$lte": uds}},
+            {"_id": 0, "key": 1, "date": 1, "hours": 1, "employee_number": 1,
+             "staff_name": 1, "g2c_name": 1, "dept": 1}):
+        h = float(d.get("hours") or 0)
+        if h <= 0:
+            continue
+        num = (d.get("employee_number") or "").strip()
+        ident = num or f"K{d.get('key')}"
+        paid[(ident, d["date"])] = paid.get((ident, d["date"]), 0) + h
+        nm = d.get("staff_name") or d.get("g2c_name")
+        if nm:
+            paid_by_name[(_cost_key(nm), d["date"])] = ident
+            person_name.setdefault(ident, _cost_norm(nm))
+        if d.get("dept"):
+            person_dept.setdefault(ident, d["dept"])
+
+    # ---- machine hours and fuel per machine per day ------------------------
+    links = {}
+    async for l in db.machine_links.find({}, {"_id": 0}):
+        full = " ".join(x for x in [(l.get("asset_make") or "").strip(),
+                                    (l.get("asset_name") or "").strip()] if x)
+        for label in {full, (l.get("asset_name") or "").strip(),
+                      (l.get("machine_name") or "").strip()}:
+            if label:
+                links.setdefault(_cost_key(label), l.get("serial"))
+    tele_day = {}
+    async for m in db.machine_days.find(
+            {"date": {"$gte": fds, "$lte": uds}},
+            {"_id": 0, "serial": 1, "date": 1, "total_h": 1, "total_l": 1,
+             "idle_h": 1, "name": 1}):
+        tele_day[(m["serial"], m["date"])] = {
+            "h": float(m.get("total_h") or 0),
+            "l": float(m.get("total_l") or 0),
+            "idle": float(m.get("idle_h") or 0),
+            "name": m.get("name"),
+        }
+
+    # ---- the bookings -----------------------------------------------------
+    plan = await _costings_workplan_days(fds, uds)
+
+    bookings = []          # one per booked half day
+    by_person_day = {}     # (ident, date) -> [booking index]
+    by_machine_day = {}    # (serial, date) -> [booking index]
+    no_number = {}
+    for d, row, day in plan:
+        number = (row.get("employee_number") or "").strip()
+        name = _cost_norm(row.get("employee_name"))
+        ident = number or paid_by_name.get((_cost_key(name), d)) or ""
+        if not ident:
+            no_number[name] = no_number.get(name, 0) + 1
+        person_name.setdefault(ident, name)
+        dept = _cost_norm(day.get("department")) or "No crop/department"
+        fields = [f for f in (day.get("fields") or []) if _cost_norm(f)] or ["No field"]
+        machine_label = _cost_norm(row.get("vehicle"))
+        serial = links.get(_cost_key(machine_label)) if machine_label else None
+
+        halves = []
+        for half in ("am", "pm"):
+            cell = day.get(half) or {}
+            job = _cost_norm(cell.get("job"))
+            if job:
+                halves.append((half, job))
+        for half, job in halves:
+            i = len(bookings)
+            bookings.append({
+                "date": d, "half": half, "job": job, "dept": dept,
+                "fields": fields, "machine": machine_label or None,
+                "serial": serial, "ident": ident, "name": name,
+                "labour_h": 0.0, "machine_h": 0.0, "fuel_l": 0.0, "idle_h": 0.0,
+                "estimated": len(fields) > 1,
+            })
+            if ident:
+                by_person_day.setdefault((ident, d), []).append(i)
+            if serial:
+                by_machine_day.setdefault((serial, d), []).append(i)
+
+    # ---- labour: paid hours split across the halves booked ----------------
+    labour_booked = 0.0
+    for (ident, d), idxs in by_person_day.items():
+        hours = paid.get((ident, d))
+        if not hours:
+            continue
+        share = hours / len(idxs)
+        for i in idxs:
+            bookings[i]["labour_h"] = share
+        labour_booked += hours
+
+    paid_total = sum(paid.values())
+    unalloc_labour = round(paid_total - labour_booked, 2)
+
+    # ---- machines: hours and fuel split evenly ---------------------------
+    machine_booked_h = machine_booked_l = 0.0
+    for (serial, d), idxs in by_machine_day.items():
+        t = tele_day.get((serial, d))
+        if not t:
+            continue
+        n = len(idxs)
+        for i in idxs:
+            bookings[i]["machine_h"] = t["h"] / n
+            bookings[i]["fuel_l"] = t["l"] / n
+            bookings[i]["idle_h"] = t["idle"] / n
+            if n > 1:
+                bookings[i]["estimated"] = True
+        machine_booked_h += t["h"]
+        machine_booked_l += t["l"]
+
+    tele_total_h = sum(t["h"] for t in tele_day.values())
+    tele_total_l = sum(t["l"] for t in tele_day.values())
+    booked_machine_days = set(by_machine_day)
+    unbooked_machines = {}
+    for (serial, d), t in tele_day.items():
+        if (serial, d) in booked_machine_days:
+            continue
+        label = t.get("name") or serial
+        b = unbooked_machines.setdefault(label, {"h": 0.0, "l": 0.0, "days": 0})
+        b["h"] += t["h"]
+        b["l"] += t["l"]
+        b["days"] += 1
+
+    # ---- money -----------------------------------------------------------
+    cost_basis = {"person": 0.0, "department": 0.0, "blended": 0.0, "none": 0.0}
+    for b in bookings:
+        r, how = rate_for(b["ident"], person_dept.get(b["ident"]))
+        c = (b["labour_h"] or 0) * r if r else 0.0
+        b["labour_cost"] = c
+        cost_basis[how if r else "none"] += c if r else (b["labour_h"] or 0)
+
+    # ---- roll up ---------------------------------------------------------
+    total_h = sum(b["labour_h"] for b in bookings)
+    total_l = sum(b["fuel_l"] for b in bookings)
+
+    dims = {k: {} for k in ("dept", "field", "job", "machine", "person")}
+
+    def bucket(dim, name):
+        return dims[dim].setdefault(name, _Bucket())
+
+    for b in bookings:
+        nf = len(b["fields"])
+        common = dict(labour_h=b["labour_h"], labour_cost=b["labour_cost"],
+                      machine_h=b["machine_h"], idle_h=b["idle_h"],
+                      fuel_l=b["fuel_l"], halves=1.0,
+                      estimated=b["estimated"],
+                      person=b["ident"] or b["name"], machine=b["machine"])
+        d_b = bucket("dept", b["dept"])
+        d_b.add(**common)
+        j_b = bucket("job", b["job"])
+        j_b.add(**common)
+        m_b = bucket("machine", b["machine"] or "No machine")
+        m_b.add(**common)
+        p_b = bucket("person", person_name.get(b["ident"]) or b["name"])
+        p_b.add(**common)
+        j_b.child(b["dept"]).add(**common)
+        m_b.child(b["job"]).add(**common)
+        # the field share is split where a day names more than one
+        part = dict(common)
+        for k in ("labour_h", "labour_cost", "machine_h", "idle_h", "fuel_l", "halves"):
+            part[k] = common[k] / nf
+        for f in b["fields"]:
+            f_b = bucket("field", f)
+            f_b.add(**part)
+            f_b.child(b["job"]).add(**part)
+            d_b.child(f).add(**part)
+
+    def listing(dim, child_key=None):
+        return sorted((bk.out(n, total_h, total_l, child_key)
+                       for n, bk in dims[dim].items()),
+                      key=lambda x: -x["labour_h"])
+
+    # people: paid against booked
+    people_out = []
+    idents = set(i for (i, _d) in paid) | set(b["ident"] for b in bookings if b["ident"])
+    for ident in idents:
+        pd = sum(h for (i, _d), h in paid.items() if i == ident)
+        bk = dims["person"].get(person_name.get(ident) or "")
+        booked = bk.labour_h if bk else 0.0
+        cost = bk.labour_cost if bk else 0.0
+        r, how = rate_for(ident, person_dept.get(ident))
+        people_out.append({
+            "name": person_name.get(ident) or ident,
+            "employee_number": ident if not ident.startswith("K") else None,
+            "paid_h": round(pd, 2),
+            "booked_h": round(booked, 2),
+            "pct_booked": round(booked / pd * 100) if pd else None,
+            "rate": r,
+            "rate_basis": how if r else None,
+            "cost": round(pd * r, 2) if r else None,
+            "cost_booked": round(cost, 2),
+        })
+    people_out.sort(key=lambda p: -(p["paid_h"] or 0))
+
+    return {
+        "from": fds, "until": uds,
+        "days": (ud - fd).days + 1,
+        "rate_card": {
+            "period_start": rates.get("period_start"),
+            "period_end": rates.get("period_end"),
+            "complete": rates.get("complete"),
+            "warning": rates.get("warning"),
+            "blended": rates.get("blended"),
+            "people_with_own_rate": len(rates.get("by_person") or {}),
+        },
+        "totals": {
+            "paid_h": round(paid_total, 2),
+            "allocated_h": round(total_h, 2),
+            "pct_allocated": round(total_h / paid_total * 100) if paid_total else 0,
+            "machine_h": round(tele_total_h, 2),
+            "allocated_machine_h": round(machine_booked_h, 2),
+            "fuel_l": round(tele_total_l, 1),
+            "allocated_fuel_l": round(machine_booked_l, 1),
+            "cost": round(sum(b["labour_cost"] for b in bookings), 2),
+            "bookings": len(bookings),
+            "people_booked": len(set(b["ident"] for b in bookings if b["ident"])),
+            "machines_booked": len(set(b["serial"] for b in bookings if b["serial"])),
+        },
+        "unallocated": {
+            "labour_h": unalloc_labour,
+            "labour_pct": round(unalloc_labour / paid_total * 100) if paid_total else 0,
+            "machine_h": round(tele_total_h - machine_booked_h, 2),
+            "fuel_l": round(tele_total_l - machine_booked_l, 1),
+            "machines": sorted(
+                ({"name": k, "hours": round(v["h"], 2), "litres": round(v["l"], 1),
+                  "days": v["days"]} for k, v in unbooked_machines.items()),
+                key=lambda x: -x["litres"])[:40],
+        },
+        "by_dept": listing("dept", "fields"),
+        "by_field": listing("field", "jobs"),
+        "by_job": listing("job"),
+        "by_machine": listing("machine", "jobs"),
+        "by_person": people_out,
+        "problems": {
+            "plan_rows_with_no_employee_number": sorted(
+                ({"name": k, "half_days": v} for k, v in no_number.items()),
+                key=lambda x: -x["half_days"])[:40],
+            "machines_on_the_plan_with_no_telematics": sorted(set(
+                b["machine"] for b in bookings
+                if b["machine"] and not b["serial"]))[:40],
+            "cost_resting_on_a_blended_rate": round(cost_basis["blended"], 2),
+            "cost_resting_on_a_department_rate": round(cost_basis["department"], 2),
+            "hours_with_no_rate_at_all": round(cost_basis["none"], 2),
+        },
     }
 
 
