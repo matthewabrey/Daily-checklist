@@ -2234,8 +2234,15 @@ async def telematics_relink():
 
 
 @app.post("/api/admin/telematics/process-now")
+@app.get("/api/admin/telematics/process-now")
 async def telematics_process_now(force: bool = False):
-    """Read the inbox on demand rather than waiting for the hour."""
+    """Read the inbox on demand rather than waiting for the hour.
+
+    Answers a GET as well as a POST on purpose. Typing the address into a
+    browser sends a GET, and POST-only meant it came back Method Not Allowed
+    and quietly did nothing — which looked exactly like the ingest being
+    broken. It only reads a folder and stores what it finds, so there is no
+    harm in it being reachable from the address bar."""
     return await _run_telematics_ingest(force=force)
 
 
@@ -2259,6 +2266,54 @@ async def telematics_inbox():
             "date": seen.get(i["name"], {}).get("date"),
         } for i in items],
         "machine_days_stored": await db.machine_days.count_documents({}),
+    }
+
+
+@app.get("/api/admin/telematics/missing")
+async def telematics_missing(days: int = 14):
+    """Which of the last N days we have no machine data for.
+
+    The feed stopped for two days at the start of October and nothing said
+    so — it was spotted a week later, by which time the John Deere download
+    links had expired and the data was gone for good. Those links last seven
+    days, so a gap is only recoverable if it is noticed quickly. This makes
+    that possible."""
+    days = max(1, min(days, 120))
+    from zoneinfo import ZoneInfo
+    today = datetime.now(ZoneInfo("Europe/London")).date()
+    # yesterday is the newest day that CAN exist: the email arrives the
+    # morning after the work
+    wanted = [(today - timedelta(days=i + 1)).isoformat() for i in range(days)]
+
+    held = set(await db.machine_days.distinct(
+        "date", {"date": {"$gte": wanted[-1], "$lte": wanted[0]}}))
+    missing = [d for d in wanted if d not in held]
+
+    def recoverable(d):
+        """A gap is only worth chasing while the download link still works."""
+        return (today - parse_iso_date(d)).days <= 7
+
+    counts = {}
+    for d in sorted(held):
+        counts[d] = await db.machine_days.count_documents({"date": d})
+
+    return {
+        "checked": f"{wanted[-1]} to {wanted[0]}",
+        "days_looked_at": days,
+        "held": len(held),
+        "missing": missing,
+        "missing_count": len(missing),
+        "still_recoverable": [d for d in missing if recoverable(d)],
+        "gone_for_good": [d for d in missing if not recoverable(d)],
+        "machines_per_day": counts,
+        "healthy": not missing,
+        "message": (
+            "Every day accounted for." if not missing else
+            f"{len(missing)} day(s) with no telematics. "
+            + (f"{len([d for d in missing if recoverable(d)])} can still be "
+               "rescued — the John Deere links last 7 days. "
+               if any(recoverable(d) for d in missing) else "")
+            + "Check Power Automate's run history and your inbox."),
     }
 
 
@@ -2565,10 +2620,161 @@ async def timesheet_set_link(payload: TimesheetLink, _: bool = Depends(require_a
 
 
 
+# ---- Where everything comes from ------------------------------------------
+#
+# Twelve feeds now run into and out of this app on four different schedules,
+# and nobody can hold that in their head. This builds the picture from the
+# live database rather than from a diagram someone drew once: every link, its
+# source, where it lands, how often, when it last ran and whether that is
+# recent enough to be healthy.
+
+
+async def _last_log(kind):
+    return await db.sync_logs.find_one(
+        {"type": kind}, {"_id": 0}, sort=[("timestamp", -1)])
+
+
+@app.get("/api/admin/data-map")
+async def data_map(_: bool = Depends(require_admin)):
+    now = datetime.now(timezone.utc)
+
+    def ago(ts):
+        if not ts:
+            return None, None
+        try:
+            t = ts if isinstance(ts, datetime) else datetime.fromisoformat(
+                str(ts).replace("Z", "+00:00"))
+            if not t.tzinfo:
+                t = t.replace(tzinfo=timezone.utc)
+            hrs = (now - t).total_seconds() / 3600
+            return t.isoformat(), round(hrs, 1)
+        except Exception:
+            return str(ts), None
+
+    sched = await _last_log("scheduled")
+    wp = await _last_log("scheduled_workplan")
+    tel = await _last_log("scheduled_telematics")
+    ts_log = await _last_log("timesheet_upload")
+    pay_log = await _last_log("payroll_upload")
+    jl = await db.job_lists.find_one({"key": "current"}, {"_id": 0}) or {}
+    bk_last = await db.backup_runs.find_one(
+        {"saved_to_sharepoint": True}, {"_id": 0}, sort=[("taken_at", -1)])
+    tract = await db.tractor_utilisation.find_one({}, {"_id": 0, "uploaded_at": 1})
+    plan = await db.workplan.find_one({}, {"_id": 0, "updated_at": 1, "week_start": 1})
+    period = await db.payroll_periods.find_one({}, {"_id": 0}, sort=[("period_start", -1)])
+    week = await db.timesheet_weeks.find_one({}, {"_id": 0}, sort=[("week_start", -1)])
+
+    fieldplan_at = None
+    try:
+        fieldplan_at = datetime.fromtimestamp(
+            os.path.getmtime(FIELDPLAN_PATH), timezone.utc).isoformat()
+    except Exception:
+        pass
+
+    async def count(name):
+        try:
+            return await db[name].count_documents({})
+        except Exception:
+            return None
+
+    def link(**kw):
+        at, hrs = ago(kw.pop("at", None))
+        due = kw.pop("stale_after_hours", None)
+        kw["last"] = at
+        kw["hours_ago"] = hrs
+        if hrs is None:
+            kw["health"] = "never run"
+        elif due and hrs > due:
+            kw["health"] = "overdue"
+        else:
+            kw["health"] = "ok"
+        return kw
+
+    incoming = [
+        link(name="Staff / Name List", source="SharePoint · Name List.xlsx",
+             into="staff", how="Microsoft Graph, app-only",
+             when="every hour at :05", at=(sched or {}).get("timestamp"),
+             stale_after_hours=3, holds=await count("staff"),
+             note="Employee numbers come from here. They are the join to Go2Clock and payroll."),
+        link(name="Jobs & Crop/Departments", source="SharePoint · Name List.xlsx → Departments tab",
+             into="job_lists", how="read with the staff sync, columns found by heading",
+             when="every hour at :05, and on startup", at=jl.get("updated_at"),
+             stale_after_hours=24,
+             holds=f"{len(jl.get('jobs', []))} jobs, {len(jl.get('departments', []))} departments",
+             note="Add a row to the Departments tab and it reaches every dropdown within the hour."),
+        link(name="Assets", source="SharePoint · AssetList.xlsx",
+             into="assets", how="Microsoft Graph, app-only",
+             when="every hour at :05", at=(sched or {}).get("timestamp"),
+             stale_after_hours=3, holds=await count("assets"),
+             note="Renamed machines are marked retired, never deleted — the feeds leave retired ones out."),
+        link(name="Field plan & map", source="GitHub · Abrey-Cropping",
+             into="a file on the server", how="downloaded as HTML",
+             when="every hour at :15", at=fieldplan_at, stale_after_hours=3,
+             holds="675 fields", note="Where the field list and this year's crop come from."),
+        link(name="Daily Work Plan", source="SharePoint · DailyWorkPlanApp.xlsx",
+             into="workplan", how="Microsoft Graph, columns found by heading",
+             when="every hour at :35", at=(wp or {}).get("timestamp"),
+             stale_after_hours=3, holds=(plan or {}).get("week_start"),
+             note="STILL READS THE OLD LAYOUT. The new seven-column workbook needs the parser updating first."),
+        link(name="John Deere telematics", source="SharePoint · Telematics Inbox (Power Automate drops the email there)",
+             into="machine_days", how="pulls the CSV link out of the email and downloads it",
+             when="every hour at :45", at=(tel or {}).get("timestamp"),
+             stale_after_hours=26, holds=await count("machine_days"),
+             note="Download links expire after 7 days — a missed week is gone for good."),
+        link(name="Stock Control", source="Emergent · packouttracks",
+             into="read live, not stored", how="/api/stock/summary",
+             when="when the dashboard asks", at=None,
+             holds="Stores and Graders tabs", note="The only feed still pointing at the old Emergent host."),
+    ]
+
+    uploads = [
+        link(name="Tractor utilisation (weekly)", source="John Deere Machine Analyzer .xlsx",
+             into="tractor_utilisation", how="dragged onto the Admin page",
+             when="whenever you do it", at=(tract or {}).get("uploaded_at"),
+             holds="one report at a time",
+             note="Separate from the daily telematics above. The Tractors tab prefers the daily one."),
+        link(name="Payroll hours", source="Go2Clock weekly timesheet .csv",
+             into="timesheet_days / timesheet_weeks", how="dragged onto the Admin page",
+             when="weekly, Monday for the week just gone", at=(ts_log or {}).get("timestamp"),
+             holds=(week or {}).get("week_start"),
+             note="Matched on payroll number, then name."),
+        link(name="Payroll cost", source="Standard Payroll Summary Report .xlsx",
+             into="payroll_people / payroll_periods", how="dragged onto the Admin page",
+             when="each pay run, four-weekly", at=(pay_log or {}).get("timestamp"),
+             holds=(period or {}).get("period_start"),
+             note="Gross + employer NICs + employer net pension, divided by the hours for the same dates."),
+    ]
+
+    outgoing = [
+        link(name="Dropdown feeds", source="this app",
+             into="the Excel work plan, via Power Query",
+             how="/api/lists/{names,fields,jobs,departments,machines,implements}.csv",
+             when="when the workbook is opened", at=None,
+             holds="needs LISTS_KEY", note="Open the workbook and every dropdown catches up."),
+        link(name="Nightly backup", source="the whole database",
+             into="SharePoint · Apps/Checklist App/Backups",
+             how="zipped, one JSON file per collection",
+             when="every night at 01:20", at=(bk_last or {}).get("taken_at"),
+             stale_after_hours=48, holds=(bk_last or {}).get("file"),
+             note="Photos are left out on purpose — they would make it enormous."),
+    ]
+
+    all_links = incoming + uploads + outgoing
+    return {
+        "checked_at": now.isoformat(),
+        "incoming": incoming,
+        "uploads": uploads,
+        "outgoing": outgoing,
+        "problems": [l["name"] for l in all_links if l["health"] in ("overdue", "never run")],
+        "schedule": "staff, jobs and assets :05 · field plan :15 · work plan :35 · "
+                    "telematics :45 · backup 01:20 (UK time)",
+    }
+
+
 # ---- Nightly backup --------------------------------------------------------
 
 
-APP_VERSION = "6.7"
+APP_VERSION = "7.0"
 
 
 async def _run_backup(include_photos: bool = False, to_sharepoint: bool = True):
@@ -2778,8 +2984,19 @@ async def list_feed(which: str, key: str = ""):
     if which in ("jobs", "departments"):
         doc = await db.job_lists.find_one({"key": "current"}, {"_id": 0}) or {}
         if not (doc.get("jobs") or doc.get("departments")):
-            # never hand back an empty list just because the app restarted
-            await _save_job_lists()
+            # Never hand back an empty list just because the app restarted —
+            # but never hang on it either. Healing this means downloading the
+            # Name List from SharePoint and parsing it, which can take tens of
+            # seconds; done inline with no limit, Excel gives up first and
+            # reports "Download did not complete" with nothing to show for it.
+            # So: wait a few seconds, then serve whatever we have and let the
+            # refresh finish in the background.
+            try:
+                await asyncio.wait_for(_save_job_lists(), timeout=8)
+            except asyncio.TimeoutError:
+                logger.warning("job list refresh still running — serving what we have")
+            except Exception as e:
+                logger.warning("job list refresh failed: %s", e)
             doc = await db.job_lists.find_one({"key": "current"}, {"_id": 0}) or {}
         vals = doc.get("jobs" if which == "jobs" else "departments", [])
 

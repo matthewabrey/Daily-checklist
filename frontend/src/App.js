@@ -132,7 +132,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 6.7 &mdash; October 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 7.0 &mdash; October 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -994,6 +994,9 @@ function SharePointAdminComponent() {
   const [payrollChecking, setPayrollChecking] = useState(false);
   const [backupStatus, setBackupStatus] = useState(null);
   const [backupBusy, setBackupBusy] = useState(false);
+  const [dataMap, setDataMap] = useState(null);
+  const [telGaps, setTelGaps] = useState(null);
+  const [telBusy, setTelBusy] = useState(false);
   const [pullPassword, setPullPassword] = useState('');
   const [pullPhotos, setPullPhotos] = useState(false);
   const [pullStatus, setPullStatus] = useState(null);
@@ -1106,6 +1109,8 @@ function SharePointAdminComponent() {
       loadTimesheet(pw);
       loadPayroll(pw);
       loadBackupStatus(pw);
+      loadDataMap(pw);
+      loadTelGaps();
     } catch (e) {
       toast.error('Could not check that just now');
     } finally {
@@ -1118,6 +1123,42 @@ function SharePointAdminComponent() {
       const r = await fetch(`${API_BASE_URL}/api/admin/backup/status`, { headers: adminHeaders(pw) });
       if (r.ok) setBackupStatus(await r.json());
     } catch (e) { /* non-fatal */ }
+  };
+
+  const loadDataMap = async (pw) => {
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/admin/data-map`, { headers: adminHeaders(pw) });
+      if (r.ok) setDataMap(await r.json());
+    } catch (e) { /* non-fatal */ }
+  };
+
+  // Telematics gaps. These are open endpoints — no admin header needed —
+  // but they only show inside the unlocked section so it reads as one page.
+  const loadTelGaps = async () => {
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/admin/telematics/missing?days=14`);
+      if (r.ok) setTelGaps(await r.json());
+    } catch (e) { /* non-fatal */ }
+  };
+
+  const readInboxNow = async () => {
+    setTelBusy(true);
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/admin/telematics/process-now`, { method: 'POST' });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) {
+        const ok = (d.results || []).filter((x) => x && x.status === 'ok').length;
+        toast.success(ok ? `Read ${ok} new file(s) from the inbox` : 'Nothing new in the inbox');
+      } else {
+        toast.error(d.detail || 'Could not read the inbox');
+      }
+      loadTelGaps();
+      loadDataMap();
+    } catch (e) {
+      toast.error('Could not read the inbox');
+    } finally {
+      setTelBusy(false);
+    }
   };
 
   const runBackupNow = async () => {
@@ -1169,7 +1210,7 @@ function SharePointAdminComponent() {
     setPayrollUnlocked(false);
     setTimesheet(null); setTimesheetResult(null);
     setPayrollPeriod(null); setPayrollResult(null); setPayrollRates(null);
-    setBackupStatus(null);
+    setBackupStatus(null); setDataMap(null); setTelGaps(null);
   };
 
   const uploadTimesheetFile = async (file) => {
@@ -1474,6 +1515,137 @@ function SharePointAdminComponent() {
               <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-gray-200">
                 <p className="text-xs text-green-800 font-semibold">Unlocked</p>
                 <button onClick={lockPayroll} className="text-xs text-gray-500 underline">Lock again</button>
+              </div>
+
+              {/* Telematics days */}
+              <div className="rounded-xl border border-gray-200 p-4">
+                <div className="flex items-start justify-between flex-wrap gap-2">
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Telematics &mdash; days received</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      The John Deere email, last 14 days. Links expire after 7, so a gap is only worth chasing early.
+                    </p>
+                  </div>
+                  {telGaps && (
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                      telGaps.healthy ? 'bg-green-100 text-green-800'
+                        : (telGaps.still_recoverable || []).length ? 'bg-amber-100 text-amber-900'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {telGaps.healthy ? 'All days in' : `${telGaps.missing_count} missing`}
+                    </span>
+                  )}
+                </div>
+
+                {telGaps && (
+                  <>
+                    <p className="text-xs text-gray-600 mt-2">{telGaps.message}</p>
+
+                    {(telGaps.still_recoverable || []).length > 0 && (
+                      <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2.5">
+                        <p className="text-xs font-semibold text-amber-900">
+                          Still rescuable: {telGaps.still_recoverable.join(', ')}
+                        </p>
+                        <p className="text-[11px] text-amber-800 mt-1">
+                          Find those mornings&rsquo; emails in Outlook, File &rarr; Save As &rarr; HTML into the
+                          Telematics Inbox folder, then press Read the inbox now.
+                        </p>
+                      </div>
+                    )}
+
+                    {(telGaps.gone_for_good || []).length > 0 && (
+                      <p className="text-[11px] text-gray-500 mt-2">
+                        Past saving (links expired): {telGaps.gone_for_good.join(', ')}
+                      </p>
+                    )}
+
+                    <div className="flex gap-1 mt-3 flex-wrap">
+                      {Object.entries(telGaps.machines_per_day || {}).map(([d, n]) => (
+                        <span key={d} className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-900 font-semibold"
+                              title={`${n} machines`}>
+                          {d.slice(8)}/{d.slice(5, 7)}
+                        </span>
+                      ))}
+                      {(telGaps.missing || []).map((d) => (
+                        <span key={d} className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-800 font-semibold"
+                              title="no data">
+                          {d.slice(8)}/{d.slice(5, 7)}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  <Button onClick={readInboxNow} disabled={telBusy}
+                          className="bg-green-700 hover:bg-green-800 text-xs">
+                    {telBusy ? 'Reading…' : 'Read the inbox now'}
+                  </Button>
+                  <Button onClick={loadTelGaps} variant="outline" className="text-xs">Check again</Button>
+                </div>
+              </div>
+
+              {/* Where everything comes from */}
+              <div className="rounded-xl border border-gray-200 p-4">
+                <div className="flex items-start justify-between flex-wrap gap-2">
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Where everything comes from</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Every feed in and out of the app, and when each last ran
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {dataMap && dataMap.problems && (
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                        dataMap.problems.length ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-800'
+                      }`}>
+                        {dataMap.problems.length ? `${dataMap.problems.length} need a look` : 'All running'}
+                      </span>
+                    )}
+                    <button onClick={() => loadDataMap()} className="text-xs text-green-700 font-bold underline">
+                      Check again
+                    </button>
+                  </div>
+                </div>
+
+                {dataMap && (
+                  <>
+                    <p className="text-xs text-gray-500 mt-2 mb-3">{dataMap.schedule}</p>
+                    {[['Comes in by itself', dataMap.incoming],
+                      ['You drop these in', dataMap.uploads],
+                      ['Goes back out', dataMap.outgoing]].map(([title, rows]) => (
+                      <div key={title} className="mb-4">
+                        <p className="text-[10px] uppercase tracking-[2px] text-gray-500 font-extrabold mb-1.5">{title}</p>
+                        <div className="space-y-1.5">
+                          {(rows || []).map((l) => (
+                            <div key={l.name} className="rounded-lg border border-gray-200 p-2.5 bg-gray-50">
+                              <div className="flex items-start justify-between gap-2 flex-wrap">
+                                <p className="text-sm font-semibold text-gray-900">{l.name}</p>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                                  l.health === 'ok' ? 'bg-green-100 text-green-800'
+                                    : l.health === 'overdue' ? 'bg-red-100 text-red-800'
+                                    : 'bg-gray-200 text-gray-600'
+                                }`}>
+                                  {l.health === 'ok' && l.hours_ago != null
+                                    ? (l.hours_ago < 1 ? 'just now' : `${l.hours_ago}h ago`)
+                                    : l.health}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-700 mt-1">
+                                <b>{l.source}</b> &rarr; {l.into}
+                              </p>
+                              <p className="text-[11px] text-gray-500 mt-0.5">
+                                {l.how} &middot; {l.when}
+                                {l.holds ? <> &middot; holding <b>{String(l.holds)}</b></> : null}
+                              </p>
+                              {l.note && <p className="text-[11px] text-gray-600 mt-1 italic">{l.note}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
 
               {/* Backup */}
