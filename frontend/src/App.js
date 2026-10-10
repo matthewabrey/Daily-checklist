@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react
 import { Button } from './components/ui/button';
 import NewsBannerEditor from './components/NewsBannerEditor';
 import CostingsPanel from './components/CostingsPanel';
+import BirthdayTakeover from './components/BirthdayTakeover';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Select } from './components/ui/select';
 import { Checkbox } from './components/ui/checkbox';
@@ -133,7 +134,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 7.1 &mdash; October 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 7.2 &mdash; October 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -1002,6 +1003,7 @@ function SharePointAdminComponent() {
   // column, which is why the New Machines panel was getting lost.
   const [tab, setTab] = useState('machines');
   const [machineAdds, setMachineAdds] = useState(null);
+  const [bdays, setBdays] = useState(null);
 
   const navigate = useNavigate();
 
@@ -1014,6 +1016,16 @@ function SharePointAdminComponent() {
           const d = await r.json();
           setMachineAdds(d.machine_additions_count ?? null);
         }
+      } catch (e) { /* non-fatal */ }
+    })();
+  }, []);
+
+  // Birthdays — how much of the Name List has a date of birth
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`${API_BASE_URL}/api/birthdays/summary`);
+        if (r.ok) setBdays(await r.json());
       } catch (e) { /* non-fatal */ }
     })();
   }, []);
@@ -1944,6 +1956,60 @@ function SharePointAdminComponent() {
       </>)}
 
       {tab === 'lists' && (<>
+      {/* Birthdays — read straight off the Name List */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <CalendarDays className="h-5 w-5 text-green-600" />
+            <span>Birthdays</span>
+          </CardTitle>
+          <CardDescription>
+            From the Name List&rsquo;s <b>Date of Birth</b> column &mdash; whoever it is gets named on
+            the banner all day and a celebration page the first time they open the app
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!bdays ? (
+            <p className="text-sm text-gray-500">Checking&hellip;</p>
+          ) : (
+            <div className="space-y-3">
+              {bdays.today && bdays.today.length > 0 ? (
+                <div className="rounded-lg bg-green-50 border border-green-200 p-3">
+                  <p className="text-sm text-green-900">
+                    &#127881; <b>Today:</b> {bdays.today.join(', ')} &mdash; on the banner now
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600">Nobody&rsquo;s birthday today, so nothing is showing.</p>
+              )}
+
+              <p className="text-sm text-gray-700">
+                <b>{bdays.with_a_birthday}</b> of {bdays.total} people have a date of birth on the
+                Name List.
+              </p>
+
+              {bdays.missing && bdays.missing.length > 0 && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                  <p className="text-xs font-bold text-amber-900">
+                    No date of birth ({bdays.missing.length}) &mdash; these people get nothing
+                  </p>
+                  <p className="text-xs text-amber-800 mt-1">{bdays.missing.join(', ')}</p>
+                  <p className="text-xs text-amber-700 mt-1.5">
+                    Add them to the Name List and they&rsquo;re picked up within the hour.
+                  </p>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500">
+                The app keeps <b>only the day and the month</b> &mdash; the year is thrown away when the
+                Name List is read, so no age can ever be shown. Nobody born on 29 February is
+                missed: they&rsquo;re celebrated on the 28th in a normal year.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* SharePoint Auto-Sync */}
       <Card data-testid="sharepoint-sync-card" className="border-purple-200 bg-purple-50">
         <CardHeader>
@@ -7528,6 +7594,9 @@ function AppContent() {
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
+        {/* Birthday page — renders nothing unless it's this person's birthday
+            and they haven't closed it yet today */}
+        {isAuthenticated && <BirthdayTakeover employee={employee} />}
         {/* Header */}
         <header className="bg-gray-800 shadow-md">
           <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">

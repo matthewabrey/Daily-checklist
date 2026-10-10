@@ -20,6 +20,7 @@ import telematics as tele
 import go2clock as g2c
 import payroll as pyr
 import backup as bk
+import birthdays as bd
 from cached_stats import get_cached_stats, invalidate_cache
 from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH, download_fieldmap, FIELDMAP_PATH
 from servicing_export import build_servicing_workbook
@@ -718,6 +719,9 @@ async def ensure_indexes():
         # Staff indexes
         await db.staff.create_index([("employee_number", 1)])
         await db.staff.create_index([("active", 1)])
+        await db.staff.create_index([("birthday", 1)])
+        await db.birthday_seen.create_index(
+            [("employee_number", 1), ("year", 1)], unique=True)
         
         # Repair status indexes
         await db.repair_status.create_index([("repair_id", 1)])
@@ -2944,7 +2948,7 @@ async def data_map(_: bool = Depends(require_admin)):
 # ---- Nightly backup --------------------------------------------------------
 
 
-APP_VERSION = "7.1"
+APP_VERSION = "7.2"
 
 
 async def _run_backup(include_photos: bool = False, to_sharepoint: bool = True):
@@ -3905,6 +3909,156 @@ async def costings(from_date: str = None, until_date: str = None,
     }
 
 
+
+# ---- Birthdays ------------------------------------------------------------
+#
+# Off the Name List's Date of Birth column, added Oct 2026. Two things happen
+# and both look after themselves:
+#
+#   * whoever's birthday it is gets named on the rolling banner, all day
+#   * that person gets a full-screen page the first time they open the app
+#
+# No age and no date are ever shown, and `backend/birthdays.py` only stores
+# the day and the month, so the app cannot work one out. Nobody's birthday
+# means nothing appears at all.
+
+
+async def _birthday_people_today():
+    """Everyone whose birthday is today, UK date. Cheap: one indexed read on
+    the two 'MM-DD' keys rather than a scan of the whole staff list."""
+    from zoneinfo import ZoneInfo
+    today = datetime.now(ZoneInfo("Europe/London")).date()
+    keys = bd.keys_for(today)
+    staff = await db.staff.find(
+        {"birthday": {"$in": keys}},
+        {"_id": 0, "employee_number": 1, "name": 1, "birthday": 1, "active": 1}
+    ).to_list(length=500)
+    return bd.whose_birthday(staff, today), today
+
+
+@app.get("/api/birthdays/today")
+async def birthdays_today():
+    """Names only — never a date, never a number."""
+    people, today = await _birthday_people_today()
+    names = [p["name"] for p in people]
+    return {"date": today.isoformat(), "names": names,
+            "banner": bd.banner_text(names)}
+
+
+@app.get("/api/birthdays/mine/{employee_number}")
+async def birthday_mine(employee_number: str):
+    """Should this person get the celebration page right now?
+
+    `show` is only true on their birthday and only until they have seen it,
+    so the page cannot come back at them later in the day.
+    """
+    people, today = await _birthday_people_today()
+    me = next((p for p in people
+               if p["employee_number"] == str(employee_number).strip()), None)
+    if not me:
+        return {"show": False}
+    seen = await db.birthday_seen.find_one(
+        {"employee_number": me["employee_number"], "year": today.year})
+    others = [p["name"] for p in people if p["name"] != me["name"]]
+    return {
+        "show": not seen,
+        "first_name": me["first_name"],
+        "name": me["name"],
+        "sharing_with": others,
+        "sharing_line": bd.sharing_line(others),
+        "year": today.year,
+    }
+
+
+@app.post("/api/birthdays/seen/{employee_number}")
+async def birthday_seen(employee_number: str):
+    """They've closed it. Stored against the person and the year, so it shows
+    once a year and no more."""
+    from zoneinfo import ZoneInfo
+    year = datetime.now(ZoneInfo("Europe/London")).date().year
+    number = str(employee_number).strip()
+    if not number:
+        raise HTTPException(status_code=400, detail="No employee number given.")
+    await db.birthday_seen.update_one(
+        {"employee_number": number, "year": year},
+        {"$set": {"employee_number": number, "year": year,
+                  "seen_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True)
+    return {"success": True}
+
+
+@app.get("/api/birthdays/summary")
+async def birthdays_summary():
+    """How much of the Name List has a date of birth, and who hasn't. Names
+    only — no dates, so this is no more revealing than the staff list the app
+    already shows, and it is the bit that needs acting on."""
+    staff = await db.staff.find(
+        {"$or": [{"active": True}, {"active": {"$exists": False}}]},
+        {"_id": 0, "name": 1, "birthday": 1}).to_list(length=2000)
+    missing = sorted(bd.pretty_name(s.get("name")) for s in staff
+                     if not (s.get("birthday") or "").strip())
+    people, today = await _birthday_people_today()
+    return {
+        "total": len(staff),
+        "with_a_birthday": len(staff) - len(missing),
+        "missing": missing,
+        "today": [p["name"] for p in people],
+        "date": today.isoformat(),
+    }
+
+
+@app.get("/api/admin/birthdays")
+async def admin_birthdays(_: bool = Depends(require_admin)):
+    """What the app knows, for checking the Name List against. Day and month
+    only — there is no year stored to show."""
+    from zoneinfo import ZoneInfo
+    from datetime import date as _date
+    today = datetime.now(ZoneInfo("Europe/London")).date()
+    staff = await db.staff.find(
+        {"$or": [{"active": True}, {"active": {"$exists": False}}]},
+        {"_id": 0, "employee_number": 1, "name": 1, "birthday": 1}
+    ).to_list(length=2000)
+    MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    def label(key):
+        m, d = int(key[:2]), int(key[3:])
+        return f"{d} {MONTHS[m]}"
+
+    def days_away(key):
+        m, d = int(key[:2]), int(key[3:])
+        for year in (today.year, today.year + 1):
+            try:
+                nxt = _date(year, m, d)
+            except ValueError:          # 29 Feb in a normal year
+                nxt = _date(year, 2, 28)
+            if nxt >= today:
+                return (nxt - today).days
+        return None
+
+    have, missing = [], []
+    for s in staff:
+        nm = bd.pretty_name(s.get("name"))
+        key = (s.get("birthday") or "").strip()
+        if key:
+            have.append({"name": nm, "employee_number": s.get("employee_number"),
+                         "birthday": label(key), "key": key,
+                         "days_away": days_away(key)})
+        else:
+            missing.append({"name": nm, "employee_number": s.get("employee_number")})
+    have.sort(key=lambda x: (x["days_away"] is None, x["days_away"]))
+    missing.sort(key=lambda x: x["name"])
+    people, _today = await _birthday_people_today()
+    return {
+        "today": [p["name"] for p in people],
+        "next_up": have[:12],
+        "with_a_birthday": len(have),
+        "no_birthday_on_the_name_list": missing,
+        "note": ("Only the day and month are stored — the year is thrown away "
+                 "when the Name List is read, so no age can be shown."),
+    }
+
+
 # ---- News banner (rolling ticker on the dashboard and login screen) ----
 
 NEWS_STYLES = {"normal", "good", "celebrate", "grow", "flash", "urgent"}
@@ -3935,9 +4089,20 @@ def _news_live(items):
 @app.get("/api/news-banner")
 async def get_news_banner():
     """What the ticker should show. Deliberately open — the login screen
-    shows it too, before anyone has signed in."""
+    shows it too, before anyone has signed in.
+
+    Whoever's birthday it is goes on the FRONT, built fresh on every call and
+    never stored: nothing to type in, nothing to remember to take off again,
+    and it disappears by itself at midnight."""
     doc = await db.news_banner.find_one({"key": "current"}, {"_id": 0})
     items = _news_live((doc or {}).get("items", []))
+    try:
+        people, _today = await _birthday_people_today()
+        text = bd.banner_text([p["name"] for p in people])
+        if text:
+            items = [{"id": "birthday", "text": text, "style": "celebrate"}] + items
+    except Exception as e:
+        logger.info(f"Birthday banner skipped: {e}")
     return {"items": items, "updated_at": (doc or {}).get("updated_at")}
 
 
@@ -4279,6 +4444,7 @@ async def upload_staff_file(file: UploadFile = File(...)):
         workshop_col = None
         admin_col = None
         manager_col = None
+        dob_col = bd.find_dob_column(headers)
         
         for i, header in enumerate(headers):
             # Check for employee number column FIRST (more specific match)
@@ -4335,6 +4501,10 @@ async def upload_staff_file(file: UploadFile = File(...)):
                 if manager_col is not None and len(row) > manager_col and row[manager_col]:
                     manager_control = str(row[manager_col]).strip().lower()
                 
+                birthday = None
+                if dob_col is not None and len(row) > dob_col:
+                    birthday = bd.from_cell(row[dob_col])
+
                 if name and emp_number and name.lower() not in ['name', 'staff', 'employee']:
                     staff_data.append({
                         "name": name,
@@ -4342,7 +4512,8 @@ async def upload_staff_file(file: UploadFile = File(...)):
                         "active": True,
                         "workshop_control": workshop_control,
                         "admin_control": admin_control,
-                        "manager_control": manager_control
+                        "manager_control": manager_control,
+                        "birthday": birthday
                     })
                 else:
                     rows_skipped += 1
@@ -4358,12 +4529,15 @@ async def upload_staff_file(file: UploadFile = File(...)):
         
         # Idempotent upsert - never hard-deletes; staff missing from the file are marked inactive
         sync_stats = await upsert_staff(db, staff_data)
-        print(f"[STAFF UPLOAD] {sync_stats}")
+        bd_stats = await bd.save(
+            db, [(p.get("employee_number"), p.get("birthday")) for p in staff_data])
+        print(f"[STAFF UPLOAD] {sync_stats} {bd_stats}")
         
         return {
             "message": f"Successfully uploaded {len(staff_data)} staff members ({sync_stats['added']} added, {sync_stats['updated']} updated, {sync_stats['deactivated']} deactivated)",
             "count": len(staff_data),
             **sync_stats,
+            **bd_stats,
             "preview": staff_data[:5],
             "debug": {
                 "headers_found": headers,

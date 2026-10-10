@@ -49,6 +49,7 @@ COLLECTIONS = [
     "payroll_people",      # wages
     "payroll_periods",
     "passkeys",
+    "birthday_seen",       # who has already had their celebration page
     "sync_logs",
 ]
 

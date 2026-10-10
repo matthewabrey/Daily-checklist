@@ -14,6 +14,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from sync_utils import upsert_staff, upsert_assets, upsert_checklist_templates, upsert_service_check_templates
 from asset_excel import parse_asset_workbook
+import birthdays as bd
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -330,6 +331,8 @@ class SharePointAutoSync:
         workshop_col = None
         admin_col = None
         manager_col = None
+        # Optional, added Oct 2026. Only the day and month are ever kept.
+        dob_col = bd.find_dob_column(headers)
         
         for i, header in enumerate(headers):
             # Check for employee number column FIRST (more specific match)
@@ -382,6 +385,10 @@ class SharePointAutoSync:
                 if manager_col is not None and len(row) > manager_col and row[manager_col]:
                     manager_control = str(row[manager_col]).strip().lower()
                 
+                birthday = None
+                if dob_col is not None and len(row) > dob_col:
+                    birthday = bd.from_cell(row[dob_col])
+
                 if name and emp_number and name.lower() not in ['name', 'staff', 'employee']:
                     staff_data.append({
                         'name': name,
@@ -389,7 +396,8 @@ class SharePointAutoSync:
                         'active': True,
                         'workshop_control': workshop_control,
                         'admin_control': admin_control,
-                        'manager_control': manager_control
+                        'manager_control': manager_control,
+                        'birthday': birthday
                     })
         
         logger.info(f"Parsed {len(staff_data)} staff members from Excel")
@@ -479,12 +487,19 @@ class SharePointAutoSync:
             
             # Idempotent upsert - never hard-deletes; staff missing from SharePoint are marked inactive
             sync_stats = await upsert_staff(db, staff_data)
-            
+
+            # Birthdays are written as their own pass rather than through
+            # upsert_staff, so both routes into the staff list (this sync and
+            # the Upload Staff List button) behave identically.
+            bd_stats = await bd.save(
+                db, [(s.get('employee_number'), s.get('birthday')) for s in staff_data])
+
             result = {
                 'success': True,
                 'message': f"Successfully synced {len(staff_data)} staff members from SharePoint ({sync_stats['added']} added, {sync_stats['updated']} updated, {sync_stats['deactivated']} deactivated)",
                 'count': len(staff_data),
                 **sync_stats,
+                **bd_stats,
                 'synced_at': datetime.now().isoformat(),
                 'preview': staff_data[:5]
             }
