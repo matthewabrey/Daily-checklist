@@ -1502,6 +1502,9 @@ def _parse_workplan_excel(content: bytes, week_start):
     col_manager = heading_col(
         ["Reports to", "Reportable to on the Day", "Reportable to", "Reporting to",
          "Manager", "Mgr"], "manager", required=False)
+    # Added 13 Oct: a gang working under one manager, so the costings can be
+    # read by team as well as by manager.
+    col_team = heading_col(["Team", "Gang", "Group"], "Team", required=False)
     col_notes = heading_col(
         ["Notes", "Field and Jobs", "Field & Jobs", "Fields and Jobs",
          "Field/Jobs", "Comments"], "Notes", required=False)
@@ -1615,6 +1618,7 @@ def _parse_workplan_excel(content: bytes, week_start):
             "vehicle": cellv(r, col_vehicle),
             "implement": cellv(r, col_implement),
             "manager": cellv(r, col_manager),
+            "team": cellv(r, col_team),
             # Kept for the editor and anything reading the old shape; the day's
             # own time is what the app shows
             "start_time": first_time,
@@ -3762,6 +3766,8 @@ async def costings(from_date: str = None, until_date: str = None,
         dept = _cost_norm(day.get("department")) or "No crop/department"
         fields = [f for f in (day.get("fields") or []) if _cost_norm(f)] or ["No field"]
         machine_label = _cost_norm(row.get("vehicle"))
+        team = _cost_norm(row.get("team")) or "No team"
+        manager = _cost_norm(row.get("manager")) or "No manager"
         serial = links.get(_cost_key(machine_label)) if machine_label else None
 
         halves = []
@@ -3775,6 +3781,7 @@ async def costings(from_date: str = None, until_date: str = None,
             bookings.append({
                 "date": d, "half": half, "job": job, "dept": dept,
                 "fields": fields, "machine": machine_label or None,
+                "team": team, "manager": manager,
                 "serial": serial, "ident": ident, "name": name,
                 "labour_h": 0.0, "machine_h": 0.0, "fuel_l": 0.0, "idle_h": 0.0,
                 "estimated": len(fields) > 1,
@@ -3845,7 +3852,8 @@ async def costings(from_date: str = None, until_date: str = None,
     total_h = sum(b["labour_h"] for b in bookings)
     total_l = sum(b["fuel_l"] for b in bookings)
 
-    dims = {k: {} for k in ("dept", "field", "job", "machine", "person")}
+    dims = {k: {} for k in ("dept", "field", "job", "machine", "person",
+                            "team", "manager")}
 
     def bucket(dim, name):
         return dims[dim].setdefault(name, _Bucket())
@@ -3880,6 +3888,10 @@ async def costings(from_date: str = None, until_date: str = None,
         feed(m_b, [b["dept"], b["job"]], **common)
         feed(p_b, [b["dept"], b["job"]], **common)
         feed(j_b, [b["dept"]], **common)
+        # team -> crop -> job, and manager -> team -> crop, so a manager's
+        # gangs read one level down from him
+        feed(bucket("team", b["team"]), [b["dept"], b["job"]], **common)
+        feed(bucket("manager", b["manager"]), [b["team"], b["dept"]], **common)
 
         for f in b["fields"]:
             # crop -> job -> field, and job -> crop -> field
@@ -3956,6 +3968,8 @@ async def costings(from_date: str = None, until_date: str = None,
         "by_field": listing("field", ("crops", "jobs")),
         "by_job": listing("job", ("crops", "fields")),
         "by_machine": listing("machine", ("crops", "jobs")),
+        "by_team": listing("team", ("crops", "jobs")),
+        "by_manager": listing("manager", ("teams", "crops")),
         "by_person": people_out,
         "problems": {
             "plan_rows_with_no_employee_number": sorted(

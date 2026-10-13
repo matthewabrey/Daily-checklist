@@ -15,6 +15,8 @@ const VIEWS = [
   ['field', 'Field'],
   ['job', 'Job'],
   ['machine', 'Machine'],
+  ['manager', 'Manager'],
+  ['team', 'Team'],
   ['person', 'People'],
 ];
 
@@ -23,6 +25,8 @@ const CHILD_KEYS = {
   field: ['crops', 'jobs'],
   job: ['crops', 'fields'],
   machine: ['crops', 'jobs'],
+  manager: ['teams', 'crops'],
+  team: ['crops', 'jobs'],
   person: ['crops', 'jobs'],
 };
 
@@ -30,6 +34,7 @@ const LEVEL_LABEL = {
   crops: 'Crop / Dept',
   jobs: 'Job',
   fields: 'Field',
+  teams: 'Team',
 };
 
 const iso = (d) => d.toISOString().slice(0, 10);
