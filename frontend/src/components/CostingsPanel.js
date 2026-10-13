@@ -18,6 +18,20 @@ const VIEWS = [
   ['person', 'People'],
 ];
 
+const CHILD_KEYS = {
+  dept: ['jobs', 'fields'],
+  field: ['crops', 'jobs'],
+  job: ['crops', 'fields'],
+  machine: ['crops', 'jobs'],
+  person: ['crops', 'jobs'],
+};
+
+const LEVEL_LABEL = {
+  crops: 'Crop / Dept',
+  jobs: 'Job',
+  fields: 'Field',
+};
+
 const iso = (d) => d.toISOString().slice(0, 10);
 
 function presets() {
@@ -78,7 +92,62 @@ export default function CostingsPanel({ adminPw }) {
   const setUntilSafe = (v) => { setUntil(v); if (v < from) setFrom(v); };
 
   const rows = data ? (view === 'person' ? data.by_person : data[`by_${view}`]) || [] : [];
-  const childKey = view === 'dept' ? 'fields' : (view === 'field' || view === 'machine') ? 'jobs' : null;
+
+  // One row, then its children indented under it, as deep as the view goes.
+  // Percentages at the top level are shares of the whole span; inside an
+  // opened row they switch to a share of that row, and the page says so.
+  const renderRows = (list, levels, parentPath, depth, parent) => (list || []).flatMap((r) => {
+    const path = parentPath ? `${parentPath} \u203a ${r.name}` : r.name;
+    const key = levels[0];
+    const kids = key ? (r[key] || []) : [];
+    const canOpen = kids.length > 0;
+    const isOpen = !!open[path];
+    const pctH = depth === 0
+      ? `${r.pct_hours}%`
+      : (parent && parent.labour_h ? `${Math.round(r.labour_h / parent.labour_h * 100)}%` : '\u2014');
+    const pctF = depth === 0
+      ? `${r.pct_fuel}%`
+      : (parent && parent.fuel_l ? `${Math.round(r.fuel_l / parent.fuel_l * 100)}%` : '\u2014');
+    const out = [(
+      <tr
+        key={path}
+        className={`border-b border-gray-100 ${depth === 0 ? '' : depth === 1 ? 'bg-gray-50' : 'bg-gray-100'} ${canOpen ? 'cursor-pointer hover:bg-gray-100' : ''}`}
+        onClick={() => canOpen && setOpen((o) => ({ ...o, [path]: !o[path] }))}
+      >
+        <td className={`py-1.5 pr-3 ${depth === 0 ? 'font-medium text-gray-900' : 'text-gray-700'}`}
+            style={{ paddingLeft: depth * 18 }}>
+          {canOpen
+            ? <span className="text-gray-400 mr-1">{isOpen ? '\u25be' : '\u25b8'}</span>
+            : <span className="inline-block mr-1" style={{ width: depth ? 0 : 10 }} />}
+          {r.name}
+          {depth > 0 && key && (
+            <span className="ml-1.5 text-[10px] text-gray-400">{LEVEL_LABEL[key]}</span>
+          )}
+          {r.estimated && depth === 0 && (
+            <span className="ml-1.5 text-[10px] text-amber-700" title="part of this is an even split, not a reading">
+              split
+            </span>
+          )}
+        </td>
+        <td className="py-1.5 pr-3 text-right">{n1(r.labour_h)}</td>
+        <td className={`py-1.5 pr-3 text-right ${depth ? 'text-gray-400' : ''}`}>{pctH}</td>
+        <td className="py-1.5 pr-3 text-right">{n1(r.machine_h)}</td>
+        <td className="py-1.5 pr-3 text-right">{r.idle_pct === null ? '\u2014' : `${r.idle_pct}%`}</td>
+        <td className="py-1.5 pr-3 text-right">{n1(r.fuel_l)}</td>
+        <td className={`py-1.5 pr-3 text-right ${depth ? 'text-gray-400' : ''}`}>{pctF}</td>
+        <td className="py-1.5 pr-3 text-right">{r.l_per_h === null ? '\u2014' : r.l_per_h}</td>
+        {showMoney && <td className="py-1.5 pr-3 text-right">{money(r.labour_cost)}</td>}
+      </tr>
+    )];
+    if (isOpen && canOpen) {
+      out.push(...renderRows(kids, levels.slice(1), path, depth + 1, r));
+    }
+    return out;
+  });
+  // Every list opens the same way: Crop/Department, then job. Where the row
+  // IS a crop the second level is the job and the third the field; where the
+  // row is a job the third level is the field, so you never drill job to job.
+  const keys = CHILD_KEYS[view] || [];
   const activePreset = P.find(([, f, u]) => f === from && u === until);
 
   return (
@@ -197,8 +266,13 @@ export default function CostingsPanel({ adminPw }) {
                 </thead>
                 <tbody>
                   {rows.map((p) => (
-                    <tr key={p.name} className="border-b border-gray-100">
+                    <React.Fragment key={p.name}>
+                    <tr className={`border-b border-gray-100 ${(p.crops || []).length ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                        onClick={() => (p.crops || []).length && setOpen((o) => ({ ...o, [p.name]: !o[p.name] }))}>
                       <td className="py-1.5 pr-3 font-medium text-gray-900">
+                        {(p.crops || []).length
+                          ? <span className="text-gray-400 mr-1">{open[p.name] ? '\u25be' : '\u25b8'}</span>
+                          : <span className="inline-block mr-1" style={{ width: 10 }} />}
                         {p.name}
                         {!p.employee_number && (
                           <span className="ml-1.5 text-[10px] text-amber-700">no number</span>
@@ -226,6 +300,39 @@ export default function CostingsPanel({ adminPw }) {
                       )}
                       {showMoney && <td className="py-1.5 pr-3 text-right">{money(p.cost)}</td>}
                     </tr>
+                    {open[p.name] && (p.crops || []).map((c) => (
+                      <React.Fragment key={`${p.name}:${c.name}`}>
+                        <tr className="border-b border-gray-100 bg-gray-50">
+                          <td className="py-1 pr-3 text-gray-700" style={{ paddingLeft: 18 }}>
+                            {c.name}
+                            <span className="ml-1.5 text-[10px] text-gray-400">Crop / Dept</span>
+                          </td>
+                          <td className="py-1 pr-3 text-right text-gray-400">&mdash;</td>
+                          <td className="py-1 pr-3 text-right">{n1(c.labour_h)}</td>
+                          <td className="py-1 pr-3 text-gray-400">
+                            {p.booked_h ? `${Math.round(c.labour_h / p.booked_h * 100)}% of booked` : '\u2014'}
+                          </td>
+                          {showMoney && <td className="py-1 pr-3 text-right text-gray-400">&mdash;</td>}
+                          {showMoney && <td className="py-1 pr-3 text-right">{money(c.labour_cost)}</td>}
+                        </tr>
+                        {(c.jobs || []).map((j) => (
+                          <tr key={`${p.name}:${c.name}:${j.name}`} className="border-b border-gray-100 bg-gray-100">
+                            <td className="py-1 pr-3 text-gray-600" style={{ paddingLeft: 36 }}>
+                              {j.name}
+                              <span className="ml-1.5 text-[10px] text-gray-400">Job</span>
+                            </td>
+                            <td className="py-1 pr-3 text-right text-gray-400">&mdash;</td>
+                            <td className="py-1 pr-3 text-right">{n1(j.labour_h)}</td>
+                            <td className="py-1 pr-3 text-gray-400">
+                              {c.labour_h ? `${Math.round(j.labour_h / c.labour_h * 100)}% of ${c.name}` : '\u2014'}
+                            </td>
+                            {showMoney && <td className="py-1 pr-3 text-right text-gray-400">&mdash;</td>}
+                            {showMoney && <td className="py-1 pr-3 text-right">{money(j.labour_cost)}</td>}
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -245,49 +352,7 @@ export default function CostingsPanel({ adminPw }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
-                    <React.Fragment key={r.name}>
-                      <tr className={`border-b border-gray-100 ${childKey ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-                          onClick={() => childKey && setOpen((o) => ({ ...o, [r.name]: !o[r.name] }))}>
-                        <td className="py-1.5 pr-3 font-medium text-gray-900">
-                          {childKey && (
-                            <span className="text-gray-400 mr-1">{open[r.name] ? '▾' : '▸'}</span>
-                          )}
-                          {r.name}
-                          {r.estimated && (
-                            <span className="ml-1.5 text-[10px] text-amber-700" title="part of this is an even split, not a reading">
-                              split
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-1.5 pr-3 text-right">{n1(r.labour_h)}</td>
-                        <td className="py-1.5 pr-3 text-right">{r.pct_hours}%</td>
-                        <td className="py-1.5 pr-3 text-right">{n1(r.machine_h)}</td>
-                        <td className="py-1.5 pr-3 text-right">{r.idle_pct === null ? '—' : `${r.idle_pct}%`}</td>
-                        <td className="py-1.5 pr-3 text-right">{n1(r.fuel_l)}</td>
-                        <td className="py-1.5 pr-3 text-right">{r.pct_fuel}%</td>
-                        <td className="py-1.5 pr-3 text-right">{r.l_per_h === null ? '—' : r.l_per_h}</td>
-                        {showMoney && <td className="py-1.5 pr-3 text-right">{money(r.labour_cost)}</td>}
-                      </tr>
-                      {childKey && open[r.name] && (r[childKey] || []).map((c) => (
-                        <tr key={`${r.name}:${c.name}`} className="border-b border-gray-100 bg-gray-50">
-                          <td className="py-1 pr-3 pl-6 text-gray-700">{c.name}</td>
-                          <td className="py-1 pr-3 text-right">{n1(c.labour_h)}</td>
-                          <td className="py-1 pr-3 text-right text-gray-400">
-                            {r.labour_h ? `${Math.round(c.labour_h / r.labour_h * 100)}%` : '—'}
-                          </td>
-                          <td className="py-1 pr-3 text-right">{n1(c.machine_h)}</td>
-                          <td className="py-1 pr-3 text-right">{c.idle_pct === null ? '—' : `${c.idle_pct}%`}</td>
-                          <td className="py-1 pr-3 text-right">{n1(c.fuel_l)}</td>
-                          <td className="py-1 pr-3 text-right text-gray-400">
-                            {r.fuel_l ? `${Math.round(c.fuel_l / r.fuel_l * 100)}%` : '—'}
-                          </td>
-                          <td className="py-1 pr-3 text-right">{c.l_per_h === null ? '—' : c.l_per_h}</td>
-                          {showMoney && <td className="py-1 pr-3 text-right">{money(c.labour_cost)}</td>}
-                        </tr>
-                      ))}
-                    </React.Fragment>
-                  ))}
+                  {renderRows(rows, keys, '', 0, null)}
                   {rows.length === 0 && (
                     <tr><td colSpan={9} className="py-4 text-center text-gray-500">
                       Nothing booked in that span.
@@ -297,10 +362,12 @@ export default function CostingsPanel({ adminPw }) {
               </table>
             )}
           </div>
-          {childKey && rows.length > 0 && (
+          {rows.length > 0 && (
             <p className="text-[11px] text-gray-500 mt-1.5">
-              The percentages are shares of the whole span, so they only add to 100% once
-              nothing is left unbooked. Click a row to open it up.
+              Click any row to open it: <b>Crop / Department</b>, then <b>job</b> inside it.
+              The top-level percentages are shares of the whole span, so they only add to
+              100% once nothing is left unbooked; inside an opened row they are shares of
+              that row.
             </p>
           )}
 

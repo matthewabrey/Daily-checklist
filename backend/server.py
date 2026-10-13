@@ -230,6 +230,14 @@ async def startup_event():
         name="Hourly John Deere Telematics Ingest",
         replace_existing=True
     )
+    # The emailed pay run and Go2Clock hours, every hour at :50
+    scheduler.add_job(
+        scheduled_payroll_inbox,
+        CronTrigger(minute=50, timezone="Europe/London"),
+        id="hourly_payroll_inbox",
+        name="Hourly Payroll Inbox Read",
+        replace_existing=True
+    )
     # The job and crop lists are read on the way up, not only on the hour —
     # otherwise a deploy leaves them empty until five past
     try:
@@ -720,6 +728,7 @@ async def ensure_indexes():
         await db.staff.create_index([("employee_number", 1)])
         await db.staff.create_index([("active", 1)])
         await db.staff.create_index([("birthday", 1)])
+        await db.payroll_files.create_index([("name", 1)], unique=True)
         await db.birthday_seen.create_index(
             [("employee_number", 1), ("year", 1)], unique=True)
         
@@ -2560,6 +2569,12 @@ async def _ts_staff_index():
 async def upload_timesheet(file: UploadFile = File(...), _: bool = Depends(require_admin)):
     """Read a Go2Clock weekly timesheet export and store the hours."""
     raw = await file.read()
+    return await _ingest_timesheet_bytes(raw, file.filename or "")
+
+
+async def _ingest_timesheet_bytes(raw: bytes, filename: str = "") -> dict:
+    """A Go2Clock weekly timesheet import, from bytes. Shared by the drop zone
+    and the Payroll Inbox. Re-reading the same week overwrites it."""
     if not raw:
         raise HTTPException(status_code=400, detail="That file came through empty.")
 
@@ -2830,6 +2845,7 @@ async def data_map(_: bool = Depends(require_admin)):
     tel = await _last_log("scheduled_telematics")
     ts_log = await _last_log("timesheet_upload")
     pay_log = await _last_log("payroll_upload")
+    inbox_log = await _last_log("scheduled_payroll_inbox")
     jl = await db.job_lists.find_one({"key": "current"}, {"_id": 0}) or {}
     bk_last = await db.backup_runs.find_one(
         {"saved_to_sharepoint": True}, {"_id": 0}, sort=[("taken_at", -1)])
@@ -2895,6 +2911,13 @@ async def data_map(_: bool = Depends(require_admin)):
              when="every hour at :45", at=(tel or {}).get("timestamp"),
              stale_after_hours=26, holds=await count("machine_days"),
              note="Download links expire after 7 days — a missed week is gone for good."),
+        link(name="Pay run & clock hours (email)",
+             source="SharePoint · Payroll Inbox (Power Automate drops the attachment there)",
+             into="payroll_people / payroll_periods / timesheet_days",
+             how="reads a .xlsx as a pay run and a .csv as a Go2Clock week",
+             when="every hour at :50", at=(inbox_log or {}).get("timestamp"),
+             stale_after_hours=24 * 35, holds=await count("payroll_files"),
+             note="Same code as the Admin drop zones, so an emailed file lands in the same place."),
         link(name="Stock Control", source="Emergent · packouttracks",
              into="read live, not stored", how="/api/stock/summary",
              when="when the dashboard asks", at=None,
@@ -2911,7 +2934,7 @@ async def data_map(_: bool = Depends(require_admin)):
              into="timesheet_days / timesheet_weeks", how="dragged onto the Admin page",
              when="weekly, Monday for the week just gone", at=(ts_log or {}).get("timestamp"),
              holds=(week or {}).get("week_start"),
-             note="Matched on payroll number, then name."),
+             note="Matched on payroll number, then name. Also arrives by itself through the Payroll Inbox above."),
         link(name="Payroll cost", source="Standard Payroll Summary Report .xlsx",
              into="payroll_people / payroll_periods", how="dragged onto the Admin page",
              when="each pay run, four-weekly", at=(pay_log or {}).get("timestamp"),
@@ -2948,7 +2971,7 @@ async def data_map(_: bool = Depends(require_admin)):
 # ---- Nightly backup --------------------------------------------------------
 
 
-APP_VERSION = "7.2"
+APP_VERSION = "7.4"
 
 
 async def _run_backup(include_photos: bool = False, to_sharepoint: bool = True):
@@ -3150,8 +3173,11 @@ async def list_feed(which: str, key: str = ""):
             if not num or not key_nm or num in seen:
                 continue
             seen.add(num)
-            pretty = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", key_nm).replace("- ", "-")
-            rows.append([pretty, num, key_nm])
+            # bd.pretty_name rather than a plain lower-to-upper split: that
+            # split turns ConorMcShane into "Conor Mc Shane" and
+            # Adelin-GabrielIovu into "Adelin- Gabriel Iovu", and the second
+            # one broke the work plan's Employee No lookup for four people.
+            rows.append([bd.pretty_name(key_nm), num, key_nm])
         rows[1:] = sorted(rows[1:], key=lambda r: r[0].lower())
         return _csv_response(rows, "names.csv")
 
@@ -3295,9 +3321,18 @@ async def _payroll_indexes():
 async def upload_payroll(file: UploadFile = File(...), _: bool = Depends(require_admin)):
     """Read a Standard Payroll Summary Report and store what each person cost."""
     raw = await file.read()
+    return await _ingest_payroll_bytes(raw, file.filename or "")
+
+
+async def _ingest_payroll_bytes(raw: bytes, filename: str = "") -> dict:
+    """A payroll report import, from bytes.
+
+    Shared by the drop zone on the Admin page and the Payroll Inbox that reads
+    the emailed report, so the two cannot drift apart. Re-reading the same pay
+    run overwrites it rather than doubling it up."""
     if not raw:
         raise HTTPException(status_code=400, detail="That file came through empty.")
-    if not (file.filename or "").lower().endswith((".xlsx", ".xlsm")):
+    if not (filename or "").lower().endswith((".xlsx", ".xlsm")):
         raise HTTPException(
             status_code=400,
             detail="That needs to be the payroll summary spreadsheet (.xlsx).")
@@ -3550,7 +3585,7 @@ class _Bucket:
     def child(self, name):
         return self.children.setdefault(name, _Bucket())
 
-    def out(self, name, total_h, total_l, with_children=None):
+    def out(self, name, total_h, total_l, keys=()):
         d = {
             "name": name,
             "labour_h": round(self.labour_h, 2),
@@ -3567,9 +3602,10 @@ class _Bucket:
             "idle_pct": round(self.idle_h / self.machine_h * 100) if self.machine_h else None,
             "labour_cost": round(self.labour_cost, 2),
         }
-        if with_children:
-            d[with_children] = sorted(
-                (c.out(n, total_h, total_l) for n, c in self.children.items()),
+        if keys:
+            d[keys[0]] = sorted(
+                (c.out(n, total_h, total_l, keys[1:])
+                 for n, c in self.children.items()),
                 key=lambda x: -x["labour_h"])
         return d
 
@@ -3684,6 +3720,7 @@ async def costings(from_date: str = None, until_date: str = None,
 
     # ---- machine hours and fuel per machine per day ------------------------
     links = {}
+    serial_names = {}
     async for l in db.machine_links.find({}, {"_id": 0}):
         full = " ".join(x for x in [(l.get("asset_make") or "").strip(),
                                     (l.get("asset_name") or "").strip()] if x)
@@ -3691,6 +3728,11 @@ async def costings(from_date: str = None, until_date: str = None,
                       (l.get("machine_name") or "").strip()}:
             if label:
                 links.setdefault(_cost_key(label), l.get("serial"))
+        # A serial number means nothing to read, so keep the best name we have
+        # for it — the matched asset, else whatever the telematics called it.
+        nice = full or (l.get("machine_name") or "").strip()
+        if l.get("serial") and nice:
+            serial_names[l["serial"]] = nice
     tele_day = {}
     async for m in db.machine_days.find(
             {"date": {"$gte": fds, "$lte": uds}},
@@ -3779,7 +3821,7 @@ async def costings(from_date: str = None, until_date: str = None,
     for (serial, d), t in tele_day.items():
         if (serial, d) in booked_machine_days:
             continue
-        label = t.get("name") or serial
+        label = serial_names.get(serial) or t.get("name") or serial
         b = unbooked_machines.setdefault(label, {"h": 0.0, "l": 0.0, "days": 0})
         b["h"] += t["h"]
         b["l"] += t["l"]
@@ -3794,6 +3836,12 @@ async def costings(from_date: str = None, until_date: str = None,
         cost_basis[how if r else "none"] += c if r else (b["labour_h"] or 0)
 
     # ---- roll up ---------------------------------------------------------
+    #
+    # Every list breaks down the same way, because that is how Matthew reads
+    # it: open any row and you get the **Crop/Department**, and open one of
+    # those and you get the **job**. Where the row IS a crop the second level
+    # is the job and the third the field; where the row is a job the third
+    # level is the field instead, so you never drill from job to job.
     total_h = sum(b["labour_h"] for b in bookings)
     total_l = sum(b["fuel_l"] for b in bookings)
 
@@ -3802,6 +3850,14 @@ async def costings(from_date: str = None, until_date: str = None,
     def bucket(dim, name):
         return dims[dim].setdefault(name, _Bucket())
 
+    def feed(top, path, **amounts):
+        """Add the same amounts to a row and to each level opened under it."""
+        top.add(**amounts)
+        node = top
+        for name in path:
+            node = node.child(name)
+            node.add(**amounts)
+
     for b in bookings:
         nf = len(b["fields"])
         common = dict(labour_h=b["labour_h"], labour_cost=b["labour_cost"],
@@ -3809,28 +3865,31 @@ async def costings(from_date: str = None, until_date: str = None,
                       fuel_l=b["fuel_l"], halves=1.0,
                       estimated=b["estimated"],
                       person=b["ident"] or b["name"], machine=b["machine"])
-        d_b = bucket("dept", b["dept"])
-        d_b.add(**common)
-        j_b = bucket("job", b["job"])
-        j_b.add(**common)
-        m_b = bucket("machine", b["machine"] or "No machine")
-        m_b.add(**common)
-        p_b = bucket("person", person_name.get(b["ident"]) or b["name"])
-        p_b.add(**common)
-        j_b.child(b["dept"]).add(**common)
-        m_b.child(b["job"]).add(**common)
-        # the field share is split where a day names more than one
+        # a day naming more than one field splits its share between them
         part = dict(common)
         for k in ("labour_h", "labour_cost", "machine_h", "idle_h", "fuel_l", "halves"):
             part[k] = common[k] / nf
-        for f in b["fields"]:
-            f_b = bucket("field", f)
-            f_b.add(**part)
-            f_b.child(b["job"]).add(**part)
-            d_b.child(f).add(**part)
 
-    def listing(dim, child_key=None):
-        return sorted((bk.out(n, total_h, total_l, child_key)
+        d_b = bucket("dept", b["dept"])
+        j_b = bucket("job", b["job"])
+        m_b = bucket("machine", b["machine"] or "No machine")
+        p_b = bucket("person", person_name.get(b["ident"]) or b["name"])
+
+        # crop -> job, machine -> crop -> job, person -> crop -> job
+        feed(d_b, [b["job"]], **common)
+        feed(m_b, [b["dept"], b["job"]], **common)
+        feed(p_b, [b["dept"], b["job"]], **common)
+        feed(j_b, [b["dept"]], **common)
+
+        for f in b["fields"]:
+            # crop -> job -> field, and job -> crop -> field
+            d_b.child(b["job"]).child(f).add(**part)
+            j_b.child(b["dept"]).child(f).add(**part)
+            # field -> crop -> job
+            feed(bucket("field", f), [b["dept"], b["job"]], **part)
+
+    def listing(dim, keys=()):
+        return sorted((bk.out(n, total_h, total_l, keys)
                        for n, bk in dims[dim].items()),
                       key=lambda x: -x["labour_h"])
 
@@ -3853,6 +3912,9 @@ async def costings(from_date: str = None, until_date: str = None,
             "rate_basis": how if r else None,
             "cost": round(pd * r, 2) if r else None,
             "cost_booked": round(cost, 2),
+            # opens the same way as every other list: crop, then job
+            "crops": (bk.out(person_name.get(ident) or ident, total_h, total_l,
+                             ("crops", "jobs")).get("crops") if bk else []),
         })
     people_out.sort(key=lambda p: -(p["paid_h"] or 0))
 
@@ -3890,10 +3952,10 @@ async def costings(from_date: str = None, until_date: str = None,
                   "days": v["days"]} for k, v in unbooked_machines.items()),
                 key=lambda x: -x["litres"])[:40],
         },
-        "by_dept": listing("dept", "fields"),
-        "by_field": listing("field", "jobs"),
-        "by_job": listing("job"),
-        "by_machine": listing("machine", "jobs"),
+        "by_dept": listing("dept", ("jobs", "fields")),
+        "by_field": listing("field", ("crops", "jobs")),
+        "by_job": listing("job", ("crops", "fields")),
+        "by_machine": listing("machine", ("crops", "jobs")),
         "by_person": people_out,
         "problems": {
             "plan_rows_with_no_employee_number": sorted(
@@ -3908,6 +3970,175 @@ async def costings(from_date: str = None, until_date: str = None,
         },
     }
 
+
+
+
+# ---- Payroll Inbox: the pay run and the clock hours, straight off an email --
+#
+# Same idea as the Telematics Inbox, which has been running since v5.6: Power
+# Automate saves the ATTACHMENT of an email into a SharePoint folder, and the
+# app reads anything new in that folder once an hour.
+#
+# The difference is that this folder takes two kinds of file and works out
+# which is which by its extension:
+#
+#   .xlsx / .xlsm  ->  Standard Payroll Summary Report  (what each person cost)
+#   .csv           ->  Go2Clock weekly timesheet        (hours actually paid)
+#
+# Both go through exactly the same code as the drop zones on the Admin page,
+# so a file that arrives by email lands in the same place as one dropped in by
+# hand, and re-reading the same pay run or the same week overwrites rather
+# than doubling up.
+#
+# A file is only marked done when it actually loaded. Anything that fails is
+# kept with its reason so it shows on the Admin page instead of disappearing.
+
+PAYROLL_INBOX_FOLDER = os.environ.get(
+    "SHAREPOINT_PAYROLL_FOLDER", "General/Apps/Checklist App/Payroll Inbox")
+
+
+async def _process_payroll_inbox_file(drive_id, item) -> dict:
+    """One file in the inbox -> loaded, or a plain reason why not."""
+    name = item["name"]
+    low = name.lower()
+    try:
+        raw = await asyncio.to_thread(
+            sharepoint_auto_sync.read_file, drive_id, item["id"])
+        if not raw:
+            return {"name": name, "status": "empty",
+                    "message": "That file came through with nothing in it"}
+
+        if low.endswith((".xlsx", ".xlsm")):
+            out = await _ingest_payroll_bytes(raw, name)
+            return {"name": name, "status": "ok", "kind": "payroll",
+                    "period_start": out.get("period_start"),
+                    "period_end": out.get("period_end"),
+                    "people": out.get("people"),
+                    "cost": out.get("cost"),
+                    "unmatched": len(out.get("unmatched") or []),
+                    "message": (f"Pay run {out.get('period_start')} to "
+                                f"{out.get('period_end')} — {out.get('people')} people, "
+                                f"£{out.get('cost')}")}
+
+        if low.endswith(".csv"):
+            out = await _ingest_timesheet_bytes(raw, name)
+            return {"name": name, "status": "ok", "kind": "timesheet",
+                    "week_start": out.get("week_start"),
+                    "week_end": out.get("week_end"),
+                    "people": out.get("worked"),
+                    "hours": out.get("total_hours"),
+                    "unmatched": len(out.get("unmatched") or []),
+                    "message": (f"Week {out.get('week_start')} — "
+                                f"{out.get('worked')} people, "
+                                f"{out.get('total_hours')} hours")}
+
+        return {"name": name, "status": "ignored",
+                "message": "Not a payroll .xlsx or a Go2Clock .csv, so left alone"}
+
+    except HTTPException as e:
+        # The shared import code says plainly what was wrong with the file
+        return {"name": name, "status": "error", "message": str(e.detail)[:300]}
+    except Exception as e:
+        logger.error(f"Payroll inbox {name}: {e}")
+        return {"name": name, "status": "error", "message": str(e)[:300]}
+
+
+async def _run_payroll_inbox(force: bool = False) -> dict:
+    """Read anything new in the Payroll Inbox. Files already loaded are
+    skipped unless force=True."""
+    try:
+        drive_id, items = await asyncio.to_thread(
+            sharepoint_auto_sync.list_folder, PAYROLL_INBOX_FOLDER)
+    except Exception as e:
+        logger.warning(f"Payroll inbox unreachable: {e}")
+        return {"success": False, "results": [],
+                "message": (f"Couldn't read the Payroll Inbox folder "
+                            f"({PAYROLL_INBOX_FOLDER}): {e}")}
+
+    # Keyed on the name AND when it arrived, not the name alone: the payroll
+    # report is very likely to be called the same thing every pay run, and
+    # keying on the name would make the app skip every one after the first.
+    done = set()
+    if not force:
+        async for d in db.payroll_files.find(
+                {"status": "ok"}, {"_id": 0, "name": 1, "arrived": 1}):
+            done.add((d["name"], d.get("arrived")))
+
+    results = []
+    for item in items:
+        if (item["name"], item.get("modified")) in done:
+            continue
+        if item["name"].startswith("~$"):      # Excel's own lock files
+            continue
+        res = await _process_payroll_inbox_file(drive_id, item)
+        res["processed_at"] = datetime.now(timezone.utc).isoformat()
+        res["size"] = item.get("size")
+        res["arrived"] = item.get("modified")
+        await db.payroll_files.update_one(
+            {"name": res["name"]}, {"$set": res}, upsert=True)
+        results.append(res)
+
+    loaded = sum(1 for r in results if r["status"] == "ok")
+    if results:
+        await db.sync_logs.insert_one({
+            "type": "scheduled_payroll_inbox",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "success": loaded > 0,
+            "message": f"{loaded} of {len(results)} new payroll file(s) read",
+        })
+    return {"success": True, "new_files": len(results), "loaded": loaded,
+            "results": results, "folder": PAYROLL_INBOX_FOLDER}
+
+
+async def scheduled_payroll_inbox():
+    try:
+        out = await _run_payroll_inbox()
+        if out.get("new_files"):
+            logger.info(f"Payroll inbox: {out['loaded']} of {out['new_files']} loaded")
+    except Exception as e:
+        logger.error(f"Payroll inbox error: {e}")
+
+
+@app.get("/api/admin/payroll-inbox")
+async def payroll_inbox_status(_: bool = Depends(require_admin)):
+    """What is in the folder and what became of it."""
+    try:
+        _drive, items = await asyncio.to_thread(
+            sharepoint_auto_sync.list_folder, PAYROLL_INBOX_FOLDER)
+        reachable, problem = True, None
+    except Exception as e:
+        items, reachable, problem = [], False, str(e)[:300]
+
+    seen = {d["name"]: d async for d in db.payroll_files.find({}, {"_id": 0})}
+    files = []
+    for it in sorted(items, key=lambda x: x.get("modified") or "", reverse=True)[:40]:
+        rec = seen.get(it["name"]) or {}
+        files.append({
+            "name": it["name"],
+            "arrived": it.get("modified"),
+            "size": it.get("size"),
+            "status": rec.get("status") or "not read yet",
+            "message": rec.get("message"),
+            "kind": rec.get("kind"),
+        })
+    return {
+        "folder": PAYROLL_INBOX_FOLDER,
+        "reachable": reachable,
+        "problem": problem,
+        "files": files,
+        "loaded": sum(1 for f in files if f["status"] == "ok"),
+        "waiting": sum(1 for f in files if f["status"] == "not read yet"),
+        "failed": sum(1 for f in files if f["status"] in ("error", "empty")),
+    }
+
+
+@app.post("/api/admin/payroll-inbox/process-now")
+@app.get("/api/admin/payroll-inbox/process-now")
+async def payroll_inbox_process_now(force: bool = False,
+                                    _: bool = Depends(require_admin)):
+    """Read the inbox now rather than waiting for the hour. GET as well as
+    POST, because a browser address bar sends GET."""
+    return await _run_payroll_inbox(force=force)
 
 
 # ---- Birthdays ------------------------------------------------------------

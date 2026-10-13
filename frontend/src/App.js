@@ -134,7 +134,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 7.2 &mdash; October 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 7.4 &mdash; October 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -999,6 +999,8 @@ function SharePointAdminComponent() {
   const [dataMap, setDataMap] = useState(null);
   const [telGaps, setTelGaps] = useState(null);
   const [telBusy, setTelBusy] = useState(false);
+  const [payInbox, setPayInbox] = useState(null);
+  const [payInboxBusy, setPayInboxBusy] = useState(false);
   // Which group of cards is on screen. The page had grown to nine cards in one
   // column, which is why the New Machines panel was getting lost.
   const [tab, setTab] = useState('machines');
@@ -1108,6 +1110,7 @@ function SharePointAdminComponent() {
       loadBackupStatus(pw);
       loadDataMap(pw);
       loadTelGaps();
+      loadPayInbox(pw);
     } catch (e) {
       toast.error('Could not check that just now');
     } finally {
@@ -1136,6 +1139,38 @@ function SharePointAdminComponent() {
       const r = await fetch(`${API_BASE_URL}/api/admin/telematics/missing?days=14`);
       if (r.ok) setTelGaps(await r.json());
     } catch (e) { /* non-fatal */ }
+  };
+
+  const loadPayInbox = async (pw) => {
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/admin/payroll-inbox`, { headers: adminHeaders(pw) });
+      if (r.ok) setPayInbox(await r.json());
+    } catch (e) { /* non-fatal */ }
+  };
+
+  const readPayInboxNow = async () => {
+    setPayInboxBusy(true);
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/admin/payroll-inbox/process-now`,
+        { method: 'POST', headers: adminHeaders() });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) {
+        const ok = (d.results || []).filter((x) => x && x.status === 'ok').length;
+        if (ok) toast.success(`Read ${ok} new file(s) from the Payroll Inbox`);
+        else if (d.success === false) toast.error(d.message || 'Could not read the Payroll Inbox');
+        else toast.success('Nothing new in the Payroll Inbox');
+      } else {
+        toast.error(d.detail || 'Could not read the Payroll Inbox');
+      }
+      loadPayInbox();
+      loadPayroll();
+      loadTimesheet();
+      loadDataMap();
+    } catch (e) {
+      toast.error('Could not read the Payroll Inbox');
+    } finally {
+      setPayInboxBusy(false);
+    }
   };
 
   const readInboxNow = async () => {
@@ -1586,6 +1621,75 @@ function SharePointAdminComponent() {
                   </Button>
                   <Button onClick={loadTelGaps} variant="outline" className="text-xs">Check again</Button>
                 </div>
+              </div>
+
+              {/* Payroll Inbox — the emailed pay run and clock hours */}
+              <div className="rounded-xl border border-gray-200 p-4">
+                <div className="flex items-start justify-between flex-wrap gap-2">
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Payroll Inbox</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      The pay run and the Go2Clock hours, read straight off the email &mdash; every hour at :50
+                    </p>
+                  </div>
+                  {payInbox && (
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                      !payInbox.reachable ? 'bg-red-100 text-red-800'
+                        : payInbox.failed ? 'bg-amber-100 text-amber-900'
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {!payInbox.reachable ? 'Folder not found'
+                        : `${payInbox.loaded} loaded`}
+                    </span>
+                  )}
+                </div>
+
+                {payInbox && !payInbox.reachable && (
+                  <div className="mt-2 rounded-lg bg-red-50 border border-red-200 p-2.5 text-xs text-red-900">
+                    <b>Can&rsquo;t see the folder.</b> It should be <code>{payInbox.folder}</code>.
+                    {payInbox.problem ? <> &mdash; {payInbox.problem}</> : null}
+                  </div>
+                )}
+
+                {payInbox && payInbox.reachable && payInbox.files.length === 0 && (
+                  <p className="text-xs text-gray-600 mt-2">
+                    Nothing in the folder yet. Once the flow is set up, an emailed report lands
+                    here by itself.
+                  </p>
+                )}
+
+                {payInbox && payInbox.files.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {payInbox.files.slice(0, 10).map((f) => (
+                      <div key={f.name} className="flex items-start justify-between gap-2 text-xs border-b border-gray-100 pb-1.5">
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{f.name}</p>
+                          {f.message && <p className="text-gray-500">{f.message}</p>}
+                        </div>
+                        <span className={`shrink-0 font-bold px-2 py-0.5 rounded-full ${
+                          f.status === 'ok' ? 'bg-green-100 text-green-800'
+                            : f.status === 'not read yet' ? 'bg-gray-100 text-gray-700'
+                            : f.status === 'ignored' ? 'bg-gray-100 text-gray-500'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {f.status === 'ok' ? (f.kind === 'payroll' ? 'pay run' : 'hours') : f.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  <Button onClick={readPayInboxNow} disabled={payInboxBusy}
+                          className="bg-green-700 hover:bg-green-800 text-xs">
+                    {payInboxBusy ? 'Reading…' : 'Read the Payroll Inbox now'}
+                  </Button>
+                  <Button onClick={() => loadPayInbox()} variant="outline" className="text-xs">Check again</Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  A <b>.xlsx</b> is read as a pay run, a <b>.csv</b> as a Go2Clock week. Anything else is
+                  left alone. Sending the same file twice overwrites rather than doubling up.
+                </p>
               </div>
 
               {/* Where everything comes from */}
