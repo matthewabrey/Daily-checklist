@@ -1,4 +1,4 @@
-"""Workshop: pre-service check review -> job card -> parts -> signed service sheet (v7.5)
+"""Workshop: pre-service check review -> job card -> parts -> signed service sheet (v7.6)
 
 Flow
   1. Pre-service checks (check_type "pre_service_check") come in from the existing form.
@@ -9,7 +9,8 @@ Flow
      signs, and the sheet locks. A workshop_service record is written to db.checklists so it
      shows up in Service History and the servicing exports like any other service.
 
-Machines are grouped by the AssetList check type (e.g. "Irrigator"). Each group has
+v7.6: the page lists every machine together and filters by make / type / name; the
+check type still drives service rounds. Machines are keyed by the AssetList check type (e.g. "Irrigator"). Each type has
 service ROUNDS (e.g. "Irrigators winter 2026/27"): the board only shows checks done since
 the current round started. With no round yet, the last 12 months are used.
 
@@ -280,6 +281,58 @@ async def overview():
     return {"groups": tiles}
 
 
+async def _group_rows(gkey: str, assets: list, rnd: dict):
+    """One row per machine in a machine type, for the current round."""
+    chk = await checks_for_group(gkey, assets, rnd["started_at"])
+    jobs = await jobs_for_round(rnd["id"])
+    rows = []
+    for a in assets:
+        job = jobs.get(a["id"])
+        checks = chk.get(a["id"], [])
+        found = findings_from_checks(checks)
+        fs = merged_findings(found, job)
+        real = [f for f in fs if "serial" not in f["tags"]]
+        last = checks[-1] if checks else None
+        rows.append({
+            "asset_id": a["id"], "name": a["name"], "make": a.get("make") or "", "group": gkey,
+            "status": job_status(job, bool(checks)), "problems": len(real),
+            "tags": sorted({t for f in real for t in f["tags"]}),
+            # every tag incl. serial, only while unreviewed: drives "same fault across machines"
+            "summary_tags": sorted({t for f in fs for t in f["tags"]}) if (not job or job.get("status") == "draft") else [],
+            "ok_noted": sum(1 for f in found if f["marked_ok"] and "serial" not in f["tags"]),
+            "checked_by": pretty(last.get("staff_name")) if last else None,
+            "checked_at": str(last.get("completed_at"))[:10] if last else None,
+            "job_no": job.get("job_no") if job else None,
+            "assigned_to": (job or {}).get("assigned_to"),
+        })
+    return rows
+
+
+@router.get("/board")
+async def board():
+    """Every machine in one list (v7.6). Filtering by make / type / name is done on the page.
+    Only machine types that have had a pre-service check or a job are included, so the
+    tractors etc. that never get one don't bury the list."""
+    assets = await active_assets()
+    groups = {}
+    for a in assets:
+        groups.setdefault(group_key(a), []).append(a)
+    makes_checked = set(m.lower() for m in await _db.checklists.distinct("machine_make", {"check_type": "pre_service_check"}) if m)
+    job_groups = set(await _db.service_jobs.distinct("group_key"))
+    rows, rounds = [], {}
+    for gk, al in groups.items():
+        if not ({(a.get("make") or "").lower() for a in al} & makes_checked) and gk not in job_groups:
+            continue
+        rnd = await current_round(gk)
+        gr = await _group_rows(gk, al, rnd)
+        if not any(r["status"] != "not_checked" for r in gr):
+            continue
+        rounds[gk] = rnd
+        rows.extend(gr)
+    rows.sort(key=lambda r: _natkey(r["name"]))
+    return {"machines": rows, "rounds": rounds, "tag_labels": TAG_LABEL, "tag_parts": TAG_PART}
+
+
 @router.get("/group/{gkey}")
 async def group(gkey: str):
     assets = [a for a in await active_assets() if group_key(a) == gkey]
@@ -488,7 +541,8 @@ async def save_review(body: ReviewIn):
 
 class BulkPartIn(BaseModel):
     employee_number: str
-    group_key: str
+    group_key: Optional[str] = None
+    asset_ids: Optional[List[str]] = None  # v7.6: the machines currently filtered on the page
     tag: str
     name: str
     part_no: Optional[str] = ""
@@ -499,9 +553,16 @@ class BulkPartIn(BaseModel):
 async def bulk_part(body: BulkPartIn):
     """Fleet summary: put one part against every unreviewed machine that has this kind of problem."""
     me = await who(body.employee_number)
-    g = await group(body.group_key)
+    if body.asset_ids:
+        b = await board()
+        wanted = set(body.asset_ids)
+        candidates = [m for m in b["machines"] if m["asset_id"] in wanted]
+    elif body.group_key:
+        candidates = (await group(body.group_key))["machines"]
+    else:
+        raise HTTPException(400, "No machines given")
     added = 0
-    for m in g["machines"]:
+    for m in candidates:
         if m["status"] not in ("awaiting_review", "draft") or body.tag not in m["tags"]:
             continue
         info = await machine(m["asset_id"])

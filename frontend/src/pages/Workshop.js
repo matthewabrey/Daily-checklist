@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import {
-  Wrench, ClipboardCheck, Package, ScanLine, ArrowLeft, X, Camera, Plus, Trash2,
+  Wrench, ClipboardCheck, Package, ScanLine, X, Camera, Plus, Trash2,
   CheckCircle2, AlertTriangle, Loader2, RefreshCw, User, Flag,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -11,7 +11,7 @@ import QRScanner from '../components/QRScanner';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../lib/api';
 
-// Workshop (v7.5): pre-service checks -> engineer review -> job card -> parts -> signed service sheet
+// Workshop (v7.6 — one machine list with make / type / name filters): pre-service checks -> engineer review -> job card -> parts -> signed service sheet
 
 const W = `${API_BASE_URL}/api/workshop`;
 const get = async (path) => {
@@ -61,7 +61,7 @@ export default function Workshop() {
   const { employee } = useAuth();
   const me = employee?.employee_number;
   const [view, setView] = useState('review');
-  const [group, setGroup] = useState(null);
+  const [filters, setFilters] = useState({ make: '', type: '', q: '', status: 'all' });
   const [openAsset, setOpenAsset] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -90,7 +90,7 @@ export default function Workshop() {
         </div>
         <nav className="flex gap-1 overflow-x-auto mt-3">
           {[['review', 'Review', ClipboardCheck], ['jobs', 'My jobs', Wrench], ['parts', 'Parts to order', Package]].map(([v, label, Icon]) => (
-            <button key={v} onClick={() => { setView(v); if (v !== 'review') setGroup(null); }}
+            <button key={v} onClick={() => setView(v)}
               className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-semibold border-b-[3px] whitespace-nowrap ${view === v ? 'text-white border-[#7DB82B]' : 'text-gray-400 border-transparent'}`}
               data-testid={`workshop-tab-${v}`}>
               <Icon className="h-4 w-4" /> {label}
@@ -100,8 +100,7 @@ export default function Workshop() {
       </div>
 
       <div className="py-4 px-2 sm:px-0">
-        {view === 'review' && !group && <Overview onPick={setGroup} refreshKey={refreshKey} />}
-        {view === 'review' && group && <GroupView gkey={group} me={me} onBack={() => setGroup(null)} onOpen={setOpenAsset} refreshKey={refreshKey} refresh={refresh} />}
+        {view === 'review' && <Board me={me} onOpen={setOpenAsset} refreshKey={refreshKey} refresh={refresh} filters={filters} setFilters={setFilters} />}
         {view === 'jobs' && <MyJobs me={me} onOpen={setOpenAsset} refreshKey={refreshKey} />}
         {view === 'parts' && <Parts me={me} onOpen={setOpenAsset} refreshKey={refreshKey} />}
       </div>
@@ -112,87 +111,96 @@ export default function Workshop() {
   );
 }
 
-// ------------------------------------------------------------------ machine-type tiles
-function Overview({ onPick, refreshKey }) {
-  const [data, setData] = useState(null);
-  useEffect(() => { get('/overview').then(setData).catch((e) => toast.error(e.message)); }, [refreshKey]);
-  if (!data) return <Loading />;
-  if (!data.groups.length) return <Box><p className="text-gray-600">No pre-service checks yet. Once checks come in, each machine type gets its own tile here.</p></Box>;
-  return (
-    <div>
-      <p className="text-sm text-gray-600 mb-3">Pick a machine type. Each one shows the checks from its current service round.</p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {data.groups.map((g) => {
-          const toReview = (g.counts.awaiting_review || 0) + (g.counts.draft || 0);
-          return (
-            <button key={g.key} onClick={() => onPick(g.key)} className="text-left" data-testid={`workshop-group-${g.key}`}>
-              <Box className="hover:-translate-y-0.5 transition-transform">
-                <div className="flex justify-between items-start gap-2">
-                  <div>
-                    <div className="font-serif text-xl font-bold">{g.label}</div>
-                    <div className="text-xs text-gray-500">{g.makes.join(', ')} · {g.machines} machines</div>
-                  </div>
-                  {toReview > 0 && <span className="rounded-full bg-red-50 text-red-700 text-xs font-bold px-2 py-1">{toReview} to review</span>}
-                </div>
-                <div className="text-xs text-gray-500 mt-2">Round: <b>{g.round.name}</b>{g.round.default ? '' : ` · since ${fmtDate(g.round.started_at)}`}</div>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {['waiting_parts', 'ready', 'in_progress', 'signed_off', 'not_checked'].filter((s) => g.counts[s]).map((s) => (
-                    <span key={s} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS[s][1]}`}>{STATUS[s][0]} · {g.counts[s]}</span>
-                  ))}
-                </div>
-              </Box>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ------------------------------------------------------------------ one machine type
-function GroupView({ gkey, me, onBack, onOpen, refreshKey, refresh }) {
+// ------------------------------------------------------------------ every machine, filtered (v7.6)
+const ALL = '';
+function Board({ me, onOpen, refreshKey, refresh, filters, setFilters }) {
   const [data, setData] = useState(null);
   const [sub, setSub] = useState('board');
-  const [filter, setFilter] = useState('all');
   const [roundForm, setRoundForm] = useState(false);
   const [roundName, setRoundName] = useState('');
-  const load = useCallback(() => get(`/group/${encodeURIComponent(gkey)}`).then(setData).catch((e) => toast.error(e.message)), [gkey]);
+  const load = useCallback(() => get('/board').then(setData).catch((e) => toast.error(e.message)), []);
   useEffect(() => { load(); }, [load, refreshKey]);
   if (!data) return <Loading />;
+  if (!data.machines.length) return <Box><p className="text-gray-600">No pre-service checks yet. Machines appear here once they have been checked.</p></Box>;
+
+  const { make, type, q, status } = filters;
+  const set = (k, v) => setFilters({ ...filters, [k]: v });
+  const makes = [...new Set(data.machines.map((m) => m.make).filter(Boolean))].sort();
+  const types = [...new Set(data.machines.filter((m) => !make || m.make === make).map((m) => m.group))].sort();
+  const needle = q.trim().toLowerCase();
+  const base = data.machines.filter((m) => (!make || m.make === make) && (!type || m.group === type)
+    && (!needle || m.name.toLowerCase().includes(needle) || (m.make || '').toLowerCase().includes(needle)));
 
   const counts = {};
-  data.machines.forEach((m) => { counts[m.status] = (counts[m.status] || 0) + 1; });
+  base.forEach((m) => { counts[m.status] = (counts[m.status] || 0) + 1; });
   const order = ['awaiting_review', 'draft', 'ready', 'in_progress', 'waiting_parts', 'signed_off', 'not_checked'];
-  const shown = data.machines.filter((m) => filter === 'all' || m.status === filter)
-    .sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status));
-  const problems = data.machines.reduce((a, m) => a + (m.status === 'awaiting_review' || m.status === 'draft' ? m.problems : 0), 0);
+  const st = status === 'all' || counts[status] ? status : 'all';
+  const shown = base.filter((m) => st === 'all' || m.status === st)
+    .sort((x, y) => order.indexOf(x.status) - order.indexOf(y.status));
+  const problems = base.reduce((acc, m) => acc + (m.status === 'awaiting_review' || m.status === 'draft' ? m.problems : 0), 0);
 
+  // Same fault across machines — worked out from whatever is filtered
+  const byTag = {};
+  base.forEach((m) => m.summary_tags.forEach((t) => { (byTag[t] = byTag[t] || []).push({ asset_id: m.asset_id, name: m.name }); }));
+  const summary = Object.entries(byTag).map(([tag, machines]) => ({
+    tag, label: data.tag_labels[tag] || 'Other', part: data.tag_parts[tag] || null, machines,
+  })).sort((x, y) => y.machines.length - x.machines.length);
+  const okNoted = base.reduce((acc, m) => acc + m.ok_noted, 0);
+
+  // Rounds belong to a machine type, so only offer one when a single type is showing
+  const typesShown = [...new Set(base.map((m) => m.group))];
+  const roundType = typesShown.length === 1 ? typesShown[0] : null;
+  const round = roundType ? data.rounds[roundType] : null;
   const startRound = async () => {
     try {
-      await post('/rounds', { employee_number: me, group_key: gkey, name: roundName });
+      await post('/rounds', { employee_number: me, group_key: roundType, name: roundName });
       toast.success(`New round started: ${roundName}`);
       setRoundForm(false); setRoundName(''); refresh();
     } catch (e) { toast.error(e.message); }
   };
+  const filtered = make || type || needle;
+  const sel = 'h-10 rounded-md border border-input bg-white px-2 text-sm';
 
   return (
     <div>
-      <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-600 mb-2"><ArrowLeft className="h-4 w-4" /> All machine types</button>
-      <div className="flex flex-wrap items-end justify-between gap-2 mb-3">
-        <div>
-          <h2 className="font-serif text-2xl font-bold">{gkey}</h2>
-          <div className="text-sm text-gray-600">
-            <Flag className="inline h-3.5 w-3.5 mr-1" />Round: <b>{data.round.name}</b>
-            {data.round.default ? ' (no round started yet)' : ` · started ${fmtDate(data.round.started_at)} by ${data.round.started_by?.name}`}
-          </div>
+      <Box className="!p-3 mb-3">
+        <div className="grid gap-2 grid-cols-1 sm:grid-cols-[1fr_1fr_1.4fr_auto] items-end">
+          <Labeled l="Manufacturer">
+            <select className={`${sel} w-full`} value={make} onChange={(e) => setFilters({ ...filters, make: e.target.value, type: ALL })} data-testid="workshop-filter-make">
+              <option value={ALL}>All manufacturers</option>
+              {makes.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </Labeled>
+          <Labeled l="Machine type">
+            <select className={`${sel} w-full`} value={type} onChange={(e) => set('type', e.target.value)} data-testid="workshop-filter-type">
+              <option value={ALL}>All types</option>
+              {types.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </Labeled>
+          <Labeled l="Name or number">
+            <Input value={q} onChange={(e) => set('q', e.target.value)} placeholder="e.g. 32 or Perrot" data-testid="workshop-filter-name" />
+          </Labeled>
+          {filtered ? <Button variant="ghost" onClick={() => setFilters({ make: ALL, type: ALL, q: '', status: 'all' })}><X className="h-4 w-4" /> Clear</Button> : <span />}
         </div>
-        {!roundForm && <Button variant="outline" size="sm" onClick={() => setRoundForm(true)}>Start a new round</Button>}
-      </div>
-      {roundForm && (
+      </Box>
+
+      {round && (
+        <div className="flex flex-wrap items-end justify-between gap-2 mb-3">
+          <div className="text-sm text-gray-600">
+            <Flag className="inline h-3.5 w-3.5 mr-1" />{roundType} round: <b>{round.name}</b>
+            {round.default ? ' (no round started yet)' : ` · started ${fmtDate(round.started_at)}${round.started_by?.name ? ` by ${round.started_by.name}` : ''}`}
+          </div>
+          {!roundForm && <Button variant="outline" size="sm" onClick={() => setRoundForm(true)}>Start a new {roundType} round</Button>}
+        </div>
+      )}
+      {!round && typesShown.length > 1 && (
+        <p className="text-xs text-gray-500 mb-3"><Flag className="inline h-3 w-3 mr-1" />Each machine type has its own service round. Pick a machine type to see or start one.</p>
+      )}
+      {round && roundForm && (
         <Box className="mb-3">
-          <p className="text-sm text-gray-600 mb-2">A new round starts today. The board will then only show checks done from today on; everything earlier stays in each machine's history. Open job cards carry on as they are.</p>
+          <p className="text-sm text-gray-600 mb-2">A new {roundType} round starts today. Only checks done from today on will show for {roundType} machines; everything earlier stays in each machine's history. Open job cards carry on as they are.</p>
           <div className="flex gap-2">
-            <Input value={roundName} onChange={(e) => setRoundName(e.target.value)} placeholder={`e.g. ${gkey}s winter 2026/27`} />
+            <Input value={roundName} onChange={(e) => setRoundName(e.target.value)} placeholder={`e.g. ${roundType}s winter 2026/27`} />
             <Button onClick={startRound} disabled={!roundName.trim()} className="bg-[#7DB82B] hover:bg-[#5D8F1C]">Start</Button>
             <Button variant="ghost" onClick={() => setRoundForm(false)}>Cancel</Button>
           </div>
@@ -200,7 +208,7 @@ function GroupView({ gkey, me, onBack, onOpen, refreshKey, refresh }) {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-        <Stat n={data.machines.length - (counts.not_checked || 0)} l={`of ${data.machines.length} checked`} />
+        <Stat n={base.length - (counts.not_checked || 0)} l={`of ${base.length} checked`} />
         <Stat n={(counts.awaiting_review || 0) + (counts.draft || 0)} l="awaiting review" c="text-red-700" />
         <Stat n={problems} l="problems to review" c="text-orange-700" />
         <Stat n={counts.signed_off || 0} l="signed off" c="text-green-700" />
@@ -216,12 +224,13 @@ function GroupView({ gkey, me, onBack, onOpen, refreshKey, refresh }) {
         <>
           <div className="flex flex-wrap gap-1.5 mb-3">
             {FILTERS.filter((f) => f === 'all' || counts[f]).map((f) => (
-              <button key={f} onClick={() => setFilter(f)}
-                className={`rounded-full border px-3 py-1 text-xs ${filter === f ? 'bg-[#1F1F1D] text-white border-[#1F1F1D]' : 'bg-white'}`}>
-                {f === 'all' ? 'All' : STATUS[f][0]} · {f === 'all' ? data.machines.length : counts[f]}
+              <button key={f} onClick={() => set('status', f)}
+                className={`rounded-full border px-3 py-1 text-xs ${st === f ? 'bg-[#1F1F1D] text-white border-[#1F1F1D]' : 'bg-white'}`}>
+                {f === 'all' ? 'All' : STATUS[f][0]} · {f === 'all' ? base.length : counts[f]}
               </button>
             ))}
           </div>
+          {shown.length === 0 && <Box><p className="text-gray-500 text-sm">No machines match those filters.</p></Box>}
           <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {shown.map((m) => (
               <button key={m.asset_id} onClick={() => onOpen(m.asset_id)} className="text-left" data-testid="workshop-machine-card">
@@ -229,7 +238,7 @@ function GroupView({ gkey, me, onBack, onOpen, refreshKey, refresh }) {
                   <div className="flex justify-between items-center gap-2">
                     <span className="font-serif text-lg font-bold">{machineLabel(m.name)}</span><Pill status={m.status} />
                   </div>
-                  <div className="text-xs text-gray-500 truncate">{m.name}</div>
+                  <div className="text-xs text-gray-500 truncate">{m.make}{m.group && m.group !== m.make ? ` · ${m.group}` : ''} · {m.name}</div>
                   {m.status !== 'not_checked' && (
                     <>
                       <div className="flex justify-between text-xs mt-1.5">
@@ -248,7 +257,7 @@ function GroupView({ gkey, me, onBack, onOpen, refreshKey, refresh }) {
           </div>
         </>
       )}
-      {sub === 'summary' && <Summary data={data} me={me} onOpen={onOpen} reload={load} />}
+      {sub === 'summary' && <Summary data={{ summary, marked_ok_with_fault: okNoted, asset_ids: base.map((m) => m.asset_id) }} me={me} onOpen={onOpen} reload={load} />}
     </div>
   );
 }
@@ -262,7 +271,7 @@ function Summary({ data, me, onOpen, reload }) {
   const [form, setForm] = useState({ name: '', part_no: '', qty: 1 });
   const add = async (s) => {
     try {
-      const r = await post('/bulk-part', { employee_number: me, group_key: data.group, tag: s.tag, ...form, qty: Number(form.qty) || 1 });
+      const r = await post('/bulk-part', { employee_number: me, asset_ids: data.asset_ids, tag: s.tag, ...form, qty: Number(form.qty) || 1 });
       toast.success(`${form.name} added to ${r.added} review(s). It goes onto Parts to order when each machine is marked Reviewed.`);
       setAdding(null); reload();
     } catch (e) { toast.error(e.message); }
@@ -270,7 +279,7 @@ function Summary({ data, me, onOpen, reload }) {
   return (
     <div>
       <div className="rounded-lg border-l-4 border-amber-500 bg-amber-50 p-3 text-sm mb-3">
-        <b>Same fault, many machines.</b> Read this before going through machines one at a time. You can add a part to every machine with that fault in one go. It lands in each machine's review, to check and adjust there. Only machines not yet reviewed are counted.
+        <b>Same fault, many machines.</b> Read this before going through machines one at a time. You can add a part to every machine with that fault in one go. It lands in each machine's review, to check and adjust there. Only machines not yet reviewed, and only those matching your filters above, are counted.
       </div>
       {data.marked_ok_with_fault > 0 && (
         <div className="rounded-lg border-l-4 border-red-500 bg-red-50 p-3 text-sm mb-3">
