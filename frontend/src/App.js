@@ -34,6 +34,7 @@ import { ChecklistPhotos } from './components/ChecklistPhotos';
 import Dashboard from './pages/Dashboard';
 import NewChecklist from './pages/NewChecklist';
 import RepairsNeeded from './pages/RepairsNeeded';
+import Workshop from './pages/Workshop';
 import './App.css';
 
 // Use SharePointAdminComponent directly for now
@@ -134,7 +135,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 7.4 &mdash; October 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 7.5 &mdash; November 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -7694,6 +7695,8 @@ function AppContent() {
   // Check if employee has manager OR admin access
   const hasManagerAccess = employee?.manager_control?.toLowerCase() === 'yes' || 
                            employee?.admin_control?.toLowerCase() === 'yes';
+  // Workshop page (v7.5): Workshop Control or Admin in the Name List
+  const hasWorkshopAccess = employee?.workshop_control?.toLowerCase() === 'yes' || hasAdminAccess;
 
   return (
     <Router>
@@ -7742,6 +7745,15 @@ function AppContent() {
                     data-testid="nav-admin"
                   >
                     Admin
+                  </Link>
+                )}
+                {hasWorkshopAccess && (
+                  <Link 
+                    to="/workshop" 
+                    className="text-gray-200 hover:text-green-400 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors inline-flex items-center"
+                    data-testid="nav-workshop"
+                  >
+                    <Wrench className="h-4 w-4 mr-1" /> Workshop
                   </Link>
                 )}
                 {hasManagerAccess && (
@@ -7842,6 +7854,13 @@ function AppContent() {
               </ProtectedRoute>
             } />
             */}
+            <Route path="/workshop" element={
+              <ProtectedRoute>
+                {hasWorkshopAccess ? <Workshop /> : (
+                  <div className="p-6 text-gray-600">The Workshop page needs Workshop Control = yes against your name in the Name List.</div>
+                )}
+              </ProtectedRoute>
+            } />
             <Route path="/general-repair-record" element={
               <ProtectedRoute>
                 <GeneralRepairRecord />

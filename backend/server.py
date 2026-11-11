@@ -21,6 +21,7 @@ import go2clock as g2c
 import payroll as pyr
 import backup as bk
 import birthdays as bd
+import workshop as workshop_api
 from cached_stats import get_cached_stats, invalidate_cache
 from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH, download_fieldmap, FIELDMAP_PATH
 from servicing_export import build_servicing_workbook
@@ -105,6 +106,10 @@ client = AsyncIOMotorClient(
     socketTimeoutMS=30000,  # Socket timeout for queries
 )
 db = client[DB_NAME]
+
+# Workshop: pre-service review -> job cards -> parts -> signed service sheets (v7.5)
+workshop_api.init(db)
+app.include_router(workshop_api.router)
 
 # Collections
 # db.checklists - checklist records
