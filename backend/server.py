@@ -2137,9 +2137,9 @@ async def get_farm_crop_areas(year: int = 2027):
         "prev_total_ha": prev_total,
     }
 
-# ---- Link to the Abreys Stock Control app (packouttracks) ----
+# ---- Link to the Abreys Stock Control app (Railway, stock.abreys.app) ----
 STOCK_API_BASE = os.environ.get(
-    "STOCK_API_BASE", "https://packouttracks-r-1774892359.emergent.host/api"
+    "STOCK_API_BASE", "https://stock.abreys.app/api"
 )
 
 @app.get("/api/stock/summary")
@@ -2927,10 +2927,10 @@ async def data_map(_: bool = Depends(require_admin)):
              when="every hour at :50", at=(inbox_log or {}).get("timestamp"),
              stale_after_hours=24 * 35, holds=await count("payroll_files"),
              note="Same code as the Admin drop zones, so an emailed file lands in the same place."),
-        link(name="Stock Control", source="Emergent · packouttracks",
+        link(name="Stock Control", source="Railway · stock.abreys.app",
              into="read live, not stored", how="/api/stock/summary",
              when="when the dashboard asks", at=None,
-             holds="Stores and Graders tabs", note="The only feed still pointing at the old Emergent host."),
+             holds="Stores and Graders tabs", note="Moved off Emergent in v7.7. STOCK_API_BASE in Railway overrides the address."),
     ]
 
     uploads = [
