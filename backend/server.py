@@ -22,6 +22,7 @@ import payroll as pyr
 import backup as bk
 import birthdays as bd
 import workshop as workshop_api
+import procedures as procedures_api
 from cached_stats import get_cached_stats, invalidate_cache
 from fieldplan_sync import download_fieldplan, FIELDPLAN_PATH, download_fieldmap, FIELDMAP_PATH
 from servicing_export import build_servicing_workbook
@@ -110,6 +111,8 @@ db = client[DB_NAME]
 # Workshop: pre-service review -> job cards -> parts -> signed service sheets (v7.5)
 workshop_api.init(db)
 app.include_router(workshop_api.router)
+procedures_api.init(db)
+app.include_router(procedures_api.router)
 
 # Collections
 # db.checklists - checklist records

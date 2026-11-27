@@ -35,6 +35,7 @@ import Dashboard from './pages/Dashboard';
 import NewChecklist from './pages/NewChecklist';
 import RepairsNeeded from './pages/RepairsNeeded';
 import Workshop from './pages/Workshop';
+import Procedures from './pages/Procedures';
 import './App.css';
 
 // Use SharePointAdminComponent directly for now
@@ -135,7 +136,7 @@ function EmployeeLogin() {
           <CardDescription className="text-center">
             {t('loginSubtitle')}
           </CardDescription>
-          <p className="text-xs text-center text-gray-400 pt-1">Version 7.7 &mdash; November 2026</p>
+          <p className="text-xs text-center text-gray-400 pt-1">Version 7.8 &mdash; November 2026</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -7602,6 +7603,22 @@ function ManagerPage() {
         </div>
       </div>
 
+      {/* Procedures (v7.8) — step-by-step checks per job */}
+      <Card className="cursor-pointer hover:ring-2 hover:ring-green-400 transition" onClick={() => navigate('/procedures')} data-testid="procedures-card">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center space-x-2">
+              <ClipboardList className="h-5 w-5 text-green-600" />
+              <span>Procedures</span>
+            </span>
+            <span className="text-sm font-semibold text-green-700">Open &rarr;</span>
+          </CardTitle>
+          <CardDescription>
+            Step-by-step checks for each job &mdash; e.g. Carrot Drilling. Add, edit, re-order or copy them.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
       {/* News banner — managers and admins can post */}
       <NewsBannerEditor employeeName={employee?.name || employee?.employee_number} />
 
@@ -7876,6 +7893,14 @@ function AppContent() {
               element={
                 <ManagerProtectedRoute>
                   <ManagerPage />
+                </ManagerProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/procedures" 
+              element={
+                <ManagerProtectedRoute>
+                  <Procedures />
                 </ManagerProtectedRoute>
               } 
             />
